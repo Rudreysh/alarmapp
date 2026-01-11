@@ -1,11 +1,11 @@
 import SwiftUI
 
 struct AppRootView: View {
+    @StateObject private var viewModel = OnboardingViewModel()
+
     var body: some View {
-        Text("Alarmo")
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.black)
+        OnboardingFlowView(viewModel: viewModel)
+            .preferredColorScheme(.dark)
     }
 }
 
