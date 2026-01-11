@@ -18,11 +18,38 @@ struct OnboardingFlowView: View {
                     OnboardingSetTimeView(viewModel: viewModel) {
                         withAnimation(.easeInOut) {
                             viewModel.nextStep()
-                            path.append(.step3Stub)
+                            path.append(.permissions)
                         }
                     }
-                case .step3Stub:
-                    OnboardingStep3StubView()
+                case .permissions:
+                    OnboardingPermissionsView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            path.append(.wallpaper)
+                        }
+                    }
+                case .wallpaper:
+                    OnboardingWallpaperSelectionView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.nextStep()
+                            path.append(.wallpaperPreview)
+                        }
+                    }
+                case .wallpaperPreview:
+                    OnboardingWallpaperPreviewView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            if !path.isEmpty {
+                                path.removeLast()
+                            }
+                            viewModel.setStep(.wallpaper)
+                        }
+                    } onSelect: {
+                        withAnimation(.easeInOut) {
+                            viewModel.nextStep()
+                            path.append(.soundStub)
+                        }
+                    }
+                case .soundStub:
+                    OnboardingSoundStubView()
                 case .intro:
                     EmptyView()
                 }
