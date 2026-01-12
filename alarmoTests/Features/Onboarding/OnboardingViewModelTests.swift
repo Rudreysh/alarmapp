@@ -32,7 +32,13 @@ final class OnboardingViewModelTests: XCTestCase {
 
     func test_selectingWallpaper_enablesProceed() {
         let viewModel = OnboardingViewModel(permissionService: MockNotificationPermissionService())
-        let item = WallpaperItem(id: "test", displayName: "Test", source: .userPhoto(url: URL(fileURLWithPath: "/tmp/test.jpg")))
+        let item = WallpaperItem(
+            id: "test",
+            title: "Test",
+            url: URL(fileURLWithPath: "/tmp/test.jpg"),
+            category: "custom",
+            source: .userPhoto(url: URL(fileURLWithPath: "/tmp/test.jpg"))
+        )
         viewModel.selectWallpaper(item)
         XCTAssertTrue(viewModel.canProceedWallpaper)
     }

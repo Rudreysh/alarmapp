@@ -1,126 +1,87 @@
 import Foundation
+import UIKit
 
 protocol WallpaperCatalogLoader {
     func loadCategories() throws -> [WallpaperCategory]
 }
 
 struct BundleWallpaperCatalogLoader: WallpaperCatalogLoader {
-    let rootURL: URL
-    let fileManager: FileManager
+    let debugLogging: Bool
 
-    init?(bundle: Bundle = .main, fileManager: FileManager = .default) {
-        let candidates: [URL?] = [
-            bundle.url(forResource: "BundledWallpapers", withExtension: nil),
-            bundle.resourceURL?.appendingPathComponent("BundledWallpapers"),
-            bundle.resourceURL?.appendingPathComponent("Resources").appendingPathComponent("BundledWallpapers")
-        ]
-
-        guard let found = candidates.compactMap({ $0 }).first(where: { fileManager.fileExists(atPath: $0.path) }) else {
-            return nil
-        }
-
-        self.rootURL = found
-        self.fileManager = fileManager
+    init(debugLogging: Bool = true) {
+        self.debugLogging = debugLogging
     }
-
-    init(rootURL: URL, fileManager: FileManager = .default) {
-        self.rootURL = rootURL
-        self.fileManager = fileManager
+    
+    // For backward compatibility/testing
+    init(rootURL: URL, fileManager: FileManager = .default, debugLogging: Bool = true) {
+        self.debugLogging = debugLogging
     }
 
     func loadCategories() throws -> [WallpaperCategory] {
-        let categoryFolders = (try? fileManager.contentsOfDirectory(at: rootURL, includingPropertiesForKeys: nil)
-            .filter { $0.hasDirectoryPath }) ?? []
+        log("Loading wallpapers from Static Config...")
+        
+        var categories: [WallpaperCategory] = []
 
-        if !categoryFolders.isEmpty {
-            return try categoryFolders.map { folderURL in
-                let files = try fileManager.contentsOfDirectory(at: folderURL, includingPropertiesForKeys: nil)
-                    .filter { $0.isImageFile }
-
-                guard !files.isEmpty else {
-                    return nil
+        for categoryDef in WallpaperConfig.categories {
+            var items: [WallpaperItem] = []
+            
+            for filename in categoryDef.imageNames {
+                // Try to find the file in the main bundle.
+                // This lookup works whether the file is added as a Group (flattened) or Folder Reference.
+                // We check multiple standard locations just to be safe.
+                
+                var resolvedURL: URL?
+                let nameWithoutExt = (filename as NSString).deletingPathExtension
+                let ext = (filename as NSString).pathExtension
+                
+                // 1. Try finding it anywhere in the bundle (Standard for Groups)
+                if let url = Bundle.main.url(forResource: nameWithoutExt, withExtension: ext) {
+                    resolvedURL = url
                 }
-
-                let categoryName = folderURL.lastPathComponent
-                let items = files.map { fileURL -> WallpaperItem in
-                    let filename = fileURL.lastPathComponent
-                    return WallpaperItem(
-                        id: "\(categoryName)-\(filename)",
-                        displayName: filename.displayNameFromFilename,
-                        source: .bundle(category: categoryName, filename: filename, url: fileURL)
-                    )
+                
+                // 2. Try specific path for Folder References
+                if resolvedURL == nil, let url = Bundle.main.url(forResource: filename, withExtension: nil, subdirectory: "BundledWallpapers/\(categoryDef.id)") {
+                     resolvedURL = url
                 }
-
-                return WallpaperCategory(
-                    id: categoryName,
-                    title: categoryName.displayNameFromFilename,
-                    emoji: nil,
+                
+                if let url = resolvedURL {
+                    items.append(WallpaperItem(
+                        id: "\(categoryDef.id)-\(filename)",
+                        title: filename.displayNameFromFilename,
+                        url: url,
+                        category: categoryDef.id,
+                        source: .bundle(url: url)
+                    ))
+                } else {
+                    log("WARNING: Could not find image '\(filename)' in Bundle.")
+                }
+            }
+            
+            if !items.isEmpty {
+                categories.append(WallpaperCategory(
+                    id: categoryDef.id,
+                    title: categoryDef.title,
                     items: items
-                )
+                ))
             }
-            .compactMap { $0 }
-            .sorted { $0.title < $1.title }
         }
-
-        // Fallback: recurse any BundledWallpapers images even if the folder reference wasn't preserved.
-        let images = try fileManager.recursiveImageFiles(at: rootURL)
-        return Dictionary(grouping: images) { url in
-            url.pathComponents.after("BundledWallpapers").first ?? "Wallpapers"
-        }
-        .map { key, values in
-            let items = values.map { fileURL -> WallpaperItem in
-                let filename = fileURL.lastPathComponent
-                return WallpaperItem(
-                    id: "\(key)-\(filename)",
-                    displayName: filename.displayNameFromFilename,
-                    source: .bundle(category: key, filename: filename, url: fileURL)
-                )
-            }
-            return WallpaperCategory(
-                id: key,
-                title: key.displayNameFromFilename,
-                emoji: nil,
-                items: items
-            )
-        }
-        .sorted { $0.title < $1.title }
+        
+        log("Loaded \(categories.count) categories.")
+        return categories
     }
-}
 
-private extension URL {
-    var isImageFile: Bool {
-        let ext = pathExtension.lowercased()
-        return ext == "jpg" || ext == "jpeg" || ext == "png"
+    private func log(_ message: String) {
+        guard debugLogging else { return }
+        print("[WallpaperLoader] \(message)")
     }
 }
 
 private extension String {
     var displayNameFromFilename: String {
-        replacingOccurrences(of: "_", with: " ")
+        let nameWithoutExt = (self as NSString).deletingPathExtension
+        return nameWithoutExt
+            .replacingOccurrences(of: "_", with: " ")
             .replacingOccurrences(of: "-", with: " ")
             .capitalized
-    }
-}
-
-private extension FileManager {
-    func recursiveImageFiles(at url: URL) throws -> [URL] {
-        guard let enumerator = enumerator(at: url, includingPropertiesForKeys: nil) else {
-            return []
-        }
-        return enumerator.compactMap { item in
-            guard let fileURL = item as? URL, fileURL.isFileURL, fileURL.isImageFile else {
-                return nil
-            }
-            return fileURL
-        }
-    }
-}
-
-private extension Array where Element == String {
-    func after(_ component: String) -> [String] {
-        guard let index = firstIndex(of: component) else { return [] }
-        let next = index + 1
-        guard next < count else { return [] }
-        return Array(self[next...])
     }
 }

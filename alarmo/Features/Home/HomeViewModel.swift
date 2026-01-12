@@ -1,0 +1,73 @@
+import Foundation
+import Combine
+
+final class HomeViewModel: ObservableObject {
+    @Published var showCelebration = false
+    @Published var showDiscountPaywall = false
+    @Published var showProBanner = false
+
+    let preferences: AppPreferencesProtocol
+    private var didHandleAppear = false
+    private var pendingPaywallAfterCelebration = false
+
+    init(preferences: AppPreferencesProtocol) {
+        self.preferences = preferences
+    }
+
+    func onAppear() {
+        guard !didHandleAppear else { return }
+        didHandleAppear = true
+
+        if preferences.devAlwaysShowUpsell {
+            pendingPaywallAfterCelebration = true
+            showCelebration = true
+            showProBanner = false
+            return
+        }
+
+        if !preferences.hasShownFirstHomeDiscountFlow {
+            preferences.hasShownFirstHomeDiscountFlow = true
+            pendingPaywallAfterCelebration = true
+            showCelebration = true
+            showProBanner = false
+        } else {
+            showProBanner = true
+        }
+    }
+
+    func tapProBanner() {
+        presentPaywall()
+    }
+
+    func tapRemoveAds() {
+        if preferences.devAlwaysShowUpsell {
+            pendingPaywallAfterCelebration = true
+            showCelebration = true
+            return
+        }
+        if !preferences.hasTappedRemoveAdsBefore {
+            preferences.hasTappedRemoveAdsBefore = true
+            pendingPaywallAfterCelebration = true
+            showCelebration = true
+        } else {
+            presentPaywall()
+        }
+    }
+
+    func celebrationDidFinish() {
+        showCelebration = false
+        if pendingPaywallAfterCelebration {
+            pendingPaywallAfterCelebration = false
+            presentPaywall()
+        }
+    }
+
+    func dismissPaywall() {
+        showDiscountPaywall = false
+    }
+
+    private func presentPaywall() {
+        preferences.hasSeenPaywallAtLeastOnce = true
+        showDiscountPaywall = true
+    }
+}

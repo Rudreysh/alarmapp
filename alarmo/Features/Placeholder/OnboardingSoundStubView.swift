@@ -5,7 +5,7 @@ struct OnboardingSoundStubView: View {
         VStack(spacing: Spacing.m) {
             Text("Step 3 complete")
                 .screenTitle()
-            Text("Placeholder for sound selection")
+            Text("Placeholder for wake-up mission")
                 .bodyText()
                 .foregroundColor(Colors.textSecondary)
         }

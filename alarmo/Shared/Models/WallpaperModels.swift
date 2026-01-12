@@ -3,24 +3,25 @@ import UIKit
 
 struct WallpaperItem: Identifiable, Equatable {
     let id: String
-    let displayName: String
+    let title: String
+    let url: URL
+    let category: String
     let source: WallpaperSource
 }
 
 struct WallpaperCategory: Identifiable, Equatable {
     let id: String
     let title: String
-    let emoji: String?
     let items: [WallpaperItem]
 }
 
 enum WallpaperSource: Equatable {
-    case bundle(category: String, filename: String, url: URL)
+    case bundle(url: URL)
     case userPhoto(url: URL)
 
     var url: URL {
         switch self {
-        case .bundle(_, _, let url):
+        case .bundle(let url):
             return url
         case .userPhoto(let url):
             return url
@@ -30,7 +31,7 @@ enum WallpaperSource: Equatable {
 
 struct WallpaperRef: Identifiable, Equatable {
     let id: String
-    let displayName: String
+    let title: String
     let source: WallpaperSource
 
     func image() -> UIImage? {

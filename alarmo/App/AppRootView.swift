@@ -1,11 +1,18 @@
 import SwiftUI
 
 struct AppRootView: View {
-    @StateObject private var viewModel = OnboardingViewModel()
+    @StateObject private var onboardingViewModel = OnboardingViewModel()
+    @StateObject private var appPreferences = AppPreferences()
 
     var body: some View {
-        OnboardingFlowView(viewModel: viewModel)
-            .preferredColorScheme(.dark)
+        Group {
+            if !appPreferences.devAlwaysShowOnboarding && appPreferences.onboardingCompleted {
+                MainTabContainerView(preferences: appPreferences)
+            } else {
+                OnboardingFlowView(viewModel: onboardingViewModel, appPreferences: appPreferences)
+            }
+        }
+        .preferredColorScheme(.dark)
     }
 }
 

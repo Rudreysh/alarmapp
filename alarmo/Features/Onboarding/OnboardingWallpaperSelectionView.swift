@@ -23,9 +23,17 @@ struct OnboardingWallpaperSelectionView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: Spacing.xl) {
-                        ForEach(viewModel.state.wallpaperCategories) { category in
-                            WallpaperCategorySection(category: category, selected: viewModel.state.selectedWallpaper) {
-                                viewModel.selectWallpaper($0)
+                        if viewModel.state.wallpaperCategories.isEmpty {
+                            Text("No bundled wallpapers found. Ensure BundledWallpapers is added as a folder reference and target membership is enabled.")
+                                .bodyText()
+                                .foregroundColor(Colors.textSecondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.vertical, Spacing.l)
+                        } else {
+                            ForEach(viewModel.state.wallpaperCategories) { category in
+                                WallpaperCategorySection(category: category, selected: viewModel.state.selectedWallpaper) {
+                                    viewModel.selectWallpaper($0)
+                                }
                             }
                         }
 
@@ -108,7 +116,7 @@ private struct WallpaperCard: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            if let image = WallpaperRef(id: item.id, displayName: item.displayName, source: item.source).image() {
+            if let image = UIImage(contentsOfFile: item.url.path) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
@@ -116,7 +124,7 @@ private struct WallpaperCard: View {
                 Colors.cardSurface
             }
 
-            Text(item.displayName)
+            Text(item.title)
                 .bodyText()
                 .foregroundColor(Colors.textPrimary)
                 .padding(Spacing.s)

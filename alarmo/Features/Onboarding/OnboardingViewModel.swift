@@ -9,8 +9,7 @@ final class OnboardingViewModel: ObservableObject {
     private let fileStorage: FileStorageService
 
     init(permissionService: NotificationPermissionService = SystemNotificationPermissionService(),
-         wallpaperLoader: WallpaperCatalogLoader = BundleWallpaperCatalogLoader()
-            ?? BundleWallpaperCatalogLoader(rootURL: Bundle.main.resourceURL ?? FileManager.default.temporaryDirectory),
+         wallpaperLoader: WallpaperCatalogLoader = BundleWallpaperCatalogLoader(),
          fileStorage: FileStorageService = LocalFileStorageService()) {
         self.permissionService = permissionService
         self.wallpaperLoader = wallpaperLoader
@@ -35,6 +34,10 @@ final class OnboardingViewModel: ObservableObject {
         state.selectedWallpaper != nil
     }
 
+    var volumePercentText: String {
+        "\(Int(state.selectedVolume * 100))%"
+    }
+
     func nextStep() {
         guard let next = state.currentStep.next() else { return }
         state.currentStep = next
@@ -53,7 +56,28 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     func selectWallpaper(_ item: WallpaperItem) {
-        state.selectedWallpaper = WallpaperRef(id: item.id, displayName: item.displayName, source: item.source)
+        state.selectedWallpaper = WallpaperRef(id: item.id, title: item.title, source: item.source)
+    }
+
+    func setSelectedSound(_ sound: SoundAsset) {
+        state.selectedSoundId = sound.id
+        state.selectedSoundURL = sound.fileURL
+    }
+
+    func setVolume(_ volume: Float) {
+        state.selectedVolume = volume
+    }
+
+    func setGentleWakeUp(_ enabled: Bool) {
+        state.gentleWakeUpEnabled = enabled
+    }
+
+    func setMission(_ mission: WakeUpMissionType) {
+        state.missionType = mission
+    }
+
+    func completeOnboarding() {
+        state.onboardingCompleted = true
     }
 
     @MainActor
@@ -74,7 +98,7 @@ final class OnboardingViewModel: ObservableObject {
             let url = try fileStorage.saveImageData(data, fileExtension: fileExtension)
             state.selectedWallpaper = WallpaperRef(
                 id: url.lastPathComponent,
-                displayName: "My Photo",
+                title: "My Photo",
                 source: .userPhoto(url: url)
             )
         } catch {
