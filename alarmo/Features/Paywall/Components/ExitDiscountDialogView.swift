@@ -2,11 +2,21 @@ import SwiftUI
 
 struct ExitDiscountDialogView: View {
     let titleText: String
+    let onClose: () -> Void
     let onExit: () -> Void
     let onGetOffer: () -> Void
 
     var body: some View {
         VStack(spacing: Spacing.m) {
+            HStack {
+                Spacer()
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .foregroundColor(Colors.textSecondary)
+                        .padding(6)
+                }
+            }
+
             Text(titleText)
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundColor(Colors.textPrimary)

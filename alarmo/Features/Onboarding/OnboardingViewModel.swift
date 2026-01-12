@@ -62,6 +62,7 @@ final class OnboardingViewModel: ObservableObject {
     func setSelectedSound(_ sound: SoundAsset) {
         state.selectedSoundId = sound.id
         state.selectedSoundURL = sound.fileURL
+        state.selectedSoundName = sound.title
     }
 
     func setVolume(_ volume: Float) {

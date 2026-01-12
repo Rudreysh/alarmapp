@@ -48,6 +48,10 @@ final class OnboardingSoundSelectionViewModel: ObservableObject {
         selectedSoundId = sound.id
     }
 
+    func setInitialSelection(_ sound: SoundAsset) {
+        selectedSoundId = sound.id
+    }
+
     func stopPlayback() {
         audioPlayer.stop()
         nowPlayingSoundId = nil

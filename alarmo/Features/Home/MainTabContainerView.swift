@@ -11,13 +11,14 @@ enum MainTab: String, CaseIterable {
 struct MainTabContainerView: View {
     @State private var selectedTab: MainTab = .alarm
     @ObservedObject var preferences: AppPreferences
+    @ObservedObject var alarmStore: AlarmStore
 
     var body: some View {
         ZStack(alignment: .bottom) {
             Group {
                 switch selectedTab {
                 case .alarm:
-                    HomeView(viewModel: HomeViewModel(preferences: preferences))
+                    HomeView(viewModel: HomeViewModel(preferences: preferences), alarmStore: alarmStore)
                 case .sleep:
                     PlaceholderTabView(title: "Sleep")
                 case .morning:

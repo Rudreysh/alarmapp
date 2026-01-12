@@ -9,6 +9,7 @@ struct OnboardingState {
     var wallpaperCategories: [WallpaperCategory] = []
     var selectedSoundId: String?
     var selectedSoundURL: URL?
+    var selectedSoundName: String?
     var selectedVolume: Float = 0.95
     var gentleWakeUpEnabled = true
     var missionType: WakeUpMissionType = .off

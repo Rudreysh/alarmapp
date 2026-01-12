@@ -27,7 +27,6 @@ final class HomeViewModelTests: XCTestCase {
         viewModel.onAppear()
 
         XCTAssertFalse(viewModel.showCelebration)
-        XCTAssertTrue(viewModel.showProBanner)
     }
 
     func test_removeAds_firstTap_showsCelebrationThenPaywall_andPersistsFlag() {
@@ -65,4 +64,11 @@ private final class MockAppPreferences: AppPreferencesProtocol {
     var devAlwaysShowOnboarding: Bool = false
     var hasSeenDiscountExitDialog: Bool = false
     var hasTappedGetOfferFromDiscount: Bool = false
+    var hasAnyAlarm: Bool = false
+    var onboardingAlarmHour: Int = 7
+    var onboardingAlarmMinute: Int = 0
+    var onboardingAlarmEnabled: Bool = true
+    var onboardingRepeatMask: Int = 126
+    var onboardingSoundName: String = "Orkney"
+    var onboardingSoundVolume: Float = 0.8
 }

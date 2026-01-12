@@ -4,7 +4,6 @@ import Combine
 final class HomeViewModel: ObservableObject {
     @Published var showCelebration = false
     @Published var showDiscountPaywall = false
-    @Published var showProBanner = false
 
     let preferences: AppPreferencesProtocol
     private var didHandleAppear = false
@@ -21,7 +20,6 @@ final class HomeViewModel: ObservableObject {
         if preferences.devAlwaysShowUpsell {
             pendingPaywallAfterCelebration = true
             showCelebration = true
-            showProBanner = false
             return
         }
 
@@ -29,9 +27,6 @@ final class HomeViewModel: ObservableObject {
             preferences.hasShownFirstHomeDiscountFlow = true
             pendingPaywallAfterCelebration = true
             showCelebration = true
-            showProBanner = false
-        } else {
-            showProBanner = true
         }
     }
 
@@ -70,4 +65,5 @@ final class HomeViewModel: ObservableObject {
         preferences.hasSeenPaywallAtLeastOnce = true
         showDiscountPaywall = true
     }
+
 }

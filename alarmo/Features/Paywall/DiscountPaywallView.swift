@@ -5,11 +5,12 @@ struct DiscountPaywallView: View {
     let onClose: () -> Void
     let onApply: () -> Void
 
-    init(preferences: AppPreferencesProtocol, onClose: @escaping () -> Void, onApply: @escaping () -> Void) {
+    init(preferences: AppPreferencesProtocol, onClose: @escaping () -> Void, onApply: @escaping () -> Void, onGetOffer: @escaping () -> Void) {
         self.onClose = onClose
         self.onApply = onApply
         let model = DiscountPaywallViewModel(preferences: preferences)
         model.onRequestDismissPaywall = onClose
+        model.onRequestGetOffer = onGetOffer
         _viewModel = StateObject(wrappedValue: model)
     }
 
@@ -74,6 +75,11 @@ struct DiscountPaywallView: View {
                     Spacer()
                     ExitDiscountDialogView(
                         titleText: "Your discount will be lost if\nyou exit....",
+                        onClose: {
+                            Task { @MainActor in
+                                viewModel.onConfirmExitDiscount()
+                            }
+                        },
                         onExit: {
                             Task { @MainActor in
                                 viewModel.onConfirmExitDiscount()

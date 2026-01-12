@@ -7,6 +7,7 @@ final class DiscountPaywallViewModel: ObservableObject {
 
     private let preferences: AppPreferencesProtocol
     var onRequestDismissPaywall: (() -> Void)?
+    var onRequestGetOffer: (() -> Void)?
 
     init(preferences: AppPreferencesProtocol) {
         self.preferences = preferences
@@ -29,5 +30,6 @@ final class DiscountPaywallViewModel: ObservableObject {
         isExitDiscountDialogPresented = false
         preferences.hasTappedGetOfferFromDiscount = true
         toastMessage = "Payments not implemented yet."
+        onRequestGetOffer?()
     }
 }

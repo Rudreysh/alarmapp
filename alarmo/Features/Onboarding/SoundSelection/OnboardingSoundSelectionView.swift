@@ -66,6 +66,13 @@ struct OnboardingSoundSelectionView: View {
         .onDisappear {
             viewModel.stopPlayback()
         }
+        .onAppear {
+            if viewModel.selectedSoundId == nil,
+               let first = viewModel.soundsForSelectedCategory().first {
+                viewModel.setInitialSelection(first)
+                onboardingViewModel.setSelectedSound(first)
+            }
+        }
     }
 }
 
