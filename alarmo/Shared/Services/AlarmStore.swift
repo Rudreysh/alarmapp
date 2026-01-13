@@ -48,25 +48,36 @@ final class AlarmStore: ObservableObject {
         var base = DateComponents()
         base.hour = alarm.hour
         base.minute = alarm.minute
+        base.second = 0 // Critical precision
 
         if alarm.isDaily {
-            return calendar.nextDate(after: date, matching: base, matchingPolicy: .nextTime)
+            let next = calendar.nextDate(after: date, matching: base, matchingPolicy: .nextTime)
+            print("[AlarmStore] Next Daily for \(alarm.hour):\(alarm.minute) -> \(String(describing: next))")
+            return next
         }
 
         let weekdays = RepeatMask.weekdays(from: alarm.repeatMask)
         if weekdays.isEmpty {
-            return calendar.nextDate(after: date, matching: base, matchingPolicy: .nextTime)
+            // One-shot: if time has passed today, schedule for tomorrow
+            let next = calendar.nextDate(after: date, matching: base, matchingPolicy: .nextTime)
+            print("[AlarmStore] Next OneShot for \(alarm.hour):\(alarm.minute) -> \(String(describing: next))")
+            return next
         }
 
-        for weekday in weekdays.sorted() {
+        // Specific days
+        var candidates: [Date] = []
+        for weekday in weekdays {
             var comps = base
             comps.weekday = weekday
             if let next = calendar.nextDate(after: date, matching: comps, matchingPolicy: .nextTimePreservingSmallerComponents) {
-                return next
+                candidates.append(next)
             }
         }
-        return nil
+        let chosen = candidates.sorted().first
+        print("[AlarmStore] Next Repeating for \(alarm.hour):\(alarm.minute) -> \(String(describing: chosen))")
+        return chosen
     }
+
 
     private func load() {
         do {

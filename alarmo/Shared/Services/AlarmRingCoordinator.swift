@@ -18,13 +18,26 @@ final class AlarmRingCoordinator: ObservableObject {
     }
 
     func startRinging(alarmId: String, source: RingSource) {
-        guard let id = UUID(uuidString: alarmId),
-              let alarm = alarmStore?.alarm(by: id) else { return }
+        guard let id = UUID(uuidString: alarmId) else {
+             print("[AlarmRingCoordinator] ❌ Invalid UUID string: \(alarmId)")
+             return
+        }
+        
+        guard let alarm = alarmStore?.alarm(by: id) else {
+             print("[AlarmRingCoordinator] ❌ Alarm not found in store: \(alarmId)")
+             return
+        }
+
+        print("[AlarmRingCoordinator] 🔔 START RINGING: \(alarm.name) (Source: \(source))")
+        
         activeAlarm = alarm
         isRinging = true
+        
         soundPlayer.playLooping(resourceName: alarm.soundName, volume: alarm.soundVolume)
         if alarm.vibrateEnabled {
             hapticsPlayer.startRepeating()
+        } else {
+             print("[AlarmRingCoordinator] Vibration disabled or not supported on simulator")
         }
     }
 

@@ -488,6 +488,9 @@ private struct WallpaperThumbnail: View {
                 return UIImage(contentsOfFile: url.path)
             }
         }
+        if let url = findWallpaperByFilename(id) {
+            return UIImage(contentsOfFile: url.path)
+        }
         return nil
     }
 
@@ -495,6 +498,21 @@ private struct WallpaperThumbnail: View {
         let parts = id.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: true)
         guard parts.count == 2 else { return nil }
         return (category: String(parts[0]), filename: String(parts[1]))
+    }
+
+    private func findWallpaperByFilename(_ filename: String) -> URL? {
+        guard let root = Bundle.main.resourceURL?.appendingPathComponent("BundledWallpapers") else { return nil }
+        let fm = FileManager.default
+        let target = filename.components(separatedBy: "-").last ?? filename
+        guard let categories = try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else { return nil }
+        for category in categories {
+            if let items = try? fm.contentsOfDirectory(at: category, includingPropertiesForKeys: nil) {
+                if let match = items.first(where: { $0.lastPathComponent == target }) {
+                    return match
+                }
+            }
+        }
+        return nil
     }
 }
 

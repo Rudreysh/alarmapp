@@ -32,7 +32,6 @@ struct WallpaperPickerView: View {
                         ForEach(items) { item in
                             Button(action: {
                                 selectedId = item.id
-                                dismiss()
                             }) {
                                 ZStack {
                                     if let image = UIImage(contentsOfFile: item.url.path) {
@@ -42,6 +41,15 @@ struct WallpaperPickerView: View {
                                     } else {
                                         RoundedRectangle(cornerRadius: 16)
                                             .fill(LinearGradient(colors: [.orange, .yellow], startPoint: .top, endPoint: .bottom))
+                                    }
+                                    if selectedId == item.id {
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(Colors.accentRed, lineWidth: 2)
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 18, weight: .bold))
+                                            .foregroundColor(Colors.textPrimary)
+                                            .background(Circle().fill(Colors.accentRed))
+                                            .offset(x: 32, y: -32)
                                     }
                                 }
                                 .frame(height: 100)
@@ -54,6 +62,12 @@ struct WallpaperPickerView: View {
                         }
                     }
                     .padding(.horizontal, Spacing.l)
+                    
+                    PrimaryButton(title: "Select") {
+                        dismiss()
+                    }
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.bottom, Spacing.l)
                 }
             }
         }

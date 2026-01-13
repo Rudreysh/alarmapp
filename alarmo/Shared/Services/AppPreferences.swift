@@ -70,9 +70,9 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
         }
         self.onboardingRepeatMask = defaults.integer(forKey: Keys.onboardingRepeatMask)
         if defaults.object(forKey: Keys.onboardingSoundName) == nil {
-            defaults.set("Orkney", forKey: Keys.onboardingSoundName)
+            defaults.set("Addams Family", forKey: Keys.onboardingSoundName)
         }
-        self.onboardingSoundName = defaults.string(forKey: Keys.onboardingSoundName) ?? "Orkney"
+        self.onboardingSoundName = defaults.string(forKey: Keys.onboardingSoundName) ?? "Addams Family"
         if defaults.object(forKey: Keys.onboardingSoundVolume) == nil {
             defaults.set(0.8, forKey: Keys.onboardingSoundVolume)
         }

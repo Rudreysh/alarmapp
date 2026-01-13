@@ -102,7 +102,7 @@ struct DiscountPaywallView: View {
         }
         .transition(.move(edge: .bottom))
         .animation(.easeInOut(duration: 0.18), value: viewModel.isExitDiscountDialogPresented)
-        .onChange(of: viewModel.toastMessage) { message in
+        .onChange(of: viewModel.toastMessage) { _, message in
             guard message != nil else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 viewModel.toastMessage = nil

@@ -90,10 +90,11 @@ struct AlarmRingingView: View {
     private func findWallpaperByFilename(_ filename: String) -> URL? {
         guard let root = Bundle.main.resourceURL?.appendingPathComponent("BundledWallpapers") else { return nil }
         let fm = FileManager.default
+        let target = filename.components(separatedBy: "-").last ?? filename
         guard let categories = try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else { return nil }
         for category in categories {
             if let items = try? fm.contentsOfDirectory(at: category, includingPropertiesForKeys: nil) {
-                if let match = items.first(where: { $0.lastPathComponent == filename }) {
+                if let match = items.first(where: { $0.lastPathComponent == target }) {
                     return match
                 }
             }
