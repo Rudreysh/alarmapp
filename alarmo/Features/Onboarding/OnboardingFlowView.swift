@@ -95,31 +95,34 @@ struct OnboardingFlowView: View {
                             appPreferences.onboardingAlarmEnabled = true
                             appPreferences.onboardingSoundName = viewModel.state.selectedSoundName ?? "Orkney"
                             appPreferences.onboardingSoundVolume = viewModel.state.selectedVolume
+                            appPreferences.onboardingWallpaperId = viewModel.state.selectedWallpaper?.id ?? "default"
+                            let newAlarm = Alarm(
+                                id: alarmStore.alarms.first?.id ?? UUID(),
+                                name: "Alarm",
+                                emoji: "🌞",
+                                hour: viewModel.selectedHour,
+                                minute: viewModel.selectedMinute,
+                                isDaily: true,
+                                repeatMask: RepeatMask.monToSat,
+                                enabled: true,
+                                wakeUpCheckEnabled: false,
+                                soundName: viewModel.state.selectedSoundName ?? "Orkney",
+                                soundVolume: viewModel.state.selectedVolume,
+                                vibrateEnabled: true,
+                                gentleWakeUpSeconds: 30,
+                                timeReminderEnabled: false,
+                                weatherReminderEnabled: false,
+                                labelReminderEnabled: false,
+                                extraLoudEnabled: false,
+                                snoozeMinutes: 5,
+                                snoozeCount: 3,
+                                wallpaperId: viewModel.state.selectedWallpaper?.id ?? "default",
+                                createdAt: Date()
+                            )
                             if alarmStore.alarms.isEmpty {
-                                let alarm = Alarm(
-                                    id: UUID(),
-                                    name: "Alarm",
-                                    emoji: "🌞",
-                                    hour: viewModel.selectedHour,
-                                    minute: viewModel.selectedMinute,
-                                    isDaily: true,
-                                    repeatMask: RepeatMask.monToSat,
-                                    enabled: true,
-                                    wakeUpCheckEnabled: false,
-                                    soundName: viewModel.state.selectedSoundName ?? "Orkney",
-                                    soundVolume: viewModel.state.selectedVolume,
-                                    vibrateEnabled: true,
-                                    gentleWakeUpSeconds: 30,
-                                    timeReminderEnabled: false,
-                                    weatherReminderEnabled: false,
-                                    labelReminderEnabled: false,
-                                    extraLoudEnabled: false,
-                                    snoozeMinutes: 5,
-                                    snoozeCount: 3,
-                                    wallpaperId: viewModel.state.selectedWallpaper?.id ?? "default",
-                                    createdAt: Date()
-                                )
-                                alarmStore.add(alarm)
+                                alarmStore.add(newAlarm)
+                            } else {
+                                alarmStore.update(newAlarm)
                             }
                             appPreferences.hasAnyAlarm = !alarmStore.alarms.isEmpty
                             viewModel.completeOnboarding()
@@ -135,31 +138,34 @@ struct OnboardingFlowView: View {
                             appPreferences.onboardingAlarmEnabled = true
                             appPreferences.onboardingSoundName = viewModel.state.selectedSoundName ?? "Orkney"
                             appPreferences.onboardingSoundVolume = viewModel.state.selectedVolume
+                            appPreferences.onboardingWallpaperId = viewModel.state.selectedWallpaper?.id ?? "default"
+                            let newAlarm = Alarm(
+                                id: alarmStore.alarms.first?.id ?? UUID(),
+                                name: "Alarm",
+                                emoji: "🌞",
+                                hour: viewModel.selectedHour,
+                                minute: viewModel.selectedMinute,
+                                isDaily: true,
+                                repeatMask: RepeatMask.monToSat,
+                                enabled: true,
+                                wakeUpCheckEnabled: false,
+                                soundName: viewModel.state.selectedSoundName ?? "Orkney",
+                                soundVolume: viewModel.state.selectedVolume,
+                                vibrateEnabled: true,
+                                gentleWakeUpSeconds: 30,
+                                timeReminderEnabled: false,
+                                weatherReminderEnabled: false,
+                                labelReminderEnabled: false,
+                                extraLoudEnabled: false,
+                                snoozeMinutes: 5,
+                                snoozeCount: 3,
+                                wallpaperId: viewModel.state.selectedWallpaper?.id ?? "default",
+                                createdAt: Date()
+                            )
                             if alarmStore.alarms.isEmpty {
-                                let alarm = Alarm(
-                                    id: UUID(),
-                                    name: "Alarm",
-                                    emoji: "🌞",
-                                    hour: viewModel.selectedHour,
-                                    minute: viewModel.selectedMinute,
-                                    isDaily: true,
-                                    repeatMask: RepeatMask.monToSat,
-                                    enabled: true,
-                                    wakeUpCheckEnabled: false,
-                                    soundName: viewModel.state.selectedSoundName ?? "Orkney",
-                                    soundVolume: viewModel.state.selectedVolume,
-                                    vibrateEnabled: true,
-                                    gentleWakeUpSeconds: 30,
-                                    timeReminderEnabled: false,
-                                    weatherReminderEnabled: false,
-                                    labelReminderEnabled: false,
-                                    extraLoudEnabled: false,
-                                    snoozeMinutes: 5,
-                                    snoozeCount: 3,
-                                    wallpaperId: viewModel.state.selectedWallpaper?.id ?? "default",
-                                    createdAt: Date()
-                                )
-                                alarmStore.add(alarm)
+                                alarmStore.add(newAlarm)
+                            } else {
+                                alarmStore.update(newAlarm)
                             }
                             appPreferences.hasAnyAlarm = !alarmStore.alarms.isEmpty
                             viewModel.completeOnboarding()

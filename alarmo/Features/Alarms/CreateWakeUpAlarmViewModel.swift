@@ -5,13 +5,14 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
     @Published var draft: AlarmDraft
     @Published var soundProgress: Double = 0.0
 
-    init(defaultHour: Int, defaultMinute: Int, defaultRepeatMask: Int, defaultSoundName: String, defaultSoundVolume: Float) {
+    init(defaultHour: Int, defaultMinute: Int, defaultRepeatMask: Int, defaultSoundName: String, defaultSoundVolume: Float, defaultWallpaperId: String) {
         self.draft = AlarmDraft(
             defaultHour: defaultHour,
             defaultMinute: defaultMinute,
             defaultRepeatMask: defaultRepeatMask,
             defaultSoundName: defaultSoundName,
-            defaultSoundVolume: defaultSoundVolume
+            defaultSoundVolume: defaultSoundVolume,
+            defaultWallpaperId: defaultWallpaperId
         )
     }
 

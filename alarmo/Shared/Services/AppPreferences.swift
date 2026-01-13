@@ -17,6 +17,7 @@ protocol AppPreferencesProtocol: AnyObject {
     var onboardingRepeatMask: Int { get set }
     var onboardingSoundName: String { get set }
     var onboardingSoundVolume: Float { get set }
+    var onboardingWallpaperId: String { get set }
 }
 
 final class AppPreferences: ObservableObject, AppPreferencesProtocol {
@@ -35,6 +36,7 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
     @Published var onboardingRepeatMask: Int { didSet { defaults.set(onboardingRepeatMask, forKey: Keys.onboardingRepeatMask) } }
     @Published var onboardingSoundName: String { didSet { defaults.set(onboardingSoundName, forKey: Keys.onboardingSoundName) } }
     @Published var onboardingSoundVolume: Float { didSet { defaults.set(onboardingSoundVolume, forKey: Keys.onboardingSoundVolume) } }
+    @Published var onboardingWallpaperId: String { didSet { defaults.set(onboardingWallpaperId, forKey: Keys.onboardingWallpaperId) } }
 
     private let defaults: UserDefaults
 
@@ -75,6 +77,10 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
             defaults.set(0.8, forKey: Keys.onboardingSoundVolume)
         }
         self.onboardingSoundVolume = defaults.float(forKey: Keys.onboardingSoundVolume)
+        if defaults.object(forKey: Keys.onboardingWallpaperId) == nil {
+            defaults.set("default", forKey: Keys.onboardingWallpaperId)
+        }
+        self.onboardingWallpaperId = defaults.string(forKey: Keys.onboardingWallpaperId) ?? "default"
     }
 
     private enum Keys {
@@ -93,6 +99,7 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
         static let onboardingRepeatMask = "alarmo.alarm.onboardingRepeatMask"
         static let onboardingSoundName = "alarmo.alarm.onboardingSoundName"
         static let onboardingSoundVolume = "alarmo.alarm.onboardingSoundVolume"
+        static let onboardingWallpaperId = "alarmo.alarm.onboardingWallpaperId"
     }
 
     #if DEBUG

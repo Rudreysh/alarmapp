@@ -25,7 +25,8 @@ struct CreateWakeUpAlarmView: View {
             defaultMinute: defaults.onboardingAlarmMinute,
             defaultRepeatMask: defaults.onboardingRepeatMask,
             defaultSoundName: defaults.onboardingSoundName,
-            defaultSoundVolume: defaults.onboardingSoundVolume
+            defaultSoundVolume: defaults.onboardingSoundVolume,
+            defaultWallpaperId: defaults.onboardingWallpaperId
         ))
     }
 
@@ -450,15 +451,50 @@ private struct CustomSettingsCard: View {
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(Colors.textPrimary)
                     Spacer()
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(LinearGradient(colors: [.orange, .yellow], startPoint: .top, endPoint: .bottom))
-                        .frame(width: 44, height: 56)
+                    WallpaperThumbnail(id: wallpaperId)
                 }
             }
         }
         .padding(Spacing.l)
         .background(Colors.cardSurface)
         .cornerRadius(22)
+    }
+}
+
+private struct WallpaperThumbnail: View {
+    let id: String
+
+    var body: some View {
+        let image = loadImage(id)
+        return Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                LinearGradient(colors: [.orange, .yellow], startPoint: .top, endPoint: .bottom)
+            }
+        }
+        .frame(width: 44, height: 56)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func loadImage(_ id: String) -> UIImage? {
+        if let url = Bundle.main.url(forResource: id, withExtension: nil, subdirectory: "BundledWallpapers") {
+            return UIImage(contentsOfFile: url.path)
+        }
+        if let parsed = parsedWallpaper(id) {
+            if let url = Bundle.main.url(forResource: parsed.filename, withExtension: nil, subdirectory: "BundledWallpapers/\(parsed.category)") {
+                return UIImage(contentsOfFile: url.path)
+            }
+        }
+        return nil
+    }
+
+    private func parsedWallpaper(_ id: String) -> (category: String, filename: String)? {
+        let parts = id.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: true)
+        guard parts.count == 2 else { return nil }
+        return (category: String(parts[0]), filename: String(parts[1]))
     }
 }
 

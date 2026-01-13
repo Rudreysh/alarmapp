@@ -8,7 +8,8 @@ final class CreateWakeUpAlarmViewModelTests: XCTestCase {
             defaultMinute: 0,
             defaultRepeatMask: RepeatMask.allDays,
             defaultSoundName: "Orkney",
-            defaultSoundVolume: 0.8
+            defaultSoundVolume: 0.8,
+            defaultWallpaperId: "default"
         )
         viewModel.draft.isDaily = true
         viewModel.draft.selectedWeekdays = Set(1...7)
@@ -25,7 +26,8 @@ final class CreateWakeUpAlarmViewModelTests: XCTestCase {
             defaultMinute: 0,
             defaultRepeatMask: RepeatMask.monToSat,
             defaultSoundName: "Orkney",
-            defaultSoundVolume: 0.8
+            defaultSoundVolume: 0.8,
+            defaultWallpaperId: "default"
         )
         viewModel.draft.isDaily = false
         viewModel.draft.selectedWeekdays = [2] // Monday

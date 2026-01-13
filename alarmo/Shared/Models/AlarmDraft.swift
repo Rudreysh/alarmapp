@@ -21,12 +21,13 @@ struct AlarmDraft: Equatable {
     var snoozeCount: Int = 3
     var wallpaperId: String = "default"
 
-    init(defaultHour: Int, defaultMinute: Int, defaultRepeatMask: Int, defaultSoundName: String, defaultSoundVolume: Float) {
+    init(defaultHour: Int, defaultMinute: Int, defaultRepeatMask: Int, defaultSoundName: String, defaultSoundVolume: Float, defaultWallpaperId: String) {
         self.hour = defaultHour
         self.minute = defaultMinute
         self.selectedWeekdays = Set(RepeatMask.weekdays(from: defaultRepeatMask))
         self.isDaily = defaultRepeatMask == RepeatMask.allDays
         self.soundName = defaultSoundName.isEmpty ? "Orkney" : defaultSoundName
         self.soundVolume = defaultSoundVolume
+        self.wallpaperId = defaultWallpaperId.isEmpty ? "default" : defaultWallpaperId
     }
 }

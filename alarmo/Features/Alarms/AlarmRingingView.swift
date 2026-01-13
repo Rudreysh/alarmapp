@@ -67,10 +67,24 @@ struct AlarmRingingView: View {
         if let url = Bundle.main.url(forResource: id, withExtension: nil, subdirectory: "BundledWallpapers") {
             return UIImage(contentsOfFile: url.path)
         }
+        if let parsed = parsedWallpaper(id) {
+            if let url = Bundle.main.url(forResource: parsed.filename, withExtension: nil, subdirectory: "BundledWallpapers/\(parsed.category)") {
+                return UIImage(contentsOfFile: url.path)
+            }
+        }
+        if let url = Bundle.main.url(forResource: id, withExtension: nil) {
+            return UIImage(contentsOfFile: url.path)
+        }
         if let url = findWallpaperByFilename(id) {
             return UIImage(contentsOfFile: url.path)
         }
         return nil
+    }
+
+    private func parsedWallpaper(_ id: String) -> (category: String, filename: String)? {
+        let parts = id.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: true)
+        guard parts.count == 2 else { return nil }
+        return (category: String(parts[0]), filename: String(parts[1]))
     }
 
     private func findWallpaperByFilename(_ filename: String) -> URL? {

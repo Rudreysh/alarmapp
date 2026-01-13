@@ -71,4 +71,5 @@ private final class MockAppPreferences: AppPreferencesProtocol {
     var onboardingRepeatMask: Int = 126
     var onboardingSoundName: String = "Orkney"
     var onboardingSoundVolume: Float = 0.8
+    var onboardingWallpaperId: String = "default"
 }

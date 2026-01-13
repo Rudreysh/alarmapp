@@ -19,6 +19,7 @@ final class AppPreferencesTests: XCTestCase {
         prefs.onboardingRepeatMask = 62
         prefs.onboardingSoundName = "Radar"
         prefs.onboardingSoundVolume = 0.6
+        prefs.onboardingWallpaperId = "abstract-foo.jpg"
 
         let reloaded = AppPreferences(defaults: defaults)
         XCTAssertTrue(reloaded.onboardingCompleted)
@@ -32,5 +33,6 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(reloaded.onboardingRepeatMask, 62)
         XCTAssertEqual(reloaded.onboardingSoundName, "Radar")
         XCTAssertEqual(reloaded.onboardingSoundVolume, 0.6)
+        XCTAssertEqual(reloaded.onboardingWallpaperId, "abstract-foo.jpg")
     }
 }
