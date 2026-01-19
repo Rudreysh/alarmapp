@@ -1,11 +1,14 @@
 import SwiftUI
 
 enum Typography {
-    static let heroTitle = Font.system(size: 40, weight: .black)
-    static let screenTitle = Font.system(size: 34, weight: .bold)
-    static let cardTitle = Font.system(size: 18, weight: .semibold)
-    static let bodyText = Font.system(size: 17, weight: .regular)
-    static let captionText = Font.system(size: 13, weight: .regular)
+    static let heroTitle = Font.system(.largeTitle, design: .default).weight(.black)
+    static let screenTitle = Font.system(.title, design: .default).weight(.bold)
+    static let cardTitle = Font.system(.headline, design: .default).weight(.semibold)
+    static let bodyText = Font.system(.body, design: .default)
+    static let captionText = Font.system(.caption, design: .default)
+    
+    // Additional helpers for large numbers
+    static let hugeNumber = Font.system(size: 80, weight: .bold, design: .rounded)
 }
 
 extension View {

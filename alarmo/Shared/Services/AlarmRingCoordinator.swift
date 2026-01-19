@@ -5,6 +5,7 @@ import Combine
 final class AlarmRingCoordinator: ObservableObject {
     @Published private(set) var activeAlarm: Alarm?
     @Published private(set) var isRinging: Bool = false
+    @Published var isPreviewMode: Bool = false
 
     private let soundPlayer = SoundPlayer()
     private let hapticsPlayer = HapticsPlayer()
@@ -28,10 +29,11 @@ final class AlarmRingCoordinator: ObservableObject {
              return
         }
 
-        print("[AlarmRingCoordinator] 🔔 START RINGING: \(alarm.name) (Source: \(source))")
+        print("[AlarmRingCoordinator] 🔔 START RINGING: \(alarm.name) (Source: \(source)) wallpaperId=\(alarm.wallpaperId) sound=\(alarm.soundName)")
         
         activeAlarm = alarm
         isRinging = true
+        isPreviewMode = false
         
         soundPlayer.playLooping(resourceName: alarm.soundName, volume: alarm.soundVolume)
         if alarm.vibrateEnabled {
@@ -41,11 +43,35 @@ final class AlarmRingCoordinator: ObservableObject {
         }
     }
 
+    func startPreview(alarm: Alarm) {
+        print("[AlarmRingCoordinator] 👁️ START PREVIEW: \(alarm.name) wallpaperId=\(alarm.wallpaperId) sound=\(alarm.soundName)")
+        activeAlarm = alarm
+        isPreviewMode = true
+        isRinging = true
+        
+        soundPlayer.playLooping(resourceName: alarm.soundName, volume: alarm.soundVolume)
+        if alarm.vibrateEnabled {
+            hapticsPlayer.startRepeating()
+        }
+    }
+
     func stopRinging() {
         soundPlayer.stop()
         hapticsPlayer.stop()
         isRinging = false
+        
+        if let alarm = activeAlarm {
+            if alarm.type == .quick {
+                print("[AlarmRingCoordinator] 🗑️ Auto-deleting Quick Alarm: \(alarm.name)")
+                alarmStore?.remove(id: alarm.id)
+            } else if alarm.repeatMask == 0 && !alarm.isDaily {
+                print("[AlarmRingCoordinator] 🔕 Disabling one-shot alarm: \(alarm.name)")
+                alarmStore?.toggleEnabled(id: alarm.id, enabled: false)
+            }
+        }
+        
         activeAlarm = nil
+        isPreviewMode = false
         foregroundScheduler?.scheduleNext()
     }
 

@@ -20,6 +20,7 @@ struct AlarmDraft: Equatable {
     var snoozeMinutes: Int = 5
     var snoozeCount: Int = 3
     var wallpaperId: String = "default"
+    var missions: [AlarmMission] = []
 
     init(defaultHour: Int, defaultMinute: Int, defaultRepeatMask: Int, defaultSoundName: String, defaultSoundVolume: Float, defaultWallpaperId: String) {
         self.hour = defaultHour
@@ -28,6 +29,17 @@ struct AlarmDraft: Equatable {
         self.isDaily = defaultRepeatMask == RepeatMask.allDays
         self.soundName = defaultSoundName.isEmpty ? "Orkney" : defaultSoundName
         self.soundVolume = defaultSoundVolume
-        self.wallpaperId = defaultWallpaperId.isEmpty ? "default" : defaultWallpaperId
+        self.wallpaperId = Self.resolveWallpaperId(defaultWallpaperId)
+    }
+
+    private static func resolveWallpaperId(_ id: String) -> String {
+        if !id.isEmpty, id != "default" {
+            return id
+        }
+        if let firstCategory = WallpaperConfig.categories.first,
+           let firstFilename = firstCategory.imageNames.first {
+            return "\(firstCategory.id)-\(firstFilename)"
+        }
+        return "default"
     }
 }

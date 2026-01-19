@@ -1,9 +1,9 @@
 # Alarmo Code Map & Architecture Guide
 
 > **Last Updated:** Jan 2026
-> **Version:** 1.0
+> **Version:** 1.1
 
-This document serves as the "source of truth" for understanding the Alarmo iOS codebase. It covers architecture, state management, navigation flows, and key implementation details.
+This document is the "source of truth" for the Alarmo iOS codebase. It summarizes the architecture, state management, navigation flows, and the main feature areas.
 
 ---
 
@@ -11,41 +11,52 @@ This document serves as the "source of truth" for understanding the Alarmo iOS c
 
 ```text
 alarmo/
-├── App/                  # App Entry & Root
-│   ├── AlarmoApp.swift       # @main entry point, DI Container
-│   └── AppRootView.swift     # Root View (StateObject owner), Routing logic
-├── Core/                 # System infrastrucutre
-│   ├── Theme/                # Colors, Fonts, Layout constants
-│   └── Utilities/            # Helpers (AlarmDebug.swift, TimeFormatters.swift)
-├── Data/                 # Persistence & Repositories
-│   ├── Catalog/              # Sound/Wallpaper loading logic
-│   └── Repositories/         # SoundCatalogRepository
-├── Features/             # UI Screens (Modules)
-│   ├── Alarms/               # Alarm List & Edit/Create Screens
-│   ├── Home/                 # Main Tab Bar Container
-│   ├── Onboarding/           # First-launch flow
-│   ├── Paywall/              # Subscription screens
-│   └── Sounds/Wallpapers     # Picker screens
-├── Resources/            # Bundled Assets
-│   ├── BundledSounds/        # Ringtones files
-│   └── BundledWallpapers/    # Wallpaper images
-└── Shared/               # Reusable Logic
-    ├── Models/               # Core Data Models (Alarm.swift)
-    ├── Services/             # Business Logic (AlarmStore, RingCoordinator)
-    └── UIComponents/         # Shared SwiftUI components (Buttons, Cards)
+├── App/                        # App entry + root routing
+│   ├── AlarmoApp.swift         # @main entry point, DI container
+│   └── AppRootView.swift       # Root view + routing logic
+├── Core/                       # System infrastructure + UI primitives
+│   ├── Theme/                  # Colors, fonts, spacing, radii, shadows
+│   ├── UIComponents/           # Shared SwiftUI components (buttons, cards, etc.)
+│   └── Utilities/              # Helpers (TimeFormatters, logging, etc.)
+├── Data/                       # Persistence & repositories
+│   ├── Catalog/                # Sound/Wallpaper loading logic
+│   └── Repositories/           # SoundCatalogRepository, settings stores
+├── Features/                   # UI modules
+│   ├── Alarms/                 # Alarm editor + ringing UI
+│   │   ├── HabitAlarm/         # Habit alarm flow
+│   │   ├── QuickAlarm/         # Quick alarm flow
+│   │   └── Missions/           # Mission pickers + configs
+│   ├── Games/                  # Mini-games (e.g., Memory Match)
+│   ├── Home/                   # Main tab container + Alarm list
+│   ├── Missions/               # Mission list + mission detail flows
+│   ├── Onboarding/             # First-launch flow + selections
+│   ├── Paywall/                # Pro/free trial paywall flows
+│   ├── Settings/               # Settings screens + managers
+│   ├── Sounds/                 # Sound selection flows
+│   ├── Timer/                  # Timer mode (Pomodoro/Stopwatch)
+│   ├── Timers/                 # Timer placeholder screens
+│   ├── Upsell/                 # Celebration overlay + discount offer
+│   └── Wallpapers/             # Wallpaper selection flows
+├── Resources/                  # Bundled assets
+│   ├── BundledSounds/          # Ringtone files
+│   └── BundledWallpapers/      # Wallpaper images
+└── Shared/                     # Reusable domain logic
+    ├── Models/                 # Core models (Alarm, AlarmMission, etc.)
+    ├── Protocols/              # Service protocols (Clock, etc.)
+    └── Services/               # AlarmStore, schedulers, ring coordinator, etc.
 ```
 
 ---
 
 ## 🏛 Architecture Overview
 
-Alarmo follows a **MVVM (Model-View-ViewModel)** pattern with a **Coordinator-like** state triggers at the root level.
+Alarmo uses a **MVVM** structure with root-level service coordination.
 
 ### Key Principles
 
-1. **Single Source of Truth**: `AlarmStore` owns the alarm data. `AppRootView` owns the high-level app state instances (`@StateObject`).
-2. **Dependency Injection**: Dependencies are created in `AppRootView` and passed, usually via `init` (Dependency Injection) or `EnvironmentObject`.
-3. **Persistence**: `Codable` structs saved to JSON files in the Documents directory.
+1. **Single Source of Truth**: `AlarmStore` owns alarm data. `AppRootView` owns global state (`@StateObject`).
+2. **Dependency Injection**: Global services are created in `AppRootView` and injected via initializers or `EnvironmentObject`.
+3. **Persistence**: Core models are `Codable` and saved to JSON in the Documents directory.
 
 ### High-Level Diagram
 
@@ -55,13 +66,13 @@ graph TD
     View --> ViewModel[ViewModel]
     ViewModel --> Store[AlarmStore / EntitlementStore]
     Store --> Persistence[JSON / UserDefaults]
-    
+
     subgraph Services
         NotificationManager(NotificationManager)
         RingCoordinator(AlarmRingCoordinator)
         AudioPlayer(SoundPlayer)
     end
-    
+
     ViewModel --> Services
     RingCoordinator --> AudioPlayer
     RingCoordinator -- Triggers Modal --> View
@@ -71,11 +82,9 @@ graph TD
 
 ## 🗺 UI & Navigation Map
 
-The app uses a hybrid navigation approach:
-
-* **Root Switch**: `AppRootView` switches between `OnboardingFlowView` and `MainTabContainerView`.
-* **Tabs**: Custom Tab Bar implementation.
-* **Modals**: Ringing screen is a global `fullScreenCover`.
+* **Root Switch**: `AppRootView` switches between onboarding and main tabs.
+* **Tabs**: Custom tab bar; Alarm tab is primary.
+* **Modals**: Paywalls, alarm editor, ringing screen, timer sheets.
 
 ### Navigation Graph
 
@@ -84,20 +93,23 @@ graph TD
     Root[AppRootView] --> Check{Onboarding Complete?}
     Check -- No --> Onboarding[OnboardingFlowView]
     Check -- Yes --> Tabs[MainTabContainerView]
-    
+
     subgraph Tabs
         Home[Alarm List]
         Sleep[Sleep (Placeholder)]
         Morning[Morning (Placeholder)]
         Report[Report (Placeholder)]
         Settings[Settings (Placeholder)]
+        Timer[TimerRootView]
+        Missions[Missions List]
+        Games[Games List]
     end
-    
+
     Root -- "isRinging == true" --> Ringing[AlarmRingingView (FullScreen)]
-    
+
     Home -- "+" Tap --> CreateAlarm[CreateWakeUpAlarmView]
     CreateAlarm -- "Save" --> Home
-    
+
     Tabs --> Paywall[PaywallView (Sheet)]
 ```
 
@@ -109,16 +121,15 @@ Global state is lifted to `AppRootView`.
 
 | Object | Type | Role | Scope |
 | :--- | :--- | :--- | :--- |
-| **AlarmStore** | `@StateObject` | Creation, Deletion, Persistence of Alarms | Global, passed to Home |
-| **AlarmRingCoordinator** | `@StateObject` | Manages Ringing State, Audio, Haptics | Global EnvironmentObject |
-| **NotificationManager** | `@StateObject` | Manages UNUserNotificationCenter | Global EnvironmentObject |
-| **AppPreferences** | `@StateObject` | Wrapper for UserDefaults (Onboarding flags) | Global |
+| **AlarmStore** | `@StateObject` | Creation, deletion, persistence of alarms | Global |
+| **AlarmRingCoordinator** | `@StateObject` | Ringing state, audio, haptics | Global |
+| **AlarmForegroundScheduler** | `@StateObject` | Foreground ring timer | Global |
+| **NotificationManager** | `@StateObject` | UNUserNotificationCenter delegate + logging | Global |
+| **AppPreferences** | `@StateObject` | UserDefaults wrapper | Global |
 
 ---
 
 ## ⏰ Alarm Lifecycle (End-to-End)
-
-The lifecycle of an alarm from creation to ringing involves several services working in concert.
 
 ```mermaid
 sequenceDiagram
@@ -127,23 +138,23 @@ sequenceDiagram
     participant Store as AlarmStore
     participant Scheduler as AlarmScheduler
     participant System as UNUserNotificationCenter
-    participant FG as ForegroundScheduler
-    participant Ring as RingCoordinator
+    participant FG as AlarmForegroundScheduler
+    participant Ring as AlarmRingCoordinator
     participant Audio as SoundPlayer
-    
+
     User->>UI: Save Alarm 08:00 AM
-    UI->>Store: add(alarm)
-    Store->>Persistence: write to JSON
+    UI->>Store: add/update alarm
+    Store->>Persistence: write JSON
     Store->>Scheduler: schedule(alarm)
-    Scheduler->>System: addNotificationRequest(content)
-    
+    Scheduler->>System: addNotificationRequest
+
     par Background/Locked
-        System-->>User: Show Notification Banner
+        System-->>User: Notification banner
     and Foreground
-        FG->>FG: Timer checks every second
+        FG->>FG: Next fire timer
         FG->>Ring: startRinging(alarmId)
     end
-    
+
     Ring->>Audio: playLooping(sound)
     Ring->>UI: isRinging = true
     UI-->>User: Show Ringing Screen
@@ -151,20 +162,16 @@ sequenceDiagram
 
 ### Critical Files
 
-* `Shared/Services/AlarmStore.swift`: The database.
-* `Shared/Services/AlarmRingCoordinator.swift`: The "brain" of the ringing experience.
-* `Shared/Services/AlarmForegroundScheduler.swift`: Polls for alarms when the app is open (since notifications don't fire banners in foreground).
+* `Shared/Services/AlarmStore.swift`: JSON-backed alarm persistence.
+* `Shared/Services/AlarmRingCoordinator.swift`: Ringing UI + sound control.
+* `Shared/Services/AlarmForegroundScheduler.swift`: Foreground timer.
+* `Features/Alarms/AlarmRingingView.swift`: Full-screen alarm UI.
 
 ---
 
 ## 💰 Subscription / Paywall Flows
 
-**Current Status:** Mocked. `StoreKitPurchaseService` exists but returns empty products. `MockPurchaseService` is used by default.
-
-### Data Model
-
-* **PaywallProduct**: Struct representing a store product.
-* **EntitlementStore**: Checks `UserDefaults` for "isPro" bool.
+**Current Status:** Mock purchase flow. `MockPurchaseService` is active by default.
 
 ### Flow
 
@@ -172,7 +179,7 @@ sequenceDiagram
 graph LR
     Banner[Home Banner] --> Paywall[PaywallView]
     Settings[Settings Row] --> Paywall
-    
+
     Paywall --> Purchase{Determine Purchase}
     Purchase -- Mock Success --> Entitlement[EntitlementStore.isPro = true]
     Purchase -- Failed --> Error[Show Alert]
@@ -184,16 +191,24 @@ graph LR
 
 ### `Alarm.swift`
 
-The core entity.
-
 * **ID**: `UUID`
-* **Scheduling**: `hour`, `minute`, `repeatMask` (Bitmask for days).
-* **Assets**: `soundName`, `wallpaperId`.
-* **State**: `enabled`, `snoozeCount`.
+* **Scheduling**: `hour`, `minute`, `repeatMask` (weekday bitmask)
+* **Assets**: `soundName`, `wallpaperId`
+* **State**: `enabled`, `snoozeCount`
+* **Missions**: `missions: [AlarmMission]`
 
-### `PurchaseProduct.swift`
+### `AlarmMission.swift`
 
-Representation of an IAP product (Yearly, Monthly, Lifetime).
+Core mission payload:
+* `type`, `difficulty`, `rounds`
+
+### `AlarmDraft.swift`
+
+Draft for editors:
+* name, emoji, time, repeat rules
+* `soundName`, `soundVolume`, `wallpaperId`
+* reminders, snooze, gentle wake-up
+* `missions`
 
 ---
 
@@ -201,30 +216,54 @@ Representation of an IAP product (Yearly, Monthly, Lifetime).
 
 ### 1. Notifications (`NotificationManager.swift`)
 
-* **Responsibilities**: Request permissions, handle delegate methods, sync with `RingCoordinator`.
-* **Key Behavior**: When a user taps a notification, it triggers the `RingCoordinator` to show the full-screen UI.
+* Requests permissions, logs settings, handles delegate callbacks.
 
 ### 2. Audio (`SoundPlayer.swift`)
 
-* **Technology**: `AVAudioPlayer`.
-* **Features**: Looping playback, volume control, fading.
+* AVAudioPlayer looped playback with volume control and fallback sound lookup.
 
-### 3. File System (`FileStorageService.swift`)
+### 3. Storage (`AlarmStore.swift`, `AppPreferences.swift`)
 
-* **Used for**: Saving user-picked photos (Profile/Wallpapers).
-* **Location**: `Documents/user_allocations/`.
+* Alarms persisted to JSON.
+* AppPreferences stores flags (onboarding, paywall gates, defaults).
+
+---
+
+## 🎮 Games & Missions
+
+### Games
+
+* `Features/Games/` contains mini-games (Memory Match, etc.).
+* Games list launches game previews with consistent pastel UI style.
+
+### Missions
+
+* `Features/Missions/` contains mission list and detail flows.
+* `Features/Alarms/Missions/` contains mission selection + per-mission configs:
+  * `FindColorTiles/*`
+  * `Typing/*`
+
+---
+
+## ⏱ Timer Mode
+
+* `Features/Timer/` contains Pomodoro + Stopwatch flows.
+* Sheets: duration picker, frequently used presets, focus notes, settings, records.
+* `Features/Timers/` holds placeholder screens for future timer expansion.
 
 ---
 
 ## 🔎 Change Hotspots
 
-These files are modified most frequently:
+These files change the most:
 
-1. **`CreateWakeUpAlarmView.swift`**: The most complex form in the app. Changes here affect alarm creation logic.
-2. **`AlarmStore.swift`**: Logic for sorting, persisting, and calculating `nextFireDate`.
-3. **`OnboardingViewModel.swift`**: Often changed to adjust the first-run funnel.
-4. **`PaywallView.swift`**: Adjusting UI for conversion optimization.
-5. **`AppRootView.swift`**: Adding new global state or top-level sheets.
+1. `Features/Alarms/CreateWakeUpAlarmView.swift`
+2. `Shared/Services/AlarmStore.swift`
+3. `Features/Onboarding/OnboardingViewModel.swift`
+4. `Features/Paywall/PaywallView.swift`
+5. `App/AppRootView.swift`
+6. `Features/Home/HomeView.swift`
+7. `Features/Timer/*`
 
 ---
 
@@ -232,30 +271,25 @@ These files are modified most frequently:
 
 ### Conventions
 
-* **Views**: Placed in `Features/<FeatureName>/`.
-* **ViewModels**: Colocated with Views.
-* **Utilities**: Placed in `Shared/Services` or `Core/Utilities`.
-* **Assets**: Use `Colors.constants` and `Fonts.constants` in `Core/Theme`.
+* **Views**: `Features/<FeatureName>/...`
+* **ViewModels**: colocated with views.
+* **Utilities**: `Shared/Services` or `Core/Utilities`.
+* **Assets**: Use tokens from `Core/Theme`.
 
 ### Where to Implement New Features?
 
-* **New Screen**: Create new folder in `Features/`. Add entry point in `MainTabContainerView` or routing logic in the relevant parent view.
-* **New Global Service**: Create in `Shared/Services`. Initialize in `AppRootView` and inject via Environment.
+* **New Screen**: Add to `Features/` and route from the owning parent view.
+* **New Global Service**: Add to `Shared/Services` and inject via `AppRootView`.
 
 ### Debugging
 
-* **Logging**: Most services have a `debugLogging` boolean property. Set to `true` to see console output.
-* **Files**: Check the App Sandbox Documents directory to view `alarms.json`.
-
-### Testing
-
-* Unit tests live in `alarmoTests/`.
-* `SoundCatalogRepository` and `WallpaperCatalogLoader` have tests for bundle resource loading.
+* Most services have `debugLogging` switches and print diagnostics.
+* Check app sandbox `Documents/alarms.json` for persisted alarms.
 
 ---
 
 ## ❓ Open Questions / TODOs
 
-* **StoreKit Implementation**: `StoreKitPurchaseService` handles `loadProducts` but `purchase` logic needs to be wired to real Apple APIs.
-* **Background Ringing**: Currently relies on standard Local Notifications. Custom logic (snooze/stop) requires app launch.
-* **Deep Linking**: No explicit URL scheme handler yet.
+* **StoreKit Integration**: real purchase flow still pending.
+* **Background Ringing**: custom snooze/stop depends on app launch.
+* **Deep Linking**: no URL scheme handler yet.

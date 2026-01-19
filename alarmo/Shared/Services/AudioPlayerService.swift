@@ -1,41 +1,93 @@
 import AVFoundation
 import Foundation
+import Combine
 
 protocol AudioPreviewPlayerProtocol {
     var isPlaying: Bool { get }
+    var isBuffering: Bool { get }
     func play(url: URL, volume: Float, fadeIn: Bool)
     func stop()
 }
 
-final class AudioPreviewPlayer: AudioPreviewPlayerProtocol {
-    private var player: AVAudioPlayer?
+final class AudioPreviewPlayer: ObservableObject, AudioPreviewPlayerProtocol {
+    private var player: AVPlayer?
     private var fadeTimer: Timer?
-
-    var isPlaying: Bool { player?.isPlaying == true }
+    private var playRequestedAt: Date?
+    private var statusObserver: NSKeyValueObservation?
+    private var timeControlObserver: NSKeyValueObservation?
+    
+    @Published var isPlaying: Bool = false
+    @Published var isBuffering: Bool = false
 
     func play(url: URL, volume: Float, fadeIn: Bool) {
         stop()
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
-            try AVAudioSession.sharedInstance().setActive(true)
-            player = try AVAudioPlayer(contentsOf: url)
-            player?.volume = fadeIn ? 0.0 : volume
-            player?.play()
-            if fadeIn {
-                rampVolume(to: volume, duration: 3.0)
-            }
-        } catch {
-            return
+        
+        print("[AudioPreviewPlayer] 🎵 Requesting Playback - URL: \(url.absoluteString)")
+        let now = Date()
+        self.playRequestedAt = now
+        print("[AudioPreviewPlayer] Playback requested at: \(now.formatted(date: .omitted, time: .complete))")
+        
+        let isRemote = !url.isFileURL
+        
+        if isRemote {
+            DispatchQueue.main.async { self.isBuffering = true }
         }
+
+        // Setup Session
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
+            try session.setActive(true)
+        } catch {
+            print("[AudioPreviewPlayer] Session setup failed: \(error)")
+        }
+
+        let playerItem = AVPlayerItem(url: url)
+        player = AVPlayer(playerItem: playerItem)
+        player?.volume = (fadeIn && !isRemote) ? 0.0 : volume
+        player?.automaticallyWaitsToMinimizeStalling = true
+        
+        // Monitor timeControlStatus (Better for buffering detection)
+        timeControlObserver = player?.observe(\.timeControlStatus, options: [.new]) { player, _ in
+            DispatchQueue.main.async {
+                self.isPlaying = player.timeControlStatus == .playing
+                self.isBuffering = player.timeControlStatus == .waitingToPlayAtSpecifiedRate
+                
+                if player.timeControlStatus == .playing, let requestedAt = self.playRequestedAt {
+                    let latency = Date().timeIntervalSince(requestedAt)
+                    print("[AudioPreviewPlayer] 🔊 Sound started playing! Latency: \(String(format: "%.2f", latency)) seconds.")
+                    self.playRequestedAt = nil // Reset
+                }
+            }
+        }
+
+        // Monitor Status for errors
+        statusObserver = playerItem.observe(\.status, options: [.new]) { item, _ in
+            if item.status == .failed {
+                print("[AudioPreviewPlayer] Item Failed: \(String(describing: item.error))")
+                DispatchQueue.main.async { self.isBuffering = false }
+            }
+        }
+        
+        player?.play()
     }
 
     func stop() {
+        statusObserver?.invalidate()
+        timeControlObserver?.invalidate()
+        statusObserver = nil
+        timeControlObserver = nil
         fadeTimer?.invalidate()
         fadeTimer = nil
-        player?.stop()
+        player?.pause()
         player = nil
+        
+        DispatchQueue.main.async {
+            self.isPlaying = false
+            self.isBuffering = false
+        }
     }
-
+    
     private func rampVolume(to target: Float, duration: TimeInterval) {
         fadeTimer?.invalidate()
         let steps = 20

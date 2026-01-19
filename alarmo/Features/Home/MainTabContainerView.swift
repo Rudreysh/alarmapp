@@ -2,6 +2,7 @@ import SwiftUI
 
 enum MainTab: String, CaseIterable {
     case alarm
+    case timer
     case sleep
     case morning
     case report
@@ -19,20 +20,23 @@ struct MainTabContainerView: View {
                 switch selectedTab {
                 case .alarm:
                     HomeView(viewModel: HomeViewModel(preferences: preferences), alarmStore: alarmStore)
+                case .timer:
+                    TimerRootView(preferences: preferences, onClose: { selectedTab = .alarm })
                 case .sleep:
                     PlaceholderTabView(title: "Sleep")
                 case .morning:
-                    PlaceholderTabView(title: "Morning")
+                    GamesListView()
                 case .report:
                     PlaceholderTabView(title: "Report")
                 case .setting:
-                    PlaceholderTabView(title: "Setting")
+                    SettingsRootView()
                 }
             }
 
             CustomTabBar(
                 tabs: [
                     TabBarItem(id: MainTab.alarm, title: "Alarm", systemImage: "alarm"),
+                    TabBarItem(id: MainTab.timer, title: "Timer", systemImage: "timer"),
                     TabBarItem(id: MainTab.sleep, title: "Sleep", systemImage: "moon.zzz"),
                     TabBarItem(id: MainTab.morning, title: "Morning", systemImage: "sun.max"),
                     TabBarItem(id: MainTab.report, title: "Report", systemImage: "doc.text"),

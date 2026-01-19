@@ -2,6 +2,8 @@ import SwiftUI
 
 struct AlarmRingingView: View {
     @ObservedObject var ringCoordinator: AlarmRingCoordinator
+    @State private var logged = false
+    @State private var currentMission: AlarmMission?
 
     var body: some View {
         ZStack {
@@ -28,28 +30,105 @@ struct AlarmRingingView: View {
                 Spacer()
 
                 HStack(spacing: Spacing.m) {
-                    Button(action: { ringCoordinator.snooze() }) {
-                        Text("Snooze")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(Colors.textPrimary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, Spacing.m)
-                            .background(Colors.bgSecondary.opacity(0.6))
-                            .cornerRadius(Radii.button)
-                    }
+                    if ringCoordinator.isPreviewMode {
+                        Button(action: { ringCoordinator.stopRinging() }) {
+                            Text("Dismiss and start \(ringCoordinator.activeAlarm?.name ?? "alarm")")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, Spacing.m)
+                                .background(Colors.accentRed)
+                                .cornerRadius(Radii.button)
+                        }
+                    } else {
+                        Button(action: { ringCoordinator.snooze() }) {
+                            Text("Snooze")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(Colors.textPrimary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, Spacing.m)
+                                .background(Color.yellow.opacity(0.9))
+                                .cornerRadius(Radii.button)
+                        }
 
-                    Button(action: { ringCoordinator.stopRinging() }) {
-                        Text("Stop")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(Colors.textPrimary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, Spacing.m)
-                            .background(Colors.accentRed)
-                            .cornerRadius(Radii.button)
+                        Button(action: {
+                            if let mission = ringCoordinator.activeAlarm?.missions.first(where: { $0.type != .off }) {
+                                currentMission = mission
+                            } else {
+                                ringCoordinator.stopRinging()
+                            }
+                        }) {
+                            Text("Stop")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(Colors.textPrimary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, Spacing.m)
+                                .background(Colors.accentRed)
+                                .cornerRadius(Radii.button)
+                        }
                     }
                 }
                 .padding(.horizontal, Spacing.l)
-                .padding(.bottom, Spacing.xl)
+                .padding(.bottom, ringCoordinator.isPreviewMode ? 0 : Spacing.xl)
+                
+                if ringCoordinator.isPreviewMode {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            Button(action: { ringCoordinator.stopRinging() }) {
+                                Text("EXIT PREVIEW")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(Color.white.opacity(0.15))
+                                    .cornerRadius(8)
+                            }
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 20)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .background(Color.black.opacity(0.5))
+                    }
+                    .frame(height: 70)
+                }
+            }
+        }
+        .fullScreenCover(item: $currentMission) { mission in
+            Group {
+                if mission.type == .qrBarcode {
+                    QRBarcodeMissionView(
+                        targetCode: mission.customData["barcodeVal"] ?? "",
+                        onSuccess: {
+                            currentMission = nil
+                            ringCoordinator.stopRinging()
+                        }
+                    )
+                } else if mission.type == .math {
+                    // Fallback using placeholder logic or actual connection if ViewModel allows
+                     MathMissionPlayView(
+                        viewModel: MathMissionViewModel(
+                             config: MathMissionConfig(difficulty: MathDifficulty(rawValue: mission.difficulty) ?? .easy, repeatCount: mission.rounds),
+                             isPreviewMode: false,
+                             onComplete: {
+                                currentMission = nil
+                                ringCoordinator.stopRinging()
+                             }
+                        )
+                     )
+                } else {
+                    // Generic fallback
+                    VStack {
+                        Text(mission.title)
+                        Button("Complete (Debug)") {
+                            currentMission = nil
+                            ringCoordinator.stopRinging()
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Colors.bgPrimary.ignoresSafeArea())
+                }
             }
         }
     }
@@ -64,6 +143,16 @@ struct AlarmRingingView: View {
     private func wallpaperImage() -> UIImage? {
         guard let alarm = ringCoordinator.activeAlarm else { return nil }
         let id = alarm.wallpaperId
+        if !logged {
+            print("[AlarmRingingView] alarmId=\(alarm.id.uuidString) wallpaperId=\(id)")
+            logged = true
+        }
+        if let image = loadFromCatalog(id: id) {
+            return image
+        }
+        if let image = fallbackImage() {
+            return image
+        }
         if let url = Bundle.main.url(forResource: id, withExtension: nil, subdirectory: "BundledWallpapers") {
             return UIImage(contentsOfFile: url.path)
         }
@@ -76,6 +165,37 @@ struct AlarmRingingView: View {
             return UIImage(contentsOfFile: url.path)
         }
         if let url = findWallpaperByFilename(id) {
+            return UIImage(contentsOfFile: url.path)
+        }
+        print("[AlarmRingingView] wallpaper not found for id=\(id)")
+        return nil
+    }
+
+    private func loadFromCatalog(id: String) -> UIImage? {
+        let loader = BundleWallpaperCatalogLoader(debugLogging: false)
+        guard let categories = try? loader.loadCategories() else { return nil }
+        if id == "default" {
+            if let first = categories.first?.items.first {
+                return UIImage(contentsOfFile: first.url.path)
+            }
+        }
+        for category in categories {
+            if let item = category.items.first(where: { $0.id == id }) {
+                return UIImage(contentsOfFile: item.url.path)
+            }
+        }
+        return nil
+    }
+
+    private func fallbackImage() -> UIImage? {
+        guard let firstCategory = WallpaperConfig.categories.first,
+              let firstFilename = firstCategory.imageNames.first else { return nil }
+        if let url = Bundle.main.url(forResource: firstFilename, withExtension: nil, subdirectory: "BundledWallpapers/\(firstCategory.id)") {
+            return UIImage(contentsOfFile: url.path)
+        }
+        let nameWithoutExt = (firstFilename as NSString).deletingPathExtension
+        let ext = (firstFilename as NSString).pathExtension
+        if let url = Bundle.main.url(forResource: nameWithoutExt, withExtension: ext) {
             return UIImage(contentsOfFile: url.path)
         }
         return nil

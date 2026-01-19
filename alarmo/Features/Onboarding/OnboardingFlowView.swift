@@ -87,7 +87,9 @@ struct OnboardingFlowView: View {
                     }
                 case .paywall:
                     PaywallView(onClose: {
+                        let _ = print("[OnboardingFlowView] Paywall onClose triggered")
                         withAnimation(.easeInOut) {
+                            appPreferences.devAlwaysShowOnboarding = false
                             appPreferences.onboardingCompleted = true
                             appPreferences.onboardingAlarmHour = viewModel.selectedHour
                             appPreferences.onboardingAlarmMinute = viewModel.selectedMinute
@@ -126,11 +128,11 @@ struct OnboardingFlowView: View {
                             }
                             appPreferences.hasAnyAlarm = !alarmStore.alarms.isEmpty
                             viewModel.completeOnboarding()
-                            path.removeAll()
-                            path.append(.home)
                         }
                     }, onSuccess: {
+                        let _ = print("[OnboardingFlowView] Paywall onSuccess triggered")
                         withAnimation(.easeInOut) {
+                            appPreferences.devAlwaysShowOnboarding = false
                             appPreferences.onboardingCompleted = true
                             appPreferences.onboardingAlarmHour = viewModel.selectedHour
                             appPreferences.onboardingAlarmMinute = viewModel.selectedMinute
@@ -169,14 +171,11 @@ struct OnboardingFlowView: View {
                             }
                             appPreferences.hasAnyAlarm = !alarmStore.alarms.isEmpty
                             viewModel.completeOnboarding()
-                            path.removeAll()
-                            path.append(.home)
                         }
                     })
+                    .navigationBarBackButtonHidden(true)
                 case .intro:
                     EmptyView()
-                case .home:
-                    MainTabContainerView(preferences: appPreferences, alarmStore: alarmStore)
                 }
             }
         }

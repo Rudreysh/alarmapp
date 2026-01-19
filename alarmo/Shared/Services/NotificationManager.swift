@@ -7,6 +7,8 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
     private weak var ringCoordinator: AlarmRingCoordinator?
     private weak var alarmStore: AlarmStore?
+    
+    @Published var authorizationStatus: UNAuthorizationStatus = .notDetermined
 
     private override init() {
         super.init()
@@ -18,7 +20,25 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         registerCategories()
-        logSettings()
+        checkStatus()
+    }
+    
+    func checkStatus() {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                self.authorizationStatus = settings.authorizationStatus
+            }
+        }
+    }
+    
+    func requestPermission(completion: @escaping (Bool) -> Void) {
+        let options: UNAuthorizationOptions = [.alert, .sound, .badge]
+        UNUserNotificationCenter.current().requestAuthorization(options: options) { granted, error in
+            self.checkStatus()
+            DispatchQueue.main.async {
+                completion(granted)
+            }
+        }
     }
 
     func ensureAuthorization() async -> Bool {

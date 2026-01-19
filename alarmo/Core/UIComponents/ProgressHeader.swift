@@ -10,13 +10,13 @@ struct ProgressHeader: View {
                 ZStack(alignment: .leading) {
                     Capsule()
                         .fill(Colors.textTertiary.opacity(0.4))
-                        .frame(height: 6)
+                        .frame(height: 3)
                     Capsule()
                         .fill(Colors.textPrimary)
-                        .frame(width: proxy.size.width * progress, height: 6)
+                        .frame(width: proxy.size.width * progress, height: 3)
                 }
             }
-            .frame(height: 6)
+            .frame(height: 3)
 
             Text("\(step)/\(total)")
                 .captionText()

@@ -11,7 +11,6 @@ enum OnboardingStep: Int, CaseIterable {
     case missionStub = 8
     case trackingExplainer = 9
     case paywall = 10
-    case home = 11
 
     func next() -> OnboardingStep? {
         OnboardingStep(rawValue: rawValue + 1)

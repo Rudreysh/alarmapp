@@ -4,30 +4,38 @@ struct CreateWakeUpAlarmView: View {
     @ObservedObject var alarmStore: AlarmStore
     @EnvironmentObject private var notificationManager: NotificationManager
     let onClose: () -> Void
+    private let existingAlarm: Alarm?
     @StateObject private var viewModel: CreateWakeUpAlarmViewModel
     @FocusState private var nameFocused: Bool
     @State private var showEmojiPicker = false
-    @State private var showMissionAlert = false
     @State private var showWakeUpCheck = false
     @State private var showSoundPicker = false
     @State private var showGentleWakeUpPicker = false
     @State private var showSnoozePicker = false
     @State private var showWallpaperPicker = false
-    private let soundPlayer = SoundPreviewPlayer()
+    @State private var showMissionSelection = false
+    @State private var selectedMissionForConfig: AlarmMission?
+    @State private var editingMissionIndex: Int?
+    @StateObject private var soundPlayer = SoundPreviewPlayer()
     private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
 
-    init(alarmStore: AlarmStore, onClose: @escaping () -> Void) {
+    init(alarmStore: AlarmStore, existingAlarm: Alarm? = nil, onClose: @escaping () -> Void) {
         self.alarmStore = alarmStore
         self.onClose = onClose
+        self.existingAlarm = existingAlarm
         let defaults = AppPreferences()
-        _viewModel = StateObject(wrappedValue: CreateWakeUpAlarmViewModel(
-            defaultHour: defaults.onboardingAlarmHour,
-            defaultMinute: defaults.onboardingAlarmMinute,
-            defaultRepeatMask: defaults.onboardingRepeatMask,
-            defaultSoundName: defaults.onboardingSoundName,
-            defaultSoundVolume: defaults.onboardingSoundVolume,
-            defaultWallpaperId: defaults.onboardingWallpaperId
-        ))
+        if let alarm = existingAlarm {
+            _viewModel = StateObject(wrappedValue: CreateWakeUpAlarmViewModel(alarm: alarm))
+        } else {
+            _viewModel = StateObject(wrappedValue: CreateWakeUpAlarmViewModel(
+                defaultHour: defaults.onboardingAlarmHour,
+                defaultMinute: defaults.onboardingAlarmMinute,
+                defaultRepeatMask: defaults.onboardingRepeatMask,
+                defaultSoundName: defaults.onboardingSoundName,
+                defaultSoundVolume: defaults.onboardingSoundVolume,
+                defaultWallpaperId: defaults.onboardingWallpaperId
+            ))
+        }
     }
 
     var body: some View {
@@ -125,11 +133,21 @@ struct CreateWakeUpAlarmView: View {
                     .padding(.horizontal, Spacing.l)
 
                     MissionSectionView(
-                        showAlert: $showMissionAlert,
-                        wakeUpCheckText: viewModel.draft.wakeUpCheckEnabled ? "On" : "Off"
-                    ) {
-                        showWakeUpCheck = true
-                    }
+                        missions: viewModel.draft.missions,
+                        onAddMission: {
+                            editingMissionIndex = nil
+                            showMissionSelection = true
+                        },
+                        onEditMission: { index in
+                            editingMissionIndex = index
+                            selectedMissionForConfig = viewModel.draft.missions[index]
+                        },
+                        onRemoveMission: { index in
+                            viewModel.removeMission(at: index)
+                        },
+                        wakeUpCheckText: viewModel.draft.wakeUpCheckEnabled ? "On" : "Off",
+                        onWakeUpCheck: { showWakeUpCheck = true }
+                    )
                     .padding(.horizontal, Spacing.l)
 
                     VStack(alignment: .leading, spacing: Spacing.m) {
@@ -139,6 +157,7 @@ struct CreateWakeUpAlarmView: View {
 
                         AlarmSoundCard(
                             soundName: viewModel.draft.soundName,
+                            isBuffering: soundPlayer.isBuffering,
                             onTap: { showSoundPicker = true },
                             onPreview: {
                                 soundPlayer.play(resourceName: viewModel.draft.soundName, volume: viewModel.draft.soundVolume)
@@ -191,47 +210,56 @@ struct CreateWakeUpAlarmView: View {
                         )
                     }
                     .padding(.horizontal, Spacing.l)
-
-                    Spacer(minLength: 140)
                 }
             }
-
-            VStack {
-                Spacer()
-                PrimaryButton(title: "Save") {
-                    Task { @MainActor in
-                        _ = await notificationManager.ensureAuthorization()
-                        let alarmName = viewModel.draft.name.isEmpty ? "Alarm" : viewModel.draft.name
-                        let alarm = Alarm(
-                            id: UUID(),
-                            name: alarmName,
-                            emoji: viewModel.draft.emoji,
-                            hour: viewModel.draft.hour,
-                            minute: viewModel.draft.minute,
-                            isDaily: viewModel.draft.isDaily,
-                            repeatMask: viewModel.repeatMask(),
-                            enabled: true,
-                            wakeUpCheckEnabled: viewModel.draft.wakeUpCheckEnabled,
-                            soundName: viewModel.draft.soundName,
-                            soundVolume: viewModel.draft.soundVolume,
-                            vibrateEnabled: viewModel.draft.vibrateEnabled,
-                            gentleWakeUpSeconds: viewModel.draft.gentleWakeUpSeconds,
-                            timeReminderEnabled: viewModel.draft.timeReminderEnabled,
-                            weatherReminderEnabled: viewModel.draft.weatherReminderEnabled,
-                            labelReminderEnabled: viewModel.draft.labelReminderEnabled,
-                            extraLoudEnabled: viewModel.draft.extraLoudEnabled,
-                            snoozeMinutes: viewModel.draft.snoozeMinutes,
-                            snoozeCount: viewModel.draft.snoozeCount,
-                            wallpaperId: viewModel.draft.wallpaperId,
-                            createdAt: Date()
-                        )
-                        alarmStore.add(alarm)
-                        scheduler.schedule(alarm: alarm)
-                        onClose()
+            .safeAreaInset(edge: .bottom) {
+                 VStack(spacing: 0) {
+                     LinearGradient(colors: [Colors.bgPrimary.opacity(0), Colors.bgPrimary], startPoint: .top, endPoint: .bottom)
+                         .frame(height: 20)
+                         .allowsHitTesting(false)
+                     
+                     PrimaryButton(title: "Save") {
+                        Task { @MainActor in
+                            _ = await notificationManager.ensureAuthorization()
+                            let alarmName = viewModel.draft.name.isEmpty ? "Alarm" : viewModel.draft.name
+                            let alarmId = existingAlarm?.id ?? UUID()
+                            let alarm = Alarm(
+                                id: alarmId,
+                                name: alarmName,
+                                emoji: viewModel.draft.emoji,
+                                hour: viewModel.draft.hour,
+                                minute: viewModel.draft.minute,
+                                isDaily: viewModel.draft.isDaily,
+                                repeatMask: viewModel.repeatMask(),
+                                enabled: true,
+                                wakeUpCheckEnabled: viewModel.draft.wakeUpCheckEnabled,
+                                soundName: viewModel.draft.soundName,
+                                soundVolume: viewModel.draft.soundVolume,
+                                vibrateEnabled: viewModel.draft.vibrateEnabled,
+                                gentleWakeUpSeconds: viewModel.draft.gentleWakeUpSeconds,
+                                timeReminderEnabled: viewModel.draft.timeReminderEnabled,
+                                weatherReminderEnabled: viewModel.draft.weatherReminderEnabled,
+                                labelReminderEnabled: viewModel.draft.labelReminderEnabled,
+                                extraLoudEnabled: viewModel.draft.extraLoudEnabled,
+                                snoozeMinutes: viewModel.draft.snoozeMinutes,
+                                snoozeCount: viewModel.draft.snoozeCount,
+                                wallpaperId: viewModel.draft.wallpaperId,
+                                createdAt: Date(),
+                                missions: viewModel.draft.missions
+                            )
+                            if existingAlarm != nil {
+                                alarmStore.update(alarm)
+                            } else {
+                                alarmStore.add(alarm)
+                            }
+                            scheduler.schedule(alarm: alarm)
+                            onClose()
+                        }
                     }
-                }
-                .padding(.horizontal, Spacing.l)
-                .padding(.bottom, Spacing.m)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.bottom, Spacing.m)
+                    .background(Colors.bgPrimary)
+                 }
             }
         }
         .sheet(isPresented: $showEmojiPicker) {
@@ -255,12 +283,105 @@ struct CreateWakeUpAlarmView: View {
         .sheet(isPresented: $showWallpaperPicker) {
             WallpaperPickerView(selectedId: $viewModel.draft.wallpaperId)
         }
-        .alert("Coming soon", isPresented: $showMissionAlert) {
-            Button("OK", role: .cancel) {}
+        .sheet(isPresented: $showMissionSelection) {
+            MissionSelectionView { mission in
+                showMissionSelection = false
+                // Small delay to ensure previous sheet is dismissed
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    selectedMissionForConfig = mission
+                }
+            }
+        }
+        .sheet(item: $selectedMissionForConfig) { mission in
+            if mission.type == .findColorTiles {
+                FindColorTilesSettingsView { settings in
+                    let updatedMission = AlarmMission(
+                        type: .findColorTiles,
+                        difficulty: settings.difficulty.rawValue,
+                        rounds: settings.rounds
+                    )
+                    updateMission(updatedMission)
+                }
+            } else if mission.type == .typing {
+                TypingMissionSettingsView { settings in
+                    let updatedMission = AlarmMission(
+                        type: .typing,
+                        rounds: settings.repeatCount
+                    )
+                    updateMission(updatedMission)
+                }
+            } else if mission.type == .math {
+                MathMissionSettingsView { config in
+                    let updatedMission = AlarmMission(
+                        type: .math,
+                        difficulty: config.difficulty.rawValue,
+                        rounds: config.repeatCount
+                    )
+                    updateMission(updatedMission)
+                }
+            } else if mission.type == .memoryMatch {
+                MemoryMatchSettingsView { difficulty, rounds in
+                    let updatedMission = AlarmMission(
+                        type: .memoryMatch,
+                        difficulty: difficulty.rows, // Storing grid size for now
+                        rounds: rounds
+                    )
+                    updateMission(updatedMission)
+                }
+            } else if mission.type == .ticTacToe {
+                TicTacToeSettingsView { difficulty, size, rounds in
+                    var updatedMission = AlarmMission(
+                        type: .ticTacToe,
+                        difficulty: difficulty.rawValue,
+                        rounds: rounds
+                    )
+                    updatedMission.config = ["size": size.rawValue]
+                    updateMission(updatedMission)
+                }
+            } else if mission.type == .step {
+                StepsMissionSettingsView { steps in
+                    var updatedMission = AlarmMission(
+                        type: .step
+                    )
+                    updatedMission.config = ["steps": steps]
+                    updateMission(updatedMission)
+                }
+            } else if mission.type == .qrBarcode {
+                QRBarcodeSettingsView { config in
+                    var updatedMission = AlarmMission(type: .qrBarcode)
+                    if let id = config.selectedBarcodeId {
+                        updatedMission.customData["barcodeId"] = id.uuidString
+                    }
+                    if let raw = config.selectedRawValueFallback {
+                        updatedMission.customData["barcodeVal"] = raw
+                    }
+                    updateMission(updatedMission)
+                }
+            } else {
+                // Fallback for other missions as empty pages for now
+                VStack {
+                    Text(mission.title).font(.bold(.title)())
+                    Text("Config coming soon")
+                    Button("Done") {
+                        updateMission(mission)
+                    }
+                }
+                .padding()
+                .background(Colors.bgPrimary.ignoresSafeArea())
+            }
         }
         .onDisappear {
             soundPlayer.stop()
         }
+    }
+
+    private func updateMission(_ mission: AlarmMission) {
+        if let index = editingMissionIndex {
+            viewModel.draft.missions[index] = mission
+        } else {
+            viewModel.addMission(mission)
+        }
+        selectedMissionForConfig = nil
     }
 
     private func weekdayLabel(_ day: Int) -> String {
@@ -269,252 +390,6 @@ struct CreateWakeUpAlarmView: View {
     }
 }
 
-private struct MissionSectionView: View {
-    @Binding var showAlert: Bool
-    let wakeUpCheckText: String
-    let onWakeUpCheck: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.m) {
-            HStack {
-                Text("Mission")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Colors.textPrimary)
-                Spacer()
-                Text("0/5")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Colors.textSecondary)
-            }
-
-            HStack(spacing: 12) {
-                ForEach(0..<4, id: \.self) { _ in
-                    Button(action: { showAlert = true }) {
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Colors.cardStroke, lineWidth: 1)
-                            .frame(width: 64, height: 64)
-                            .overlay(
-                                Image(systemName: "plus")
-                                    .foregroundColor(Colors.textSecondary)
-                            )
-                    }
-                }
-            }
-
-            Button(action: onWakeUpCheck) {
-                HStack {
-                    Text("Wake up check")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Colors.textPrimary)
-                    Spacer()
-                    Text(wakeUpCheckText)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Colors.textSecondary)
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(Colors.textSecondary)
-                }
-            }
-        }
-        .padding(Spacing.l)
-        .background(Colors.cardSurface)
-        .cornerRadius(22)
-    }
-}
-
-private struct AlarmSoundCard: View {
-    let soundName: String
-    let onTap: () -> Void
-    let onPreview: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Button(action: onPreview) {
-                Circle()
-                    .fill(Colors.cardSurface)
-                    .frame(width: 36, height: 36)
-                    .overlay(Image(systemName: "play.fill").foregroundColor(Colors.textPrimary))
-            }
-            .buttonStyle(.plain)
-
-            Text(soundName)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(Colors.textPrimary)
-            Spacer()
-            Image(systemName: "chevron.right")
-                .foregroundColor(Colors.textSecondary)
-        }
-        .padding(Spacing.m)
-        .background(Colors.cardSurface)
-        .cornerRadius(22)
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onTap)
-    }
-}
-
-private struct SettingsRow: View {
-    let title: String
-    let value: String
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            HStack {
-                Text(title)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Colors.textPrimary)
-                Spacer()
-                Text(value)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Colors.textSecondary)
-                Image(systemName: "chevron.right")
-                    .foregroundColor(Colors.textSecondary)
-            }
-            .padding(Spacing.m)
-            .background(Colors.cardSurface)
-            .cornerRadius(22)
-        }
-    }
-}
-
-private struct ReminderTogglesCard: View {
-    @Binding var timeReminder: Bool
-    @Binding var weatherReminder: Bool
-    @Binding var labelReminder: Bool
-    @Binding var extraLoud: Bool
-
-    var body: some View {
-        VStack(spacing: Spacing.m) {
-            ReminderRow(title: "Time reminder", isOn: $timeReminder)
-            ReminderRow(title: "Weather reminder", isOn: $weatherReminder)
-            ReminderRow(title: "Label reminder", isOn: $labelReminder)
-            ReminderRow(title: "Extra loud effect", isOn: $extraLoud)
-        }
-        .padding(Spacing.l)
-        .background(Colors.cardSurface)
-        .cornerRadius(22)
-    }
-}
-
-private struct ReminderRow: View {
-    let title: String
-    @Binding var isOn: Bool
-
-    var body: some View {
-        HStack {
-            Text(title)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(Colors.textPrimary)
-            Spacer()
-            Button(action: {}) {
-                HStack(spacing: 6) {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 10, weight: .bold))
-                    Text("Sample")
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Colors.bgSecondary)
-                .cornerRadius(12)
-                .foregroundColor(Colors.textSecondary)
-            }
-            Toggle("", isOn: $isOn)
-                .labelsHidden()
-        }
-    }
-}
-
-private struct CustomSettingsCard: View {
-    let snoozeText: String
-    let onSnooze: () -> Void
-    let wallpaperId: String
-    let onWallpaper: () -> Void
-
-    var body: some View {
-        VStack(spacing: Spacing.m) {
-            Button(action: onSnooze) {
-                HStack {
-                    Text("Snooze")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Colors.textPrimary)
-                    Spacer()
-                    Text(snoozeText)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Colors.textSecondary)
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(Colors.textSecondary)
-                }
-            }
-            Divider().background(Colors.cardStroke)
-            Button(action: onWallpaper) {
-                HStack {
-                    Text("Alarm wallpaper")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Colors.textPrimary)
-                    Spacer()
-                    WallpaperThumbnail(id: wallpaperId)
-                }
-            }
-        }
-        .padding(Spacing.l)
-        .background(Colors.cardSurface)
-        .cornerRadius(22)
-    }
-}
-
-private struct WallpaperThumbnail: View {
-    let id: String
-
-    var body: some View {
-        let image = loadImage(id)
-        return Group {
-            if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                LinearGradient(colors: [.orange, .yellow], startPoint: .top, endPoint: .bottom)
-            }
-        }
-        .frame(width: 44, height: 56)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-
-    private func loadImage(_ id: String) -> UIImage? {
-        if let url = Bundle.main.url(forResource: id, withExtension: nil, subdirectory: "BundledWallpapers") {
-            return UIImage(contentsOfFile: url.path)
-        }
-        if let parsed = parsedWallpaper(id) {
-            if let url = Bundle.main.url(forResource: parsed.filename, withExtension: nil, subdirectory: "BundledWallpapers/\(parsed.category)") {
-                return UIImage(contentsOfFile: url.path)
-            }
-        }
-        if let url = findWallpaperByFilename(id) {
-            return UIImage(contentsOfFile: url.path)
-        }
-        return nil
-    }
-
-    private func parsedWallpaper(_ id: String) -> (category: String, filename: String)? {
-        let parts = id.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: true)
-        guard parts.count == 2 else { return nil }
-        return (category: String(parts[0]), filename: String(parts[1]))
-    }
-
-    private func findWallpaperByFilename(_ filename: String) -> URL? {
-        guard let root = Bundle.main.resourceURL?.appendingPathComponent("BundledWallpapers") else { return nil }
-        let fm = FileManager.default
-        let target = filename.components(separatedBy: "-").last ?? filename
-        guard let categories = try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else { return nil }
-        for category in categories {
-            if let items = try? fm.contentsOfDirectory(at: category, includingPropertiesForKeys: nil) {
-                if let match = items.first(where: { $0.lastPathComponent == target }) {
-                    return match
-                }
-            }
-        }
-        return nil
-    }
-}
 
 private extension CreateWakeUpAlarmView {
     var gentleWakeUpText: String {

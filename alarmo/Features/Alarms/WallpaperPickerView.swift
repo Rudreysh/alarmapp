@@ -73,6 +73,9 @@ struct WallpaperPickerView: View {
         }
         .onAppear {
             items = (try? loader.loadCategories().flatMap(\.items)) ?? []
+            if selectedId == "default", let first = items.first?.id {
+                selectedId = first
+            }
         }
     }
 }

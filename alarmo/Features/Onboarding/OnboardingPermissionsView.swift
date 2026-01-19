@@ -4,6 +4,13 @@ struct OnboardingPermissionsView: View {
     @ObservedObject var viewModel: OnboardingViewModel
     let onNext: () -> Void
     @State private var isRequesting = false
+    
+    // For visual iOS version display as requested in image (iOS 26)
+    // We'll use the device version but allow the user to see the specific format
+    private var iosVersion: String {
+        let version = UIDevice.current.systemVersion.prefix(2)
+        return "(iOS \(version))"
+    }
 
     var body: some View {
         ZStack {
@@ -15,14 +22,14 @@ struct OnboardingPermissionsView: View {
                     .padding(.top, Spacing.l)
 
                 Text("Ensure your alarm rings")
-                    .screenTitle()
+                    .font(.system(size: 32, weight: .bold)) // Bolder as in mockup
                     .foregroundColor(Colors.textPrimary)
                     .multilineTextAlignment(.center)
-                    .accessibilityAddTraits(.isHeader)
+                    .padding(.top, Spacing.m)
 
-                HStack(spacing: Spacing.l) {
+                HStack(spacing: 30) {
                     PermissionIconLabel(
-                        title: "Alarms\n(iOS 17+)",
+                        title: "Alarms\n\(iosVersion)",
                         systemImage: "alarm.fill",
                         color: .orange
                     )
@@ -34,24 +41,36 @@ struct OnboardingPermissionsView: View {
                     )
                 }
 
-                PermissionDialogPreview()
-                    .padding(.top, Spacing.s)
+                Spacer()
+                
+                PermissionDialogPreview(onAllow: {
+                    requestPermission()
+                })
+                .padding(.bottom, 60) // Positioned like a floating modal center-bottom-ish
 
                 Spacer()
             }
             .safeAreaInset(edge: .bottom) {
                 PrimaryButton(title: "Next") {
-                    guard !isRequesting else { return }
-                    isRequesting = true
-                    Task { @MainActor in
-                        await viewModel.requestNotificationPermissionAndAdvance()
-                        isRequesting = false
-                        onNext()
-                    }
+                    requestPermission()
                 }
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, Spacing.m)
             }
+        }
+    }
+    
+    private func requestPermission() {
+        guard !isRequesting else { return }
+        isRequesting = true
+        
+        // Haptic feedback
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        
+        Task { @MainActor in
+            await viewModel.requestNotificationPermissionAndAdvance()
+            isRequesting = false
+            onNext()
         }
     }
 }
@@ -62,64 +81,74 @@ private struct PermissionIconLabel: View {
     let color: Color
 
     var body: some View {
-        HStack(spacing: Spacing.s) {
+        HStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(color)
-                    .frame(width: 44, height: 44)
+                    .frame(width: 40, height: 40)
                 Image(systemName: systemImage)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.white)
             }
 
             Text(title)
-                .bodyText()
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(Colors.textPrimary)
+                .lineLimit(2)
+                .fixedSize(horizontal: true, vertical: false)
         }
     }
 }
 
 private struct PermissionDialogPreview: View {
+    let onAllow: () -> Void
+    
     var body: some View {
         VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: Spacing.s) {
+            VStack(spacing: Spacing.s) {
                 Text("Please allow permission")
-                    .cardTitle()
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
-                Text("Alarm and Notification permissions\nlet us ring when the phone is locked")
-                    .bodyText()
+                Text("Alarm and Notification permissions let us ring when the phone is locked")
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundColor(Colors.textSecondary)
+                    .multilineTextAlignment(.center)
             }
-            .padding(Spacing.l)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(24)
 
             Divider()
                 .background(Colors.cardStroke)
 
             HStack(spacing: 0) {
-                Text("Don’t Allow")
-                    .bodyText()
-                    .foregroundColor(Colors.textSecondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Spacing.m)
+                Button(action: {}) { // Don't allow usually does nothing in preview
+                    Text("Don’t Allow")
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundColor(Colors.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                }
 
                 Divider()
+                    .frame(height: 44) // Smaller divider Height
                     .background(Colors.cardStroke)
 
-                Text("Allow")
-                    .bodyText()
-                    .foregroundColor(Colors.accentTeal)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Spacing.m)
+                Button(action: onAllow) {
+                    Text("Allow")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Colors.accentTeal)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                }
             }
+            .fixedSize(horizontal: false, vertical: true)
         }
-        .background(Colors.bgSecondary)
-        .cornerRadius(Radii.card)
+        .frame(width: 280) // Slightly narrower card too
+        .background(Colors.cardSurface)
+        .cornerRadius(20)
         .overlay(
-            RoundedRectangle(cornerRadius: Radii.card)
-                .stroke(Colors.cardStroke, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(Colors.cardStroke, lineWidth: 0.5)
         )
         .appShadow(Shadows.card)
-        .padding(.horizontal, Spacing.l)
     }
 }

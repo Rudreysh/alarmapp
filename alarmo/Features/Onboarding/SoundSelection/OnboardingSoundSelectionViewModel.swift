@@ -20,7 +20,7 @@ final class OnboardingSoundSelectionViewModel: ObservableObject {
 
     func load() {
         do {
-            let sounds = try repository.loadBundledSounds()
+            let sounds = repository.loadAllSounds()
             let grouped = Dictionary(grouping: sounds, by: { $0.category })
             soundsByCategory = grouped
             categories = SoundCategory.order.filter { grouped[$0] != nil } + grouped.keys.filter { !SoundCategory.order.contains($0) }

@@ -14,10 +14,10 @@ struct OnboardingSetTimeView: View {
                     .padding(.top, Spacing.l)
 
                 Text("Set your alarm time")
-                    .screenTitle()
+                    .font(.system(size: 32, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
                     .multilineTextAlignment(.center)
-                    .accessibilityAddTraits(.isHeader)
+                    .padding(.top, Spacing.m)
 
                 TimeWheelPickerView(
                     hour: Binding(

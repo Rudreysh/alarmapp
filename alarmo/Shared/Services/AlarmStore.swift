@@ -82,10 +82,37 @@ final class AlarmStore: ObservableObject {
     private func load() {
         do {
             let data = try Data(contentsOf: fileURL)
-            alarms = try JSONDecoder().decode([Alarm].self, from: data)
+            let decoded = try JSONDecoder().decode([Alarm].self, from: data)
+            alarms = migrateDefaultWallpapers(in: decoded)
         } catch {
             alarms = []
         }
+    }
+
+    private func migrateDefaultWallpapers(in list: [Alarm]) -> [Alarm] {
+        guard let firstCategory = WallpaperConfig.categories.first,
+              let firstFilename = firstCategory.imageNames.first else {
+            return list
+        }
+        let fallbackId = "\(firstCategory.id)-\(firstFilename)"
+        var updated: [Alarm] = []
+        var didChange = false
+        for var alarm in list {
+            if alarm.wallpaperId == "default" {
+                alarm.wallpaperId = fallbackId
+                didChange = true
+            }
+            updated.append(alarm)
+        }
+        if didChange {
+            do {
+                let data = try JSONEncoder().encode(updated)
+                try data.write(to: fileURL, options: [.atomic])
+            } catch {
+                return updated
+            }
+        }
+        return updated
     }
 
     private func persist() {

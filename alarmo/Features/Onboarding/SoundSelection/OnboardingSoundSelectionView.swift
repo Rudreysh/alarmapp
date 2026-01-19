@@ -116,7 +116,7 @@ private struct SoundListCard: View {
     var body: some View {
         VStack(spacing: 0) {
             ForEach(sounds) { sound in
-                SoundRow(
+                OnboardingSoundRow(
                     title: sound.title,
                     isSelected: sound.id == selectedId,
                     isPlaying: sound.id == playingId
@@ -140,7 +140,7 @@ private struct SoundListCard: View {
     }
 }
 
-private struct SoundRow: View {
+private struct OnboardingSoundRow: View {
     let title: String
     let isSelected: Bool
     let isPlaying: Bool
@@ -166,8 +166,7 @@ private struct SoundRow: View {
             Spacer()
 
             if isPlaying {
-                Image(systemName: "waveform")
-                    .foregroundColor(Colors.textSecondary)
+                WaveformAnimation(color: Colors.textSecondary)
             }
         }
         .padding(.horizontal, Spacing.l)

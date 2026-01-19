@@ -1,12 +1,17 @@
 import SwiftUI
 
 struct HomeView: View {
+    @EnvironmentObject var ringCoordinator: AlarmRingCoordinator
     @StateObject private var viewModel: HomeViewModel
     @ObservedObject var alarmStore: AlarmStore
     @State private var showProPaywall = false
     @State private var proPaywallStartStep: ProPaywallStep = .intro
     @State private var showAddMenu = false
     @State private var showCreateAlarm = false
+    @State private var showQuickAlarm = false
+    @State private var showCreateHabit = false
+    @State private var showTimer = false
+    @State private var selectedAlarm: Alarm?
 
     init(viewModel: HomeViewModel, alarmStore: AlarmStore) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -76,13 +81,25 @@ struct HomeView: View {
                                     onDelete: { alarmStore.remove(id: alarm.id) }
                                 ) {
                                     AlarmCardView(
-                                        time: alarm.timeString,
-                                        repeatMask: alarm.repeatMask,
-                                        isEnabled: Binding(
-                                            get: { alarm.enabled },
-                                            set: { alarmStore.toggleEnabled(id: alarm.id, enabled: $0) }
-                                        )
+                                        alarm: alarm,
+                                        onToggle: { alarmStore.toggleEnabled(id: alarm.id, enabled: $0) },
+                                        onDelete: { alarmStore.remove(id: alarm.id) },
+                                        onDuplicate: {
+                                            alarmStore.add(alarm.duplicate())
+                                        },
+                                        onSkipOnce: {
+                                            var updated = alarm
+                                            updated.isSkippedOnce.toggle()
+                                            alarmStore.update(updated)
+                                        },
+                                        onPreview: {
+                                            ringCoordinator.startPreview(alarm: alarm)
+                                        }
                                     )
+                                    .onTapGesture(count: 2) {
+                                        guard alarm.type == .wakeUp else { return }
+                                        selectedAlarm = alarm
+                                    }
                                 }
                             }
                         }
@@ -156,11 +173,14 @@ struct HomeView: View {
                     }
 
                 FloatingAddMenu(
+                    onSelectTimer: {
+                        openTimer()
+                    },
                     onSelectHabit: {
-                        showAddMenu = false
+                        openCreateHabit()
                     },
                     onSelectQuick: {
-                        showAddMenu = false
+                        openQuickAlarm()
                     },
                     onSelectAlarm: {
                         openCreateAlarm()
@@ -205,6 +225,29 @@ struct HomeView: View {
                 onClose: { showCreateAlarm = false }
             )
         }
+        .fullScreenCover(item: $selectedAlarm) { alarm in
+            CreateWakeUpAlarmView(
+                alarmStore: alarmStore,
+                existingAlarm: alarm,
+                onClose: { selectedAlarm = nil }
+            )
+        }
+        .fullScreenCover(isPresented: $showQuickAlarm) {
+            QuickAlarmView(
+                alarmStore: alarmStore,
+                onClose: { showQuickAlarm = false }
+            )
+            .background(ClearBackgroundView()) // Helper needed for transparency in fullScreenCover
+        }
+        .fullScreenCover(isPresented: $showCreateHabit) {
+            CreateHabitAlarmView(
+                alarmStore: alarmStore,
+                onClose: { showCreateHabit = false }
+            )
+        }
+        .fullScreenCover(isPresented: $showTimer) {
+            TimerRootView(onClose: { showTimer = false })
+        }
     }
 
     private func openCreateAlarm() {
@@ -213,42 +256,131 @@ struct HomeView: View {
             showCreateAlarm = true
         }
     }
+    
+    private func openQuickAlarm() {
+        showAddMenu = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            showQuickAlarm = true
+        }
+    }
+
+    private func openCreateHabit() {
+        showAddMenu = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            showCreateHabit = true
+        }
+    }
+
+    private func openTimer() {
+        showAddMenu = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            showTimer = true
+        }
+    }
 }
 
 private struct AlarmCardView: View {
-    let time: String
-    let repeatMask: Int
-    @Binding var isEnabled: Bool
+    let alarm: Alarm
+    let onToggle: (Bool) -> Void
+    let onDelete: () -> Void
+    let onDuplicate: () -> Void
+    let onSkipOnce: () -> Void
+    let onPreview: () -> Void
 
     private let weekdays: [String] = ["S", "M", "T", "W", "T", "F", "S"]
 
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    ForEach(0..<weekdays.count, id: \.self) { index in
-                        Text(weekdays[index])
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(isDayEnabled(index: index) ? Colors.accentTeal : Colors.textTertiary)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(alarm.timeString)
+                        .font(.system(size: 40, weight: .bold))
+                        .foregroundColor(Colors.textPrimary)
+                    
+                    HStack(spacing: 6) {
+                        Text(alarm.emoji)
+                            .font(.system(size: 16))
+                        Text(alarm.name.isEmpty ? "Alarm" : alarm.name)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(Colors.textPrimary)
+                    }
+                    
+                    if alarm.isSkippedOnce {
+                        Text("alarm rings on \(nextDayText)")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Colors.textSecondary)
                     }
                 }
-                Text(time)
-                    .font(.system(size: 34, weight: .bold))
-                    .foregroundColor(Colors.textPrimary)
-            }
-            Spacer()
-            Toggle("", isOn: $isEnabled)
+                
+                Spacer()
+                
+                Toggle("", isOn: Binding(
+                    get: { alarm.enabled },
+                    set: { onToggle($0) }
+                ))
                 .labelsHidden()
-                .toggleStyle(SwitchToggleStyle(tint: Colors.accentRed))
+                .toggleStyle(SwitchToggleStyle(tint: Colors.accentTeal))
+            }
+            
+            HStack {
+                if alarm.type == .quick {
+                    HStack(spacing: 4) {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 12))
+                        Text("Quick Alarm")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(Colors.accentTeal)
+                } else {
+                    HStack(spacing: 8) {
+                        ForEach(0..<weekdays.count, id: \.self) { index in
+                            Text(weekdays[index])
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(isDayEnabled(index: index) ? Colors.textPrimary : Colors.textTertiary)
+                                .opacity(isDayEnabled(index: index) ? 1.0 : 0.3)
+                        }
+                    }
+                }
+                
+                Spacer()
+                
+                Menu {
+                    Button(role: .destructive, action: onDelete) {
+                        Label("Delete", systemImage: "trash")
+                    }
+                    Button(action: onDuplicate) {
+                        Label("Duplicate", systemImage: "doc.on.doc")
+                    }
+                    Button(action: onPreview) {
+                        Label("Preview alarm", systemImage: "eye")
+                    }
+                    Button(action: onSkipOnce) {
+                        Label(alarm.isSkippedOnce ? "Undo skip" : "Skip once", systemImage: "arrow.clockwise")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(Colors.textSecondary)
+                        .padding(4)
+                }
+            }
         }
-        .padding(Spacing.m)
+        .padding(Spacing.l)
         .background(Colors.cardSurface)
-        .cornerRadius(22)
+        .cornerRadius(24)
     }
 
     private func isDayEnabled(index: Int) -> Bool {
         let bit = 1 << index
-        return (repeatMask & bit) != 0
+        return (alarm.repeatMask & bit) != 0
+    }
+    
+    private var nextDayText: String {
+        let calendar = Calendar.current
+        let nextDate = calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE"
+        return formatter.string(from: nextDate)
     }
 }
 

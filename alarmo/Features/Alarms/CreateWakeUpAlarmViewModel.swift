@@ -16,6 +16,43 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
         )
     }
 
+    init(alarm: Alarm) {
+        var draft = AlarmDraft(
+            defaultHour: alarm.hour,
+            defaultMinute: alarm.minute,
+            defaultRepeatMask: alarm.repeatMask,
+            defaultSoundName: alarm.soundName,
+            defaultSoundVolume: alarm.soundVolume,
+            defaultWallpaperId: alarm.wallpaperId
+        )
+        draft.name = alarm.name
+        draft.emoji = alarm.emoji
+        draft.enabled = alarm.enabled
+        draft.isDaily = alarm.isDaily
+        draft.selectedWeekdays = Set(RepeatMask.weekdays(from: alarm.repeatMask))
+        draft.wakeUpCheckEnabled = alarm.wakeUpCheckEnabled
+        draft.vibrateEnabled = alarm.vibrateEnabled
+        draft.gentleWakeUpSeconds = alarm.gentleWakeUpSeconds
+        draft.timeReminderEnabled = alarm.timeReminderEnabled
+        draft.weatherReminderEnabled = alarm.weatherReminderEnabled
+        draft.labelReminderEnabled = alarm.labelReminderEnabled
+        draft.extraLoudEnabled = alarm.extraLoudEnabled
+        draft.snoozeMinutes = alarm.snoozeMinutes
+        draft.snoozeCount = alarm.snoozeCount
+        draft.missions = alarm.missions
+        self.draft = draft
+    }
+    
+    func addMission(_ mission: AlarmMission) {
+        if draft.missions.count < 5 {
+            draft.missions.append(mission)
+        }
+    }
+    
+    func removeMission(at index: Int) {
+        draft.missions.remove(at: index)
+    }
+
     var ringInText: String {
         let now = Date()
         guard let next = nextFireDate(from: now) else {
