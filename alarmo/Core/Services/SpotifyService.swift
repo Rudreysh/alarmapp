@@ -214,10 +214,11 @@ extension SpotifyService {
 
 extension SpotifyService: ASWebAuthenticationPresentationContextProviding {
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        return UIApplication.shared.connectedScenes
-            .filter { $0.activationState == .foregroundActive }
+        let window = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
-            .first?.windows
-            .first { $0.isKeyWindow } ?? ASPresentationAnchor()
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow }
+        
+        return window ?? ASPresentationAnchor()
     }
 }

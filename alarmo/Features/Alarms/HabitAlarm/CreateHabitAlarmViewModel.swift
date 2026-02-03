@@ -25,6 +25,13 @@ class CreateHabitAlarmViewModel: ObservableObject {
     @Published var wakeUpCheckEnabled: Bool = false
     @Published var missions: [AlarmMission] = []
     
+    // Reminder Feature
+    @Published var reminderEnabled: Bool = false
+    @Published var reminderIntervalMinutes: Int = 20
+    @Published var reminderDurationSeconds: Int = 20
+    @Published var reminderStartTime: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
+    @Published var reminderEndTime: Date = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: Date()) ?? Date()
+    
     @Published var ringInText: String = ""
     
     let defaultSoundName: String
@@ -148,5 +155,32 @@ class CreateHabitAlarmViewModel: ObservableObject {
     
     func removeMission(at index: Int) {
         missions.remove(at: index)
+    }
+    
+    var reminderSummary: AttributedString {
+        let habitName = name.isEmpty ? "your habit" : name
+        
+        var string = AttributedString("I want to ")
+        
+        var habitAttr = AttributedString(habitName)
+        habitAttr.foregroundColor = Colors.accentTeal
+        habitAttr.underlineStyle = .single
+        string.append(habitAttr)
+        
+        string.append(AttributedString(" every "))
+        
+        var intervalAttr = AttributedString("\(reminderIntervalMinutes) minutes")
+        intervalAttr.foregroundColor = Colors.accentTeal
+        string.append(intervalAttr)
+        
+        string.append(AttributedString(" for "))
+        
+        var durationAttr = AttributedString("\(reminderDurationSeconds) seconds")
+        durationAttr.foregroundColor = Colors.accentTeal
+        string.append(durationAttr)
+        
+        string.append(AttributedString("."))
+        
+        return string
     }
 }

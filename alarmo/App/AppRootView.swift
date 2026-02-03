@@ -6,7 +6,10 @@ struct AppRootView: View {
     @StateObject private var appPreferences = AppPreferences()
     @StateObject private var alarmStore = AlarmStore()
     @StateObject private var ringCoordinator = AlarmRingCoordinator()
-    @StateObject private var notificationManager = NotificationManager.shared
+    @StateObject private var notificationManager: NotificationManager = NotificationManager.shared
+    @StateObject private var taskStore = TaskStore()
+    @StateObject private var pomodoroEngine = PomodoroEngine()
+    @StateObject private var navigationStore = NavigationStore()
     @ObservedObject private var settingsStore = SettingsStore.shared
     @State private var foregroundScheduler: AlarmForegroundScheduler?
     @State private var showingMainTab = false
@@ -35,6 +38,9 @@ struct AppRootView: View {
         }
         .environmentObject(ringCoordinator)
         .environmentObject(notificationManager)
+        .environmentObject(taskStore)
+        .environmentObject(pomodoroEngine)
+        .environmentObject(navigationStore)
         .fullScreenCover(isPresented: Binding(
             get: { ringCoordinator.isRinging },
             set: { _ in }

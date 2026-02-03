@@ -108,6 +108,11 @@ class TimerViewModel: ObservableObject {
     private func handlePomoEnd() {
         if currentStage == .focus {
             print("[PomoEngine] Focus session ended, sound=\(preferences.pomoEndingSoundName)")
+            
+            // Logic to be improved: pass actual taskId if VM had access to it easily. 
+            // For now, tracking at higher level or just using taskId parameter.
+            completePomodoroSession(taskId: nil, durationSeconds: Int(pomoDurationSeconds), endedAt: Date())
+            
             if preferences.autoStartBreak {
                 startBreak()
             } else {
@@ -165,6 +170,10 @@ class TimerViewModel: ObservableObject {
         frequentDurations[index] = seconds
         frequentDurations.sort()
         setPomoDuration(seconds)
+    }
+    
+    func completePomodoroSession(taskId: UUID?, durationSeconds: Int, endedAt: Date) {
+        print("[TimerHistory] Session completed. task=\(taskId?.uuidString ?? "none") duration=\(durationSeconds) endedAt=\(endedAt)")
     }
     
     var timeDisplay: String {

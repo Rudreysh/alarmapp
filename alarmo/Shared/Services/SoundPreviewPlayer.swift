@@ -5,6 +5,7 @@ import SwiftUI
 
 protocol SoundPreviewPlayerProtocol {
     var isBuffering: Bool { get }
+    var isPlaying: Bool { get }
     func play(resourceName: String, volume: Float)
     func stop()
 }
@@ -16,6 +17,7 @@ final class SoundPreviewPlayer: ObservableObject, SoundPreviewPlayerProtocol {
     private var timeControlObserver: NSKeyValueObservation?
     
     @Published var isBuffering: Bool = false
+    @Published var isPlaying: Bool = false
     private var playRequestedAt: Date?
 
     func play(resourceName: String, volume: Float) {
@@ -60,6 +62,7 @@ final class SoundPreviewPlayer: ObservableObject, SoundPreviewPlayerProtocol {
             timeControlObserver = player?.observe(\.timeControlStatus, options: [.new]) { player, _ in
                 DispatchQueue.main.async {
                     self.isBuffering = player.timeControlStatus == .waitingToPlayAtSpecifiedRate
+                    self.isPlaying = player.timeControlStatus == .playing
                     
                     if player.timeControlStatus == .playing, let requestedAt = self.playRequestedAt {
                         let latency = Date().timeIntervalSince(requestedAt)
@@ -82,6 +85,9 @@ final class SoundPreviewPlayer: ObservableObject, SoundPreviewPlayerProtocol {
         timeControlObserver = nil
         player?.pause()
         player = nil
-        DispatchQueue.main.async { self.isBuffering = false }
+        DispatchQueue.main.async { 
+            self.isBuffering = false 
+            self.isPlaying = false
+        }
     }
 }

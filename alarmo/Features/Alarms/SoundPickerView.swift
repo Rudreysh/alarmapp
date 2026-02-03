@@ -210,12 +210,16 @@ struct SoundPickerView: View {
                 if let url = item.assetURL {
                     // Try to export/copy
                     let title = item.title ?? "Unknown Song"
-                    do {
-                        try customSoundService.saveImportedFile(from: url, name: title)
-                        loadSounds()
-                        selectedTab = .custom
-                    } catch {
-                        print("Error importing music: \(error)")
+                    Task {
+                        do {
+                            try await customSoundService.saveImportedFile(from: url, name: title)
+                            await MainActor.run {
+                                loadSounds()
+                                selectedTab = .custom
+                            }
+                        } catch {
+                            print("Error importing music: \(error)")
+                        }
                     }
                 } else {
                     print("No local asset URL for this item (cloud item?)")

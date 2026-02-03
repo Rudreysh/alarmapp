@@ -8,12 +8,49 @@ struct OnboardingFlowView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            OnboardingIntroView {
+            OnboardingIntroView(onNext: {
                 withAnimation(.easeInOut) {
                     viewModel.nextStep()
                     path.append(.setTime)
                 }
-            }
+            }, onSkip: {
+                // Skip directly to main app
+                withAnimation(.easeInOut) {
+                    appPreferences.devAlwaysShowOnboarding = false
+                    appPreferences.onboardingCompleted = true
+                    appPreferences.onboardingAlarmEnabled = true
+                    
+                    // Create a default alarm if none exists, using current defaults
+                    if alarmStore.alarms.isEmpty {
+                        let newAlarm = Alarm(
+                            id: UUID(),
+                            name: "Morning Alarm",
+                            emoji: "🌞",
+                            hour: 8,
+                            minute: 0,
+                            isDaily: true,
+                            repeatMask: RepeatMask.monToSat, // Added
+                            enabled: true,
+                            wakeUpCheckEnabled: false, // Added
+                            soundName: "Orkney",
+                            soundVolume: 1.0,
+                            vibrateEnabled: true, // Added
+                            gentleWakeUpSeconds: 30, // Added
+                            timeReminderEnabled: false, // Added
+                            weatherReminderEnabled: false, // Added
+                            labelReminderEnabled: false, // Added
+                            extraLoudEnabled: false, // Added
+                            snoozeMinutes: 5, // Added
+                            snoozeCount: 3, // Added
+                            wallpaperId: "default", // Added
+                            createdAt: Date()
+                        )
+                        alarmStore.add(newAlarm)
+                        appPreferences.hasAnyAlarm = true
+                    }
+                    viewModel.completeOnboarding()
+                }
+            })
             .navigationDestination(for: OnboardingStep.self) { step in
                 switch step {
                 case .setTime:

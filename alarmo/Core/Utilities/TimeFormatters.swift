@@ -14,4 +14,10 @@ enum TimeFormatters {
         formatter.dateFormat = "HH:mm"
         return formatter.string(from: date)
     }
+
+    static func shortTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm aa"
+        return formatter.string(from: date).lowercased()
+    }
 }

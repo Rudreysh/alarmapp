@@ -24,42 +24,81 @@ struct MissionSectionView: View {
     let onWakeUpCheck: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.m) {
-            HStack {
-                Text("Mission")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Colors.textPrimary)
-                Spacer()
-                Text("\(missions.count)/5")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Colors.textSecondary)
-            }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(0..<5, id: \.self) { index in
-                        if index < missions.count {
-                            missionIcon(missions[index].iconName)
-                                .onTapGesture { onEditMission(index) }
-                                .contextMenu {
-                                    Button(role: .destructive) { onRemoveMission(index) } label: {
-                                        Label("Remove", systemImage: "trash")
-                                    }
-                                }
-                        } else {
-                            Button(action: onAddMission) {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Colors.cardStroke, lineWidth: 1)
-                                    .frame(width: 64, height: 64)
-                                    .overlay(
-                                        Image(systemName: "plus")
-                                            .foregroundColor(Colors.textSecondary)
-                                    )
-                            }
-                        }
+        VStack(spacing: 0) {
+            // 1. Header Row (Includes First Mission)
+            HStack(alignment: .center, spacing: 0) {
+                // Left: Label Section
+                HStack(spacing: 10) {
+                     ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Colors.accentOrange.opacity(0.12))
+                            .frame(width: 32, height: 32)
+                        Image(systemName: "list.bullet.clipboard.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(Colors.accentOrange)
                     }
+                    
+                    Text("Missions")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Colors.textPrimary)
+                }
+                
+                Spacer()
+                
+                // Right: First Mission (Styled as a Chip)
+                if let first = missions.first {
+                    AlarmMissionChip(mission: first, onRemove: {
+                        onRemoveMission(0)
+                    })
+                    .onTapGesture { onEditMission(0) }
+                } else {
+                    Text("Off")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Colors.textSecondary)
+                        .onTapGesture(perform: onAddMission)
                 }
             }
+            .padding(.horizontal, Spacing.m)
+            .padding(.vertical, 10) // Slightly tighter padding for the 25pt chips
+            
+            // 2. Extra Missions Row (Horizontal Chips + Add Button)
+            if !missions.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        // 1. Extra Chips (Skip first one)
+                        ForEach(Array(missions.dropFirst().enumerated()), id: \.offset) { index, mission in
+                            let actualIndex = index + 1
+                            AlarmMissionChip(mission: mission, onRemove: {
+                                onRemoveMission(actualIndex)
+                            })
+                            .onTapGesture { onEditMission(actualIndex) }
+                        }
+                        
+                        // 2. Inline Add Button
+                        if missions.count < 5 {
+                            Button(action: onAddMission) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 10, weight: .bold))
+                                    Text("Add")
+                                        .font(.system(size: 10, weight: .semibold))
+                                }
+                                .padding(.horizontal, 10)
+                                .frame(height: 25) // Match Chip Height
+                                .background(Colors.bgSecondary)
+                                .foregroundColor(Colors.accentBlue)
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, Spacing.m)
+                }
+                .frame(height: 25) 
+                .padding(.bottom, 10)
+            }
+            
+            Divider().padding(.leading, 56)
 
             Button(action: onWakeUpCheck) {
                 HStack {
@@ -73,26 +112,67 @@ struct MissionSectionView: View {
                     Image(systemName: "chevron.right")
                         .foregroundColor(Colors.textSecondary)
                 }
+                .padding(Spacing.m)
             }
         }
         .backgroundCard()
     }
+}
+
+// Compact Chip Component
+struct AlarmMissionChip: View {
+    let mission: AlarmMission
+    let onRemove: () -> Void
+    var height: CGFloat = 25
     
-    private func missionIcon(_ name: String) -> some View {
-        RoundedRectangle(cornerRadius: 12)
-            .fill(Colors.bgSecondary)
-            .frame(width: 64, height: 64)
-            .overlay(
-                Image(systemName: name)
-                    .font(.system(size: 24))
+    var body: some View {
+        HStack(spacing: 4) {
+            ZStack {
+                Circle()
+                    .fill(Colors.bgPrimary.opacity(0.8))
+                    .frame(width: 18, height: 18)
+                
+                Image(systemName: mission.iconName)
+                    .font(.system(size: 10))
                     .foregroundColor(Colors.textPrimary)
-            )
+            }
+            
+            Text(mission.title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                
+            // Remove Button
+            Button(action: onRemove) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.white.opacity(0.8))
+                    .padding(3)
+                    .background(Color.black.opacity(0.2))
+                    .clipShape(Circle())
+            }
+        }
+        .padding(.leading, 5)
+        .padding(.trailing, 6)
+        .frame(height: height) // Use custom height
+        .background(
+            Capsule()
+                .fill(LinearGradient(
+                    colors: [Colors.accentBlue, Color.purple],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ))
+        )
+        .shadow(color: Colors.accentBlue.opacity(0.2), radius: 2, x: 0, y: 1)
     }
 }
+
 
 struct AlarmSoundCard: View {
     let soundName: String
     let isBuffering: Bool
+    let isPlaying: Bool
     let onTap: () -> Void
     let onPreview: () -> Void
 
@@ -108,8 +188,13 @@ struct AlarmSoundCard: View {
                                 ProgressView()
                                     .tint(Colors.textPrimary)
                                     .scaleEffect(0.7)
+                            } else if isPlaying {
+                                Image(systemName: "stop.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(Colors.textPrimary)
                             } else {
                                 Image(systemName: "play.fill")
+                                    .font(.system(size: 14))
                                     .foregroundColor(Colors.textPrimary)
                             }
                         }

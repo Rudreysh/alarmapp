@@ -158,9 +158,14 @@ struct CreateWakeUpAlarmView: View {
                         AlarmSoundCard(
                             soundName: viewModel.draft.soundName,
                             isBuffering: soundPlayer.isBuffering,
+                            isPlaying: soundPlayer.isPlaying,
                             onTap: { showSoundPicker = true },
                             onPreview: {
-                                soundPlayer.play(resourceName: viewModel.draft.soundName, volume: viewModel.draft.soundVolume)
+                                if soundPlayer.isPlaying {
+                                    soundPlayer.stop()
+                                } else {
+                                    soundPlayer.play(resourceName: viewModel.draft.soundName, volume: viewModel.draft.soundVolume)
+                                }
                             }
                         )
 

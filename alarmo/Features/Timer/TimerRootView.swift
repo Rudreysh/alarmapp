@@ -2,6 +2,9 @@ import SwiftUI
 
 struct TimerRootView: View {
     @StateObject private var viewModel: TimerViewModel
+    @EnvironmentObject var taskStore: TaskStore
+    @EnvironmentObject var pomodoroEngine: PomodoroEngine
+    @EnvironmentObject var navStore: NavigationStore
     let preferences: AppPreferences
     let onClose: () -> Void
     
@@ -9,6 +12,7 @@ struct TimerRootView: View {
         self.preferences = preferences
         self.onClose = onClose
         self._viewModel = StateObject(wrappedValue: TimerViewModel(preferences: preferences))
+        // Taskstore and Engine are now environment
     }
     
     var body: some View {
@@ -78,7 +82,7 @@ struct TimerRootView: View {
                 
                 // Content
                 if viewModel.selectedMode == .pomo {
-                    PomoTimerView(viewModel: viewModel)
+                    PomoTimerView(viewModel: viewModel, engine: pomodoroEngine)
                         .transition(.asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .trailing)))
                 } else {
                     StopwatchView(viewModel: viewModel)
@@ -101,6 +105,22 @@ struct TimerRootView: View {
         }
         .sheet(isPresented: $viewModel.showFocusNoteSheet) {
             FocusNoteSheet(viewModel: viewModel)
+        }
+        .onAppear {
+            handleNavigationRequest()
+        }
+        .onReceive(navStore.$requestedTimerMode) { _ in
+            handleNavigationRequest()
+        }
+    }
+    
+    private func handleNavigationRequest() {
+        if let requested = navStore.requestedTimerMode {
+            withAnimation(.spring()) {
+                viewModel.selectedMode = requested
+            }
+            // Clear the request
+            navStore.requestedTimerMode = nil
         }
     }
 }

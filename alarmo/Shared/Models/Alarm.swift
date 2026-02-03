@@ -31,6 +31,13 @@ struct Alarm: Identifiable, Codable, Equatable {
     var createdAt: Date
     var isSkippedOnce: Bool
     var missions: [AlarmMission] = []
+    
+    // Habit Reminder
+    var habitReminderEnabled: Bool = false
+    var habitReminderInterval: Int = 20
+    var habitReminderDuration: Int = 20
+    var habitReminderStartTime: Date?
+    var habitReminderEndTime: Date?
 
     var timeString: String {
         TimeFormatters.formattedTime(hour: hour, minute: minute)
@@ -63,6 +70,11 @@ struct Alarm: Identifiable, Codable, Equatable {
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         isSkippedOnce = try container.decodeIfPresent(Bool.self, forKey: .isSkippedOnce) ?? false
         missions = try container.decodeIfPresent([AlarmMission].self, forKey: .missions) ?? []
+        habitReminderEnabled = try container.decodeIfPresent(Bool.self, forKey: .habitReminderEnabled) ?? false
+        habitReminderInterval = try container.decodeIfPresent(Int.self, forKey: .habitReminderInterval) ?? 20
+        habitReminderDuration = try container.decodeIfPresent(Int.self, forKey: .habitReminderDuration) ?? 20
+        habitReminderStartTime = try container.decodeIfPresent(Date.self, forKey: .habitReminderStartTime)
+        habitReminderEndTime = try container.decodeIfPresent(Date.self, forKey: .habitReminderEndTime)
     }
     
     // Memberwise init re-declaration needed because init(from:) removes the synthesized one
@@ -90,7 +102,12 @@ struct Alarm: Identifiable, Codable, Equatable {
         wallpaperId: String, 
         createdAt: Date,
         isSkippedOnce: Bool = false,
-        missions: [AlarmMission] = []
+        missions: [AlarmMission] = [],
+        habitReminderEnabled: Bool = false,
+        habitReminderInterval: Int = 20,
+        habitReminderDuration: Int = 20,
+        habitReminderStartTime: Date? = nil,
+        habitReminderEndTime: Date? = nil
     ) {
         self.id = id
         self.type = type
@@ -116,6 +133,11 @@ struct Alarm: Identifiable, Codable, Equatable {
         self.createdAt = createdAt
         self.isSkippedOnce = isSkippedOnce
         self.missions = missions
+        self.habitReminderEnabled = habitReminderEnabled
+        self.habitReminderInterval = habitReminderInterval
+        self.habitReminderDuration = habitReminderDuration
+        self.habitReminderStartTime = habitReminderStartTime
+        self.habitReminderEndTime = habitReminderEndTime
     }
     
     func encode(to encoder: Encoder) throws {
@@ -144,6 +166,11 @@ struct Alarm: Identifiable, Codable, Equatable {
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(isSkippedOnce, forKey: .isSkippedOnce)
         try container.encode(missions, forKey: .missions)
+        try container.encode(habitReminderEnabled, forKey: .habitReminderEnabled)
+        try container.encode(habitReminderInterval, forKey: .habitReminderInterval)
+        try container.encode(habitReminderDuration, forKey: .habitReminderDuration)
+        try container.encodeIfPresent(habitReminderStartTime, forKey: .habitReminderStartTime)
+        try container.encodeIfPresent(habitReminderEndTime, forKey: .habitReminderEndTime)
     }
     
     func duplicate() -> Alarm {
@@ -160,5 +187,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         case gentleWakeUpSeconds, timeReminderEnabled, weatherReminderEnabled
         case labelReminderEnabled, extraLoudEnabled, snoozeMinutes, snoozeCount
         case wallpaperId, createdAt, isSkippedOnce, missions
+        case habitReminderEnabled, habitReminderInterval, habitReminderDuration
+        case habitReminderStartTime, habitReminderEndTime
     }
 }

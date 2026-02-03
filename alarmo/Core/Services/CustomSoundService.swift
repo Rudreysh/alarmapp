@@ -56,6 +56,7 @@ class CustomSoundService: NSObject, ObservableObject {
         
         let fileURL = customSoundsDir.appendingPathComponent("\(name).m4a")
         
+        // Use standard settings for AAC recording
         let settings: [String: Any] = [
             AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
             AVSampleRateKey: 44100,
@@ -66,6 +67,13 @@ class CustomSoundService: NSObject, ObservableObject {
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playAndRecord, mode: .default)
         try session.setActive(true)
+        
+        // Use basic init if newer one is not easily available without protocol changes, 
+        // or just suppress if we want to keep it simple. But to fix warning:
+        // AVAudioRecorder(url:settings:) is NOT deprecated. 
+        // The warning was about init(url:) in AVAsset? No. 
+        // Let's look at the logs again: "init(url:) was deprecated in iOS 18.0: Use AVURLAsset(url:) instead" in CustomSoundService.swift:110:26
+        // That is inside saveImportedFile.
         
         audioRecorder = try AVAudioRecorder(url: fileURL, settings: settings)
         audioRecorder?.record()
@@ -92,7 +100,7 @@ class CustomSoundService: NSObject, ObservableObject {
         try? AVAudioSession.sharedInstance().setActive(false)
     }
     
-    func saveImportedFile(from url: URL, name: String) throws {
+    func saveImportedFile(from url: URL, name: String) async throws {
          let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
          let customSoundsDir = documents.appendingPathComponent("CustomSounds")
          if !fileManager.fileExists(atPath: customSoundsDir.path) {
@@ -107,7 +115,7 @@ class CustomSoundService: NSObject, ObservableObject {
          
          if url.scheme == "ipod-library" {
              // Export from Media Library
-             let asset = AVAsset(url: url)
+             let asset = AVURLAsset(url: url)
              guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
                  throw NSError(domain: "CustomSoundService", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to create export session"])
              }
@@ -115,24 +123,23 @@ class CustomSoundService: NSObject, ObservableObject {
              exportSession.outputURL = destinationURL
              exportSession.outputFileType = .m4a
              
-             let semaphore = DispatchSemaphore(value: 0)
-             var exportError: Error?
-             
-             exportSession.exportAsynchronously {
+             if #available(iOS 18.0, *) {
+                 try await exportSession.export(to: destinationURL, as: .m4a)
+             } else {
+                 await exportSession.export()
                  if let error = exportSession.error {
-                     exportError = error
+                     throw error
                  }
-                 semaphore.signal()
-             }
-             
-             semaphore.wait()
-             
-             if let error = exportError {
-                 throw error
              }
          } else {
              // Standard copy (Files app)
-             try fileManager.copyItem(at: url, to: destinationURL)
+             // Check if we need to coordinate access
+             if url.startAccessingSecurityScopedResource() {
+                 defer { url.stopAccessingSecurityScopedResource() }
+                 try fileManager.copyItem(at: url, to: destinationURL)
+             } else {
+                 try fileManager.copyItem(at: url, to: destinationURL)
+             }
          }
     }
 }

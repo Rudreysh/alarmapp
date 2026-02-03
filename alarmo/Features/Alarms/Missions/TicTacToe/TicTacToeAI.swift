@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 struct TicTacToeAI: Sendable {
     let difficulty: TTTDifficulty
     let size: Int
@@ -13,7 +14,7 @@ struct TicTacToeAI: Sendable {
         self.winLength = winLength
     }
     
-    nonisolated func computeMove(board: [TTTMark]) -> Int? {
+    func computeMove(board: [TTTMark]) -> Int? {
         switch difficulty {
         case .easy:
             return easyMove(board: board)
@@ -24,7 +25,7 @@ struct TicTacToeAI: Sendable {
         }
     }
     
-    private nonisolated func easyMove(board: [TTTMark]) -> Int? {
+    private func easyMove(board: [TTTMark]) -> Int? {
         let emptyIndices = board.indices.filter { board[$0] == .empty }
         guard !emptyIndices.isEmpty else { return nil }
         
@@ -42,7 +43,7 @@ struct TicTacToeAI: Sendable {
         return emptyIndices.randomElement()
     }
     
-    private nonisolated func mediumMove(board: [TTTMark]) -> Int? {
+    private func mediumMove(board: [TTTMark]) -> Int? {
         if let winMove = findImmediateMove(board: board, mark: aiMark) {
             return winMove
         }
@@ -75,7 +76,7 @@ struct TicTacToeAI: Sendable {
         return bestMove
     }
     
-    private nonisolated func hardMove(board: [TTTMark]) -> Int? {
+    private func hardMove(board: [TTTMark]) -> Int? {
         if size == 3 {
             // Perfect play via minimax
             let result = minimax(board: board, depth: 0, isMaximizing: true, alpha: -1000000, beta: 1000000)

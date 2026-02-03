@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 @main
 struct AlarmoApp: App {
@@ -8,5 +9,6 @@ struct AlarmoApp: App {
         WindowGroup {
             AppRootView()
         }
+        .modelContainer(for: [PlanItem.self, CompletionLog.self])
     }
 }

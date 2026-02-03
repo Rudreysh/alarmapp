@@ -20,4 +20,6 @@ enum Colors {
     static let sheetGradientBottom = Color(red: 0.09, green: 0.08, blue: 0.22)
     static let saleBadgeStart = Color(red: 0.82, green: 0.65, blue: 1.0)
     static let saleBadgeEnd = Color(red: 0.64, green: 0.44, blue: 0.98)
+    static let accentOrange = Color.orange
+    static let accentBlue = Color.blue
 }

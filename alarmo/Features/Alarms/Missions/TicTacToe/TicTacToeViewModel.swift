@@ -74,9 +74,14 @@ class TicTacToeViewModel: ObservableObject {
             
             let boardCopy = self.board
             if let ai = self.ai {
-                let move = await Task.detached {
-                    ai.computeMove(board: boardCopy)
-                }.value
+                // Since AI is MainActor, we can call it directly here (we are on MainActor)
+                // However, we want to avoid blocking the main thread if calculation is heavy.
+                // But TicTacToeAI uses TicTacToeEngine which is MainActor, so it MUST run on MainActor.
+                // For 3x3 this is instant. For 5x5 it might be slow.
+                // If it's slow, we should refactor TicTacToeEngine to be nonisolated.
+                // But assuming we can't change Engine, we just run it here.
+                
+                let move = ai.computeMove(board: boardCopy)
                 
                 if let move = move {
                     self.board[move] = .o
