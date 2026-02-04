@@ -13,6 +13,7 @@ struct Alarm: Identifiable, Codable, Equatable {
     var emoji: String
     var hour: Int
     var minute: Int
+    var second: Int
     var isDaily: Bool
     var repeatMask: Int
     var enabled: Bool
@@ -25,6 +26,10 @@ struct Alarm: Identifiable, Codable, Equatable {
     var weatherReminderEnabled: Bool
     var labelReminderEnabled: Bool
     var extraLoudEnabled: Bool
+    var bypassSilentMode: Bool = true // Default to true for alarms
+    var timeZoneMode: AlarmTimeZoneMode = .local
+    var timeZoneIdentifier: String?
+    var timeZoneCity: String?
     var snoozeMinutes: Int
     var snoozeCount: Int
     var wallpaperId: String
@@ -42,6 +47,10 @@ struct Alarm: Identifiable, Codable, Equatable {
     var timeString: String {
         TimeFormatters.formattedTime(hour: hour, minute: minute)
     }
+
+    var timeStringPrecision: String {
+        TimeFormatters.formattedTimeWithSeconds(hour: hour, minute: minute, second: second)
+    }
     
     // Manual Codable implementation to handle migration (missing 'type' = .wakeUp)
     init(from decoder: Decoder) throws {
@@ -52,6 +61,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         emoji = try container.decode(String.self, forKey: .emoji)
         hour = try container.decode(Int.self, forKey: .hour)
         minute = try container.decode(Int.self, forKey: .minute)
+        second = try container.decodeIfPresent(Int.self, forKey: .second) ?? 0
         isDaily = try container.decode(Bool.self, forKey: .isDaily)
         repeatMask = try container.decode(Int.self, forKey: .repeatMask)
         enabled = try container.decode(Bool.self, forKey: .enabled)
@@ -64,6 +74,10 @@ struct Alarm: Identifiable, Codable, Equatable {
         weatherReminderEnabled = try container.decode(Bool.self, forKey: .weatherReminderEnabled)
         labelReminderEnabled = try container.decode(Bool.self, forKey: .labelReminderEnabled)
         extraLoudEnabled = try container.decode(Bool.self, forKey: .extraLoudEnabled)
+        bypassSilentMode = try container.decodeIfPresent(Bool.self, forKey: .bypassSilentMode) ?? true
+        timeZoneMode = try container.decodeIfPresent(AlarmTimeZoneMode.self, forKey: .timeZoneMode) ?? .local
+        timeZoneIdentifier = try container.decodeIfPresent(String.self, forKey: .timeZoneIdentifier)
+        timeZoneCity = try container.decodeIfPresent(String.self, forKey: .timeZoneCity)
         snoozeMinutes = try container.decode(Int.self, forKey: .snoozeMinutes)
         snoozeCount = try container.decode(Int.self, forKey: .snoozeCount)
         wallpaperId = try container.decode(String.self, forKey: .wallpaperId)
@@ -85,6 +99,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         emoji: String, 
         hour: Int, 
         minute: Int, 
+        second: Int = 0,
         isDaily: Bool, 
         repeatMask: Int, 
         enabled: Bool, 
@@ -97,7 +112,11 @@ struct Alarm: Identifiable, Codable, Equatable {
         weatherReminderEnabled: Bool, 
         labelReminderEnabled: Bool, 
         extraLoudEnabled: Bool, 
-        snoozeMinutes: Int, 
+        bypassSilentMode: Bool = true, 
+        timeZoneMode: AlarmTimeZoneMode = .local,
+        timeZoneIdentifier: String? = nil,
+        timeZoneCity: String? = nil,
+        snoozeMinutes: Int,  
         snoozeCount: Int, 
         wallpaperId: String, 
         createdAt: Date,
@@ -114,6 +133,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         self.name = name
         self.hour = hour
         self.minute = minute
+        self.second = second
         self.emoji = emoji
         self.isDaily = isDaily
         self.repeatMask = repeatMask
@@ -127,6 +147,10 @@ struct Alarm: Identifiable, Codable, Equatable {
         self.weatherReminderEnabled = weatherReminderEnabled
         self.labelReminderEnabled = labelReminderEnabled
         self.extraLoudEnabled = extraLoudEnabled
+        self.bypassSilentMode = bypassSilentMode
+        self.timeZoneMode = timeZoneMode
+        self.timeZoneIdentifier = timeZoneIdentifier
+        self.timeZoneCity = timeZoneCity
         self.snoozeMinutes = snoozeMinutes
         self.snoozeCount = snoozeCount
         self.wallpaperId = wallpaperId
@@ -148,6 +172,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         try container.encode(emoji, forKey: .emoji)
         try container.encode(hour, forKey: .hour)
         try container.encode(minute, forKey: .minute)
+        try container.encode(second, forKey: .second)
         try container.encode(isDaily, forKey: .isDaily)
         try container.encode(repeatMask, forKey: .repeatMask)
         try container.encode(enabled, forKey: .enabled)
@@ -160,6 +185,10 @@ struct Alarm: Identifiable, Codable, Equatable {
         try container.encode(weatherReminderEnabled, forKey: .weatherReminderEnabled)
         try container.encode(labelReminderEnabled, forKey: .labelReminderEnabled)
         try container.encode(extraLoudEnabled, forKey: .extraLoudEnabled)
+        try container.encode(bypassSilentMode, forKey: .bypassSilentMode)
+        try container.encode(timeZoneMode, forKey: .timeZoneMode)
+        try container.encodeIfPresent(timeZoneIdentifier, forKey: .timeZoneIdentifier)
+        try container.encodeIfPresent(timeZoneCity, forKey: .timeZoneCity)
         try container.encode(snoozeMinutes, forKey: .snoozeMinutes)
         try container.encode(snoozeCount, forKey: .snoozeCount)
         try container.encode(wallpaperId, forKey: .wallpaperId)
@@ -182,12 +211,18 @@ struct Alarm: Identifiable, Codable, Equatable {
     }
     
     enum CodingKeys: String, CodingKey {
-        case id, type, name, emoji, hour, minute, isDaily, repeatMask, enabled
+        case id, type, name, emoji, hour, minute, second, isDaily, repeatMask, enabled
         case wakeUpCheckEnabled, soundName, soundVolume, vibrateEnabled
         case gentleWakeUpSeconds, timeReminderEnabled, weatherReminderEnabled
-        case labelReminderEnabled, extraLoudEnabled, snoozeMinutes, snoozeCount
+        case labelReminderEnabled, extraLoudEnabled, bypassSilentMode, snoozeMinutes, snoozeCount
         case wallpaperId, createdAt, isSkippedOnce, missions
         case habitReminderEnabled, habitReminderInterval, habitReminderDuration
         case habitReminderStartTime, habitReminderEndTime
+        case timeZoneMode, timeZoneIdentifier, timeZoneCity
     }
+}
+
+enum AlarmTimeZoneMode: String, Codable {
+    case local
+    case custom
 }

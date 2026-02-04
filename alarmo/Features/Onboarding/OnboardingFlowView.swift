@@ -28,6 +28,7 @@ struct OnboardingFlowView: View {
                             emoji: "🌞",
                             hour: 8,
                             minute: 0,
+                            second: 0,
                             isDaily: true,
                             repeatMask: RepeatMask.monToSat, // Added
                             enabled: true,
@@ -58,6 +59,7 @@ struct OnboardingFlowView: View {
                         withAnimation(.easeInOut) {
                             appPreferences.onboardingAlarmHour = viewModel.selectedHour
                             appPreferences.onboardingAlarmMinute = viewModel.selectedMinute
+                            appPreferences.onboardingAlarmSecond = viewModel.selectedSecond
                             viewModel.nextStep()
                             path.append(.permissions)
                         }
@@ -130,6 +132,7 @@ struct OnboardingFlowView: View {
                             appPreferences.onboardingCompleted = true
                             appPreferences.onboardingAlarmHour = viewModel.selectedHour
                             appPreferences.onboardingAlarmMinute = viewModel.selectedMinute
+                            appPreferences.onboardingAlarmSecond = viewModel.selectedSecond
                             appPreferences.onboardingRepeatMask = RepeatMask.monToSat
                             appPreferences.onboardingAlarmEnabled = true
                             appPreferences.onboardingSoundName = viewModel.state.selectedSoundName ?? "Orkney"
@@ -141,6 +144,7 @@ struct OnboardingFlowView: View {
                                 emoji: "🌞",
                                 hour: viewModel.selectedHour,
                                 minute: viewModel.selectedMinute,
+                                second: viewModel.selectedSecond,
                                 isDaily: true,
                                 repeatMask: RepeatMask.monToSat,
                                 enabled: true,
@@ -173,6 +177,7 @@ struct OnboardingFlowView: View {
                             appPreferences.onboardingCompleted = true
                             appPreferences.onboardingAlarmHour = viewModel.selectedHour
                             appPreferences.onboardingAlarmMinute = viewModel.selectedMinute
+                            appPreferences.onboardingAlarmSecond = viewModel.selectedSecond
                             appPreferences.onboardingRepeatMask = RepeatMask.monToSat
                             appPreferences.onboardingAlarmEnabled = true
                             appPreferences.onboardingSoundName = viewModel.state.selectedSoundName ?? "Orkney"
@@ -184,6 +189,7 @@ struct OnboardingFlowView: View {
                                 emoji: "🌞",
                                 hour: viewModel.selectedHour,
                                 minute: viewModel.selectedMinute,
+                                second: viewModel.selectedSecond,
                                 isDaily: true,
                                 repeatMask: RepeatMask.monToSat,
                                 enabled: true,

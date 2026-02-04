@@ -3,18 +3,22 @@ import Combine
 
 class QuickAlarmViewModel: ObservableObject {
     @Published var minutes: Int = 0
+    @Published var seconds: Int = 0
     @Published var selectedSoundId: String
     @Published var selectedWallpaperId: String
     @Published var volume: Float
     @Published var vibrateEnabled: Bool = true
+    @Published var bypassSilentMode: Bool = true
     
     // For UI State
     @Published var fireDateString: String = ""
     
+    var totalSeconds: Int {
+        return minutes * 60 + seconds
+    }
+    
     private var timer: Timer?
-    private let soundPlayer = SoundPlayer() // Assuming SoundPlayer allows one-off play
-    // Assuming we can access the repository externally or pass it in later. 
-    // In actual pattern, might want a Service.
+    private let soundPlayer = SoundPlayer()
     
     init(defaults: AppPreferences = AppPreferences()) {
         self.selectedSoundId = defaults.onboardingSoundName
@@ -28,26 +32,26 @@ class QuickAlarmViewModel: ObservableObject {
         timer?.invalidate()
     }
     
-    func setPreset(_ value: Int) {
-        if value >= 60 && value % 60 == 0 {
-             // Handle "1 hours" button -> 60 min. The button probably sends 60.
-        }
-        minutes = value
+    func setPreset(minutes: Int, seconds: Int = 0) {
+        self.minutes = minutes
+        self.seconds = seconds
         updateDateString()
     }
     
     func reset() {
         minutes = 0
+        seconds = 0
         updateDateString()
     }
     
     private func updateDateString() {
-        if minutes == 0 {
-             // For 0, we can either look current time (ring now?) but design shows "Ring at HH:MM PM" 
-             // Defaulting to "Ring at [Now]" if 0
+        let totalSec = totalSeconds
+        if totalSec == 0 {
+            fireDateString = TimeFormatters.formattedTime24Hour(date: Date())
+            return
         }
         
-        let triggerDate = Date().addingTimeInterval(TimeInterval(minutes * 60))
+        let triggerDate = Date().addingTimeInterval(TimeInterval(totalSec))
         fireDateString = TimeFormatters.formattedTime24Hour(date: triggerDate)
     }
     
@@ -59,13 +63,13 @@ class QuickAlarmViewModel: ObservableObject {
     }
     
     func save(store: AlarmStore, scheduler: AlarmSchedulerProtocol) {
-        // Validation: If 0, bump to 1
-        let finalMinutes = minutes == 0 ? 1 : minutes
+        // Validation: If 0, bump to 1 minute
+        let finalSeconds = totalSeconds == 0 ? 60 : totalSeconds
         
         // Calculate fire date
-        let fireDate = Date().addingTimeInterval(TimeInterval(finalMinutes * 60))
+        let fireDate = Date().addingTimeInterval(TimeInterval(finalSeconds))
         let calendar = Calendar.current
-        let comps = calendar.dateComponents([.hour, .minute], from: fireDate)
+        let comps = calendar.dateComponents([.hour, .minute, .second], from: fireDate)
         
         let alarmId = UUID()
         let alarm = Alarm(
@@ -75,6 +79,7 @@ class QuickAlarmViewModel: ObservableObject {
             emoji: "⚡️",
             hour: comps.hour ?? 0,
             minute: comps.minute ?? 0,
+            second: comps.second ?? 0,
             isDaily: false,
             repeatMask: 0,
             enabled: true,
@@ -87,13 +92,14 @@ class QuickAlarmViewModel: ObservableObject {
             weatherReminderEnabled: false,
             labelReminderEnabled: false,
             extraLoudEnabled: false,
+            bypassSilentMode: bypassSilentMode,
             snoozeMinutes: 5,
             snoozeCount: 3,
             wallpaperId: selectedWallpaperId,
             createdAt: Date()
         )
         
-        print("[QuickAlarm] Saving alarm for +\(finalMinutes) min (at: \(alarm.timeString))")
+        print("[QuickAlarm] Saving alarm for +\(finalSeconds) sec (at: \(alarm.timeString))")
         store.add(alarm)
         
         // Logic for "One-time" scheduling with robust scheduler

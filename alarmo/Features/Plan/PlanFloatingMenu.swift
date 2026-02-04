@@ -77,7 +77,7 @@ struct PlanFloatingMenu: View {
     }
 }
 
-private struct MenuRow: View {
+private struct PlanMenuRow: View {
     let icon: String
     let title: String
     let tint: Color

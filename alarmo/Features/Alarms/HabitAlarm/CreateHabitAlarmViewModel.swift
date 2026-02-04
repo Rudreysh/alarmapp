@@ -6,6 +6,7 @@ class CreateHabitAlarmViewModel: ObservableObject {
     @Published var emoji: String = "🍗" // Default from screenshot
     @Published var hour: Int
     @Published var minute: Int
+    @Published var second: Int = 0
     @Published var isDaily: Bool = true
     @Published var selectedWeekdays: Set<Int> = [1, 2, 3, 4, 5, 6, 7]
     
@@ -13,6 +14,10 @@ class CreateHabitAlarmViewModel: ObservableObject {
     @Published var soundVolume: Float = 1.0
     @Published var vibrateEnabled: Bool = true
     @Published var gentleWakeUpSeconds: Int = 30
+    @Published var bypassSilentMode: Bool = true
+    @Published var timeZoneMode: AlarmTimeZoneMode = .local
+    @Published var timeZoneIdentifier: String?
+    @Published var timeZoneCity: String?
     
     @Published var timeReminderEnabled: Bool = false
     @Published var weatherReminderEnabled: Bool = false
@@ -36,9 +41,10 @@ class CreateHabitAlarmViewModel: ObservableObject {
     
     let defaultSoundName: String
     
-    init(defaultHour: Int, defaultMinute: Int, defaultSoundName: String, defaultSoundVolume: Float, defaultWallpaperId: String) {
+    init(defaultHour: Int, defaultMinute: Int, defaultSecond: Int = 0, defaultSoundName: String, defaultSoundVolume: Float, defaultWallpaperId: String) {
         self.hour = defaultHour
         self.minute = defaultMinute
+        self.second = defaultSecond
         self.soundName = defaultSoundName
         self.soundVolume = defaultSoundVolume
         self.defaultSoundName = defaultSoundName
@@ -57,10 +63,9 @@ class CreateHabitAlarmViewModel: ObservableObject {
     
     func toggleWeekday(_ day: Int) {
         if isDaily {
-             isDaily = false
-             selectedWeekdays = [] // First tap when DAILY -> clear others? Or start with full?
-             // Usually UX: Uncheck Daily -> Keep all selected.
-             // But if I tap a pill while Daily is ON, it should probably turn Daily OFF and Toggle that pill.
+            isDaily = false
+            // Keep all selected when moving from Daily to Custom, then toggle the clicked day
+            selectedWeekdays = [1, 2, 3, 4, 5, 6, 7]
         }
         
         if selectedWeekdays.contains(day) {
@@ -69,75 +74,64 @@ class CreateHabitAlarmViewModel: ObservableObject {
             selectedWeekdays.insert(day)
         }
         
-        // Auto-check Daily if all 7 selected?
-        if selectedWeekdays.count == 7 {
-            isDaily = true
-        } else {
-            isDaily = false
-        }
+        // Auto-check Daily if all 7 selected
+        isDaily = selectedWeekdays.count == 7
         
         updateRingInText()
     }
     
     func updateRingInText() {
-        let calendar = Calendar.current
+        let alarm = Alarm(
+            id: UUID(),
+            type: .habit,
+            name: name,
+            emoji: emoji,
+            hour: hour,
+            minute: minute,
+            second: second,
+            isDaily: isDaily,
+            repeatMask: repeatMask(),
+            enabled: true,
+            wakeUpCheckEnabled: wakeUpCheckEnabled,
+            soundName: soundName,
+            soundVolume: soundVolume,
+            vibrateEnabled: vibrateEnabled,
+            gentleWakeUpSeconds: gentleWakeUpSeconds,
+            timeReminderEnabled: timeReminderEnabled,
+            weatherReminderEnabled: weatherReminderEnabled,
+            labelReminderEnabled: labelReminderEnabled,
+            extraLoudEnabled: extraLoudEnabled,
+            bypassSilentMode: bypassSilentMode,
+            timeZoneMode: timeZoneMode,
+            timeZoneIdentifier: timeZoneIdentifier,
+            timeZoneCity: timeZoneCity,
+            snoozeMinutes: snoozeMinutes,
+            snoozeCount: snoozeCount,
+            wallpaperId: wallpaperId,
+            createdAt: Date(),
+            missions: missions
+        )
+        
         let now = Date()
-        var nextDate: Date?
-        
-        // Construct target components
-        var components = DateComponents()
-        components.hour = hour
-        components.minute = minute
-        components.second = 0
-        
-        if isDaily {
-            nextDate = calendar.nextDate(after: now, matching: components, matchingPolicy: .nextTime)
-        } else {
-            // Find next matching weekday
-            let sortedDays = selectedWeekdays.sorted()
-            if sortedDays.isEmpty {
-                ringInText = "Not scheduled"
-                return
-            }
-            
-            // Try to find next instance
-            // We can iterate next 7 days and see if it matches
-            for i in 0...7 {
-                let candidate = calendar.date(byAdding: .day, value: i, to: now)!
-                let candidateWeekday = calendar.component(.weekday, from: candidate)
-                
-                if sortedDays.contains(candidateWeekday) {
-                     // Check time
-                     let targetDate = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: candidate)!
-                     if targetDate < now {
-                         // If today but passed, continue to next week... NO, if today passed, we look at future days.
-                         // But if we are iterating 0...7, day 0 is today.
-                         // If day 0 matches weekday but time passed, we skip it.
-                         // For subsequent days, any time is valid as it is in future.
-                     } else {
-                         nextDate = targetDate
-                         break
-                     }
-                }
-            }
-        }
-        
-        guard let target = nextDate else {
-            ringInText = "Scheduled for next week"
+        guard let target = AlarmStore.nextFireDate(for: alarm, from: now) else {
+            ringInText = "Not scheduled"
             return
         }
         
-        let diff = target.timeIntervalSince(now)
+        let diff = Int(target.timeIntervalSince(now))
         if diff < 60 {
             ringInText = "Ring in less than a minute"
         } else {
-            let totalMinutes = Int(diff / 60)
-            let h = totalMinutes / 60
-            let m = totalMinutes % 60
-            if h > 0 {
-                ringInText = "Ring in \(h)hrs \(m)min"
+            let days = diff / 86400
+            let hours = (diff % 86400) / 3600
+            let minutes = (diff % 3600) / 60
+            
+            if days > 0 {
+                ringInText = "Ring in \(days)d \(hours)h \(minutes)m"
+            } else if hours > 0 {
+                ringInText = "Ring in \(hours)h \(minutes)m"
             } else {
-                ringInText = "Ring in \(m)min"
+                ringInText = "Ring in \(minutes)m"
             }
         }
     }
@@ -148,7 +142,7 @@ class CreateHabitAlarmViewModel: ObservableObject {
     }
     
     func addMission(_ mission: AlarmMission) {
-        if missions.count < 5 {
+        if missions.count < 4 {
             missions.append(mission)
         }
     }

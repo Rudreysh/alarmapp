@@ -27,6 +27,10 @@ struct OnboardingSetTimeView: View {
                     minute: Binding(
                         get: { viewModel.selectedMinute },
                         set: { viewModel.selectedMinute = $0 }
+                    ),
+                    second: Binding(
+                        get: { viewModel.selectedSecond },
+                        set: { viewModel.selectedSecond = $0 }
                     )
                 )
 

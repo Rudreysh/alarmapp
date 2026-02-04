@@ -31,12 +31,12 @@ class PomodoroEngine: ObservableObject {
     
     init(configStore: IntervalTimerConfigStore? = nil,
          eventStore: PomodoroEventStore? = nil,
-         entitlementProvider: EntitlementProvider = MockEntitlementProvider()) {
+         entitlementProvider: EntitlementProvider? = nil) {
         let store = configStore ?? IntervalTimerConfigStore()
         self.configStore = store
         self.config = store.config
         self.eventStore = eventStore ?? .shared
-        self.entitlementProvider = entitlementProvider
+        self.entitlementProvider = entitlementProvider ?? MockEntitlementProvider()
         self.state = PomodoroRuntimeState()
         
         // Sync config updates

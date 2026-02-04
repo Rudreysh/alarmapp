@@ -44,15 +44,20 @@ final class AlarmStore: ObservableObject {
     }
 
     static func nextFireDate(for alarm: Alarm, from date: Date) -> Date? {
-        let calendar = Calendar.current
+        var calendar = Calendar.current
+        
+        // Respect Custom Time Zone if enabled
+        if alarm.timeZoneMode == .custom, let id = alarm.timeZoneIdentifier, let tz = TimeZone(identifier: id) {
+            calendar.timeZone = tz
+        }
+        
         var base = DateComponents()
         base.hour = alarm.hour
         base.minute = alarm.minute
-        base.second = 0 // Critical precision
+        base.second = alarm.second // High-precision support
 
         if alarm.isDaily {
             let next = calendar.nextDate(after: date, matching: base, matchingPolicy: .nextTime)
-            print("[AlarmStore] Next Daily for \(alarm.hour):\(alarm.minute) -> \(String(describing: next))")
             return next
         }
 
@@ -60,7 +65,6 @@ final class AlarmStore: ObservableObject {
         if weekdays.isEmpty {
             // One-shot: if time has passed today, schedule for tomorrow
             let next = calendar.nextDate(after: date, matching: base, matchingPolicy: .nextTime)
-            print("[AlarmStore] Next OneShot for \(alarm.hour):\(alarm.minute) -> \(String(describing: next))")
             return next
         }
 
@@ -74,7 +78,6 @@ final class AlarmStore: ObservableObject {
             }
         }
         let chosen = candidates.sorted().first
-        print("[AlarmStore] Next Repeating for \(alarm.hour):\(alarm.minute) -> \(String(describing: chosen))")
         return chosen
     }
 

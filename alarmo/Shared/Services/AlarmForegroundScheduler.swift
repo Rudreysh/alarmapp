@@ -68,28 +68,19 @@ final class AlarmForegroundScheduler: ObservableObject {
     }
 
     private func dueAlarm(at date: Date) -> Alarm? {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.hour, .minute, .weekday], from: date)
-        
         for alarm in alarmStore.alarms where alarm.enabled {
-            // Precise check
-            if alarm.hour == components.hour && alarm.minute == components.minute {
-                
-                // Day check
-                let isToday = alarm.isDaily 
-                    || (alarm.repeatMask == 0) // One-shot implies next valid date, so if time matches, check repeatMask logic
-                    || RepeatMask.weekdays(from: alarm.repeatMask).contains(components.weekday!)
-                
-                if isToday {
-                    // Debounce: verify we haven't triggered this within last minute
-                    if let last = lastTriggered[alarm.id], date.timeIntervalSince(last) < 60 {
-                        continue
-                    }
-                    return alarm
+            // Use nextFireDate logic from 30 seconds ago to see if something reached its fire time "now"
+            // Since nextFireDate returns the NEXT occurrence, checking from -30s will return the current minute's slot.
+            guard let next = AlarmStore.nextFireDate(for: alarm, from: date.addingTimeInterval(-30)) else { continue }
+            
+            // Check if 'next' is effectively 'now' (within a 5-second window)
+            let diff = abs(next.timeIntervalSince(date))
+            if diff < 5 {
+                // Debounce: verify we haven't triggered this within last minute
+                if let last = lastTriggered[alarm.id], date.timeIntervalSince(last) < 60 {
+                    continue
                 }
-            } else if alarm.minute == components.minute {
-                // Log near-misses for debugging
-                print("[AlarmForegroundScheduler] ⚠️ Skipping Alarm '\(alarm.name)' - Time Mismatch: Alarm \(alarm.hour):\(alarm.minute) vs Now \(components.hour ?? -1):\(components.minute ?? -1)")
+                return alarm
             }
         }
         return nil

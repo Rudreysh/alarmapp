@@ -35,7 +35,7 @@ final class AlarmRingCoordinator: ObservableObject {
         isRinging = true
         isPreviewMode = false
         
-        soundPlayer.playLooping(resourceName: alarm.soundName, volume: alarm.soundVolume)
+        soundPlayer.playLooping(resourceName: alarm.soundName, volume: alarm.soundVolume, fadeDuration: TimeInterval(alarm.gentleWakeUpSeconds))
         if alarm.vibrateEnabled {
             hapticsPlayer.startRepeating()
         } else {
@@ -49,7 +49,7 @@ final class AlarmRingCoordinator: ObservableObject {
         isPreviewMode = true
         isRinging = true
         
-        soundPlayer.playLooping(resourceName: alarm.soundName, volume: alarm.soundVolume)
+        soundPlayer.playLooping(resourceName: alarm.soundName, volume: alarm.soundVolume, fadeDuration: TimeInterval(alarm.gentleWakeUpSeconds))
         if alarm.vibrateEnabled {
             hapticsPlayer.startRepeating()
         }

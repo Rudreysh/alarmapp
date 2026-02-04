@@ -9,7 +9,7 @@ struct FloatingAddMenu: View {
     var body: some View {
         VStack(alignment: .trailing, spacing: 12) {
             VStack(spacing: 0) {
-                MenuRow(icon: "timer", title: "Timer", tint: Color.orange) {
+                FloatingMenuRow(icon: "timer", title: "Timer", tint: Color.orange) {
                     onSelectTimer()
                 }
             }
@@ -18,11 +18,11 @@ struct FloatingAddMenu: View {
             .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 6)
 
             VStack(spacing: 0) {
-                MenuRow(icon: "calendar", title: "Habit alarm", tint: Color.purple) {
+                FloatingMenuRow(icon: "calendar", title: "Habit alarm", tint: Color.purple) {
                     onSelectHabit()
                 }
                 Divider().background(Color.black.opacity(0.1))
-                MenuRow(icon: "bolt.fill", title: "Quick alarm", tint: Color.blue) {
+                FloatingMenuRow(icon: "bolt.fill", title: "Quick alarm", tint: Color.blue) {
                     onSelectQuick()
                 }
             }
@@ -31,7 +31,7 @@ struct FloatingAddMenu: View {
             .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 6)
 
             VStack(spacing: 0) {
-                MenuRow(icon: "alarm", title: "Alarm", tint: Colors.accentRed) {
+                FloatingMenuRow(icon: "alarm", title: "Alarm", tint: Colors.accentRed) {
                     onSelectAlarm()
                 }
             }
@@ -44,7 +44,7 @@ struct FloatingAddMenu: View {
     }
 }
 
-private struct MenuRow: View {
+private struct FloatingMenuRow: View {
     let icon: String
     let title: String
     let tint: Color

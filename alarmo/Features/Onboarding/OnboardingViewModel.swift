@@ -26,6 +26,11 @@ final class OnboardingViewModel: ObservableObject {
         set { state.selectedMinute = newValue }
     }
 
+    var selectedSecond: Int {
+        get { state.selectedSecond }
+        set { state.selectedSecond = newValue }
+    }
+
     var selectedTimeString: String {
         TimeFormatters.formattedTime(hour: selectedHour, minute: selectedMinute)
     }

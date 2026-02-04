@@ -12,6 +12,7 @@ struct HomeView: View {
     @State private var showCreateHabit = false
     @State private var showTimer = false
     @State private var selectedAlarm: Alarm?
+    private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
 
     init(viewModel: HomeViewModel, alarmStore: AlarmStore) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -78,14 +79,30 @@ struct HomeView: View {
                         LazyVStack(spacing: Spacing.m) {
                             ForEach(alarmStore.alarms) { alarm in
                                 SwipeableAlarmRow(
-                                    onDelete: { alarmStore.remove(id: alarm.id) }
+                                    onDelete: {
+                                        scheduler.cancel(alarmId: alarm.id)
+                                        alarmStore.remove(id: alarm.id) 
+                                    }
                                 ) {
                                     AlarmCardView(
                                         alarm: alarm,
-                                        onToggle: { alarmStore.toggleEnabled(id: alarm.id, enabled: $0) },
-                                        onDelete: { alarmStore.remove(id: alarm.id) },
+                                        onToggle: { isEnabled in
+                                            alarmStore.toggleEnabled(id: alarm.id, enabled: isEnabled)
+                                            // Update scheduling
+                                            var updated = alarm
+                                            updated.enabled = isEnabled
+                                            scheduler.schedule(alarm: updated)
+                                        },
+                                        onDelete: {
+                                            scheduler.cancel(alarmId: alarm.id)
+                                            alarmStore.remove(id: alarm.id)
+                                        },
                                         onDuplicate: {
-                                            alarmStore.add(alarm.duplicate())
+                                            let newAlarm = alarm.duplicate()
+                                            alarmStore.add(newAlarm)
+                                            if newAlarm.enabled {
+                                                scheduler.schedule(alarm: newAlarm)
+                                            }
                                         },
                                         onSkipOnce: {
                                             var updated = alarm
@@ -290,84 +307,114 @@ private struct AlarmCardView: View {
     private let weekdays: [String] = ["S", "M", "T", "W", "T", "F", "S"]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(alarm.timeString)
-                        .font(.system(size: 40, weight: .bold))
+        HStack(spacing: 16) {
+            // LEFT: Time & Relative Status
+            VStack(alignment: .leading, spacing: 0) {
+                Text(alarm.timeString)
+                    .font(.system(size: 38, weight: .black, design: .rounded))
+                    .foregroundColor(alarm.enabled ? Colors.textPrimary : Colors.textTertiary)
+                    .fixedSize(horizontal: true, vertical: false)
+                
+                if alarm.enabled {
+                    Text(ringsInRelativeText)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(Colors.accentTeal)
+                        .padding(.top, -2)
+                }
+            }
+            .layoutPriority(1)
+            
+            // MIDDLE: Identity & Schedule
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Text(alarm.emoji)
+                        .font(.system(size: 14))
+                    Text(alarm.name.isEmpty ? "Alarm" : alarm.name)
+                        .font(.system(size: 15, weight: .bold))
                         .foregroundColor(Colors.textPrimary)
-                    
+                        .lineLimit(1)
+                }
+                
+                if alarm.type == .quick {
+                    Text("QUICK ALARM")
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundColor(Colors.accentTeal)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Colors.accentTeal.opacity(0.1))
+                        .cornerRadius(6)
+                } else {
                     HStack(spacing: 6) {
-                        Text(alarm.emoji)
-                            .font(.system(size: 16))
-                        Text(alarm.name.isEmpty ? "Alarm" : alarm.name)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(Colors.textPrimary)
-                    }
-                    
-                    if alarm.isSkippedOnce {
-                        Text("alarm rings on \(nextDayText)")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(Colors.textSecondary)
+                        ForEach(0..<weekdays.count, id: \.self) { index in
+                            let isEnabled = isDayEnabled(index: index)
+                            Text(weekdays[index])
+                                .font(.system(size: 11, weight: .heavy))
+                                .foregroundColor(isEnabled ? Colors.accentTeal : Colors.textTertiary.opacity(0.3))
+                        }
                     }
                 }
                 
-                Spacer()
-                
+                if let city = alarm.timeZoneCity, alarm.timeZoneMode == .custom {
+                    HStack(spacing: 4) {
+                        Image(systemName: "globe.americas.fill")
+                            .font(.system(size: 9))
+                        Text(city.uppercased())
+                            .font(.system(size: 9, weight: .bold))
+                            .kerning(0.5)
+                    }
+                    .foregroundColor(Colors.textSecondary.opacity(0.7))
+                }
+            }
+            
+            Spacer()
+            
+            // RIGHT: Toggle & Actions
+            VStack(alignment: .trailing, spacing: 10) {
                 Toggle("", isOn: Binding(
                     get: { alarm.enabled },
                     set: { onToggle($0) }
                 ))
                 .labelsHidden()
                 .toggleStyle(SwitchToggleStyle(tint: Colors.accentTeal))
-            }
-            
-            HStack {
-                if alarm.type == .quick {
-                    HStack(spacing: 4) {
-                        Image(systemName: "bolt.fill")
-                            .font(.system(size: 12))
-                        Text("Quick Alarm")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .foregroundColor(Colors.accentTeal)
-                } else {
-                    HStack(spacing: 8) {
-                        ForEach(0..<weekdays.count, id: \.self) { index in
-                            Text(weekdays[index])
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(isDayEnabled(index: index) ? Colors.textPrimary : Colors.textTertiary)
-                                .opacity(isDayEnabled(index: index) ? 1.0 : 0.3)
-                        }
-                    }
-                }
-                
-                Spacer()
+                .scaleEffect(0.85)
+                .frame(width: 48, height: 28)
                 
                 Menu {
-                    Button(role: .destructive, action: onDelete) {
-                        Label("Delete", systemImage: "trash")
-                    }
-                    Button(action: onDuplicate) {
-                        Label("Duplicate", systemImage: "doc.on.doc")
-                    }
-                    Button(action: onPreview) {
-                        Label("Preview alarm", systemImage: "eye")
-                    }
-                    Button(action: onSkipOnce) {
-                        Label(alarm.isSkippedOnce ? "Undo skip" : "Skip once", systemImage: "arrow.clockwise")
-                    }
+                    Button(action: onDuplicate) { Label("Duplicate", systemImage: "doc.on.doc") }
+                    Button(action: onPreview) { Label("Preview", systemImage: "eye") }
+                    Button(action: onSkipOnce) { Label(alarm.isSkippedOnce ? "Undo skip" : "Skip once", systemImage: "arrow.clockwise") }
+                    Divider()
+                    Button(role: .destructive, action: onDelete) { Label("Delete", systemImage: "trash") }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.system(size: 16, weight: .bold))
                         .foregroundColor(Colors.textSecondary)
-                        .padding(4)
+                        .frame(width: 32, height: 32)
+                        .background(Colors.bgPrimary.opacity(0.4))
+                        .clipShape(Circle())
                 }
             }
         }
-        .padding(Spacing.l)
-        .background(Colors.cardSurface)
+        .padding(.leading, 20)
+        .padding(.trailing, 12)
+        .padding(.vertical, 18)
+        .background(
+            ZStack {
+                Colors.cardSurface
+                if alarm.enabled {
+                    LinearGradient(
+                        colors: [Colors.accentTeal.opacity(0.06), Color.clear],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                }
+            }
+        )
         .cornerRadius(24)
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(alarm.enabled ? Colors.accentTeal.opacity(0.15) : Color.white.opacity(0.06), lineWidth: 1)
+        )
     }
 
     private func isDayEnabled(index: Int) -> Bool {
@@ -381,6 +428,25 @@ private struct AlarmCardView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEE"
         return formatter.string(from: nextDate)
+    }
+
+    private var ringsInRelativeText: String {
+        guard let nextDate = AlarmStore.nextFireDate(for: alarm, from: Date()) else { return "" }
+        let diff = Int(nextDate.timeIntervalSince(Date()))
+        let days = diff / 86400
+        let hours = (diff % 86400) / 3600
+        let minutes = (diff % 3600) / 60
+        let seconds = diff % 60
+        
+        if days > 0 {
+            return "In \(days)d \(hours)h \(minutes)m"
+        } else if hours > 0 {
+            return "In \(hours)h \(minutes)m"
+        } else if minutes > 0 {
+            return "In \(minutes)m \(seconds)s"
+        } else {
+            return "In \(seconds)s"
+        }
     }
 }
 

@@ -4,7 +4,7 @@ import Foundation
 final class SoundPlayer {
     private var player: AVAudioPlayer?
 
-    func playLooping(resourceName: String, volume: Float) {
+    func playLooping(resourceName: String, volume: Float, fadeDuration: TimeInterval = 0) {
         stop()
         
         // Robust Lookup
@@ -20,10 +20,17 @@ final class SoundPlayer {
             
             player = try AVAudioPlayer(contentsOf: url)
             player?.numberOfLoops = -1
-            player?.volume = volume
-            player?.play()
             
-            print("[SoundPlayer] ▶️ Playing: \(url.lastPathComponent) (Vol: \(volume))")
+            if fadeDuration > 0 {
+                player?.volume = 0
+                player?.play()
+                player?.setVolume(volume, fadeDuration: fadeDuration)
+                print("[SoundPlayer] ▶️ Playing with Fade (\(fadeDuration)s): \(url.lastPathComponent) (Target Vol: \(volume))")
+            } else {
+                player?.volume = volume
+                player?.play()
+                print("[SoundPlayer] ▶️ Playing: \(url.lastPathComponent) (Vol: \(volume))")
+            }
         } catch {
              print("[SoundPlayer] ❌ Error configuring audio: \(error)")
         }

@@ -5,10 +5,11 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
     @Published var draft: AlarmDraft
     @Published var soundProgress: Double = 0.0
 
-    init(defaultHour: Int, defaultMinute: Int, defaultRepeatMask: Int, defaultSoundName: String, defaultSoundVolume: Float, defaultWallpaperId: String) {
+    init(defaultHour: Int, defaultMinute: Int, defaultSecond: Int = 0, defaultRepeatMask: Int, defaultSoundName: String, defaultSoundVolume: Float, defaultWallpaperId: String) {
         self.draft = AlarmDraft(
             defaultHour: defaultHour,
             defaultMinute: defaultMinute,
+            defaultSecond: defaultSecond,
             defaultRepeatMask: defaultRepeatMask,
             defaultSoundName: defaultSoundName,
             defaultSoundVolume: defaultSoundVolume,
@@ -20,6 +21,7 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
         var draft = AlarmDraft(
             defaultHour: alarm.hour,
             defaultMinute: alarm.minute,
+            defaultSecond: alarm.second,
             defaultRepeatMask: alarm.repeatMask,
             defaultSoundName: alarm.soundName,
             defaultSoundVolume: alarm.soundVolume,
@@ -37,6 +39,10 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
         draft.weatherReminderEnabled = alarm.weatherReminderEnabled
         draft.labelReminderEnabled = alarm.labelReminderEnabled
         draft.extraLoudEnabled = alarm.extraLoudEnabled
+        draft.bypassSilentMode = alarm.bypassSilentMode
+        draft.timeZoneMode = alarm.timeZoneMode
+        draft.timeZoneIdentifier = alarm.timeZoneIdentifier
+        draft.timeZoneCity = alarm.timeZoneCity
         draft.snoozeMinutes = alarm.snoozeMinutes
         draft.snoozeCount = alarm.snoozeCount
         draft.missions = alarm.missions
@@ -44,7 +50,7 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
     }
     
     func addMission(_ mission: AlarmMission) {
-        if draft.missions.count < 5 {
+        if draft.missions.count < 4 {
             draft.missions.append(mission)
         }
     }
@@ -56,15 +62,25 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
     var ringInText: String {
         let now = Date()
         guard let next = nextFireDate(from: now) else {
-            return "Ring in less than a minute"
+            return "Not scheduled"
         }
+        
         let diff = Int(next.timeIntervalSince(now))
         if diff < 60 {
             return "Ring in less than a minute"
         }
-        let hours = diff / 3600
+        
+        let days = diff / 86400
+        let hours = (diff % 86400) / 3600
         let minutes = (diff % 3600) / 60
-        return "Ring in \(hours)hrs \(minutes)min"
+        
+        if days > 0 {
+            return "Ring in \(days)d \(hours)h \(minutes)m"
+        } else if hours > 0 {
+            return "Ring in \(hours)h \(minutes)m"
+        } else {
+            return "Ring in \(minutes)m"
+        }
     }
 
     func toggleDaily() {
@@ -75,35 +91,55 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
     }
 
     func toggleWeekday(_ weekday: Int) {
+        if draft.isDaily {
+            draft.isDaily = false
+            draft.selectedWeekdays = Set(1...7)
+        }
+        
         if draft.selectedWeekdays.contains(weekday) {
             draft.selectedWeekdays.remove(weekday)
         } else {
             draft.selectedWeekdays.insert(weekday)
         }
+        
+        draft.isDaily = draft.selectedWeekdays.count == 7
     }
 
     func nextFireDate(from date: Date) -> Date? {
-        let calendar = Calendar.current
-        let baseComponents = DateComponents(hour: draft.hour, minute: draft.minute)
-        if draft.isDaily || draft.selectedWeekdays.isEmpty {
-            if let today = calendar.nextDate(after: date, matching: baseComponents, matchingPolicy: .nextTime) {
-                return today
-            }
-            return calendar.date(byAdding: .day, value: 1, to: date)
-        }
-
-        let sorted = draft.selectedWeekdays.sorted()
-        for weekday in sorted {
-            var comps = baseComponents
-            comps.weekday = weekday
-            if let next = calendar.nextDate(after: date, matching: comps, matchingPolicy: .nextTimePreservingSmallerComponents) {
-                return next
-            }
-        }
-        return nil
+        // Use the unified logic in AlarmStore to avoid duplicate bugs
+        let tempAlarm = Alarm(
+            id: UUID(),
+            name: draft.name,
+            emoji: draft.emoji,
+            hour: draft.hour,
+            minute: draft.minute,
+            second: draft.second,
+            isDaily: draft.isDaily,
+            repeatMask: repeatMask(),
+            enabled: true,
+            wakeUpCheckEnabled: draft.wakeUpCheckEnabled,
+            soundName: draft.soundName,
+            soundVolume: draft.soundVolume,
+            vibrateEnabled: draft.vibrateEnabled,
+            gentleWakeUpSeconds: draft.gentleWakeUpSeconds,
+            timeReminderEnabled: draft.timeReminderEnabled,
+            weatherReminderEnabled: draft.weatherReminderEnabled,
+            labelReminderEnabled: draft.labelReminderEnabled,
+            extraLoudEnabled: draft.extraLoudEnabled,
+            timeZoneMode: draft.timeZoneMode,
+            timeZoneIdentifier: draft.timeZoneIdentifier,
+            timeZoneCity: draft.timeZoneCity,
+            snoozeMinutes: draft.snoozeMinutes,
+            snoozeCount: draft.snoozeCount,
+            wallpaperId: draft.wallpaperId,
+            createdAt: Date()
+        )
+        
+        return AlarmStore.nextFireDate(for: tempAlarm, from: date)
     }
 
     func repeatMask() -> Int {
-        RepeatMask.mask(from: Array(draft.selectedWeekdays))
+        if draft.isDaily { return RepeatMask.allDays }
+        return RepeatMask.mask(from: Array(draft.selectedWeekdays))
     }
 }

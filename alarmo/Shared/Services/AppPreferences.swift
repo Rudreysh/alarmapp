@@ -13,6 +13,7 @@ protocol AppPreferencesProtocol: AnyObject {
     var hasAnyAlarm: Bool { get set }
     var onboardingAlarmHour: Int { get set }
     var onboardingAlarmMinute: Int { get set }
+    var onboardingAlarmSecond: Int { get set }
     var onboardingAlarmEnabled: Bool { get set }
     var onboardingRepeatMask: Int { get set }
     var onboardingSoundName: String { get set }
@@ -51,6 +52,7 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
     @Published var hasAnyAlarm: Bool { didSet { defaults.set(hasAnyAlarm, forKey: Keys.hasAnyAlarm) } }
     @Published var onboardingAlarmHour: Int { didSet { defaults.set(onboardingAlarmHour, forKey: Keys.onboardingAlarmHour) } }
     @Published var onboardingAlarmMinute: Int { didSet { defaults.set(onboardingAlarmMinute, forKey: Keys.onboardingAlarmMinute) } }
+    @Published var onboardingAlarmSecond: Int { didSet { defaults.set(onboardingAlarmSecond, forKey: Keys.onboardingAlarmSecond) } }
     @Published var onboardingAlarmEnabled: Bool { didSet { defaults.set(onboardingAlarmEnabled, forKey: Keys.onboardingAlarmEnabled) } }
     @Published var onboardingRepeatMask: Int { didSet { defaults.set(onboardingRepeatMask, forKey: Keys.onboardingRepeatMask) } }
     @Published var onboardingSoundName: String { didSet { defaults.set(onboardingSoundName, forKey: Keys.onboardingSoundName) } }
@@ -92,8 +94,10 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
         self.hasAnyAlarm = defaults.bool(forKey: Keys.hasAnyAlarm)
         let storedHour = defaults.object(forKey: Keys.onboardingAlarmHour) as? Int
         let storedMinute = defaults.object(forKey: Keys.onboardingAlarmMinute) as? Int
+        let storedSecond = defaults.object(forKey: Keys.onboardingAlarmSecond) as? Int
         self.onboardingAlarmHour = storedHour ?? AppConstants.defaultHour
         self.onboardingAlarmMinute = storedMinute ?? AppConstants.defaultMinute
+        self.onboardingAlarmSecond = storedSecond ?? AppConstants.defaultSecond
         if defaults.object(forKey: Keys.onboardingAlarmEnabled) == nil {
             defaults.set(true, forKey: Keys.onboardingAlarmEnabled)
         }
@@ -147,6 +151,7 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
         static let hasAnyAlarm = "alarmo.alarm.hasAny"
         static let onboardingAlarmHour = "alarmo.alarm.onboardingHour"
         static let onboardingAlarmMinute = "alarmo.alarm.onboardingMinute"
+        static let onboardingAlarmSecond = "alarmo.alarm.onboardingSecond"
         static let onboardingAlarmEnabled = "alarmo.alarm.onboardingEnabled"
         static let onboardingRepeatMask = "alarmo.alarm.onboardingRepeatMask"
         static let onboardingSoundName = "alarmo.alarm.onboardingSoundName"

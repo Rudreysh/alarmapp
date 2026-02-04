@@ -3,11 +3,21 @@ import UserNotifications
 
 protocol AlarmSchedulerProtocol {
     func schedule(alarm: Alarm)
+    func cancel(alarmId: UUID)
     func scheduleSnooze(alarm: Alarm, minutes: Int)
 }
 
 final class AlarmScheduler: AlarmSchedulerProtocol {
     func schedule(alarm: Alarm) {
+        // ALWAYS cancel first to clean up any previous state/variation of this alarm
+        cancel(alarmId: alarm.id)
+        
+        // If disabled, we stop here (notification is already cancelled)
+        guard alarm.enabled else {
+            print("[AlarmScheduler] 🔕 Alarm \(alarm.id) is disabled, skipping schedule.")
+            return
+        }
+
         let content = UNMutableNotificationContent()
         content.title = alarm.name.isEmpty ? "Alarm" : alarm.name
         content.body = "Time to wake up!"
@@ -22,13 +32,21 @@ final class AlarmScheduler: AlarmSchedulerProtocol {
         }
         content.interruptionLevel = .timeSensitive 
 
+        // Determine Time Zone
+        var targetTimeZone: TimeZone? = nil
+        if alarm.timeZoneMode == .custom, let id = alarm.timeZoneIdentifier {
+            targetTimeZone = TimeZone(identifier: id)
+        }
+        
         // 1. Repeating Alarm (Daily or Specific Days)
         if alarm.repeatMask > 0 {
             if alarm.isDaily {
                 var comps = DateComponents()
                 comps.hour = alarm.hour
                 comps.minute = alarm.minute
-                comps.second = 0 // CRITICAL: Force 0 seconds
+                comps.second = alarm.second
+                comps.timeZone = targetTimeZone // If nil, uses current (Floating)
+                
                 let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
                 addRequest(id: alarm.id.uuidString, content: content, trigger: trigger, alarm: alarm)
             } else {
@@ -38,22 +56,37 @@ final class AlarmScheduler: AlarmSchedulerProtocol {
                     comps.weekday = weekday
                     comps.hour = alarm.hour
                     comps.minute = alarm.minute
-                    comps.second = 0
+                    comps.second = alarm.second
+                    comps.timeZone = targetTimeZone // If nil, uses current (Floating)
+                    
                     let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
-                    addRequest(id: "\(alarm.id.uuidString)-\(weekday)", content: content, trigger: trigger, alarm: alarm)
+                    // Use a standardized format for repeating day identifiers
+                    addRequest(id: "\(alarm.id.uuidString)-day-\(weekday)", content: content, trigger: trigger, alarm: alarm)
                 }
             }
         } 
         // 2. One-shot Alarm
         else {
-            // Find the next occurrence date
-            guard let nextDate = AlarmStore.nextFireDate(for: alarm, from: Date()) else {
-                print("[AlarmScheduler] ⚠️ Could not compute next fire date for one-shot alarm")
-                return
+             // Calculate next fire date in the target time zone
+            var calendar = Calendar.current
+            if let tz = targetTimeZone {
+                calendar.timeZone = tz
             }
             
-            let calendar = Calendar.current
-            let components = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: nextDate)
+            // Logic to find next occurrence of (hour, minute) in target calendar
+            let now = Date()
+            var nextDateComp = DateComponents()
+            nextDateComp.hour = alarm.hour
+            nextDateComp.minute = alarm.minute
+            nextDateComp.second = alarm.second // High-precision support
+            
+            // Use built-in nextDate
+            guard let nextDate = calendar.nextDate(after: now, matching: nextDateComp, matchingPolicy: .nextTime) else {
+                 print("[AlarmScheduler] ⚠️ Could not compute next fire date")
+                 return
+            }
+            
+            let components = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second, .timeZone], from: nextDate)
             
             // We use calendar trigger for one-shot specific time to be precise with clock time
             let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
@@ -61,6 +94,17 @@ final class AlarmScheduler: AlarmSchedulerProtocol {
         }
         
         AlarmDebug.dumpPendingNotifications()
+    }
+
+    func cancel(alarmId: UUID) {
+        let prefix = alarmId.uuidString
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let toCancel = requests.filter { $0.identifier.hasPrefix(prefix) }.map { $0.identifier }
+            if !toCancel.isEmpty {
+                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: toCancel)
+                print("[AlarmScheduler] 🗑️ Cancelled \(toCancel.count) notifications for alarm \(prefix)")
+            }
+        }
     }
     
     private func addRequest(id: String, content: UNNotificationContent, trigger: UNNotificationTrigger, alarm: Alarm) {
@@ -75,21 +119,26 @@ final class AlarmScheduler: AlarmSchedulerProtocol {
     }
 
     private func notificationSound(for alarm: Alarm) -> UNNotificationSound? {
-        // Try file extension variations
         let rawName = alarm.soundName
         
-        // Look in main bundle root or flattened (Yellow folders)
+        // Use recursive search or known subfolder
+        // 1. Try directly (if it has extension)
         if Bundle.main.url(forResource: rawName, withExtension: nil) != nil {
             return UNNotificationSound(named: UNNotificationSoundName(rawName))
         }
         
-        // Look in specific ringtones folder (Blue folders)
-        // Note: UNNotificationSound(named:) expects a path relative to bundle root or just filename if flattened.
-        // It DOES NOT support full absolute paths.
-        // If "BundledSounds/ringtones/foo.mp3" is the relative path, we use that.
+        // 2. Try cleaned name (e.g. "Forest" -> "forest.mp3") similar to SoundPlayer
+        let cleaned = rawName.replacingOccurrences(of: " ", with: "_").lowercased()
+        let filename = "\(cleaned).mp3"
         
-        if let _ = Bundle.main.url(forResource: rawName, withExtension: nil, subdirectory: "BundledSounds/ringtones") {
-             return UNNotificationSound(named: UNNotificationSoundName("BundledSounds/ringtones/\(rawName)"))
+        // Check in BundledSounds/ringtones (Common location)
+        if Bundle.main.url(forResource: cleaned, withExtension: "mp3", subdirectory: "BundledSounds/ringtones") != nil {
+            return UNNotificationSound(named: UNNotificationSoundName("BundledSounds/ringtones/\(filename)"))
+        }
+        
+        // Check in root
+        if Bundle.main.url(forResource: cleaned, withExtension: "mp3") != nil {
+            return UNNotificationSound(named: UNNotificationSoundName(filename))
         }
 
         return .default

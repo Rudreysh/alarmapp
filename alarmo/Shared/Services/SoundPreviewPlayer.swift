@@ -8,6 +8,7 @@ protocol SoundPreviewPlayerProtocol {
     var isPlaying: Bool { get }
     func play(resourceName: String, volume: Float)
     func stop()
+    func setVolume(_ volume: Float)
 }
 
 final class SoundPreviewPlayer: ObservableObject, SoundPreviewPlayerProtocol {
@@ -18,10 +19,15 @@ final class SoundPreviewPlayer: ObservableObject, SoundPreviewPlayerProtocol {
     
     @Published var isBuffering: Bool = false
     @Published var isPlaying: Bool = false
+    @Published var playingResourceName: String? = nil
     private var playRequestedAt: Date?
 
     func play(resourceName: String, volume: Float) {
         stop()
+        
+        DispatchQueue.main.async {
+            self.playingResourceName = resourceName
+        }
         
         let now = Date()
         self.playRequestedAt = now
@@ -88,6 +94,49 @@ final class SoundPreviewPlayer: ObservableObject, SoundPreviewPlayerProtocol {
         DispatchQueue.main.async { 
             self.isBuffering = false 
             self.isPlaying = false
+            self.playingResourceName = nil
+        }
+    }
+    
+    func setVolume(_ volume: Float) {
+        player?.volume = volume
+    }
+    
+    func playWithFade(resourceName: String, duration: TimeInterval, maxVolume: Float) {
+        if duration <= 0 {
+            play(resourceName: resourceName, volume: maxVolume)
+            return
+        }
+        
+        // Start playing at 0 volume
+        play(resourceName: resourceName, volume: 0)
+        
+        let steps = 40 // More steps for smoother fade
+        let timeStep = duration / Double(steps)
+        
+        var currentStep = 0
+        Timer.scheduledTimer(withTimeInterval: timeStep, repeats: true) { [weak self] timer in
+            guard let self = self, self.playingResourceName == resourceName else {
+                timer.invalidate()
+                return
+            }
+            
+            // Wait for it to actually start playing before ramping volume
+            // But don't invalidate if it's just buffering
+            guard self.isPlaying else { return }
+            
+            // Linear progression of step, but we could make it exponential if needed.
+            // For now, let's just make it reliably work.
+            let progress = Float(currentStep) / Float(steps)
+            let newVolume = progress * maxVolume
+            
+            if currentStep >= steps {
+                self.setVolume(maxVolume)
+                timer.invalidate()
+            } else {
+                self.setVolume(newVolume)
+                currentStep += 1
+            }
         }
     }
 }

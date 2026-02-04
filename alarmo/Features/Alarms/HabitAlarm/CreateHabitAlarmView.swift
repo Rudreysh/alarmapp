@@ -14,6 +14,7 @@ struct CreateHabitAlarmView: View {
     @State private var showGentleWakeUpPicker = false
     @State private var showSnoozePicker = false
     @State private var showWallpaperPicker = false
+    @State private var showTimeZonePicker = false
     @State private var showMissionSelection = false
     @State private var selectedMissionForConfig: AlarmMission?
     @State private var editingMissionIndex: Int?
@@ -34,6 +35,7 @@ struct CreateHabitAlarmView: View {
         _viewModel = StateObject(wrappedValue: CreateHabitAlarmViewModel(
             defaultHour: defaults.onboardingAlarmHour,
             defaultMinute: defaults.onboardingAlarmMinute,
+            defaultSecond: defaults.onboardingAlarmSecond,
             defaultSoundName: defaults.onboardingSoundName,
             defaultSoundVolume: defaults.onboardingSoundVolume,
             defaultWallpaperId: defaults.onboardingWallpaperId
@@ -41,261 +43,270 @@ struct CreateHabitAlarmView: View {
     }
     
     var body: some View {
-        ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
-            
-            ScrollView {
-                VStack(spacing: Spacing.l) {
-                    
-                    // Header
-                    HStack {
-                        Button(action: onClose) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 18, weight: .semibold))
+        NavigationView {
+            ZStack {
+                Colors.bgPrimary.ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Top Spacer for Header
+                        Color.clear.frame(height: 12)
+
+                        // 1. Digital Time Picker
+                        DigitalTimeDisplay(
+                            hour: $viewModel.hour,
+                            minute: $viewModel.minute,
+                            second: $viewModel.second
+                        )
+                        .padding(.top, 20)
+                        
+                        // Interactive Location Badge
+                        Button(action: { showTimeZonePicker = true }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: viewModel.timeZoneMode == .custom ? "globe.americas.fill" : "location.fill")
+                                    .font(.system(size: 10, weight: .semibold))
+                                
+                                let cityName: String = {
+                                    if viewModel.timeZoneMode == .custom, let id = viewModel.timeZoneIdentifier {
+                                        return viewModel.timeZoneCity ?? id.components(separatedBy: "/").last?.replacingOccurrences(of: "_", with: " ") ?? id
+                                    }
+                                    return "CURRENT LOCATION"
+                                }()
+                                
+                                Text(cityName)
+                                    .font(.system(size: 11, weight: .bold))
+                                    .textCase(.uppercase)
+                                    .kerning(1.0)
+                                
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .opacity(0.5)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule()
+                                    .fill(viewModel.timeZoneMode == .custom ? Colors.accentTeal.opacity(0.12) : Colors.textSecondary.opacity(0.1))
+                            )
+                            .foregroundColor(viewModel.timeZoneMode == .custom ? Colors.accentTeal : Colors.textPrimary)
+                            .overlay(
+                                Capsule()
+                                    .stroke(viewModel.timeZoneMode == .custom ? Colors.accentTeal.opacity(0.2) : Colors.textSecondary.opacity(0.2), lineWidth: 1)
+                            )
+                        }
+                        .padding(.top, 18)
+                        .padding(.bottom, 10)
+
+                        // 2. Name & Emoji
+                        HStack(spacing: Spacing.m) {
+                            Button(action: { showEmojiPicker = true }) {
+                                Text(viewModel.emoji)
+                                    .font(.system(size: 30))
+                                    .frame(width: 44, height: 44)
+                            }
+
+                            TextField("Please fill in the alarm name", text: $viewModel.name)
+                                .font(.system(size: 20, weight: .semibold))
                                 .foregroundColor(Colors.textPrimary)
-                                .frame(width: 44, height: 44)
+                                .focused($nameFocused)
+
+                            Button(action: { nameFocused = true }) {
+                                Image(systemName: "pencil")
+                                    .foregroundColor(Colors.textSecondary)
+                            }
                         }
-                        Spacer()
-                        Text("Habit alarm")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(Colors.textPrimary)
-                        Spacer()
-                        Spacer().frame(width: 44)
-                    }
-                    .padding(.horizontal, Spacing.l)
-                    .padding(.top, Spacing.l)
-                    
-                    // Goal Input
-                    HStack(spacing: Spacing.m) {
-                        Button(action: { showEmojiPicker = true }) {
-                            Text(viewModel.emoji)
-                                .font(.system(size: 30))
-                                .frame(width: 44, height: 44)
-                        }
+                        .padding(.horizontal, Spacing.l)
                         
-                        TextField("Enter your habit goal", text: $viewModel.name)
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(Colors.textPrimary)
-                            .focused($nameFocused)
-                        
-                        Button(action: { nameFocused = true }) {
-                            Image(systemName: "pencil")
-                                .foregroundColor(Colors.textSecondary)
-                        }
-                    }
-                    .padding(.horizontal, Spacing.l)
-                    
-                    // Ring Countdown
-                    Text(viewModel.ringInText)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(Colors.textPrimary)
-                    
-                    // Time Picker
-                    TimeWheelPickerView(
-                        hour: $viewModel.hour,
-                        minute: $viewModel.minute
-                    )
-                    .onChange(of: viewModel.hour) { _, _ in viewModel.updateRingInText() }
-                    .onChange(of: viewModel.minute) { _, _ in viewModel.updateRingInText() }
-                    
-                    // Reminder Section
-                    VStack(spacing: Spacing.m) {
-                        HStack {
-                            Text("Reminder")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(Colors.textSecondary)
-                            Spacer()
-                            Button(action: {
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                    viewModel.reminderEnabled.toggle()
-                                }
-                            }) {
-                                HStack(spacing: 8) {
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .stroke(viewModel.reminderEnabled ? Colors.accentTeal : Colors.textTertiary, lineWidth: 2)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 4)
-                                                .fill(viewModel.reminderEnabled ? Colors.accentTeal : Color.clear)
-                                        )
-                                        .frame(width: 22, height: 22)
-                                        .overlay(
-                                            Image(systemName: "checkmark")
-                                                .font(.system(size: 12, weight: .bold))
-                                                .foregroundColor(.white)
-                                                .opacity(viewModel.reminderEnabled ? 1 : 0)
-                                        )
-                                }
+                        // 3. SETTINGS GROUPS
+
+                        // Group A: Schedule
+                        SectionHeader(title: "Schedule")
+                        GroupedSettingsCard {
+                            DaySelectionRow(
+                                isDaily: $viewModel.isDaily,
+                                selectedWeekdays: $viewModel.selectedWeekdays
+                            )
+                            
+                            Divider()
+                                .background(Color(white: 0.25))
+                                .padding(.vertical, 4)
+                            
+                            MenuRow(
+                                icon: "zzz",
+                                title: "Snooze",
+                                value: snoozeSummary
+                            ) {
+                                showSnoozePicker = true
                             }
                         }
                         
-                        if viewModel.reminderEnabled {
-                            HStack(spacing: Spacing.m) {
-                                ReminderMiniCard(
-                                    title: "How often",
-                                    value: "\(viewModel.reminderIntervalMinutes)m",
-                                    detail: "Reminder interval",
-                                    action: { showFrequencyPicker = true }
-                                )
-                                ScheduleCard(
-                                    from: TimeFormatters.shortTime(viewModel.reminderStartTime),
-                                    until: TimeFormatters.shortTime(viewModel.reminderEndTime),
-                                    onFromTap: { showStartTimePicker = true },
-                                    onUntilTap: { showEndTimePicker = true }
-                                )
-                            }
-                            .padding(.top, Spacing.s)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                        }
-                    }
-                    .padding(.horizontal, Spacing.l)
-                    
-                    // Repeat Controls
-                    HStack {
-                        Text(viewModel.isDaily ? "Daily" : "Custom")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(Colors.textSecondary)
-                        Spacer()
-                        Button(action: { viewModel.toggleDaily() }) {
-                            HStack(spacing: 8) {
-                                RoundedRectangle(cornerRadius: 4)
-                                    .stroke(viewModel.isDaily ? Colors.accentTeal : Colors.textTertiary, lineWidth: 2)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 4)
-                                            .fill(viewModel.isDaily ? Colors.accentTeal : Color.clear)
-                                    )
-                                    .frame(width: 22, height: 22)
-                                    .overlay(
-                                        Image(systemName: "checkmark")
-                                            .font(.system(size: 12, weight: .bold))
-                                            .foregroundColor(.white)
-                                            .opacity(viewModel.isDaily ? 1 : 0)
-                                    )
-                                Text("Daily")
-                                    .font(.system(size: 16, weight: .semibold))
+                        // Group B: Habit Reminder Feature (Specific to Habit Alarm)
+                        SectionHeader(title: "Habit Reminder")
+                        GroupedSettingsCard {
+                            Toggle(isOn: $viewModel.reminderEnabled) {
+                                Text("Active Reminders")
                                     .foregroundColor(Colors.textPrimary)
                             }
-                        }
-                    }
-                    .padding(.horizontal, Spacing.l)
-                    
-                    HStack(spacing: 8) {
-                        ForEach(1...7, id: \.self) { day in
-                            WeekdayPill(
-                                label: weekdayLabel(day),
-                                isSelected: viewModel.selectedWeekdays.contains(day),
-                                isInteractive: true // In Habit alarm, we allow toggling always, but logic handles Daily interaction
-                            ) {
-                                viewModel.toggleWeekday(day)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, Spacing.l)
-                    
-                    // Mission Section
-                    MissionSectionView(
-                        missions: viewModel.missions,
-                        onAddMission: {
-                            editingMissionIndex = nil
-                            showMissionSelection = true
-                        },
-                        onEditMission: { index in
-                            editingMissionIndex = index
-                            selectedMissionForConfig = viewModel.missions[index]
-                        },
-                        onRemoveMission: { index in
-                            viewModel.removeMission(at: index)
-                        },
-                        wakeUpCheckText: viewModel.wakeUpCheckEnabled ? "On" : "Off",
-                        onWakeUpCheck: { showWakeUpCheck = true }
-                    )
-                    .padding(.horizontal, Spacing.l)
-                    
-                    // Sound & Settings
-                    VStack(alignment: .leading, spacing: Spacing.m) {
-                        Text("Alarm sound")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Colors.textSecondary)
-                        
-                        AlarmSoundCard(
-                            soundName: viewModel.soundName,
-                            isBuffering: soundPlayer.isBuffering,
-                            isPlaying: soundPlayer.isPlaying,
-                            onTap: { showSoundPicker = true },
-                            onPreview: {
-                                if soundPlayer.isPlaying {
-                                    soundPlayer.stop()
-                                } else {
-                                    soundPlayer.play(resourceName: viewModel.soundName, volume: viewModel.soundVolume)
-                                }
-                            }
-                        )
-                        
-                        HStack(spacing: Spacing.m) {
-                            Image(systemName: "speaker.wave.2.fill")
-                                .foregroundColor(Colors.textSecondary)
-                            Slider(value: $viewModel.soundVolume, in: 0...1)
-                                .tint(.white)
+                            .padding()
                             
-                            Button(action: { viewModel.vibrateEnabled.toggle() }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "iphone.radiowaves.left.and.right")
-                                        .foregroundColor(Colors.textSecondary)
-                                    Image(systemName: viewModel.vibrateEnabled ? "checkmark.square.fill" : "square")
-                                        .foregroundColor(viewModel.vibrateEnabled ? Colors.accentTeal : Colors.textTertiary)
+                            if viewModel.reminderEnabled {
+                                Divider().padding(.leading, 16).opacity(0.3)
+                                
+                                MenuRow(
+                                    icon: "timer",
+                                    title: "Frequency",
+                                    value: "\(viewModel.reminderIntervalMinutes) min"
+                                ) {
+                                    showFrequencyPicker = true
                                 }
+                                
+                                Divider().padding(.leading, 52).opacity(0.3)
+                                
+                                MenuRow(
+                                    icon: "clock.arrow.2.circlepath",
+                                    title: "Active Window",
+                                    value: "\(TimeFormatters.shortTime(viewModel.reminderStartTime)) - \(TimeFormatters.shortTime(viewModel.reminderEndTime))"
+                                ) {
+                                    showStartTimePicker = true 
+                                }
+                                
+                                Text(viewModel.reminderSummary)
+                                    .font(.caption)
+                                    .foregroundColor(Colors.textSecondary)
+                                    .padding(.horizontal)
+                                    .padding(.bottom, 8)
+                            }
+                        }
+
+                        // Group C: Missions
+                        SectionHeader(title: "Wake Up Missions")
+                        MissionSlotsView(
+                            missions: viewModel.missions,
+                            onAdd: {
+                                editingMissionIndex = nil
+                                showMissionSelection = true
+                            },
+                            onEdit: { index in
+                                editingMissionIndex = index
+                                showMissionSelection = true
+                            },
+                            onRemove: { index in
+                                viewModel.removeMission(at: index)
+                            }
+                        )
+                        .padding(.horizontal, 4)
+
+                        // Group D: Sound & Behavior
+                        SectionHeader(title: "Sound & Behavior")
+                        GroupedSettingsCard {
+                            MenuRow(
+                                icon: "bell.fill",
+                                title: "Alarm Sound",
+                                value: viewModel.soundName
+                            ) {
+                                showSoundPicker = true
+                            }
+                            
+                            Divider().padding(.leading, 52).opacity(0.3)
+                            
+                            MenuRow(
+                                icon: "sun.max.fill",
+                                title: "Gentle Wake-Up",
+                                value: gentleWakeUpText
+                            ) {
+                                showGentleWakeUpPicker = true
+                            }
+                            
+                            Divider().padding(.leading, 52).opacity(0.3)
+                            
+                            MenuRow(
+                                icon: "checkmark.shield.fill",
+                                title: "Wake-Up Check",
+                                value: viewModel.wakeUpCheckEnabled ? "On" : "Off"
+                            ) {
+                                showWakeUpCheck = true
+                            }
+                        }
+
+                        // Group E: Time Zone Anchor
+                        SectionHeader(title: "Time Zone Anchor")
+                        GroupedSettingsCard {
+                            Toggle(isOn: Binding(
+                                get: { viewModel.timeZoneMode == .custom },
+                                set: { isOn in
+                                    viewModel.timeZoneMode = isOn ? .custom : .local
+                                    if isOn && viewModel.timeZoneIdentifier == nil {
+                                        viewModel.timeZoneIdentifier = TimeZone.current.identifier
+                                    }
+                                }
+                            )) {
+                                Text("Anchor to Time Zone")
+                                    .foregroundColor(Colors.textPrimary)
+                            }
+                            .padding()
+                            
+                            if viewModel.timeZoneMode == .custom {
+                                Divider().padding(.leading, 16).opacity(0.3)
+                                
+                                MenuRow(
+                                    icon: "globe",
+                                    title: "Time Zone",
+                                    value: viewModel.timeZoneCity ?? viewModel.timeZoneIdentifier ?? "Select"
+                                ) {
+                                    showTimeZonePicker = true
+                                }
+                                
+                                Text("Alarm rings at \(timeZoneText)")
+                                    .font(.caption)
+                                    .foregroundColor(Colors.textSecondary)
+                                    .padding(.horizontal)
+                                    .padding(.bottom, 8)
+                            }
+                        }
+
+                        // Group F: Wallpaper
+                        SectionHeader(title: "Wallpaper")
+                        GroupedSettingsCard {
+                            MenuRow(
+                                icon: "photo.fill",
+                                title: "Wallpaper",
+                                value: "Select",
+                                thumbnail: resolvedWallpaperImage
+                            ) {
+                                showWallpaperPicker = true
                             }
                         }
                     }
-                    .padding(.horizontal, Spacing.l)
-                    
-                    SettingsRow(title: "Gentle wake-up", value: gentleWakeUpText) {
-                        showGentleWakeUpPicker = true
-                    }
-                    .padding(.horizontal, Spacing.l)
-                    
-                    ReminderTogglesCard(
-                        timeReminder: $viewModel.timeReminderEnabled,
-                        weatherReminder: $viewModel.weatherReminderEnabled,
-                        labelReminder: $viewModel.labelReminderEnabled,
-                        extraLoud: $viewModel.extraLoudEnabled
-                    )
-                    .padding(.horizontal, Spacing.l)
-                    
-                    // Custom Settings (Snooze & Wallpaper)
-                    VStack(alignment: .leading, spacing: Spacing.m) {
-                        Text("Custom setting")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Colors.textSecondary)
-                        
-                        CustomSettingsCard(
-                            snoozeText: snoozeSummary,
-                            onSnooze: { showSnoozePicker = true },
-                            wallpaperId: viewModel.wallpaperId,
-                            onWallpaper: { showWallpaperPicker = true }
-                        )
-                    }
-                    .padding(.horizontal, Spacing.l)
-                    
-                    Spacer(minLength: 140)
+                    .padding(.bottom, 40)
                 }
             }
-            
-            // Footer Save Button
-            VStack {
-                Spacer()
-                PrimaryButton(title: "Save") {
-                    saveAlarm()
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel", action: onClose)
+                        .foregroundColor(Colors.textPrimary)
                 }
-                .disabled(viewModel.name.isEmpty)
-                .padding(.horizontal, Spacing.l)
-                .padding(.bottom, Spacing.m)
-                .background(
-                    LinearGradient(
-                        colors: [Colors.bgPrimary.opacity(0), Colors.bgPrimary, Colors.bgPrimary],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
+                
+                ToolbarItem(placement: .principal) {
+                    VStack(spacing: 2) {
+                        Text("Edit Alarm")
+                            .font(.headline)
+                            .foregroundColor(Colors.textPrimary)
+                        Text(viewModel.ringInText)
+                            .font(.caption)
+                            .foregroundColor(Colors.textSecondary)
+                    }
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        saveAlarm()
+                    }) {
+                        Text("Save")
+                            .font(.headline)
+                            .foregroundColor(Colors.accentTeal)
+                    }
+                }
             }
         }
         .sheet(isPresented: $showEmojiPicker) {
@@ -308,13 +319,25 @@ struct CreateHabitAlarmView: View {
             SoundPickerView(selectedSound: $viewModel.soundName)
         }
         .sheet(isPresented: $showGentleWakeUpPicker) {
-            GentleWakeUpPickerView(selectedSeconds: $viewModel.gentleWakeUpSeconds)
+            GentleWakeUpPickerView(
+                selectedSeconds: $viewModel.gentleWakeUpSeconds,
+                maxVolume: $viewModel.soundVolume,
+                soundName: viewModel.soundName,
+                soundPlayer: soundPlayer
+            )
         }
         .sheet(isPresented: $showSnoozePicker) {
             SnoozePickerView(minutes: $viewModel.snoozeMinutes, count: $viewModel.snoozeCount)
         }
         .sheet(isPresented: $showWallpaperPicker) {
             WallpaperPickerView(selectedId: $viewModel.wallpaperId)
+        }
+        .sheet(isPresented: $showTimeZonePicker) {
+            TimeZonePickerView(
+                selectedIdentifier: $viewModel.timeZoneIdentifier,
+                selectedCity: $viewModel.timeZoneCity,
+                selectedMode: $viewModel.timeZoneMode
+            )
         }
         .sheet(isPresented: $showWakeUpCheck) {
             WakeUpCheckView(isEnabled: $viewModel.wakeUpCheckEnabled)
@@ -334,14 +357,6 @@ struct CreateHabitAlarmView: View {
                         type: .findColorTiles,
                         difficulty: settings.difficulty.rawValue,
                         rounds: settings.rounds
-                    )
-                    updateMission(updatedMission)
-                }
-            } else if mission.type == .typing {
-                TypingMissionSettingsView { settings in
-                    let updatedMission = AlarmMission(
-                        type: .typing,
-                        rounds: settings.repeatCount
                     )
                     updateMission(updatedMission)
                 }
@@ -414,6 +429,38 @@ struct CreateHabitAlarmView: View {
         .onDisappear {
             soundPlayer.stop()
         }
+        .onChange(of: viewModel.hour) { _, _ in
+            viewModel.updateRingInText()
+        }
+        .onChange(of: viewModel.minute) { _, _ in
+            viewModel.updateRingInText()
+        }
+        .onChange(of: viewModel.second) { _, _ in
+            viewModel.updateRingInText()
+        }
+        .onChange(of: viewModel.timeZoneIdentifier) { _, _ in
+            syncTimeToSelectedTimeZone()
+        }
+        .onChange(of: viewModel.timeZoneMode) { _, _ in
+            syncTimeToSelectedTimeZone()
+        }
+    }
+    
+    private func syncTimeToSelectedTimeZone() {
+        let timezone: TimeZone
+        if viewModel.timeZoneMode == .custom, let id = viewModel.timeZoneIdentifier {
+            timezone = TimeZone(identifier: id) ?? .current
+        } else {
+            timezone = .current
+        }
+        
+        var calendar = Calendar.current
+        calendar.timeZone = timezone
+        
+        let now = Date()
+        viewModel.hour = calendar.component(.hour, from: now)
+        viewModel.minute = calendar.component(.minute, from: now)
+        viewModel.updateRingInText()
     }
     
     private func updateMission(_ mission: AlarmMission) {
@@ -436,6 +483,7 @@ struct CreateHabitAlarmView: View {
                 emoji: viewModel.emoji,
                 hour: viewModel.hour,
                 minute: viewModel.minute,
+                second: viewModel.second,
                 isDaily: viewModel.isDaily,
                 repeatMask: viewModel.repeatMask(),
                 enabled: true,
@@ -448,6 +496,10 @@ struct CreateHabitAlarmView: View {
                 weatherReminderEnabled: viewModel.weatherReminderEnabled,
                 labelReminderEnabled: viewModel.labelReminderEnabled,
                 extraLoudEnabled: viewModel.extraLoudEnabled,
+                bypassSilentMode: viewModel.bypassSilentMode,
+                timeZoneMode: viewModel.timeZoneMode,
+                timeZoneIdentifier: viewModel.timeZoneIdentifier,
+                timeZoneCity: viewModel.timeZoneCity,
                 snoozeMinutes: viewModel.snoozeMinutes,
                 snoozeCount: viewModel.snoozeCount,
                 wallpaperId: viewModel.wallpaperId,
@@ -473,6 +525,47 @@ struct CreateHabitAlarmView: View {
     }
     
     // Helpers for display
+    var timeZoneText: String {
+        guard viewModel.timeZoneMode == .custom,
+              let id = viewModel.timeZoneIdentifier,
+              let tz = TimeZone(identifier: id) else {
+            return "Local Time"
+        }
+        
+        let targetFormatter = DateFormatter()
+        targetFormatter.timeZone = tz
+        targetFormatter.timeStyle = .short
+        
+        let localFormatter = DateFormatter()
+        localFormatter.timeStyle = .short
+        
+        let now = Date()
+        var targetCalendar = Calendar(identifier: .gregorian)
+        targetCalendar.timeZone = tz
+        
+        var comps = DateComponents()
+        comps.hour = viewModel.hour
+        comps.minute = viewModel.minute
+        comps.second = 0
+        
+        guard let nextDate = targetCalendar.nextDate(after: now, matching: comps, matchingPolicy: .nextTime) else {
+            return "Unknown time"
+        }
+        
+        let targetStr = targetFormatter.string(from: nextDate)
+        let localStr = localFormatter.string(from: nextDate)
+        let dayDiff = CheckDay(date: nextDate, calendar: Calendar.current)
+        
+        let cityName = viewModel.timeZoneCity ?? id.components(separatedBy: "/").last?.replacingOccurrences(of: "_", with: " ") ?? id
+        return "\(targetStr) in \(cityName)\n(Local: \(localStr)\(dayDiff))"
+    }
+
+    func CheckDay(date: Date, calendar: Calendar) -> String {
+        if calendar.isDateInToday(date) { return "" }
+        if calendar.isDateInTomorrow(date) { return " Tomorrow" }
+        return " (+Day)"
+    }
+
     private var gentleWakeUpText: String {
         viewModel.gentleWakeUpSeconds == 0 ? "Off" : "\(viewModel.gentleWakeUpSeconds) seconds"
     }
@@ -482,6 +575,30 @@ struct CreateHabitAlarmView: View {
             return "Off"
         }
         return "\(viewModel.snoozeMinutes) min, \(viewModel.snoozeCount) times"
+    }
+
+    var resolvedWallpaperImage: Image? {
+        let id = viewModel.wallpaperId
+        
+        for category in WallpaperConfig.categories {
+            if id.hasPrefix(category.id + "-") {
+                let filename = String(id.dropFirst(category.id.count + 1))
+                if category.imageNames.contains(filename) {
+                     let nameWithoutExt = (filename as NSString).deletingPathExtension
+                     if let path = Bundle.main.path(forResource: nameWithoutExt, ofType: (filename as NSString).pathExtension) {
+                         if let uiImage = UIImage(contentsOfFile: path) {
+                             return Image(uiImage: uiImage)
+                         }
+                     }
+                     if let path = Bundle.main.path(forResource: filename, ofType: nil, inDirectory: "BundledWallpapers/\(category.id)") {
+                         if let uiImage = UIImage(contentsOfFile: path) {
+                             return Image(uiImage: uiImage)
+                         }
+                     }
+                }
+            }
+        }
+        return nil
     }
 }
 

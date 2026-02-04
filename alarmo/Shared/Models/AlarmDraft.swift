@@ -5,6 +5,7 @@ struct AlarmDraft: Equatable {
     var emoji: String = "🌞"
     var hour: Int
     var minute: Int
+    var second: Int = 0
     var isDaily: Bool = true
     var selectedWeekdays: Set<Int>
     var enabled: Bool = true
@@ -17,14 +18,19 @@ struct AlarmDraft: Equatable {
     var weatherReminderEnabled: Bool = false
     var labelReminderEnabled: Bool = false
     var extraLoudEnabled: Bool = false
+    var bypassSilentMode: Bool = true
+    var timeZoneMode: AlarmTimeZoneMode = .local
+    var timeZoneIdentifier: String?
+    var timeZoneCity: String?
     var snoozeMinutes: Int = 5
     var snoozeCount: Int = 3
     var wallpaperId: String = "default"
     var missions: [AlarmMission] = []
 
-    init(defaultHour: Int, defaultMinute: Int, defaultRepeatMask: Int, defaultSoundName: String, defaultSoundVolume: Float, defaultWallpaperId: String) {
+    init(defaultHour: Int, defaultMinute: Int, defaultSecond: Int = 0, defaultRepeatMask: Int, defaultSoundName: String, defaultSoundVolume: Float, defaultWallpaperId: String) {
         self.hour = defaultHour
         self.minute = defaultMinute
+        self.second = defaultSecond
         self.selectedWeekdays = Set(RepeatMask.weekdays(from: defaultRepeatMask))
         self.isDaily = defaultRepeatMask == RepeatMask.allDays
         self.soundName = defaultSoundName.isEmpty ? "Orkney" : defaultSoundName

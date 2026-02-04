@@ -7,7 +7,6 @@ struct SoundPickerView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var sounds: [SoundAsset] = []
-    @State private var nowPlaying: String? = nil
     @State private var selectedTab: SoundCategory = .trending
     
     // Add Logic
@@ -20,7 +19,14 @@ struct SoundPickerView: View {
     private let spotifyService = SpotifyService()
 
     private let repository = SoundCatalogRepository()
-    @StateObject private var audioPlayer = AudioPreviewPlayer()
+
+    @ObservedObject var soundPlayer: SoundPreviewPlayer
+    
+    // Fallback init for previews if needed, but primarily intended to be injected
+    init(selectedSound: Binding<String>, soundPlayer: SoundPreviewPlayer = SoundPreviewPlayer()) {
+        _selectedSound = selectedSound
+        self.soundPlayer = soundPlayer
+    }
 
     var body: some View {
         ZStack {
@@ -99,16 +105,15 @@ struct SoundPickerView: View {
                         
                         VStack(spacing: 0) {
                             ForEach(filteredSounds) { sound in
-                                SoundRow(
+                                    SoundRow(
                                     sound: sound,
                                     isSelected: selectedSound == sound.title,
-                                    isPlaying: nowPlaying == sound.title,
-                                    isBuffering: nowPlaying == sound.title && audioPlayer.isBuffering
+                                    isPlaying: soundPlayer.isPlaying && soundPlayer.playingResourceName == sound.title,
+                                    isBuffering: soundPlayer.isBuffering && soundPlayer.playingResourceName == sound.title
                                 ) { action in
                                     switch action {
                                     case .select:
                                         selectedSound = sound.title
-                                        // Play on select? Usually yes.
                                         togglePlay(sound: sound)
                                     case .play:
                                         togglePlay(sound: sound)
@@ -165,8 +170,11 @@ struct SoundPickerView: View {
             loadSounds()
         }
         .onDisappear {
-            audioPlayer.stop()
-            nowPlaying = nil
+            // Optional: stop when leaving picker? 
+            // User might want to keep hearing preview while going back?
+            // "stop it while playing" was requested for the Play button.
+            // When navigating back, usually we stop.
+            soundPlayer.stop()
         }
         // Custom Sound Sheet
         .sheet(isPresented: $showAddSheet) {
@@ -252,13 +260,10 @@ struct SoundPickerView: View {
     }
     
     private func togglePlay(sound: SoundAsset) {
-        if nowPlaying == sound.title {
-            audioPlayer.stop()
-            nowPlaying = nil
+        if soundPlayer.isPlaying && soundPlayer.playingResourceName == sound.title {
+            soundPlayer.stop()
         } else {
-            audioPlayer.stop() // Stop previous
-            audioPlayer.play(url: sound.fileURL, volume: 1.0, fadeIn: false)
-            nowPlaying = sound.title
+            soundPlayer.play(resourceName: sound.title, volume: 1.0)
         }
     }
 }
