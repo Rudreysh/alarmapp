@@ -19,8 +19,7 @@ struct CreateHabitAlarmView: View {
     @State private var showMissionSelection = false
     @State private var selectedMissionForConfig: AlarmMission?
     @State private var editingMissionIndex: Int?
-    @State private var showAccountabilityInfo = false
-    @State private var showAppProtectionGuide = false
+    @State private var showPenaltySettings = false
     
     // Reminder Pickers
     @State private var showFrequencyPicker = false
@@ -276,102 +275,25 @@ struct CreateHabitAlarmView: View {
                         // Group F: Accountability Shield
                         SectionHeader(title: "Accountability Shield")
                         GroupedSettingsCard {
-                            Toggle(isOn: $viewModel.accountabilityEnabled) {
-                                Text("Enable for this habit alarm")
+                            Toggle(isOn: $viewModel.penaltyEnabled) {
+                                Text("Enable Penalty")
                                     .foregroundColor(Colors.textPrimary)
                             }
                             .padding()
-
-                            if viewModel.accountabilityEnabled {
-                                Divider().padding(.leading, 16).opacity(0.3)
-
-                                Toggle(isOn: $viewModel.blockAppsEnabled) {
-                                    Text("Lock phone while ringing")
-                                        .foregroundColor(Colors.textPrimary)
-                                }
-                                .padding(.horizontal)
-                                .padding(.vertical, 10)
-
-                                if viewModel.blockAppsEnabled {
-                                    Divider().padding(.leading, 16).opacity(0.3)
-                                    BlockedAppsSelectionView()
-                                        .padding(.horizontal)
-                                        .padding(.vertical, 10)
-                                }
-
-                                Divider().padding(.leading, 16).opacity(0.3)
-
-                                Toggle(isOn: $viewModel.penaltyEnabled) {
-                                    Text("Use penalty credits")
-                                        .foregroundColor(Colors.textPrimary)
-                                }
-                                .padding(.horizontal)
-                                .padding(.vertical, 10)
-
-                                if viewModel.penaltyEnabled {
-                                    Divider().padding(.leading, 16).opacity(0.3)
-                                    Stepper(
-                                        "Penalty Amount (€\(viewModel.penaltyAmountEuro))",
-                                        value: $viewModel.penaltyAmountEuro,
-                                        in: 1...10
-                                    )
-                                    .foregroundColor(Colors.textPrimary)
-                                    .padding(.horizontal)
-                                    .padding(.vertical, 10)
-                                }
-
-                                Divider().padding(.leading, 16).opacity(0.3)
-
-                                Toggle(isOn: $viewModel.shutdownProtectionEnabled) {
-                                    HStack(spacing: 8) {
-                                        Text("Shutdown Protection")
-                                            .foregroundColor(Colors.textPrimary)
-                                        Image(systemName: "info.circle")
-                                            .font(.system(size: 14))
-                                            .foregroundColor(Colors.textSecondary)
-                                    }
-                                }
-                                .padding(.horizontal)
-                                .padding(.vertical, 10)
-
-                                if viewModel.shutdownProtectionEnabled {
-                                    Text("Detects shutdown attempts while alarm is active. Applies penalty if enabled.")
-                                        .font(.caption)
-                                        .foregroundColor(Colors.textSecondary)
-                                        .padding(.horizontal)
-                                        .padding(.bottom, 4)
-                                }
-
-                                Text("Advanced penalty rules can be configured in Settings > Accountability Shield.")
-                                    .font(.caption)
-                                    .foregroundColor(Colors.textSecondary)
-                                    .padding(.horizontal)
-                                    .padding(.bottom, 8)
-
-                                Button {
-                                    showAccountabilityInfo = true
-                                } label: {
-                                    Text("How this works")
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundColor(Colors.accentTeal)
-                                        .padding(.horizontal)
-                                        .padding(.bottom, 8)
-                                }
-                                
-                                Button {
-                                    showAppProtectionGuide = true
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "shield.checkered")
-                                            .font(.system(size: 12))
-                                        Text("App Protection Guide")
-                                    }
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(Colors.accentTeal)
-                                    .padding(.horizontal)
-                                    .padding(.bottom, 8)
-                                }
+                            Divider().padding(.leading, 16).opacity(0.3)
+                            MenuRow(
+                                icon: "slider.horizontal.3",
+                                title: "Edit Penalty Rules",
+                                value: "Settings"
+                            ) {
+                                showPenaltySettings = true
                             }
+                            
+                            Text("Penalty rules are global and apply only while this alarm is active.")
+                                .font(.caption)
+                                .foregroundColor(Colors.textSecondary)
+                                .padding(.horizontal)
+                                .padding(.bottom, 8)
                         }
 
                         // Group G: Wallpaper
@@ -437,7 +359,11 @@ struct CreateHabitAlarmView: View {
             )
         }
         .sheet(isPresented: $showSnoozePicker) {
-            SnoozePickerView(minutes: $viewModel.snoozeMinutes, count: $viewModel.snoozeCount)
+            SnoozePickerView(
+                minutes: $viewModel.snoozeMinutes,
+                seconds: $viewModel.snoozeSeconds,
+                count: $viewModel.snoozeCount
+            )
         }
         .sheet(isPresented: $showWallpaperPicker) {
             WallpaperPickerView(selectedId: $viewModel.wallpaperId)
@@ -452,11 +378,8 @@ struct CreateHabitAlarmView: View {
         .sheet(isPresented: $showWakeUpCheck) {
             WakeUpCheckView(isEnabled: $viewModel.wakeUpCheckEnabled)
         }
-        .sheet(isPresented: $showAccountabilityInfo) {
-            AccountabilityInfoView()
-        }
-        .sheet(isPresented: $showAppProtectionGuide) {
-            AppProtectionGuideView()
+        .sheet(isPresented: $showPenaltySettings) {
+            PreventPowerOffView()
         }
         .sheet(isPresented: $showMissionSelection) {
             MissionSelectionView { mission in
@@ -620,22 +543,19 @@ struct CreateHabitAlarmView: View {
                 timeZoneIdentifier: viewModel.timeZoneIdentifier,
                 timeZoneCity: viewModel.timeZoneCity,
                 snoozeMinutes: viewModel.snoozeMinutes,
+                snoozeSeconds: viewModel.snoozeSeconds,
                 snoozeCount: viewModel.snoozeCount,
                 wallpaperId: viewModel.wallpaperId,
                 createdAt: existingAlarm?.createdAt ?? Date(),
                 missions: viewModel.missions,
-                enforcementMode: viewModel.accountabilityEnabled
-                    ? (viewModel.blockAppsEnabled && viewModel.penaltyEnabled
-                        ? .blockAppsAndPenalty
-                        : (viewModel.blockAppsEnabled ? .blockApps : .penaltyOnly))
-                    : .none,
-                blockAppsEnabled: viewModel.accountabilityEnabled && viewModel.blockAppsEnabled,
+                enforcementMode: viewModel.penaltyEnabled ? .penaltyOnly : .none,
+                blockAppsEnabled: false,
                 blockedSelectionData: settingsStore.blockedAppsSelectionData,
-                penaltyEnabled: viewModel.accountabilityEnabled && viewModel.penaltyEnabled,
-                penaltyAmountEuro: viewModel.penaltyAmountEuro,
+                penaltyEnabled: viewModel.penaltyEnabled,
+                penaltyAmountEuro: settingsStore.penaltyAmountEuro,
                 penaltyStrategy: .credits,
                 penaltyRules: alarmPenaltyRules,
-                shutdownProtectionEnabled: viewModel.accountabilityEnabled && viewModel.shutdownProtectionEnabled,
+                shutdownProtectionEnabled: viewModel.penaltyEnabled,
                 habitReminderEnabled: viewModel.reminderEnabled,
                 habitReminderInterval: viewModel.reminderIntervalMinutes,
                 habitReminderDuration: viewModel.reminderDurationSeconds,
@@ -707,10 +627,16 @@ struct CreateHabitAlarmView: View {
     }
 
     private var snoozeSummary: String {
-        if viewModel.snoozeMinutes == 0 {
+        if viewModel.snoozeMinutes == 0 && viewModel.snoozeSeconds == 0 {
             return "Off"
         }
-        return "\(viewModel.snoozeMinutes) min, \(viewModel.snoozeCount) times"
+        let durationText: String
+        if viewModel.snoozeSeconds > 0 {
+            durationText = "\(viewModel.snoozeMinutes)m \(viewModel.snoozeSeconds)s"
+        } else {
+            durationText = "\(viewModel.snoozeMinutes) min"
+        }
+        return "\(durationText), \(viewModel.snoozeCount) times"
     }
 
     var resolvedWallpaperImage: Image? {

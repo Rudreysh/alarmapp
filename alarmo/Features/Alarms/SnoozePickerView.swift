@@ -2,9 +2,11 @@ import SwiftUI
 
 struct SnoozePickerView: View {
     @Binding var minutes: Int
+    @Binding var seconds: Int
     @Binding var count: Int
 
     private let minuteOptions = [0, 3, 5, 10, 15, 20, 25, 30, 45, 60]
+    private let secondOptions = [0, 5, 10, 15, 20, 30, 45]
     private let countOptions = Array(1...10)
 
     @Environment(\.dismiss) var dismiss
@@ -30,7 +32,15 @@ struct SnoozePickerView: View {
 
                 Picker("Interval", selection: $minutes) {
                     ForEach(minuteOptions, id: \.self) { value in
-                        Text(value == 0 ? "Off" : "\(value) min")
+                        Text("\(value) min")
+                            .tag(value)
+                    }
+                }
+                .pickerStyle(.wheel)
+
+                Picker("Seconds", selection: $seconds) {
+                    ForEach(secondOptions, id: \.self) { value in
+                        Text("\(value) sec")
                             .tag(value)
                     }
                 }
@@ -45,6 +55,16 @@ struct SnoozePickerView: View {
                 .pickerStyle(.wheel)
             }
             .padding(Spacing.l)
+        }
+        .onAppear {
+            if minutes == 0 && seconds == 0 {
+                minutes = 3
+            }
+        }
+        .onChange(of: minutes) { _, newValue in
+            if newValue == 0 && seconds == 0 {
+                seconds = 5
+            }
         }
     }
 }

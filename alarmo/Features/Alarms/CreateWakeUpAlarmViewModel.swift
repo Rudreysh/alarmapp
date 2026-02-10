@@ -44,6 +44,7 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
         draft.timeZoneIdentifier = alarm.timeZoneIdentifier
         draft.timeZoneCity = alarm.timeZoneCity
         draft.snoozeMinutes = alarm.snoozeMinutes
+        draft.snoozeSeconds = alarm.snoozeSeconds
         draft.snoozeCount = alarm.snoozeCount
         draft.missions = alarm.missions
         draft.accountabilityEnabled = alarm.enforcementMode != .none
@@ -136,6 +137,7 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
             timeZoneIdentifier: draft.timeZoneIdentifier,
             timeZoneCity: draft.timeZoneCity,
             snoozeMinutes: draft.snoozeMinutes,
+            snoozeSeconds: draft.snoozeSeconds,
             snoozeCount: draft.snoozeCount,
             wallpaperId: draft.wallpaperId,
             createdAt: Date()

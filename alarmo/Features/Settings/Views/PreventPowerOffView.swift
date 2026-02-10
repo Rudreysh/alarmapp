@@ -3,96 +3,148 @@ import StoreKit
 
 struct PreventPowerOffView: View {
     @ObservedObject var settings = SettingsStore.shared
-    @StateObject private var authManager = ScreenTimeAuthorizationManager.shared
     @StateObject private var creditsManager = PenaltyCreditsManager.shared
     @Environment(\.dismiss) var dismiss
     @State private var showInfo = false
+    @State private var showGuide = false
     @State private var showPenaltyPicker = false
 
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            LinearGradient(
+                colors: [
+                    Colors.bgPrimary,
+                    Color(red: 0.04, green: 0.07, blue: 0.14),
+                    Colors.bgPrimary
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+            .overlay(alignment: .topLeading) {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [Colors.accentTeal.opacity(0.18), .clear],
+                            center: .center,
+                            startRadius: 10,
+                            endRadius: 260
+                        )
+                    )
+                    .frame(width: 320, height: 320)
+                    .offset(x: -80, y: -90)
+            }
+            .overlay(alignment: .bottomTrailing) {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [Color(red: 0.33, green: 0.44, blue: 0.95).opacity(0.12), .clear],
+                            center: .center,
+                            startRadius: 10,
+                            endRadius: 260
+                        )
+                    )
+                    .frame(width: 320, height: 320)
+                    .offset(x: 80, y: 120)
+            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     header
 
-                    SettingsCard {
-                        SettingsCardToggleRow(
-                            title: "Enable Accountability Shield",
-                            subtitle: "Protect focus and alarm commitments",
-                            isOn: $settings.accountabilityEnabled,
-                            isLast: false
-                        )
-
+                    shieldCard {
                         SettingsActionRow(
-                            title: "Mode",
-                            trailingText: settings.enforcementMode.rawValue,
-                            isLast: false
-                        ) {
-                            cycleMode()
-                        }
-
-                        SettingsCardToggleRow(
-                            title: "Block apps",
-                            subtitle: "Uses Screen Time shield",
-                            isOn: $settings.blockAppsEnabled,
-                            isLast: false
-                        )
-
-                        SettingsCardToggleRow(
-                            title: "Enable penalty credits",
-                            subtitle: "Consumes credits when rules break",
-                            isOn: $settings.penaltyEnabled,
-                            isLast: false
-                        )
-
-                        SettingsActionRow(
-                            title: "Penalty amount",
-                            trailingText: "\(settings.penaltyCurrency.symbol)\(settings.penaltyAmountEuro) • \(settings.penaltyCurrency.rawValue)",
+                            title: "Penalty Amount",
+                            trailingText: "\(settings.penaltyCurrency.symbol)\(settings.penaltyAmountEuro)",
                             isLast: true
                         ) {
                             showPenaltyPicker = true
                         }
                     }
 
-                    if settings.accountabilityEnabled {
-                        SettingsCard {
-                            BlockedAppsSelectionView()
-                                .padding(16)
+                    shieldCard {
+                        SettingsCardToggleRow(
+                            title: "Charge if phone shutdown attempted",
+                            subtitle: "Uses active alarm lifecycle/tamper signals",
+                            isOn: Binding(
+                                get: { settings.penaltyRules.triggerShutdownAttemptEnabled },
+                                set: { settings.penaltyRules.triggerShutdownAttemptEnabled = $0 }
+                            ),
+                            isLast: false
+                        )
 
+                        SettingsCardToggleRow(
+                            title: "Charge if app uninstall/tamper during alarm",
+                            subtitle: "Best effort detection, applied when app resumes",
+                            isOn: Binding(
+                                get: { settings.penaltyRules.triggerUninstallTamperEnabled },
+                                set: { settings.penaltyRules.triggerUninstallTamperEnabled = $0 }
+                            ),
+                            isLast: false
+                        )
+
+                        SettingsCardToggleRow(
+                            title: "Charge if snooze exceeds threshold",
+                            subtitle: "Penalty fires once per alarm session",
+                            isOn: Binding(
+                                get: { settings.penaltyRules.triggerSnoozeThresholdEnabled },
+                                set: { settings.penaltyRules.triggerSnoozeThresholdEnabled = $0 }
+                            ),
+                            isLast: !settings.penaltyRules.triggerSnoozeThresholdEnabled
+                        )
+
+                        if settings.penaltyRules.triggerSnoozeThresholdEnabled {
                             Divider().padding(.horizontal, 16).opacity(0.2)
-
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Advanced rules")
-                                    .font(.system(size: 15, weight: .bold))
+                            HStack {
+                                Text("Snooze threshold")
                                     .foregroundColor(.white)
-
-                                Stepper("Snooze threshold: \(settings.penaltyRules.alarmSnoozeThreshold)", value: Binding(
-                                    get: { settings.penaltyRules.alarmSnoozeThreshold },
-                                    set: { settings.penaltyRules.alarmSnoozeThreshold = max(1, $0) }
-                                ), in: 1...10)
-                                .foregroundColor(.white)
-
-                                Stepper("Mission timeout: \(settings.penaltyRules.alarmMissionTimeoutSeconds)s", value: Binding(
-                                    get: { settings.penaltyRules.alarmMissionTimeoutSeconds },
-                                    set: { settings.penaltyRules.alarmMissionTimeoutSeconds = max(30, $0) }
-                                ), in: 30...600, step: 15)
-                                .foregroundColor(.white)
+                                Spacer()
+                                Text("\(settings.snoozePenaltyThreshold) times")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(Colors.textSecondary)
+                                Stepper(
+                                    "",
+                                    value: Binding(
+                                        get: { settings.snoozePenaltyThreshold },
+                                        set: { settings.snoozePenaltyThreshold = $0 }
+                                    ),
+                                    in: 1...10
+                                )
+                                .labelsHidden()
+                                .tint(Colors.accentTeal)
                             }
                             .padding(16)
                         }
                     }
 
-                    SettingsCard {
+                    shieldCard {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("How penalties work")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.white)
+                            Text("Penalties are evaluated only while an alarm session is active (ringing/snoozed/mission flow). iOS cannot provide reliable real-time uninstall detection, so app uninstall checks use best-effort tamper signals and accountability on resume.")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Colors.textSecondary)
+
+                            Button("How this works") { showInfo = true }
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Colors.accentTeal)
+                            Button("App Protection Guide") { showGuide = true }
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Colors.accentTeal)
+                        }
+                        .padding(16)
+                    }
+
+                    shieldCard {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Penalty credits")
+                            Text("Penalty Credits")
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundColor(.white)
                             Text("Balance: \(settings.penaltyCurrency.symbol)\(settings.penaltyCreditsBalance)")
                                 .font(.system(size: 22, weight: .black))
                                 .foregroundColor(Colors.accentTeal)
-                            
+
                             Button("Add test credits (no card)") {
                                 creditsManager.addTestCredits(25)
                             }
@@ -124,41 +176,21 @@ struct PreventPowerOffView: View {
                         }
                         .padding(16)
                     }
-
-                    if !settings.accountabilityAuditEvents.isEmpty {
-                        SettingsCard {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Penalty history")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(.white)
-
-                                ForEach(settings.accountabilityAuditEvents.suffix(10).reversed()) { event in
-                                    HStack {
-                                        Text(event.eventType.rawValue)
-                                            .foregroundColor(.white)
-                                        Spacer()
-                                        Text("-\(settings.penaltyCurrency.symbol)\(event.amountEuro)")
-                                            .foregroundColor(.red)
-                                    }
-                                    .font(.system(size: 14, weight: .medium))
-                                }
-                            }
-                            .padding(16)
-                        }
-                    }
                 }
                 .padding(16)
                 .padding(.bottom, 30)
             }
         }
         .onAppear {
-            authManager.refreshStatus()
             if creditsManager.products.isEmpty {
                 Task { await creditsManager.loadProducts() }
             }
         }
         .sheet(isPresented: $showInfo) {
             AccountabilityInfoView()
+        }
+        .sheet(isPresented: $showGuide) {
+            AppProtectionGuideView()
         }
         .sheet(isPresented: $showPenaltyPicker) {
             PenaltyAmountPickerSheet(
@@ -174,22 +206,24 @@ struct PreventPowerOffView: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Accountability Shield")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundColor(.white)
-                Text("Block distractions and enforce consequences")
-                    .font(.system(size: 14, weight: .medium))
+                HStack(spacing: 10) {
+                    Image(systemName: "shield.lefthalf.filled")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(Colors.accentTeal)
+                        .padding(8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Colors.accentTeal.opacity(0.16))
+                        )
+                    Text("Accountability Shield")
+                        .font(.system(size: 34, weight: .black))
+                        .foregroundColor(.white)
+                }
+                Text("Global penalty rules")
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(Colors.textSecondary)
             }
             Spacer()
-            Button {
-                showInfo = true
-            } label: {
-                Image(systemName: "info.circle")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.white)
-            }
-
             Button {
                 dismiss()
             } label: {
@@ -200,11 +234,39 @@ struct PreventPowerOffView: View {
         }
     }
 
-    private func cycleMode() {
-        let all = EnforcementMode.allCases
-        let index = all.firstIndex(of: settings.enforcementMode) ?? 0
-        let next = all[(index + 1) % all.count]
-        settings.enforcementMode = next
+    @ViewBuilder
+    private func shieldCard<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(spacing: 0) {
+            content()
+        }
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.10, green: 0.12, blue: 0.22).opacity(0.95),
+                    Color(red: 0.09, green: 0.11, blue: 0.20).opacity(0.95)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 26)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Colors.accentTeal.opacity(0.22),
+                            .white.opacity(0.06),
+                            Colors.accentTeal.opacity(0.08)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 26))
+        .shadow(color: Colors.accentTeal.opacity(0.08), radius: 14, x: 0, y: 8)
+        .padding(.horizontal, 16)
     }
 }
 
@@ -212,7 +274,7 @@ struct PenaltyAmountPickerSheet: View {
     @Environment(\.dismiss) var dismiss
     @Binding var amount: Int
     @Binding var currency: PenaltyCurrency
-    
+
     var body: some View {
         NavigationView {
             ZStack {
@@ -222,7 +284,7 @@ struct PenaltyAmountPickerSheet: View {
                         .font(.system(size: 20, weight: .bold))
                         .foregroundColor(.white)
                         .padding(.top, 16)
-                    
+
                     HStack(spacing: 0) {
                         Picker("Amount", selection: $amount) {
                             ForEach(1...10, id: \.self) { value in
@@ -231,7 +293,7 @@ struct PenaltyAmountPickerSheet: View {
                         }
                         .pickerStyle(.wheel)
                         .frame(maxWidth: .infinity)
-                        
+
                         Picker("Currency", selection: $currency) {
                             ForEach(PenaltyCurrency.allCases, id: \.self) { code in
                                 Text("\(code.symbol) \(code.rawValue)").tag(code)
@@ -240,7 +302,7 @@ struct PenaltyAmountPickerSheet: View {
                         .pickerStyle(.wheel)
                         .frame(maxWidth: .infinity)
                     }
-                    
+
                     Text("Current: \(currency.symbol)\(amount)")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(Colors.accentTeal)
@@ -269,7 +331,7 @@ struct AccountabilityInfoView: View {
                     Text("How it works")
                         .font(.system(size: 24, weight: .bold))
                         .foregroundColor(.white)
-                    Text("1. Enable Screen Time authorization.\n2. Choose apps to block during focus/alarm missions.\n3. Turn on penalty credits and set amount (€1-€10).\n4. If rules are broken, credits are consumed and logged.")
+                    Text("Penalties apply only while an alarm session is active. You can customize triggers for shutdown attempts, uninstall/tamper signals, and snooze threshold abuse.")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
                     Spacer()

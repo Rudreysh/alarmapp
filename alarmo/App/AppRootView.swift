@@ -12,11 +12,13 @@ struct AppRootView: View {
     @StateObject private var navigationStore = NavigationStore()
     @ObservedObject private var settingsStore = SettingsStore.shared
     @Environment(\.modelContext) var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @State private var foregroundScheduler: AlarmForegroundScheduler?
     @State private var showingMainTab = false
     @State private var didRunAppListMigration = false
     @StateObject private var accountabilityManager = AccountabilityEnforcementManager.shared
     @StateObject private var shutdownDetectionService = ShutdownDetectionService()
+    @StateObject private var tamperDetectionService = TamperDetectionService.shared
 
     var body: some View {
         let _ = print("[AppRootView] body re-evaluating. onboardingCompleted: \(appPreferences.onboardingCompleted), showingMainTab: \(showingMainTab)")
@@ -39,7 +41,7 @@ struct AppRootView: View {
                 notificationManager.configure(ringCoordinator: ringCoordinator, alarmStore: alarmStore)
                 scheduler.start()
             }
-            shutdownDetectionService.startMonitoring(alarmStore: alarmStore, ringingAlarmId: ringCoordinator.activeAlarm?.id)
+            shutdownDetectionService.startMonitoring(alarmStore: alarmStore, ringCoordinator: ringCoordinator, ringingAlarmId: ringCoordinator.activeAlarm?.id)
             accountabilityManager.ensureShieldRestoredOnLaunch()
             if !didRunAppListMigration {
                 AppListMigrationCoordinator.migrateLegacySelectionIfNeeded(context: modelContext, settings: settingsStore)
@@ -66,7 +68,12 @@ struct AppRootView: View {
             }
         }
         .onChange(of: ringCoordinator.activeAlarm) { newAlarm in
-            shutdownDetectionService.startMonitoring(alarmStore: alarmStore, ringingAlarmId: newAlarm?.id)
+            shutdownDetectionService.startMonitoring(alarmStore: alarmStore, ringCoordinator: ringCoordinator, ringingAlarmId: newAlarm?.id)
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                tamperDetectionService.evaluateOnForeground(ringCoordinator: ringCoordinator)
+            }
         }
     }
     

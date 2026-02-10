@@ -116,6 +116,9 @@ class SettingsStore: ObservableObject {
         if preventPowerOffEnabled && !accountabilityEnabled {
             accountabilityEnabled = true
         }
+        if preventPowerOffEnabled {
+            penaltyRules.triggerShutdownAttemptEnabled = true
+        }
         if perCheatAmountCents > 0 && penaltyAmountEuro == 1 {
             penaltyAmountEuro = min(10, max(1, perCheatAmountCents / 100))
         }
@@ -129,6 +132,29 @@ class SettingsStore: ObservableObject {
     var penaltyCurrency: PenaltyCurrency {
         get { PenaltyCurrency(rawValue: penaltyCurrencyRaw) ?? .eur }
         set { penaltyCurrencyRaw = newValue.rawValue }
+    }
+
+    var triggerShutdownAttemptEnabled: Bool {
+        get { penaltyRules.triggerShutdownAttemptEnabled }
+        set {
+            penaltyRules.triggerShutdownAttemptEnabled = newValue
+            preventPowerOffEnabled = newValue
+        }
+    }
+
+    var triggerUninstallTamperEnabled: Bool {
+        get { penaltyRules.triggerUninstallTamperEnabled }
+        set { penaltyRules.triggerUninstallTamperEnabled = newValue }
+    }
+
+    var triggerSnoozeThresholdEnabled: Bool {
+        get { penaltyRules.triggerSnoozeThresholdEnabled }
+        set { penaltyRules.triggerSnoozeThresholdEnabled = newValue }
+    }
+
+    var snoozePenaltyThreshold: Int {
+        get { penaltyRules.alarmSnoozeThreshold }
+        set { penaltyRules.alarmSnoozeThreshold = min(10, max(1, newValue)) }
     }
 
     var blockedMockApps: [String] {

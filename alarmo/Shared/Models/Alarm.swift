@@ -31,6 +31,7 @@ struct Alarm: Identifiable, Codable, Equatable {
     var timeZoneIdentifier: String?
     var timeZoneCity: String?
     var snoozeMinutes: Int
+    var snoozeSeconds: Int = 0
     var snoozeCount: Int
     var wallpaperId: String
     var createdAt: Date
@@ -94,6 +95,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         timeZoneIdentifier = try container.decodeIfPresent(String.self, forKey: .timeZoneIdentifier)
         timeZoneCity = try container.decodeIfPresent(String.self, forKey: .timeZoneCity)
         snoozeMinutes = try container.decode(Int.self, forKey: .snoozeMinutes)
+        snoozeSeconds = try container.decodeIfPresent(Int.self, forKey: .snoozeSeconds) ?? 0
         snoozeCount = try container.decode(Int.self, forKey: .snoozeCount)
         wallpaperId = try container.decode(String.self, forKey: .wallpaperId)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
@@ -143,6 +145,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         timeZoneIdentifier: String? = nil,
         timeZoneCity: String? = nil,
         snoozeMinutes: Int,  
+        snoozeSeconds: Int = 0,
         snoozeCount: Int, 
         wallpaperId: String, 
         createdAt: Date,
@@ -189,6 +192,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         self.timeZoneIdentifier = timeZoneIdentifier
         self.timeZoneCity = timeZoneCity
         self.snoozeMinutes = snoozeMinutes
+        self.snoozeSeconds = max(0, snoozeSeconds)
         self.snoozeCount = snoozeCount
         self.wallpaperId = wallpaperId
         self.createdAt = createdAt
@@ -238,6 +242,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(timeZoneIdentifier, forKey: .timeZoneIdentifier)
         try container.encodeIfPresent(timeZoneCity, forKey: .timeZoneCity)
         try container.encode(snoozeMinutes, forKey: .snoozeMinutes)
+        try container.encode(max(0, snoozeSeconds), forKey: .snoozeSeconds)
         try container.encode(snoozeCount, forKey: .snoozeCount)
         try container.encode(wallpaperId, forKey: .wallpaperId)
         try container.encode(createdAt, forKey: .createdAt)
@@ -252,6 +257,8 @@ struct Alarm: Identifiable, Codable, Equatable {
         try container.encode(penaltyRules, forKey: .penaltyRules)
         try container.encodeIfPresent(lastPenaltyEventAt, forKey: .lastPenaltyEventAt)
         try container.encode(penaltyEventLog, forKey: .penaltyEventLog)
+        try container.encode(shutdownProtectionEnabled, forKey: .shutdownProtectionEnabled)
+        try container.encode(shutdownAttemptLog, forKey: .shutdownAttemptLog)
         try container.encode(habitReminderEnabled, forKey: .habitReminderEnabled)
         try container.encode(habitReminderInterval, forKey: .habitReminderInterval)
         try container.encode(habitReminderDuration, forKey: .habitReminderDuration)
@@ -271,7 +278,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         case id, type, name, emoji, hour, minute, second, isDaily, repeatMask, enabled
         case wakeUpCheckEnabled, soundName, soundVolume, vibrateEnabled
         case gentleWakeUpSeconds, timeReminderEnabled, weatherReminderEnabled
-        case labelReminderEnabled, extraLoudEnabled, bypassSilentMode, snoozeMinutes, snoozeCount
+        case labelReminderEnabled, extraLoudEnabled, bypassSilentMode, snoozeMinutes, snoozeSeconds, snoozeCount
         case wallpaperId, createdAt, isSkippedOnce, missions
         case enforcementMode, blockAppsEnabled, blockedSelectionData
         case penaltyEnabled, penaltyAmountEuro, penaltyStrategy, penaltyRules

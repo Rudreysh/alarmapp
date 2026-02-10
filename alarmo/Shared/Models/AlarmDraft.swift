@@ -23,6 +23,7 @@ struct AlarmDraft: Equatable {
     var timeZoneIdentifier: String?
     var timeZoneCity: String?
     var snoozeMinutes: Int = 5
+    var snoozeSeconds: Int = 0
     var snoozeCount: Int = 3
     var wallpaperId: String = "default"
     var missions: [AlarmMission] = []

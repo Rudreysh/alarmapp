@@ -66,10 +66,28 @@ final class PenaltyCreditsManager: ObservableObject {
     func consumeCredits(amountEuro: Int, eventType: PenaltyEventType, note: String? = nil, sourceAlarmId: UUID? = nil, sourceFocusTaskId: UUID? = nil) -> Bool {
         let normalized = min(10, max(1, amountEuro))
         guard store.penaltyCreditsBalance >= normalized else {
+#if targetEnvironment(simulator)
+            // Simulator fallback for QA/testing without real purchases.
+            // This keeps production behavior unchanged on physical devices.
+            print("[PenaltyCreditsManager] Simulator fallback: simulating penalty charge \(normalized) for event=\(eventType.rawValue) with zero balance.")
+            store.appendPenaltyAudit(
+                AccountabilityAuditEvent(
+                    eventType: eventType,
+                    amountEuro: normalized,
+                    sourceAlarmId: sourceAlarmId,
+                    sourceFocusTaskId: sourceFocusTaskId,
+                    note: (note ?? "Simulator test charge") + " [SIMULATED_NO_CREDITS]"
+                )
+            )
+            return true
+#else
+            print("[PenaltyCreditsManager] Insufficient credits. Required=\(normalized), Balance=\(store.penaltyCreditsBalance), Event=\(eventType.rawValue)")
             return false
+#endif
         }
 
         store.penaltyCreditsBalance -= normalized
+        print("[PenaltyCreditsManager] Consumed \(normalized) credits. New balance=\(store.penaltyCreditsBalance), Event=\(eventType.rawValue)")
         store.appendPenaltyAudit(
             AccountabilityAuditEvent(
                 eventType: eventType,

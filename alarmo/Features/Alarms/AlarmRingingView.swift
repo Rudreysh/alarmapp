@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AlarmRingingView: View {
     @ObservedObject var ringCoordinator: AlarmRingCoordinator
-    @State private var logged = false
+    @State private var lastLoggedAlarmId: UUID?
     @State private var currentMission: AlarmMission?
 
     var body: some View {
@@ -53,10 +53,9 @@ struct AlarmRingingView: View {
 
                         Button(action: {
                             if let mission = ringCoordinator.activeAlarm?.missions.first(where: { $0.type != .off }) {
-                                ringCoordinator.beginMissionMonitoring()
                                 currentMission = mission
                             } else {
-                                ringCoordinator.stopRinging()
+                                ringCoordinator.dismissTapped()
                             }
                         }) {
                             Text("Stop")
@@ -104,7 +103,6 @@ struct AlarmRingingView: View {
                         onSuccess: {
                             ringCoordinator.completeMission(success: true)
                             currentMission = nil
-                            ringCoordinator.stopRinging()
                         }
                     )
                 } else if mission.type == .math {
@@ -116,7 +114,6 @@ struct AlarmRingingView: View {
                              onComplete: {
                                 ringCoordinator.completeMission(success: true)
                                 currentMission = nil
-                                ringCoordinator.stopRinging()
                              }
                         )
                      )
@@ -127,12 +124,31 @@ struct AlarmRingingView: View {
                         Button("Complete (Debug)") {
                             ringCoordinator.completeMission(success: true)
                             currentMission = nil
-                            ringCoordinator.stopRinging()
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Colors.bgPrimary.ignoresSafeArea())
                 }
+            }
+            .interactiveDismissDisabled(true)
+        }
+        .overlay(alignment: .top) {
+            if let toast = ringCoordinator.penaltyToastMessage {
+                Text(toast)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color.red.opacity(0.92))
+                    .clipShape(Capsule())
+                    .padding(.top, 40)
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            if ringCoordinator.penaltyToastMessage == toast {
+                                ringCoordinator.penaltyToastMessage = nil
+                            }
+                        }
+                    }
             }
         }
         .onChange(of: ringCoordinator.missionTimeoutTriggered) { _, timedOut in
@@ -140,6 +156,17 @@ struct AlarmRingingView: View {
                 currentMission = nil
                 ringCoordinator.missionTimeoutTriggered = false
             }
+        }
+        .onChange(of: currentMission?.id) { _, newId in
+            if newId != nil {
+                ringCoordinator.beginMissionMonitoring()
+            }
+        }
+        .onAppear {
+            logActiveAlarmIfNeeded()
+        }
+        .onChange(of: ringCoordinator.activeAlarm?.id) { _, _ in
+            logActiveAlarmIfNeeded()
         }
     }
 
@@ -153,10 +180,6 @@ struct AlarmRingingView: View {
     private func wallpaperImage() -> UIImage? {
         guard let alarm = ringCoordinator.activeAlarm else { return nil }
         let id = alarm.wallpaperId
-        if !logged {
-            print("[AlarmRingingView] alarmId=\(alarm.id.uuidString) wallpaperId=\(id)")
-            logged = true
-        }
         if let image = loadFromCatalog(id: id) {
             return image
         }
@@ -242,5 +265,12 @@ struct AlarmRingingView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "E dd. MMM"
         return formatter.string(from: Date())
+    }
+
+    private func logActiveAlarmIfNeeded() {
+        guard let alarm = ringCoordinator.activeAlarm else { return }
+        guard lastLoggedAlarmId != alarm.id else { return }
+        lastLoggedAlarmId = alarm.id
+        print("[AlarmRingingView] alarmId=\(alarm.id.uuidString) wallpaperId=\(alarm.wallpaperId)")
     }
 }

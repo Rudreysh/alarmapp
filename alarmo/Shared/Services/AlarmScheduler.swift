@@ -4,7 +4,7 @@ import UserNotifications
 protocol AlarmSchedulerProtocol {
     func schedule(alarm: Alarm)
     func cancel(alarmId: UUID)
-    func scheduleSnooze(alarm: Alarm, minutes: Int)
+    func scheduleSnooze(alarm: Alarm, totalSeconds: Int)
 }
 
 final class AlarmScheduler: AlarmSchedulerProtocol {
@@ -144,7 +144,7 @@ final class AlarmScheduler: AlarmSchedulerProtocol {
         return .default
     }
 
-    func scheduleSnooze(alarm: Alarm, minutes: Int) {
+    func scheduleSnooze(alarm: Alarm, totalSeconds: Int) {
         let content = UNMutableNotificationContent()
         content.title = "Snoozing"
         content.body = alarm.name.isEmpty ? "Alarm" : alarm.name
@@ -153,13 +153,14 @@ final class AlarmScheduler: AlarmSchedulerProtocol {
         content.sound = notificationSound(for: alarm) ?? .default
         content.interruptionLevel = .timeSensitive
 
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(minutes * 60), repeats: false)
+        let clamped = max(1, totalSeconds)
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(clamped), repeats: false)
         let request = UNNotificationRequest(
             identifier: "\(alarm.id.uuidString)-snooze-\(UUID().uuidString)",
             content: content,
             trigger: trigger
         )
         UNUserNotificationCenter.current().add(request)
-        print("[AlarmScheduler] 💤 Snoozed for \(minutes)m")
+        print("[AlarmScheduler] 💤 Snoozed for \(clamped)s")
     }
 }

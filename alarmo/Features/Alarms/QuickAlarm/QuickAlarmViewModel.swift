@@ -122,7 +122,8 @@ class QuickAlarmViewModel: ObservableObject {
             penaltyEnabled: accountabilityEnabled && penaltyEnabled,
             penaltyAmountEuro: penaltyAmountEuro,
             penaltyStrategy: .credits,
-            penaltyRules: alarmPenaltyRules
+            penaltyRules: alarmPenaltyRules,
+            shutdownProtectionEnabled: accountabilityEnabled && penaltyEnabled
         )
         
         print("[QuickAlarm] Saving alarm for +\(finalSeconds) sec (at: \(alarm.timeString))")

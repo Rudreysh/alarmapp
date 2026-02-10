@@ -25,6 +25,7 @@ class CreateHabitAlarmViewModel: ObservableObject {
     @Published var extraLoudEnabled: Bool = false
     
     @Published var snoozeMinutes: Int = 5
+    @Published var snoozeSeconds: Int = 0
     @Published var snoozeCount: Int = 3
     @Published var wallpaperId: String
     @Published var wakeUpCheckEnabled: Bool = false
@@ -98,6 +99,7 @@ class CreateHabitAlarmViewModel: ObservableObject {
         extraLoudEnabled = alarm.extraLoudEnabled
 
         snoozeMinutes = alarm.snoozeMinutes
+        snoozeSeconds = alarm.snoozeSeconds
         snoozeCount = alarm.snoozeCount
         wallpaperId = alarm.wallpaperId
         wakeUpCheckEnabled = alarm.wakeUpCheckEnabled
@@ -175,6 +177,7 @@ class CreateHabitAlarmViewModel: ObservableObject {
             timeZoneIdentifier: timeZoneIdentifier,
             timeZoneCity: timeZoneCity,
             snoozeMinutes: snoozeMinutes,
+            snoozeSeconds: snoozeSeconds,
             snoozeCount: snoozeCount,
             wallpaperId: wallpaperId,
             createdAt: Date(),
