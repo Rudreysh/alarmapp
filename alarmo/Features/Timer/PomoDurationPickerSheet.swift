@@ -12,7 +12,7 @@ struct PomoDurationPickerSheet: View {
             VStack(spacing: 0) {
                 Spacer()
                 
-                Text("Pomo Duration")
+                Text("Pomodoro Duration")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
                     .padding(.bottom, 60)
@@ -57,16 +57,10 @@ struct PomoDurationPickerSheet: View {
                     
                     Button(action: {
                         let seconds = TimeInterval(minutes * 60)
-                        if viewModel.isAddingNewDuration {
-                            viewModel.addFrequentDuration(seconds)
-                        } else if let index = viewModel.editingDurationIndex {
-                            viewModel.updateFrequentDuration(at: index, to: seconds)
-                        } else {
-                            viewModel.setPomoDuration(seconds)
-                        }
+                        viewModel.setPomoDuration(seconds)
                         dismiss()
                     }) {
-                        Text("Done")
+                        Text("Start") // Changed to Start or Set
                             .font(.system(size: 18, weight: .bold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
@@ -80,11 +74,7 @@ struct PomoDurationPickerSheet: View {
             }
         }
         .onAppear {
-            if let index = viewModel.editingDurationIndex, index < viewModel.frequentDurations.count {
-                minutes = Int(viewModel.frequentDurations[index] / 60)
-            } else {
-                minutes = Int(viewModel.pomoDurationSeconds / 60)
-            }
+            minutes = Int(viewModel.pomoDurationSeconds / 60)
         }
     }
 }

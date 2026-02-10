@@ -3,6 +3,7 @@ import SwiftData
 
 struct TaskSelectionSheet: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.modelContext) var modelContext
     @EnvironmentObject var taskStore: TaskStore
     @EnvironmentObject var engine: PomodoroEngine
     
@@ -11,6 +12,10 @@ struct TaskSelectionSheet: View {
     var activePlans: [PlanItem]
     
     @State private var showNewTaskSheet = false
+    @State private var renamingTaskId: UUID?
+    @State private var renamingPlanId: UUID?
+    @State private var renameText: String = ""
+    @State private var showRenameAlert = false
     
     var body: some View {
         NavigationView {
@@ -43,49 +48,98 @@ struct TaskSelectionSheet: View {
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.m)
                     
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Today's task")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(Colors.textTertiary)
-                            .padding(.horizontal, Spacing.l)
-                            .padding(.top, Spacing.l)
-                        
-                        ScrollView(showsIndicators: true) {
-                            VStack(spacing: 12) {
-                                // Active Plans Section
-                                ForEach(activePlans) { plan in
-                                    PlanTaskRowCard(
-                                        item: plan,
-                                        isSelected: engine.state.selectedTaskId == plan.id,
-                                        onSelect: {
-                                            // Apply plan settings
-                                            engine.stop(reset: true) // Reset first
-                                            engine.apply(planItem: plan)
-                                            dismiss()
+                    List {
+                        Section {
+                            ForEach(activePlans) { plan in
+                                PlanTaskRowCard(
+                                    item: plan,
+                                    isSelected: engine.state.selectedTaskId == plan.id,
+                                    onSelect: {
+                                        engine.stop(reset: true)
+                                        engine.apply(planItem: plan)
+                                        dismiss()
+                                    }
+                                )
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 6, leading: Spacing.l, bottom: 6, trailing: Spacing.l))
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button {
+                                        renamingPlanId = plan.id
+                                        renamingTaskId = nil
+                                        renameText = plan.title
+                                        showRenameAlert = true
+                                    } label: {
+                                        Label("Rename", systemImage: "pencil")
+                                    }
+                                    .tint(.blue)
+
+                                    Button(role: .destructive) {
+                                        if engine.state.selectedTaskId == plan.id {
+                                            engine.state.selectedTaskId = nil
+                                            engine.state.overriddenTaskName = nil
                                         }
-                                    )
-                                }
-                                
-                                // Legacy/Quick Tasks from TaskStore
-                                ForEach(taskStore.tasks.filter { !$0.isArchived }) { task in
-                                    TaskRowCard(
-                                        task: task,
-                                        isSelected: engine.state.selectedTaskId == task.id, // Check against engine state too
-                                        onSelect: {
-                                            taskStore.selectTask(task.id)
-                                            // Clear override since this is a regular task
-                                            engine.state.overriddenTaskName = nil 
-                                            engine.apply(task: task)
-                                            dismiss()
-                                        }
-                                    )
+                                        modelContext.delete(plan)
+                                        try? modelContext.save()
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
                                 }
                             }
-                            .padding(.horizontal, Spacing.l)
-                            .padding(.bottom, Spacing.xl)
+                        } header: {
+                            Text("Today's task")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Colors.textTertiary)
+                                .textCase(nil)
                         }
-                        .scrollIndicators(.visible)
+
+                        Section {
+                            ForEach(taskStore.tasks.filter { !$0.isArchived }) { task in
+                                TaskRowCard(
+                                    task: task,
+                                    isSelected: engine.state.selectedTaskId == task.id,
+                                    onSelect: {
+                                        taskStore.selectTask(task.id)
+                                        engine.state.overriddenTaskName = nil
+                                        engine.apply(task: task)
+                                        dismiss()
+                                    }
+                                )
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 6, leading: Spacing.l, bottom: 6, trailing: Spacing.l))
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button {
+                                        renamingTaskId = task.id
+                                        renamingPlanId = nil
+                                        renameText = task.name
+                                        showRenameAlert = true
+                                    } label: {
+                                        Label("Rename", systemImage: "pencil")
+                                    }
+                                    .tint(.blue)
+
+                                    Button(role: .destructive) {
+                                        if engine.state.selectedTaskId == task.id {
+                                            engine.state.selectedTaskId = nil
+                                            engine.state.overriddenTaskName = nil
+                                        }
+                                        taskStore.deleteTask(task.id)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                            }
+                        } header: {
+                            Text("Added tasks")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Colors.textTertiary)
+                                .textCase(nil)
+                        }
                     }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.clear)
                     .padding(.top, 8)
                 }
             }
@@ -102,10 +156,40 @@ struct TaskSelectionSheet: View {
                 }
             }
             .sheet(isPresented: $showNewTaskSheet) {
-                NewTaskSheet()
-                    .environmentObject(taskStore)
-                    .presentationDetents([.height(180)]) // Compact height for Quick Add
-                    .presentationDragIndicator(.hidden)
+                DetailedNewTaskView(onTaskCreated: {
+                    if let selected = taskStore.selectedTask {
+                        engine.apply(task: selected)
+                    }
+                    dismiss()
+                })
+                .environmentObject(taskStore)
+            }
+            .alert("Rename Task", isPresented: $showRenameAlert) {
+                TextField("Task Name", text: $renameText)
+                Button("Save") {
+                    let trimmedName = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmedName.isEmpty else { return }
+
+                    if let planId = renamingPlanId,
+                       let plan = activePlans.first(where: { $0.id == planId }) {
+                        plan.title = String(trimmedName.prefix(50))
+                        plan.updatedAt = Date()
+                        try? modelContext.save()
+                    } else if let taskId = renamingTaskId {
+                        taskStore.renameTask(taskId, to: trimmedName)
+                        if taskStore.selectedTaskId == taskId {
+                            engine.state.overriddenTaskName = nil
+                        }
+                    }
+                    renamingTaskId = nil
+                    renamingPlanId = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    renamingTaskId = nil
+                    renamingPlanId = nil
+                }
+            } message: {
+                Text("Update the task name.")
             }
         }
     }

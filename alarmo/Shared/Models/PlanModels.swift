@@ -29,20 +29,44 @@ struct RepeatRule: Codable, Sendable {
     // Helper to check occurrence
     func occurs(on date: Date, createdAt: Date) -> Bool {
         let calendar = Calendar.current
-        if frequency == .none {
-            return calendar.isDate(date, inSameDayAs: createdAt)
+        let startDay = calendar.startOfDay(for: createdAt)
+        let targetDay = calendar.startOfDay(for: date)
+        
+        if targetDay < startDay {
+            return false
         }
         
-        // Basic implementation for daily/weekly
-        if frequency == .daily {
-            return true // Simplified: occurs every day from creation. Real logic checks start date.
+        if let endDate, targetDay > calendar.startOfDay(for: endDate) {
+            return false
         }
-        if frequency == .weekly {
-            let weekday = calendar.component(.weekday, from: date)
-            return weekdays?.contains(weekday) ?? false
+        
+        let safeInterval = max(1, interval)
+        
+        switch frequency {
+        case .none:
+            return calendar.isDate(targetDay, inSameDayAs: startDay)
+        case .daily:
+            let daysSinceStart = calendar.dateComponents([.day], from: startDay, to: targetDay).day ?? 0
+            return daysSinceStart % safeInterval == 0
+        case .weekly:
+            let weekday = calendar.component(.weekday, from: targetDay)
+            guard weekdays?.contains(weekday) == true else { return false }
+            let startWeek = calendar.dateInterval(of: .weekOfYear, for: startDay)?.start ?? startDay
+            let targetWeek = calendar.dateInterval(of: .weekOfYear, for: targetDay)?.start ?? targetDay
+            let weeksSinceStart = calendar.dateComponents([.weekOfYear], from: startWeek, to: targetWeek).weekOfYear ?? 0
+            return weeksSinceStart % safeInterval == 0
+        case .monthly:
+            let startComponents = calendar.dateComponents([.day], from: startDay)
+            let targetComponents = calendar.dateComponents([.day], from: targetDay)
+            let expectedDay = dayOfMonth ?? startComponents.day ?? 1
+            let maxDay = calendar.range(of: .day, in: .month, for: targetDay)?.count ?? expectedDay
+            guard targetComponents.day == min(expectedDay, maxDay) else { return false }
+            let monthsSinceStart = calendar.dateComponents([.month], from: startDay, to: targetDay).month ?? 0
+            return monthsSinceStart % safeInterval == 0
+        case .custom:
+            let daysSinceStart = calendar.dateComponents([.day], from: startDay, to: targetDay).day ?? 0
+            return daysSinceStart % safeInterval == 0
         }
-        // ... implement other logic as needed
-        return false
     }
 }
 
@@ -110,6 +134,7 @@ final class PlanItem {
     var createdAt: Date
     var updatedAt: Date
     var isArchived: Bool
+    var archivedAt: Date?
     var isPinned: Bool
     
     // Scheduling
@@ -154,6 +179,7 @@ final class PlanItem {
         self.createdAt = createdAt
         self.updatedAt = createdAt
         self.isArchived = false
+        self.archivedAt = nil
         self.isPinned = false
         self.anytime = anytime
         self.repeatRule = repeatRule
@@ -284,4 +310,59 @@ final class CompletionLog {
     }
 }
 
+// MARK: - Unified Event Logging for Reports
 
+enum ActivityDomain: String, Codable, CaseIterable {
+    case habit
+    case task
+    case alarm
+}
+
+enum ActivityStatus: String, Codable {
+    case success
+    case fail
+    case skipped
+    case fired
+    case snoozed
+    case dismissed
+    case missed
+}
+
+@Model
+final class ActivityEvent {
+    var id: UUID
+    var domain: ActivityDomain
+    var entityId: UUID
+    var timestampUTC: Date
+    var localDate: String // yyyy-MM-dd
+    var timeZoneIdAtEvent: String
+    var status: ActivityStatus
+    var value: Double?
+    var metadata: [String: String]?
+    
+    init(
+        id: UUID = UUID(),
+        domain: ActivityDomain,
+        entityId: UUID,
+        timestampUTC: Date = Date(),
+        status: ActivityStatus,
+        value: Double? = nil,
+        metadata: [String: String]? = nil
+    ) {
+        self.id = id
+        self.domain = domain
+        self.entityId = entityId
+        self.timestampUTC = timestampUTC
+        self.status = status
+        self.value = value
+        self.metadata = metadata
+        
+        let tz = TimeZone.current
+        self.timeZoneIdAtEvent = tz.identifier
+        
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = tz
+        self.localDate = f.string(from: timestampUTC)
+    }
+}

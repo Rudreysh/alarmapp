@@ -54,8 +54,8 @@ struct SettingsRootView: View {
                             }
                             
                             SettingsActionRow(
-                                title: "Prevent power-off",
-                                trailingText: store.preventPowerOffEnabled ? "on" : "off",
+                                title: "Accountability Shield",
+                                trailingText: store.accountabilityEnabled ? "on" : "off",
                                 icon: "shield.fill",
                                 iconColor: .green,
                                 isLast: true

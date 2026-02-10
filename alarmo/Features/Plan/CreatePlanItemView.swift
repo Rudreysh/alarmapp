@@ -47,6 +47,8 @@ struct CreatePlanItemView: View {
     
     @State private var showFocusPicker: Bool = false
     @State private var showMetricPicker: Bool = false
+    @State private var showSaveErrorAlert: Bool = false
+    @State private var saveErrorMessage: String = ""
     
     // Preset Colors
     let presetColors: [(Color, String)] = [
@@ -197,6 +199,11 @@ struct CreatePlanItemView: View {
             } else {
                 Text("Would you like to sync your data from Apple Health?")
             }
+        }
+        .alert("Couldn't Save Item", isPresented: $showSaveErrorAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(saveErrorMessage)
         }
     }
 
@@ -505,7 +512,7 @@ struct CreatePlanItemView: View {
         // Normal Save Logic
         if let existing = editingItem {
             // Update
-            existing.title = title
+            existing.title = sanitizedTitle
             existing.subtitle = subtitle.isEmpty ? nil : subtitle
             existing.type = type
             existing.iconName = iconName
@@ -629,18 +636,22 @@ struct CreatePlanItemView: View {
               // Schedule Notification for existing item
               PlanNotificationScheduler.shared.schedule(existing)
 
-            if let onSave = onSave {
-                onSave(existing)
-                if shouldDismiss { dismiss() }
+            PlanNotificationScheduler.shared.schedule(existing)
+            do {
+                try modelContext.save()
+                print("[PlanCreate] Updated item saved. id=\(existing.id) title=\(existing.title) type=\(existing.type.rawValue)")
+            } catch {
+                print("[PlanCreate] Failed to save updated item: \(error)")
+                presentSaveError(error)
                 return
             }
             
-            PlanNotificationScheduler.shared.schedule(existing)
+            onSave?(existing)
             
         } else {
             // Create New
             let newItem = PlanItem(
-                title: title,
+                title: sanitizedTitle,
                 subtitle: subtitle.isEmpty ? nil : subtitle,
                 iconName: iconName,
                 tintKey: tintKey,
@@ -751,16 +762,24 @@ struct CreatePlanItemView: View {
                 modelContext.insert(sub)
             }
             
-            if let onSave = onSave {
-                onSave(newItem)
-                if shouldDismiss { dismiss() }
-                return
+            // Subtask flows provide onSave and handle persistence externally.
+            // Top-level create must persist here to avoid silent loss.
+            if parentTask == nil || onSave == nil {
+                modelContext.insert(newItem)
+                
+                // Schedule Notification
+                PlanNotificationScheduler.shared.schedule(newItem)
+                do {
+                    try modelContext.save()
+                    print("[PlanCreate] New item saved. id=\(newItem.id) title=\(newItem.title) type=\(newItem.type.rawValue) anytime=\(newItem.anytime) repeat=\(newItem.repeatRule.frequency.rawValue)")
+                } catch {
+                    print("[PlanCreate] Failed to save new item: \(error)")
+                    presentSaveError(error)
+                    return
+                }
             }
             
-            modelContext.insert(newItem)
-            
-            // Schedule Notification
-            PlanNotificationScheduler.shared.schedule(newItem)
+            onSave?(newItem)
         }
         
         if shouldDismiss { dismiss() }
@@ -791,6 +810,16 @@ struct CreatePlanItemView: View {
         default: return .blue
 
         }
+    }
+
+    private var sanitizedTitle: String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Untitled" : trimmed
+    }
+
+    private func presentSaveError(_ error: Error) {
+        saveErrorMessage = error.localizedDescription
+        showSaveErrorAlert = true
     }
     
     // Formatting Helpers
@@ -1905,5 +1934,3 @@ struct MissionChip: View {
         .shadow(color: Colors.accentBlue.opacity(0.3), radius: 4, x: 0, y: 2)
     }
 }
-
-

@@ -8,10 +8,24 @@ struct IntervalTimerSettingsView: View {
     let isPro = true // Replace with entitlementProvider or similar
     
     // Available options
-    let focusDurations = [1, 5, 10, 15, 20, 25, 30, 45, 50, 60, 90, 120]
     let sessionsOptions = Array(2...10)
-    let shortBreaks = [1, 2, 3, 5, 10, 15]
-    let longBreaks = [5, 10, 15, 20, 25, 30, 45, 60]
+    
+    enum DurationPickerTarget: String, Identifiable {
+        case focus
+        case shortBreak
+        case longBreak
+        
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .focus: return "Focus Session Duration"
+            case .shortBreak: return "Short Break Duration"
+            case .longBreak: return "Long Break Duration"
+            }
+        }
+    }
+    
+    @State private var activeDurationPicker: DurationPickerTarget?
     
     var body: some View {
         NavigationView {
@@ -46,19 +60,8 @@ struct IntervalTimerSettingsView: View {
                             // Section: Durations
                             VStack(spacing: 0) {
                                 PickerRow(title: "Focus Session Duration", 
-                                          value: "\(engine.config.focusSeconds / 60) min") {
-                                    PickerSelectionView(
-                                        title: "Focus Duration",
-                                        options: focusDurations,
-                                        selection: Binding(
-                                            get: { engine.config.focusSeconds / 60 },
-                                            set: { 
-                                                var c = engine.config
-                                                c.focusSeconds = $0 * 60
-                                                engine.updateConfig(c)
-                                            }
-                                        )
-                                    )
+                                          value: formattedDuration(engine.config.focusSeconds)) {
+                                    activeDurationPicker = .focus
                                 }
                                 
                                 Divider().background(Colors.cardStroke)
@@ -82,37 +85,15 @@ struct IntervalTimerSettingsView: View {
                                 Divider().background(Colors.cardStroke)
                                 
                                 PickerRow(title: "Short Break Duration", 
-                                          value: "\(engine.config.shortBreakSeconds / 60) min") {
-                                    PickerSelectionView(
-                                        title: "Short Break",
-                                        options: shortBreaks,
-                                        selection: Binding(
-                                            get: { engine.config.shortBreakSeconds / 60 },
-                                            set: {
-                                                var c = engine.config
-                                                c.shortBreakSeconds = $0 * 60
-                                                engine.updateConfig(c)
-                                            }
-                                        )
-                                    )
+                                          value: formattedDuration(engine.config.shortBreakSeconds)) {
+                                    activeDurationPicker = .shortBreak
                                 }
                                 
                                 Divider().background(Colors.cardStroke)
                                 
                                 PickerRow(title: "Long Break Duration", 
-                                          value: "\(engine.config.longBreakSeconds / 60) min") {
-                                    PickerSelectionView(
-                                        title: "Long Break",
-                                        options: longBreaks,
-                                        selection: Binding(
-                                            get: { engine.config.longBreakSeconds / 60 },
-                                            set: {
-                                                var c = engine.config
-                                                c.longBreakSeconds = $0 * 60
-                                                engine.updateConfig(c)
-                                            }
-                                        )
-                                    )
+                                          value: formattedDuration(engine.config.longBreakSeconds)) {
+                                    activeDurationPicker = .longBreak
                                 }
                             }
                             .padding(.horizontal)
@@ -159,20 +140,62 @@ struct IntervalTimerSettingsView: View {
                         .foregroundColor(Colors.accentTeal)
                 }
             }
+            .sheet(item: $activeDurationPicker) { target in
+                DurationSelectionSheet(
+                    title: target.title,
+                    initialSeconds: durationSeconds(for: target),
+                    onSave: { newSeconds in
+                        updateDuration(newSeconds, for: target)
+                    }
+                )
+                .presentationDetents([.fraction(0.48)])
+                .presentationDragIndicator(.visible)
+            }
         }
+    }
+    
+    private func durationSeconds(for target: DurationPickerTarget) -> Int {
+        switch target {
+        case .focus: return engine.config.focusSeconds
+        case .shortBreak: return engine.config.shortBreakSeconds
+        case .longBreak: return engine.config.longBreakSeconds
+        }
+    }
+    
+    private func updateDuration(_ seconds: Int, for target: DurationPickerTarget) {
+        var c = engine.config
+        let safeSeconds = min(120 * 60, max(1, seconds))
+        switch target {
+        case .focus:
+            c.focusSeconds = safeSeconds
+        case .shortBreak:
+            c.shortBreakSeconds = safeSeconds
+        case .longBreak:
+            c.longBreakSeconds = safeSeconds
+        }
+        engine.updateConfig(c)
+    }
+    
+    private func formattedDuration(_ totalSeconds: Int) -> String {
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        if seconds == 0 {
+            return "\(minutes) min"
+        }
+        return "\(minutes)m \(seconds)s"
     }
 }
 
 // MARK: - Components
 
-struct PickerRow<Content: View>: View {
+struct PickerRow: View {
     let title: String
     let value: String
     var isPro: Bool = false
-    let destination: () -> Content
+    let action: () -> Void
     
     var body: some View {
-        NavigationLink(destination: destination) {
+        Button(action: action) {
             HStack {
                 HStack(spacing: 6) {
                     Text(title)
@@ -198,6 +221,89 @@ struct PickerRow<Content: View>: View {
             }
             .padding(.vertical, 16)
         }
+        .buttonStyle(.plain)
+    }
+}
+
+struct DurationSelectionSheet: View {
+    let title: String
+    let onSave: (Int) -> Void
+    
+    @Environment(\.dismiss) private var dismiss
+    @State private var minutes: Int
+    @State private var seconds: Int
+    
+    init(title: String, initialSeconds: Int, onSave: @escaping (Int) -> Void) {
+        self.title = title
+        self.onSave = onSave
+        _minutes = State(initialValue: max(0, initialSeconds / 60))
+        _seconds = State(initialValue: max(0, initialSeconds % 60))
+    }
+    
+    var body: some View {
+        ZStack {
+            Colors.bgPrimary.ignoresSafeArea()
+            
+            VStack(spacing: 16) {
+                Capsule()
+                    .fill(Colors.textTertiary)
+                    .frame(width: 44, height: 5)
+                    .padding(.top, 8)
+                
+                Text(title)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Colors.textPrimary)
+                
+                Text(previewText)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Colors.accentTeal)
+                
+                HStack(spacing: 0) {
+                    Picker("Minutes", selection: $minutes) {
+                        ForEach(0...120, id: \.self) { value in
+                            Text("\(value) min").tag(value)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    
+                    Picker("Seconds", selection: $seconds) {
+                        ForEach(0...59, id: \.self) { value in
+                            Text("\(value) sec").tag(value)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                }
+                .frame(height: 180)
+                
+                HStack(spacing: 12) {
+                    Button("Cancel") { dismiss() }
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Colors.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Colors.cardSurface)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    
+                    Button("Done") {
+                        let total = max(1, (minutes * 60) + seconds)
+                        onSave(total)
+                        dismiss()
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Colors.bgPrimary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+            }
+        }
+    }
+    
+    private var previewText: String {
+        "\(minutes) min \(seconds) sec"
     }
 }
 

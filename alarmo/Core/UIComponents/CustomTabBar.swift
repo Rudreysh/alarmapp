@@ -5,7 +5,7 @@ struct CustomTabBar<Tab: Hashable>: View {
     @Binding var selected: Tab
 
     var body: some View {
-        HStack {
+        HStack(spacing: 6) {
             ForEach(tabs) { item in
                 Button(action: { selected = item.id }) {
                     VStack(spacing: 4) {

@@ -75,10 +75,7 @@ struct CreateHabitGalleryView: View {
             }
             .sheet(item: $selectedTemplateItem) { item in
                  CreatePlanItemView(templateItem: item, onSave: { newItem in
-                     // Insert the new item
-                     modelContext.insert(newItem)
-                     try? modelContext.save()
-                     PlanNotificationScheduler.shared.schedule(newItem)
+                     _ = newItem // Persisted and scheduled by CreatePlanItemView.
                      dismiss() // Dismiss gallery after saving the new item
                  })
             }

@@ -10,6 +10,12 @@ class QuickAlarmViewModel: ObservableObject {
     @Published var vibrateEnabled: Bool = true
     @Published var bypassSilentMode: Bool = true
     
+    // Accountability Shield
+    @Published var accountabilityEnabled: Bool
+    @Published var blockAppsEnabled: Bool
+    @Published var penaltyEnabled: Bool
+    @Published var penaltyAmountEuro: Int
+    
     // For UI State
     @Published var fireDateString: String = ""
     
@@ -19,11 +25,16 @@ class QuickAlarmViewModel: ObservableObject {
     
     private var timer: Timer?
     private let soundPlayer = SoundPlayer()
+    private let settingsStore = SettingsStore.shared
     
     init(defaults: AppPreferences = AppPreferences()) {
         self.selectedSoundId = defaults.onboardingSoundName
         self.selectedWallpaperId = defaults.onboardingWallpaperId
         self.volume = defaults.onboardingSoundVolume
+        self.accountabilityEnabled = settingsStore.accountabilityEnabled
+        self.blockAppsEnabled = settingsStore.blockAppsEnabled
+        self.penaltyEnabled = settingsStore.penaltyEnabled
+        self.penaltyAmountEuro = settingsStore.penaltyAmountEuro
         updateDateString()
         startTimer()
     }
@@ -71,6 +82,10 @@ class QuickAlarmViewModel: ObservableObject {
         let calendar = Calendar.current
         let comps = calendar.dateComponents([.hour, .minute, .second], from: fireDate)
         
+        var alarmPenaltyRules = settingsStore.penaltyRules
+        // Alarm penalty in this mode is snooze-threshold based.
+        alarmPenaltyRules.alarmMissionFailTriggersPenalty = false
+
         let alarmId = UUID()
         let alarm = Alarm(
             id: alarmId,
@@ -96,7 +111,18 @@ class QuickAlarmViewModel: ObservableObject {
             snoozeMinutes: 5,
             snoozeCount: 3,
             wallpaperId: selectedWallpaperId,
-            createdAt: Date()
+            createdAt: Date(),
+            enforcementMode: accountabilityEnabled
+                ? (blockAppsEnabled && penaltyEnabled
+                    ? .blockAppsAndPenalty
+                    : (blockAppsEnabled ? .blockApps : .penaltyOnly))
+                : .none,
+            blockAppsEnabled: accountabilityEnabled && blockAppsEnabled,
+            blockedSelectionData: settingsStore.blockedAppsSelectionData,
+            penaltyEnabled: accountabilityEnabled && penaltyEnabled,
+            penaltyAmountEuro: penaltyAmountEuro,
+            penaltyStrategy: .credits,
+            penaltyRules: alarmPenaltyRules
         )
         
         print("[QuickAlarm] Saving alarm for +\(finalSeconds) sec (at: \(alarm.timeString))")

@@ -24,12 +24,12 @@ class TimerViewModel: ObservableObject {
     @Published var showSoundSelection = false
     @Published var focusNote: String = ""
     
+    // Persistence
+    @Published var savedPresets: [TimerPreset] = TimerPreset.defaults
+    
     // Duration Picker Mode
     @Published var isAddingNewDuration = false
     @Published var editingDurationIndex: Int? = nil
-    
-    // Persistence (Simple placeholders)
-    @Published var frequentDurations: [TimeInterval] = [15.0 * 60, 25.0 * 60, 40.0 * 60, 60.0 * 60]
     
     enum PomoStage {
         case focus
@@ -157,19 +157,29 @@ class TimerViewModel: ObservableObject {
         stopTimer()
     }
     
-    func addFrequentDuration(_ seconds: TimeInterval) {
-        if !frequentDurations.contains(seconds) {
-            frequentDurations.append(seconds)
-            frequentDurations.sort()
-        }
-        setPomoDuration(seconds)
+    func addPreset(name: String, icon: String, mode: TimerMode, duration: TimeInterval) {
+        let newPreset = TimerPreset(name: name, icon: icon, mode: mode, duration: duration)
+        savedPresets.append(newPreset)
     }
     
-    func updateFrequentDuration(at index: Int, to seconds: TimeInterval) {
-        guard index < frequentDurations.count else { return }
-        frequentDurations[index] = seconds
-        frequentDurations.sort()
-        setPomoDuration(seconds)
+    func applyPreset(_ preset: TimerPreset) {
+        if preset.mode == .pomo {
+            selectedMode = .pomo
+            pomoDurationSeconds = preset.duration
+            pomoRemainingSeconds = preset.duration
+            currentStage = .focus
+            stopTimer()
+        } else {
+            selectedMode = .stopwatch
+            selectedFocusMode = preset.name
+            stopTimer()
+        }
+        
+        // Also update the overridden name if applicable (for Pomo)
+        // Note: For Stopwatch, logic might be different
+        if preset.mode == .pomo {
+             // In a real app we might want to tell the PomoEngine about the name override too
+        }
     }
     
     func completePomodoroSession(taskId: UUID?, durationSeconds: Int, endedAt: Date) {

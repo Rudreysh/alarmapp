@@ -17,7 +17,9 @@ struct CreateWakeUpAlarmView: View {
     @State private var editingMissionIndex: Int?
     @State private var showTimeZonePicker = false
     @StateObject private var soundPlayer = SoundPreviewPlayer()
+    @ObservedObject private var settingsStore = SettingsStore.shared
     private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
+    @State private var showAccountabilityInfo = false
 
     init(alarmStore: AlarmStore, existingAlarm: Alarm? = nil, onClose: @escaping () -> Void) {
         self.alarmStore = alarmStore
@@ -232,7 +234,72 @@ struct CreateWakeUpAlarmView: View {
                             }
                         }
 
-                        // Group E: Wallpaper
+                        // Group E: Accountability Shield
+                        SectionHeader(title: "Accountability Shield")
+                        GroupedSettingsCard {
+                            Toggle(isOn: $viewModel.draft.accountabilityEnabled) {
+                                Text("Enable for this alarm")
+                                    .foregroundColor(Colors.textPrimary)
+                            }
+                            .padding()
+                            
+                            if viewModel.draft.accountabilityEnabled {
+                                Divider().padding(.leading, 16).opacity(0.3)
+                                
+                                Toggle(isOn: $viewModel.draft.blockAppsEnabled) {
+                                    Text("Lock phone while ringing")
+                                        .foregroundColor(Colors.textPrimary)
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 10)
+
+                                if viewModel.draft.blockAppsEnabled {
+                                    Divider().padding(.leading, 16).opacity(0.3)
+                                    BlockedAppsSelectionView()
+                                        .padding(.horizontal)
+                                        .padding(.vertical, 10)
+                                }
+                                
+                                Divider().padding(.leading, 16).opacity(0.3)
+                                
+                                Toggle(isOn: $viewModel.draft.penaltyEnabled) {
+                                    Text("Use penalty credits")
+                                        .foregroundColor(Colors.textPrimary)
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 10)
+                                
+                                if viewModel.draft.penaltyEnabled {
+                                    Divider().padding(.leading, 16).opacity(0.3)
+                                    MenuRow(
+                                        icon: "eurosign.circle",
+                                        title: "Penalty Amount",
+                                        value: "€\(viewModel.draft.penaltyAmountEuro)"
+                                    ) {
+                                        let next = viewModel.draft.penaltyAmountEuro >= 10 ? 1 : viewModel.draft.penaltyAmountEuro + 1
+                                        viewModel.draft.penaltyAmountEuro = next
+                                    }
+                                }
+                                
+                                Text("Advanced penalty rules can be configured in Settings > Accountability Shield.")
+                                    .font(.caption)
+                                    .foregroundColor(Colors.textSecondary)
+                                    .padding(.horizontal)
+                                    .padding(.bottom, 8)
+                                
+                                Button {
+                                    showAccountabilityInfo = true
+                                } label: {
+                                    Text("How this works")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(Colors.accentTeal)
+                                        .padding(.horizontal)
+                                        .padding(.bottom, 8)
+                                }
+                            }
+                        }
+
+                        // Group F: Wallpaper
                         SectionHeader(title: "Wallpaper")
                         GroupedSettingsCard {
                             // Wallpaper
@@ -348,6 +415,9 @@ struct CreateWakeUpAlarmView: View {
                 selectedCity: $viewModel.draft.timeZoneCity,
                 selectedMode: $viewModel.draft.timeZoneMode
             )
+        }
+        .sheet(isPresented: $showAccountabilityInfo) {
+            AccountabilityInfoView()
         }
         // Mission Config Sheets (Existing Logic)
         .sheet(item: $selectedMissionForConfig) { mission in
@@ -482,6 +552,9 @@ private extension CreateWakeUpAlarmView {
             _ = await notificationManager.ensureAuthorization()
             let alarmName = viewModel.draft.name.isEmpty ? "Alarm" : viewModel.draft.name
             let alarmId = existingAlarm?.id ?? UUID()
+            var alarmPenaltyRules = settingsStore.penaltyRules
+            // Alarm penalty in this mode is snooze-threshold based.
+            alarmPenaltyRules.alarmMissionFailTriggersPenalty = false
             let alarm = Alarm(
                 id: alarmId,
                 name: alarmName,
@@ -509,7 +582,18 @@ private extension CreateWakeUpAlarmView {
                 snoozeCount: viewModel.draft.snoozeCount,
                 wallpaperId: viewModel.draft.wallpaperId,
                 createdAt: Date(),
-                missions: viewModel.draft.missions
+                missions: viewModel.draft.missions,
+                enforcementMode: viewModel.draft.accountabilityEnabled
+                    ? (viewModel.draft.blockAppsEnabled && viewModel.draft.penaltyEnabled
+                        ? .blockAppsAndPenalty
+                        : (viewModel.draft.blockAppsEnabled ? .blockApps : .penaltyOnly))
+                    : .none,
+                blockAppsEnabled: viewModel.draft.accountabilityEnabled && viewModel.draft.blockAppsEnabled,
+                blockedSelectionData: settingsStore.blockedAppsSelectionData,
+                penaltyEnabled: viewModel.draft.accountabilityEnabled && viewModel.draft.penaltyEnabled,
+                penaltyAmountEuro: viewModel.draft.penaltyAmountEuro,
+                penaltyStrategy: .credits,
+                penaltyRules: alarmPenaltyRules
             )
             if existingAlarm != nil {
                 alarmStore.update(alarm)

@@ -7,6 +7,7 @@ struct TimerRootView: View {
     @EnvironmentObject var navStore: NavigationStore
     let preferences: AppPreferences
     let onClose: () -> Void
+    @State private var showQuickActions = false
     
     init(preferences: AppPreferences = AppPreferences(), onClose: @escaping () -> Void) {
         self.preferences = preferences
@@ -60,17 +61,7 @@ struct TimerRootView: View {
                                 .foregroundColor(Colors.textPrimary)
                         }
                         
-                        Menu {
-                            Button(action: { viewModel.showFocusSettings = true }) {
-                                Label("Focus Settings", systemImage: "slider.horizontal.3")
-                            }
-                            Button(action: { viewModel.showAddFocusRecord = true }) {
-                                Label("Add Record", systemImage: "list.bullet.rectangle")
-                            }
-                            Button(action: { viewModel.showAddTimer = true }) {
-                                Label("Add Timer", systemImage: "plus")
-                            }
-                        } label: {
+                        Button(action: toggleQuickActionsMenu) {
                             Image(systemName: "ellipsis")
                                 .font(.system(size: 20))
                                 .foregroundColor(Colors.textPrimary)
@@ -90,6 +81,44 @@ struct TimerRootView: View {
                 }
             }
             .padding(.bottom, AppConstants.tabBarHeight)
+
+            if showQuickActions {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        closeQuickActionsMenu()
+                    }
+
+                VStack {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 0) {
+                            quickActionRow(icon: "slider.horizontal.3", title: "Focus Settings") {
+                                viewModel.showFocusSettings = true
+                            }
+                            Divider().background(Colors.cardStroke)
+                            quickActionRow(icon: "list.bullet.rectangle", title: "Add Record") {
+                                viewModel.showAddFocusRecord = true
+                            }
+                            Divider().background(Colors.cardStroke)
+                            quickActionRow(icon: "plus", title: "Add Timer") {
+                                viewModel.showAddTimer = true
+                            }
+                        }
+                        .background(Colors.cardSurface)
+                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18)
+                                .stroke(Colors.cardStroke, lineWidth: 1)
+                        )
+                        .frame(width: 220)
+                    }
+                    .padding(.top, 62)
+                    .padding(.trailing, Spacing.l)
+                    Spacer()
+                }
+            }
         }
         .sheet(isPresented: $viewModel.showPomoDurationPicker) {
             PomoDurationPickerSheet(viewModel: viewModel)
@@ -101,7 +130,25 @@ struct TimerRootView: View {
             AddFocusRecordView()
         }
         .sheet(isPresented: $viewModel.showAddTimer) {
-            AddTimerView()
+            DetailedNewTaskView(onTaskCreated: {
+                if let selectedTask = taskStore.selectedTask {
+                    // Update Engine with new task settings
+                    pomodoroEngine.apply(task: selectedTask)
+                    
+                    // Update UI state
+                    viewModel.selectedFocusMode = selectedTask.name
+                    if selectedTask.isIntervalTimer {
+                        viewModel.selectedMode = .pomo
+                        viewModel.pomoDurationSeconds = TimeInterval(selectedTask.focusDurationMinutes * 60)
+                        viewModel.pomoRemainingSeconds = TimeInterval(selectedTask.focusDurationMinutes * 60)
+                    }
+                    // If not interval timer, it could be a simple task or meant for stopwatch?
+                    // For now, default to Pomo/Focus behavior but following the config.
+                    
+                    viewModel.stopTimer()
+                    pomodoroEngine.stop(reset: true)
+                }
+            })
         }
         .sheet(isPresented: $viewModel.showFocusNoteSheet) {
             FocusNoteSheet(viewModel: viewModel)
@@ -122,5 +169,38 @@ struct TimerRootView: View {
             // Clear the request
             navStore.requestedTimerMode = nil
         }
+    }
+
+    private func toggleQuickActionsMenu() {
+        withTransaction(Transaction(animation: nil)) {
+            showQuickActions.toggle()
+        }
+    }
+
+    private func closeQuickActionsMenu() {
+        withTransaction(Transaction(animation: nil)) {
+            showQuickActions = false
+        }
+    }
+
+    private func quickActionRow(icon: String, title: String, action: @escaping () -> Void) -> some View {
+        Button(action: {
+            closeQuickActionsMenu()
+            action()
+        }) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Colors.textPrimary)
+                    .frame(width: 22)
+                Text(title)
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundColor(Colors.textPrimary)
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 50)
+        }
+        .buttonStyle(.plain)
     }
 }

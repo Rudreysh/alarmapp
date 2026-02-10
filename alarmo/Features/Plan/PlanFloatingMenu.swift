@@ -33,7 +33,7 @@ struct PlanFloatingMenu: View {
             // Habit Option
             Button(action: onSelectHabit) {
                 HStack(spacing: 12) {
-                    Image(systemName: "flame.fill")
+                    Image(systemName: "checklist")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(Colors.accentRed)
                         .frame(width: 28)

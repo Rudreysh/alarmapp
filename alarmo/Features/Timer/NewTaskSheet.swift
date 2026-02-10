@@ -14,6 +14,8 @@ struct NewTaskSheet: View {
     @State private var showDurationPicker = false
     @State private var showTimePicker = false // Placeholder for "Anytime today" picker
     @State private var showDetailedView = false
+    @State private var showEmojiPicker = false
+    @State private var selectedEmoji: String = ""
     
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -26,6 +28,22 @@ struct NewTaskSheet: View {
                 VStack(spacing: 12) {
                     // Task Name Input
                     HStack(spacing: 12) {
+                        Button(action: { showEmojiPicker = true }) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Colors.cardSurface)
+                                    .frame(width: 40, height: 40)
+                                if selectedEmoji.isEmpty {
+                                    Image(systemName: "face.smiling")
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .foregroundColor(Colors.textSecondary)
+                                } else {
+                                    Text(selectedEmoji)
+                                        .font(.system(size: 22))
+                                }
+                            }
+                        }
+
                         TextField("Task Name", text: $taskName)
                             .font(.system(size: 22, weight: .medium))
                             .foregroundColor(Colors.textPrimary)
@@ -116,17 +134,32 @@ struct NewTaskSheet: View {
             AnytimePickerSheet()
         }
         .sheet(isPresented: $showDetailedView) {
-            DetailedNewTaskView()
+            DetailedNewTaskView(onTaskCreated: {
+                dismiss()
+            })
                 .environmentObject(taskStore)
+        }
+        .sheet(isPresented: $showEmojiPicker) {
+            EmojiPickerView { emoji in
+                selectedEmoji = emoji
+                showEmojiPicker = false
+            }
+            .presentationDetents([.fraction(0.35)])
         }
     }
     
     private func createQuickTask() {
         let trimmed = taskName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        let finalName: String
+        if selectedEmoji.isEmpty || trimmed.hasPrefix(selectedEmoji) {
+            finalName = trimmed
+        } else {
+            finalName = "\(selectedEmoji) \(trimmed)"
+        }
         
         let newTask = TaskItem(
-            name: trimmed,
+            name: finalName,
             focusDurationMinutes: selectedDuration,
             isIntervalTimer: isPomodoro, // Map "Pomodoro" UI toggle to interval timer logic
             isAnytime: isAnytime
@@ -136,4 +169,3 @@ struct NewTaskSheet: View {
         dismiss()
     }
 }
-

@@ -9,6 +9,8 @@ struct AddTimerView: View {
     @State private var pomoMinutes: Int = 26
     @State private var showMinutesPicker = false
     
+    var onSave: ((String, String, TimerMode, Int) -> Void)?
+    
     let icons = ["smiley", "dog", "heart", "book", "figure.run", "sun.max", "drop", "cat", "bubble.left", "pencil"]
     
     var body: some View {
@@ -64,7 +66,7 @@ struct AddTimerView: View {
                                 .foregroundColor(Colors.textSecondary)
                             
                             VStack(spacing: 0) {
-                                radioButton(mode: .pomo, title: "Pomo") {
+                                radioButton(mode: .pomo, title: "Pomodoro") {
                                     HStack(spacing: 8) {
                                         Button(action: { showMinutesPicker = true }) {
                                             Text("\(pomoMinutes)")
@@ -97,12 +99,16 @@ struct AddTimerView: View {
                         .foregroundColor(Colors.textSecondary)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .foregroundColor(Colors.accentRed)
+                    Button("Save") {
+                        let finalName = name.isEmpty ? (timerMode == .pomo ? "Focus" : "Stopwatch") : name
+                        onSave?(finalName, selectedIcon, timerMode, pomoMinutes)
+                        dismiss()
+                    }
+                    .foregroundColor(Colors.accentRed)
                 }
             }
             .sheet(isPresented: $showMinutesPicker) {
-                FocusWheelPickerView(title: "Pomo Duration", selection: $pomoMinutes, range: 1...60, suffix: "mins") {
+                FocusWheelPickerView(title: "Pomodoro Duration", selection: $pomoMinutes, range: 1...60, suffix: "mins") {
                     showMinutesPicker = false
                 }
             }

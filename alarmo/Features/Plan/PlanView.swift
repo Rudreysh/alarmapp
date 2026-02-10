@@ -177,9 +177,9 @@ struct PlanView: View {
                             }
                         }
                         
-                        // Habits Section
+                         // Habits Section
                         if !habits.isEmpty {
-                             Section(header: 
+                            Section(header: 
                                 Button(action: { withAnimation { viewModel.isHabitsExpanded.toggle() } }) {
                                     HStack {
                                         Text("Habits (\(habits.count))")
@@ -437,6 +437,8 @@ struct PlanView: View {
     
     private func deleteItem(_ item: PlanItem) {
         item.isArchived = true
+        item.archivedAt = Date()
+        item.updatedAt = Date()
         try? modelContext.save()
     }
     
@@ -460,6 +462,7 @@ struct PlanView: View {
     private func checkDefaultTasks() {
         // Logic to ensure "Study" and "Working" anytime tasks exist
         let defaults = ["Study", "Working"]
+        var insertedAny = false
         
         for title in defaults {
             if !allItems.contains(where: { $0.title == title && $0.anytime == true && !$0.isArchived }) {
@@ -471,7 +474,12 @@ struct PlanView: View {
                     anytime: true
                 )
                 modelContext.insert(newItem)
+                insertedAny = true
             }
+        }
+        
+        if insertedAny {
+            try? modelContext.save()
         }
     }
     
@@ -847,7 +855,7 @@ struct PlanBannerView: View {
 
 // Updated PlanItemRow
 struct PlanItemRow: View {
-    let item: PlanItem
+    @Bindable var item: PlanItem
     let isCompleted: Bool
     let onToggle: () -> Void
     var onPlay: (() -> Void)? = nil
@@ -945,19 +953,10 @@ struct PlanItemRow: View {
                     .fill(Color.blue.opacity(0.15))
                     .frame(width: geo.size.width * p)
                     .animation(.spring(), value: p)
-            } else if isMindfulHabit {
-                // Soft Glow
-                Circle()
-                    .fill(tintColor.opacity(0.15))
-                    .frame(width: geo.size.height * 2)
-                    .blur(radius: 20)
-                    .offset(x: -geo.size.height, y: 0)
-                    .scaleEffect(0.5 + p * 0.5)
-                    .animation(.spring(), value: p)
             } else {
                 // Subtle Bar Fill
                 Rectangle()
-                    .fill(tintColor.opacity(0.1))
+                    .fill(tintColor.opacity(0.15))
                     .frame(width: geo.size.width * p)
                     .animation(.spring(), value: p)
             }
@@ -1042,4 +1041,3 @@ struct PlanItemRow: View {
         }
     }
 }
-

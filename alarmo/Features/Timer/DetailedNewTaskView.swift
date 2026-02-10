@@ -3,6 +3,7 @@ import SwiftUI
 struct DetailedNewTaskView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var taskStore: TaskStore
+    private let onTaskCreated: (() -> Void)?
     
     // Form State
     @State private var taskName: String = ""
@@ -25,9 +26,15 @@ struct DetailedNewTaskView: View {
     @State private var showShortBreakPicker = false
     @State private var showLongBreakPicker = false
     @State private var showTagSelection = false
+    @State private var showEmojiPicker = false
+    @State private var selectedEmoji: String = ""
     
     // Focus State
     @FocusState private var isNameFocused: Bool
+
+    init(onTaskCreated: (() -> Void)? = nil) {
+        self.onTaskCreated = onTaskCreated
+    }
     
     var body: some View {
         NavigationView {
@@ -39,13 +46,20 @@ struct DetailedNewTaskView: View {
                         
                         // Top Section: Icon + Name
                         HStack(spacing: 16) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Colors.accentRed)
-                                    .frame(width: 50, height: 50)
-                                Image(systemName: "timer")
-                                    .font(.system(size: 24, weight: .bold))
-                                    .foregroundColor(.white)
+                            Button(action: { showEmojiPicker = true }) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Colors.accentRed)
+                                        .frame(width: 50, height: 50)
+                                    if selectedEmoji.isEmpty {
+                                        Image(systemName: "face.smiling")
+                                            .font(.system(size: 22, weight: .bold))
+                                            .foregroundColor(.white)
+                                    } else {
+                                        Text(selectedEmoji)
+                                            .font(.system(size: 28))
+                                    }
+                                }
                             }
                             
                             TextField("Task Name", text: $taskName)
@@ -319,18 +333,27 @@ struct DetailedNewTaskView: View {
                 .environmentObject(taskStore)
                 .presentationDetents([.medium, .large])
         }
+        .sheet(isPresented: $showEmojiPicker) {
+            EmojiPickerView { emoji in
+                selectedEmoji = emoji
+                showEmojiPicker = false
+            }
+            .presentationDetents([.fraction(0.35)])
+        }
     }
     
     private func createTask() {
         let trimmedName = taskName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { return }
-        
-        if taskStore.isDuplicate(name: trimmedName) {
-            return 
+        let finalName: String
+        if selectedEmoji.isEmpty || trimmedName.hasPrefix(selectedEmoji) {
+            finalName = trimmedName
+        } else {
+            finalName = "\(selectedEmoji) \(trimmedName)"
         }
-        
+
         let newTask = TaskItem(
-            name: trimmedName,
+            name: finalName,
             note: note,
             tags: tags,
             focusDurationMinutes: durationMinutes,
@@ -345,6 +368,7 @@ struct DetailedNewTaskView: View {
         
         taskStore.add(task: newTask)
         taskStore.selectTask(newTask.id)
+        onTaskCreated?()
         dismiss()
     }
 }

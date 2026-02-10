@@ -59,6 +59,50 @@ enum PenaltyStatus: String, Codable {
     case paid
 }
 
+enum PenaltyCurrency: String, Codable, CaseIterable {
+    case eur = "EUR"
+    case usd = "USD"
+    case gbp = "GBP"
+    case inr = "INR"
+    
+    var symbol: String {
+        switch self {
+        case .eur: return "€"
+        case .usd: return "$"
+        case .gbp: return "£"
+        case .inr: return "₹"
+        }
+    }
+}
+
+struct AccountabilityAuditEvent: Codable, Identifiable {
+    let id: UUID
+    let date: Date
+    let eventType: PenaltyEventType
+    let amountEuro: Int
+    let sourceAlarmId: UUID?
+    let sourceFocusTaskId: UUID?
+    let note: String?
+    
+    init(
+        id: UUID = UUID(),
+        date: Date = Date(),
+        eventType: PenaltyEventType,
+        amountEuro: Int,
+        sourceAlarmId: UUID? = nil,
+        sourceFocusTaskId: UUID? = nil,
+        note: String? = nil
+    ) {
+        self.id = id
+        self.date = date
+        self.eventType = eventType
+        self.amountEuro = amountEuro
+        self.sourceAlarmId = sourceAlarmId
+        self.sourceFocusTaskId = sourceFocusTaskId
+        self.note = note
+    }
+}
+
 struct NotificationPrefs: Codable {
     var weatherEnabled: Bool = false
     var alarmReminderEnabled: Bool = false

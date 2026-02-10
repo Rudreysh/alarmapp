@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PomoSettingsView: View {
     @ObservedObject var preferences: AppPreferences
+    @ObservedObject private var settingsStore = SettingsStore.shared
     @Environment(\.dismiss) var dismiss
     
     @State private var showingPomoDuration = false
@@ -12,6 +13,7 @@ struct PomoSettingsView: View {
     @State private var showingVibration = false
     @State private var showingPomoSound = false
     @State private var showingBreakSound = false
+    @State private var showAccountabilityInfo = false
     
     var body: some View {
         ZStack {
@@ -26,7 +28,7 @@ struct PomoSettingsView: View {
                             .foregroundColor(Colors.textPrimary)
                     }
                     Spacer()
-                    Text("Pomo Settings")
+                    Text("Pomodoro Settings")
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(Colors.textPrimary)
                     Spacer()
@@ -42,7 +44,7 @@ struct PomoSettingsView: View {
                     VStack(spacing: 24) {
                         // Section 1: Timer Option
                         FocusSettingsSection(title: "Timer Option") {
-                            FocusSettingsRow(title: "Pomo Duration", value: "\(preferences.pomoDurationMinutes) minutes") {
+                            FocusSettingsRow(title: "Pomodoro Duration", value: "\(preferences.pomoDurationMinutes) minutes") {
                                 showingPomoDuration = true
                             }
                             Divider().background(Colors.cardStroke)
@@ -54,25 +56,25 @@ struct PomoSettingsView: View {
                                 showingLongBreak = true
                             }
                             Divider().background(Colors.cardStroke)
-                            FocusSettingsRow(title: "Pomos per long break", value: "\(preferences.pomosPerLongBreak) Pomos") {
+                            FocusSettingsRow(title: "Pomodoros per long break", value: "\(preferences.pomosPerLongBreak) Pomos") {
                                 showingPomosPerLongBreak = true
                             }
                         }
                         
                         // Section 2: Auto Mode
                         FocusSettingsSection(title: "Auto Mode") {
-                            FocusSettingsToggleRow(title: "Auto Start of Next Pomo", isOn: $preferences.autoStartNextPomo)
+                            FocusSettingsToggleRow(title: "Auto Start of Next Pomodoro", isOn: $preferences.autoStartNextPomo)
                             Divider().background(Colors.cardStroke)
                             FocusSettingsToggleRow(title: "Auto Start of Break", isOn: $preferences.autoStartBreak)
                             Divider().background(Colors.cardStroke)
-                            FocusSettingsRow(title: "Auto-Pomo Cycle", value: "\(preferences.autoPomoCycle)") {
+                            FocusSettingsRow(title: "Auto-Pomodoro Cycle", value: "\(preferences.autoPomoCycle)") {
                                 showingCycle = true
                             }
                         }
                         
                         // Section 3: Ringtone
                         FocusSettingsSection(title: "Ringtone") {
-                            FocusSettingsRow(title: "Pomo-ending", value: preferences.pomoEndingSoundName) {
+                            FocusSettingsRow(title: "Pomodoro ending", value: preferences.pomoEndingSoundName) {
                                 showingPomoSound = true
                             }
                             Divider().background(Colors.cardStroke)
@@ -84,6 +86,64 @@ struct PomoSettingsView: View {
                                 showingVibration = true
                             }
                         }
+
+                        // Section 4: Accountability Shield
+                        FocusSettingsSection(title: "Accountability Shield") {
+                            FocusSettingsToggleRow(
+                                title: "Enable for Pomodoro focus",
+                                isOn: $settingsStore.accountabilityEnabled
+                            )
+                            Divider().background(Colors.cardStroke)
+                            FocusSettingsToggleRow(
+                                title: "Lock phone while focus runs",
+                                isOn: $settingsStore.blockAppsEnabled
+                            )
+                            if settingsStore.blockAppsEnabled {
+                                Divider().background(Colors.cardStroke)
+                                BlockedAppsSelectionView()
+                                    .padding(12)
+                            }
+                            Divider().background(Colors.cardStroke)
+                            FocusSettingsToggleRow(
+                                title: "Use penalty credits",
+                                isOn: $settingsStore.penaltyEnabled
+                            )
+                            if settingsStore.penaltyEnabled {
+                                Divider().background(Colors.cardStroke)
+                                HStack {
+                                    Text("Penalty Amount")
+                                        .font(.system(size: 16))
+                                        .foregroundColor(Colors.textPrimary)
+                                    Spacer()
+                                    Stepper(
+                                        "€\(settingsStore.penaltyAmountEuro)",
+                                        value: $settingsStore.penaltyAmountEuro,
+                                        in: 1...10
+                                    )
+                                    .labelsHidden()
+                                    Text("€\(settingsStore.penaltyAmountEuro)")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(Colors.accentTeal)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                            }
+                            Divider().background(Colors.cardStroke)
+                            Button {
+                                showAccountabilityInfo = true
+                            } label: {
+                                HStack {
+                                    Text("How this works")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundColor(Colors.accentTeal)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .foregroundColor(Colors.textSecondary)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                            }
+                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 40)
@@ -92,7 +152,7 @@ struct PomoSettingsView: View {
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showingPomoDuration) {
-            FocusWheelPickerView(title: "Pomo Duration", selection: $preferences.pomoDurationMinutes, range: 1...60, suffix: "minutes") {
+            FocusWheelPickerView(title: "Pomodoro Duration", selection: $preferences.pomoDurationMinutes, range: 1...60, suffix: "minutes") {
                 showingPomoDuration = false
             }
         }
@@ -107,12 +167,12 @@ struct PomoSettingsView: View {
             }
         }
         .sheet(isPresented: $showingPomosPerLongBreak) {
-            FocusWheelPickerView(title: "Pomos per long break", selection: $preferences.pomosPerLongBreak, range: 1...10, suffix: "Pomos") {
+            FocusWheelPickerView(title: "Pomodoros per long break", selection: $preferences.pomosPerLongBreak, range: 1...10, suffix: "Pomodoros") {
                 showingPomosPerLongBreak = false
             }
         }
         .sheet(isPresented: $showingCycle) {
-            FocusWheelPickerView(title: "Auto-Pomo Cycle", selection: $preferences.autoPomoCycle, range: 1...12, suffix: "") {
+            FocusWheelPickerView(title: "Auto-Pomodoro Cycle", selection: $preferences.autoPomoCycle, range: 1...12, suffix: "") {
                 showingCycle = false
             }
         }
@@ -126,6 +186,9 @@ struct PomoSettingsView: View {
         }
         .sheet(isPresented: $showingBreakSound) {
             SoundPickerView(selectedSound: $preferences.breakEndingSoundName)
+        }
+        .sheet(isPresented: $showAccountabilityInfo) {
+            AccountabilityInfoView()
         }
     }
 }

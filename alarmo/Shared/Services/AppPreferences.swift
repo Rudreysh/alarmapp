@@ -33,6 +33,12 @@ protocol AppPreferencesProtocol: AnyObject {
     var vibrationDurationSeconds: Int { get set }
     var stopwatchSoundName: String { get set }
     var stopwatchVibrationSeconds: Int { get set }
+    
+    // Focus Accountability
+    var focusEnforcementMode: EnforcementMode { get set }
+    var focusBlockAppsEnabled: Bool { get set }
+    var focusPenaltyEnabled: Bool { get set }
+    var focusPenaltyAmountEuro: Int { get set }
 }
 
 final class AppPreferences: ObservableObject, AppPreferencesProtocol {
@@ -72,6 +78,10 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
     @Published var vibrationDurationSeconds: Int { didSet { defaults.set(vibrationDurationSeconds, forKey: Keys.vibrationDurationSeconds); log("set vibrationDurationSeconds=\(vibrationDurationSeconds)") } }
     @Published var stopwatchSoundName: String { didSet { defaults.set(stopwatchSoundName, forKey: Keys.stopwatchSoundName); log("selected stopwatchSoundName=\(stopwatchSoundName)") } }
     @Published var stopwatchVibrationSeconds: Int { didSet { defaults.set(stopwatchVibrationSeconds, forKey: Keys.stopwatchVibrationSeconds); log("set stopwatchVibrationSeconds=\(stopwatchVibrationSeconds)") } }
+    @Published var focusEnforcementMode: EnforcementMode { didSet { defaults.set(focusEnforcementMode.rawValue, forKey: Keys.focusEnforcementMode) } }
+    @Published var focusBlockAppsEnabled: Bool { didSet { defaults.set(focusBlockAppsEnabled, forKey: Keys.focusBlockAppsEnabled) } }
+    @Published var focusPenaltyEnabled: Bool { didSet { defaults.set(focusPenaltyEnabled, forKey: Keys.focusPenaltyEnabled) } }
+    @Published var focusPenaltyAmountEuro: Int { didSet { defaults.set(min(10, max(1, focusPenaltyAmountEuro)), forKey: Keys.focusPenaltyAmountEuro) } }
 
     private let defaults: UserDefaults
 
@@ -137,6 +147,10 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
         self.vibrationDurationSeconds = defaults.object(forKey: Keys.vibrationDurationSeconds) as? Int ?? 10
         self.stopwatchSoundName = defaults.string(forKey: Keys.stopwatchSoundName) ?? "Batman Beyond"
         self.stopwatchVibrationSeconds = defaults.object(forKey: Keys.stopwatchVibrationSeconds) as? Int ?? 10
+        self.focusEnforcementMode = EnforcementMode(rawValue: defaults.string(forKey: Keys.focusEnforcementMode) ?? "") ?? .none
+        self.focusBlockAppsEnabled = defaults.object(forKey: Keys.focusBlockAppsEnabled) as? Bool ?? false
+        self.focusPenaltyEnabled = defaults.object(forKey: Keys.focusPenaltyEnabled) as? Bool ?? false
+        self.focusPenaltyAmountEuro = defaults.object(forKey: Keys.focusPenaltyAmountEuro) as? Int ?? 1
     }
 
     private enum Keys {
@@ -170,6 +184,10 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
         static let vibrationDurationSeconds = "alarmo.focus.vibrationDurationSeconds"
         static let stopwatchSoundName = "alarmo.focus.stopwatchSoundName"
         static let stopwatchVibrationSeconds = "alarmo.focus.stopwatchVibrationSeconds"
+        static let focusEnforcementMode = "alarmo.focus.enforcementMode"
+        static let focusBlockAppsEnabled = "alarmo.focus.blockAppsEnabled"
+        static let focusPenaltyEnabled = "alarmo.focus.penaltyEnabled"
+        static let focusPenaltyAmountEuro = "alarmo.focus.penaltyAmountEuro"
     }
 
     private static func defaultWallpaperIdFromConfig() -> String {

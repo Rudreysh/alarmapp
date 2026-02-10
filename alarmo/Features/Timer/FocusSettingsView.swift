@@ -32,7 +32,7 @@ struct FocusSettingsView: View {
                         VStack(spacing: 24) {
                             FocusSettingsSection(title: "Settings") {
                                 NavigationLink(destination: PomoSettingsView(preferences: preferences)) {
-                                    FocusSettingsNavigationRow(title: "Pomo Settings", value: "")
+                                    FocusSettingsNavigationRow(title: "Pomodoro Settings", value: "")
                                 }
                                 Divider().background(Colors.cardStroke)
                                 NavigationLink(destination: StopwatchSettingsView(preferences: preferences)) {

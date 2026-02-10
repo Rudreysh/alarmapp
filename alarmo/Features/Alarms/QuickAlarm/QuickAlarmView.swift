@@ -8,9 +8,12 @@ struct QuickAlarmView: View {
     @State private var showSoundEditor = false
     @State private var showWallpaperPicker = false
     @State private var showTimePicker = false
+    @State private var showAccountabilityInfo = false
     
     @StateObject private var soundPlayer = SoundPreviewPlayer()
     private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
+    private let sectionCardRadius: CGFloat = 18
+    private let presetColumns = Array(repeating: GridItem(.flexible(), spacing: Spacing.s), count: 3)
     
     var body: some View {
         NavigationView {
@@ -19,17 +22,17 @@ struct QuickAlarmView: View {
                 Colors.bgPrimary.ignoresSafeArea()
                 
                 ScrollView {
-                    VStack(spacing: 24) {
+                    VStack(spacing: Spacing.l) {
                         // Top Spacer
-                        Color.clear.frame(height: 12)
+                        Color.clear.frame(height: Spacing.s)
                         
                         // Main Timer Display - Tappable
                         Button(action: { showTimePicker = true }) {
-                            VStack(spacing: 12) {
+                            VStack(spacing: Spacing.s) {
                                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                                     // Minutes Display
                                     Text("\(viewModel.minutes)")
-                                        .font(.system(size: 72, weight: .bold))
+                                        .font(.system(size: 68, weight: .bold))
                                         .foregroundColor(Colors.textPrimary)
                                     
                                     Text("min")
@@ -38,7 +41,7 @@ struct QuickAlarmView: View {
                                     
                                     // Seconds Display
                                     Text("\(viewModel.seconds)")
-                                        .font(.system(size: 72, weight: .bold))
+                                        .font(.system(size: 68, weight: .bold))
                                         .foregroundColor(Colors.textPrimary)
                                     
                                     Text("sec")
@@ -47,13 +50,13 @@ struct QuickAlarmView: View {
                                     
                                     // Reset Button
                                     Button(action: {
-                                        withAnimation { viewModel.reset() }
+                                        withAnimation(.easeInOut(duration: 0.15)) { viewModel.reset() }
                                     }) {
                                         Image(systemName: "arrow.clockwise")
                                             .font(.system(size: 18, weight: .semibold))
-                                            .foregroundColor(Colors.textSecondary)
-                                            .frame(width: 36, height: 36)
-                                            .background(Colors.cardSurface)
+                                            .foregroundColor(Colors.textPrimary)
+                                            .frame(width: 38, height: 38)
+                                            .background(Colors.bgSecondary)
                                             .clipShape(Circle())
                                     }
                                     .offset(y: -8)
@@ -69,30 +72,37 @@ struct QuickAlarmView: View {
                                     .font(.system(size: 16, weight: .medium))
                                     .foregroundColor(Colors.textSecondary)
                             }
-                            .padding(.vertical, 24)
+                            .padding(.vertical, Spacing.l)
+                            .padding(.horizontal, Spacing.m)
+                            .frame(maxWidth: .infinity)
+                            .background(
+                                RoundedRectangle(cornerRadius: sectionCardRadius)
+                                    .fill(Colors.cardSurface)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: sectionCardRadius)
+                                    .stroke(Colors.cardStroke, lineWidth: 1)
+                            )
                         }
                         .buttonStyle(.plain)
+                        .padding(.horizontal, Spacing.m)
                         
                         // Presets Grid
-                        VStack(spacing: 12) {
-                            HStack(spacing: 12) {
-                                QuickPresetButton(label: "1 min", action: { viewModel.setPreset(minutes: 1, seconds: 0) })
-                                QuickPresetButton(label: "5 min", action: { viewModel.setPreset(minutes: 5, seconds: 0) })
-                                QuickPresetButton(label: "10 min", action: { viewModel.setPreset(minutes: 10, seconds: 0) })
-                            }
-                            HStack(spacing: 12) {
-                                QuickPresetButton(label: "15 min", action: { viewModel.setPreset(minutes: 15, seconds: 0) })
-                                QuickPresetButton(label: "30 min", action: { viewModel.setPreset(minutes: 30, seconds: 0) })
-                                QuickPresetButton(label: "1 hour", action: { viewModel.setPreset(minutes: 60, seconds: 0) })
-                            }
+                        LazyVGrid(columns: presetColumns, spacing: Spacing.s) {
+                            QuickPresetButton(label: "1 min", action: { viewModel.setPreset(minutes: 1, seconds: 0) })
+                            QuickPresetButton(label: "5 min", action: { viewModel.setPreset(minutes: 5, seconds: 0) })
+                            QuickPresetButton(label: "10 min", action: { viewModel.setPreset(minutes: 10, seconds: 0) })
+                            QuickPresetButton(label: "15 min", action: { viewModel.setPreset(minutes: 15, seconds: 0) })
+                            QuickPresetButton(label: "30 min", action: { viewModel.setPreset(minutes: 30, seconds: 0) })
+                            QuickPresetButton(label: "1 hour", action: { viewModel.setPreset(minutes: 60, seconds: 0) })
                         }
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, Spacing.m)
                         
                         // Settings - Premium Style
-                        VStack(spacing: 0) {
+                        VStack(spacing: Spacing.s) {
                             // Sound & Behavior Section
                             SectionHeader(title: "Sound & Behavior")
-                            GroupedSettingsCard {
+                            QuickSettingsCard {
                                 MenuRow(
                                     icon: "bell.fill",
                                     title: "Alarm Sound",
@@ -104,7 +114,7 @@ struct QuickAlarmView: View {
                             
                             // Wallpaper Section
                             SectionHeader(title: "Wallpaper")
-                            GroupedSettingsCard {
+                            QuickSettingsCard {
                                 MenuRow(
                                     icon: "photo.fill",
                                     title: "Wallpaper",
@@ -114,10 +124,70 @@ struct QuickAlarmView: View {
                                     showWallpaperPicker = true
                                 }
                             }
+
+                            // Accountability Section
+                            SectionHeader(title: "Accountability Shield")
+                            QuickSettingsCard {
+                                Toggle(isOn: $viewModel.accountabilityEnabled) {
+                                    Text("Enable for this quick alarm")
+                                        .foregroundColor(Colors.textPrimary)
+                                }
+                                .padding()
+
+                                if viewModel.accountabilityEnabled {
+                                    Divider().padding(.leading, 16).opacity(0.3)
+
+                                    Toggle(isOn: $viewModel.blockAppsEnabled) {
+                                        Text("Lock phone while ringing")
+                                            .foregroundColor(Colors.textPrimary)
+                                    }
+                                    .padding(.horizontal)
+                                    .padding(.vertical, 10)
+
+                                    if viewModel.blockAppsEnabled {
+                                        Divider().padding(.leading, 16).opacity(0.3)
+                                        BlockedAppsSelectionView()
+                                            .padding(.horizontal)
+                                            .padding(.vertical, 10)
+                                    }
+
+                                    Divider().padding(.leading, 16).opacity(0.3)
+
+                                    Toggle(isOn: $viewModel.penaltyEnabled) {
+                                        Text("Use penalty credits")
+                                            .foregroundColor(Colors.textPrimary)
+                                    }
+                                    .padding(.horizontal)
+                                    .padding(.vertical, 10)
+
+                                    if viewModel.penaltyEnabled {
+                                        Divider().padding(.leading, 16).opacity(0.3)
+                                        Stepper(
+                                            "Penalty Amount (€\(viewModel.penaltyAmountEuro))",
+                                            value: $viewModel.penaltyAmountEuro,
+                                            in: 1...10
+                                        )
+                                        .foregroundColor(Colors.textPrimary)
+                                        .padding(.horizontal)
+                                        .padding(.vertical, 10)
+                                    }
+
+                                    Button {
+                                        showAccountabilityInfo = true
+                                    } label: {
+                                        Text("How this works")
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundColor(Colors.accentTeal)
+                                            .padding(.horizontal)
+                                            .padding(.bottom, 8)
+                                    }
+                                }
+                            }
                         }
+                        .padding(.top, Spacing.s)
                         
                         // Bottom padding
-                        Color.clear.frame(height: 40)
+                        Color.clear.frame(height: Spacing.xl)
                     }
                 }
             }
@@ -164,6 +234,9 @@ struct QuickAlarmView: View {
                 seconds: $viewModel.seconds
             )
         }
+        .sheet(isPresented: $showAccountabilityInfo) {
+            AccountabilityInfoView()
+        }
         .onDisappear {
             soundPlayer.stop()
         }
@@ -204,10 +277,37 @@ struct QuickPresetButton: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(Colors.textPrimary)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 18)
-                .background(Colors.cardSurface)
-                .cornerRadius(12)
+                .padding(.vertical, 17)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Colors.cardSurface)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Colors.cardStroke, lineWidth: 1)
+                )
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct QuickSettingsCard<Content: View>: View {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            content
+        }
+        .background(Colors.cardSurface)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Colors.cardStroke, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal, Spacing.m)
     }
 }

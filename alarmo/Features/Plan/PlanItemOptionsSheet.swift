@@ -26,6 +26,8 @@ struct PlanItemOptionsSheet: View {
                 }
                 OptionGridItem(icon: "trash", title: "Delete", color: .red) {
                     item.isArchived = true
+                    item.archivedAt = Date()
+                    item.updatedAt = Date()
                     try? modelContext.save()
                     dismiss()
                 }

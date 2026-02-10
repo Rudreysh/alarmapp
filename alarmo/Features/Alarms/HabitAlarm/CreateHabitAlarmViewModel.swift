@@ -30,6 +30,12 @@ class CreateHabitAlarmViewModel: ObservableObject {
     @Published var wakeUpCheckEnabled: Bool = false
     @Published var missions: [AlarmMission] = []
     
+    // Accountability Shield
+    @Published var accountabilityEnabled: Bool = false
+    @Published var blockAppsEnabled: Bool = false
+    @Published var penaltyEnabled: Bool = false
+    @Published var penaltyAmountEuro: Int = 1
+    
     // Reminder Feature
     @Published var reminderEnabled: Bool = false
     @Published var reminderIntervalMinutes: Int = 20
@@ -49,6 +55,11 @@ class CreateHabitAlarmViewModel: ObservableObject {
         self.soundVolume = defaultSoundVolume
         self.defaultSoundName = defaultSoundName
         self.wallpaperId = AlarmDraft(defaultHour: defaultHour, defaultMinute: defaultMinute, defaultRepeatMask: RepeatMask.allDays, defaultSoundName: defaultSoundName, defaultSoundVolume: defaultSoundVolume, defaultWallpaperId: defaultWallpaperId).wallpaperId
+        let settings = SettingsStore.shared
+        self.accountabilityEnabled = settings.accountabilityEnabled
+        self.blockAppsEnabled = settings.blockAppsEnabled
+        self.penaltyEnabled = settings.penaltyEnabled
+        self.penaltyAmountEuro = settings.penaltyAmountEuro
         
         updateRingInText()
     }

@@ -4,7 +4,6 @@ import SwiftData
 enum MainTab: String, CaseIterable {
     case alarm
     case timer
-    case sleep
     case plan
     case report
     case setting
@@ -26,12 +25,10 @@ struct MainTabContainerView: View {
                     HomeView(viewModel: HomeViewModel(preferences: preferences), alarmStore: alarmStore)
                 case .timer:
                     TimerRootView(preferences: preferences, onClose: { navStore.selectedTab = .alarm })
-                case .sleep:
-                    PlaceholderTabView(title: "Sleep")
                 case .plan:
                     PlanView()
                 case .report:
-                    PlaceholderTabView(title: "Report")
+                    ReportView(modelContext: modelContext, alarmStore: alarmStore)
                 case .setting:
                     SettingsRootView()
                 }
@@ -41,7 +38,6 @@ struct MainTabContainerView: View {
                 tabs: [
                     TabBarItem(id: MainTab.alarm, title: "Alarm", systemImage: "alarm"),
                     TabBarItem(id: MainTab.timer, title: "Timer", systemImage: "timer"),
-                    TabBarItem(id: MainTab.sleep, title: "Sleep", systemImage: "moon.zzz"),
                     TabBarItem(id: MainTab.plan, title: "Plan", systemImage: "calendar"),
                     TabBarItem(id: MainTab.report, title: "Report", systemImage: "doc.text"),
                     TabBarItem(id: MainTab.setting, title: "Setting", systemImage: "gearshape")
@@ -70,22 +66,20 @@ struct MainTabContainerView: View {
                         log.completed = item.isGoalMet()
                     }
                     try? modelContext.save()
+                    
+                    let event = ActivityEvent(
+                        domain: .task,
+                        entityId: item.id,
+                        status: .success,
+                        value: Double(duration),
+                        metadata: ["type": "pomodoro"]
+                    )
+                    modelContext.insert(event)
+                    try? modelContext.save()
+                    
                     print("✅ Updated progress for \(item.title): +\(duration)s")
                 }
             }
-        }
-    }
-}
-
-private struct PlaceholderTabView: View {
-    let title: String
-
-    var body: some View {
-        ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
-            Text(title)
-                .screenTitle()
-                .foregroundColor(Colors.textPrimary)
         }
     }
 }

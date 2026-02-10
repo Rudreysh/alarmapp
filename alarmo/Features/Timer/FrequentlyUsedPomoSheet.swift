@@ -9,14 +9,14 @@ struct FrequentlyUsedPomoSheet: View {
             Colors.bgSecondary.ignoresSafeArea()
             
             VStack(spacing: Spacing.xl) {
-                Text("Your Frequently-Used Pomo")
+                Text("Your Frequently-Used Pomodoro")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
                     .padding(.top, Spacing.l)
                 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    ForEach(viewModel.frequentDurations, id: \.self) { duration in
-                        durationTile(for: duration)
+                    ForEach(viewModel.savedPresets) { preset in
+                        durationTile(for: preset)
                     }
                     
                     addButton
@@ -35,53 +35,62 @@ struct FrequentlyUsedPomoSheet: View {
         .presentationDragIndicator(.visible)
     }
     
-    private func durationTile(for duration: TimeInterval) -> some View {
-        let minutes = Int(duration / 60)
-        let isSelected = viewModel.pomoDurationSeconds == duration
-        let index = viewModel.frequentDurations.firstIndex(of: duration)
+    private func durationTile(for preset: TimerPreset) -> some View {
+        let isSelected = viewModel.pomoDurationSeconds == preset.duration && viewModel.selectedFocusMode == preset.name
         
         return Button(action: {
-            viewModel.setPomoDuration(duration)
+            viewModel.applyPreset(preset)
             dismiss()
         }) {
-            Text("\(minutes):00")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(Colors.textPrimary)
-                .frame(maxWidth: .infinity)
-                .frame(height: 60)
-                .background(Colors.cardSurface)
-                .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(isSelected ? Colors.accentRed : Color.clear, lineWidth: 2)
-                )
-        }
-        .onLongPressGesture {
-            viewModel.isAddingNewDuration = false
-            viewModel.editingDurationIndex = index
-            viewModel.showFrequentlyUsedPomo = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                viewModel.showPomoDurationPicker = true
+            HStack(spacing: 8) {
+                Image(systemName: preset.icon)
+                    .font(.system(size: 16))
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(preset.name)
+                        .font(.system(size: 16, weight: .bold))
+                    
+                    if preset.mode == .pomo {
+                        Text("\(Int(preset.duration / 60)) min")
+                            .font(.caption)
+                            .foregroundColor(Colors.textSecondary)
+                    } else {
+                        Text("Stopwatch")
+                            .font(.caption)
+                            .foregroundColor(Colors.textSecondary)
+                    }
+                }
+                Spacer()
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .background(Colors.cardSurface)
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? Colors.accentRed : Color.clear, lineWidth: 2)
+            )
         }
     }
     
     private var addButton: some View {
         Button(action: {
-            viewModel.isAddingNewDuration = true
-            viewModel.editingDurationIndex = nil
             viewModel.showFrequentlyUsedPomo = false
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                viewModel.showPomoDurationPicker = true
+                viewModel.showAddTimer = true
             }
         }) {
-            Image(systemName: "plus")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(Colors.textPrimary)
-                .frame(maxWidth: .infinity)
-                .frame(height: 60)
-                .background(Colors.cardSurface)
-                .cornerRadius(12)
+            HStack {
+                Image(systemName: "plus")
+                Text("Add Preset")
+            }
+            .font(.system(size: 16, weight: .bold))
+            .foregroundColor(Colors.textPrimary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(Colors.cardSurface)
+            .cornerRadius(12)
         }
     }
 }

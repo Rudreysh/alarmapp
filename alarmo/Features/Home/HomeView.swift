@@ -12,6 +12,7 @@ struct HomeView: View {
     @State private var showCreateHabit = false
     @State private var showTimer = false
     @State private var selectedAlarm: Alarm?
+    @State private var openAlarmActionsId: UUID? = nil
     private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
 
     init(viewModel: HomeViewModel, alarmStore: AlarmStore) {
@@ -72,9 +73,11 @@ struct HomeView: View {
                     ) {}
 
                     if !alarmStore.alarms.isEmpty {
-                        Text("Ring in 19hrs 9min  >")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(Colors.textPrimary)
+                        TimelineView(.periodic(from: .now, by: 1)) { context in
+                            Text(nextRingHeaderText(now: context.date))
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(Colors.textPrimary)
+                        }
 
                         LazyVStack(spacing: Spacing.m) {
                             ForEach(alarmStore.alarms) { alarm in
@@ -86,6 +89,7 @@ struct HomeView: View {
                                 ) {
                                     AlarmCardView(
                                         alarm: alarm,
+                                        openActionsAlarmId: $openAlarmActionsId,
                                         onToggle: { isEnabled in
                                             alarmStore.toggleEnabled(id: alarm.id, enabled: isEnabled)
                                             // Update scheduling
@@ -189,20 +193,28 @@ struct HomeView: View {
                         }
                     }
 
-                FloatingAddMenu(
-                    onSelectTimer: {
-                        openTimer()
-                    },
-                    onSelectHabit: {
-                        openCreateHabit()
-                    },
-                    onSelectQuick: {
-                        openQuickAlarm()
-                    },
-                    onSelectAlarm: {
-                        openCreateAlarm()
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        FloatingAddMenu(
+                            onSelectTimer: {
+                                openTimer()
+                            },
+                            onSelectHabit: {
+                                openCreateHabit()
+                            },
+                            onSelectQuick: {
+                                openQuickAlarm()
+                            },
+                            onSelectAlarm: {
+                                openCreateAlarm()
+                            }
+                        )
+                        .padding(.trailing, Spacing.l)
+                        .padding(.bottom, AppConstants.tabBarHeight + Spacing.l + 74) // 62 (FAB) + 12 (gap)
                     }
-                )
+                }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
@@ -294,10 +306,44 @@ struct HomeView: View {
             showTimer = true
         }
     }
+
+    private func nextRingHeaderText(now: Date) -> String {
+        let enabledAlarms = alarmStore.alarms.filter(\.enabled)
+        guard !enabledAlarms.isEmpty else { return "No enabled alarm  >" }
+
+        let nextFire = enabledAlarms
+            .compactMap { AlarmStore.nextFireDate(for: $0, from: now) }
+            .min()
+
+        guard let target = nextFire else { return "No upcoming ring  >" }
+        return "\(formatCountdownRelative(to: target, from: now, includePrefix: true))  >"
+    }
+
+    private func formatCountdownRelative(to target: Date, from now: Date, includePrefix: Bool) -> String {
+        let diff = max(0, Int(target.timeIntervalSince(now)))
+        let days = diff / 86_400
+        let hours = (diff % 86_400) / 3_600
+        let minutes = (diff % 3_600) / 60
+        let seconds = diff % 60
+
+        let base: String
+        if days > 0 {
+            base = "\(days)d \(hours)h \(minutes)m"
+        } else if hours > 0 {
+            base = "\(hours)h \(minutes)m"
+        } else if minutes > 0 {
+            base = "\(minutes)m \(seconds)s"
+        } else {
+            base = "\(seconds)s"
+        }
+
+        return includePrefix ? "Ring in \(base)" : base
+    }
 }
 
 private struct AlarmCardView: View {
     let alarm: Alarm
+    @Binding var openActionsAlarmId: UUID?
     let onToggle: (Bool) -> Void
     let onDelete: () -> Void
     let onDuplicate: () -> Void
@@ -305,8 +351,16 @@ private struct AlarmCardView: View {
     let onPreview: () -> Void
 
     private let weekdays: [String] = ["S", "M", "T", "W", "T", "F", "S"]
+    private var showActionsMenu: Bool { openActionsAlarmId == alarm.id }
 
     var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            cardContent(now: context.date)
+        }
+    }
+
+    @ViewBuilder
+    private func cardContent(now: Date) -> some View {
         HStack(spacing: 16) {
             // LEFT: Time & Relative Status
             VStack(alignment: .leading, spacing: 0) {
@@ -316,10 +370,25 @@ private struct AlarmCardView: View {
                     .fixedSize(horizontal: true, vertical: false)
                 
                 if alarm.enabled {
-                    Text(ringsInRelativeText)
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(Colors.accentTeal)
-                        .padding(.top, -2)
+                    if alarm.type == .quick || alarm.type == .habit {
+                        if let nextDate = AlarmStore.nextFireDate(for: alarm, from: now) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "timer")
+                                    .font(.system(size: 10, weight: .bold))
+                                Text(compactCountdown(to: nextDate, now: now))
+                                    .font(.system(size: 12, weight: .heavy, design: .rounded))
+                                    .monospacedDigit()
+                            }
+                            .foregroundColor(Colors.accentTeal)
+                            .padding(.top, 2)
+                        }
+                    } else {
+                        Text(ringsInRelativeText(now: now))
+                            .font(.system(size: 11, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundColor(Colors.accentTeal)
+                            .padding(.top, -2)
+                    }
                 }
             }
             .layoutPriority(1)
@@ -335,14 +404,16 @@ private struct AlarmCardView: View {
                         .lineLimit(1)
                 }
                 
-                if alarm.type == .quick {
-                    Text("QUICK ALARM")
-                        .font(.system(size: 10, weight: .black))
-                        .foregroundColor(Colors.accentTeal)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(Colors.accentTeal.opacity(0.1))
-                        .cornerRadius(6)
+                if alarm.type == .quick || alarm.type == .habit {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(alarm.type == .quick ? "QUICK ALARM" : "HABIT ALARM")
+                            .font(.system(size: 10, weight: .black))
+                            .foregroundColor(Colors.accentTeal)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(Colors.accentTeal.opacity(0.1))
+                            .cornerRadius(6)
+                    }
                 } else {
                     HStack(spacing: 6) {
                         ForEach(0..<weekdays.count, id: \.self) { index in
@@ -379,13 +450,7 @@ private struct AlarmCardView: View {
                 .scaleEffect(0.85)
                 .frame(width: 48, height: 28)
                 
-                Menu {
-                    Button(action: onDuplicate) { Label("Duplicate", systemImage: "doc.on.doc") }
-                    Button(action: onPreview) { Label("Preview", systemImage: "eye") }
-                    Button(action: onSkipOnce) { Label(alarm.isSkippedOnce ? "Undo skip" : "Skip once", systemImage: "arrow.clockwise") }
-                    Divider()
-                    Button(role: .destructive, action: onDelete) { Label("Delete", systemImage: "trash") }
-                } label: {
+                Button(action: toggleActionsMenu) {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(Colors.textSecondary)
@@ -415,6 +480,29 @@ private struct AlarmCardView: View {
             RoundedRectangle(cornerRadius: 24)
                 .stroke(alarm.enabled ? Colors.accentTeal.opacity(0.15) : Color.white.opacity(0.06), lineWidth: 1)
         )
+        .overlay(alignment: .topTrailing) {
+            if showActionsMenu {
+                VStack(spacing: 0) {
+                    actionRow(icon: "doc.on.doc", title: "Duplicate") { onDuplicate() }
+                    Divider().background(Colors.cardStroke)
+                    actionRow(icon: "eye", title: "Preview") { onPreview() }
+                    Divider().background(Colors.cardStroke)
+                    actionRow(icon: "arrow.clockwise", title: alarm.isSkippedOnce ? "Undo skip" : "Skip once") { onSkipOnce() }
+                    Divider().background(Colors.cardStroke)
+                    actionRow(icon: "trash", title: "Delete", isDestructive: true) { onDelete() }
+                }
+                .background(Colors.cardSurface)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Colors.cardStroke, lineWidth: 1)
+                )
+                .frame(width: 210)
+                .padding(.trailing, 8)
+                .padding(.top, 54)
+            }
+        }
+        .zIndex(showActionsMenu ? 10 : 0)
     }
 
     private func isDayEnabled(index: Int) -> Bool {
@@ -430,9 +518,9 @@ private struct AlarmCardView: View {
         return formatter.string(from: nextDate)
     }
 
-    private var ringsInRelativeText: String {
-        guard let nextDate = AlarmStore.nextFireDate(for: alarm, from: Date()) else { return "" }
-        let diff = Int(nextDate.timeIntervalSince(Date()))
+    private func ringsInRelativeText(now: Date) -> String {
+        guard let nextDate = AlarmStore.nextFireDate(for: alarm, from: now) else { return "" }
+        let diff = max(0, Int(nextDate.timeIntervalSince(now)))
         let days = diff / 86400
         let hours = (diff % 86400) / 3600
         let minutes = (diff % 3600) / 60
@@ -447,6 +535,54 @@ private struct AlarmCardView: View {
         } else {
             return "In \(seconds)s"
         }
+    }
+
+    private func compactCountdown(to nextDate: Date, now: Date) -> String {
+        let diff = max(0, Int(nextDate.timeIntervalSince(now)))
+        let days = diff / 86_400
+        let hours = (diff % 86_400) / 3_600
+        let minutes = (diff % 3_600) / 60
+        let seconds = diff % 60
+
+        if days > 0 {
+            return String(format: "%dd %02d:%02d:%02d", days, hours, minutes, seconds)
+        }
+        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+    }
+
+    private func toggleActionsMenu() {
+        withTransaction(Transaction(animation: nil)) {
+            openActionsAlarmId = showActionsMenu ? nil : alarm.id
+        }
+    }
+
+    @ViewBuilder
+    private func actionRow(
+        icon: String,
+        title: String,
+        isDestructive: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: {
+            withTransaction(Transaction(animation: nil)) {
+                openActionsAlarmId = nil
+            }
+            action()
+        }) {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(isDestructive ? Colors.accentRed : Colors.textPrimary)
+                    .frame(width: 20)
+                Text(title)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(isDestructive ? Colors.accentRed : Colors.textPrimary)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 46)
+        }
+        .buttonStyle(.plain)
     }
 }
 

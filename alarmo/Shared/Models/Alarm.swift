@@ -37,6 +37,17 @@ struct Alarm: Identifiable, Codable, Equatable {
     var isSkippedOnce: Bool
     var missions: [AlarmMission] = []
     
+    // Accountability Shield
+    var enforcementMode: EnforcementMode = .none
+    var blockAppsEnabled: Bool = false
+    var blockedSelectionData: Data?
+    var penaltyEnabled: Bool = false
+    var penaltyAmountEuro: Int = 1
+    var penaltyStrategy: PenaltyStrategy = .credits
+    var penaltyRules: PenaltyRules = .default
+    var lastPenaltyEventAt: Date?
+    var penaltyEventLog: [PenaltyEventRecord] = []
+    
     // Habit Reminder
     var habitReminderEnabled: Bool = false
     var habitReminderInterval: Int = 20
@@ -84,6 +95,15 @@ struct Alarm: Identifiable, Codable, Equatable {
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         isSkippedOnce = try container.decodeIfPresent(Bool.self, forKey: .isSkippedOnce) ?? false
         missions = try container.decodeIfPresent([AlarmMission].self, forKey: .missions) ?? []
+        enforcementMode = try container.decodeIfPresent(EnforcementMode.self, forKey: .enforcementMode) ?? .none
+        blockAppsEnabled = try container.decodeIfPresent(Bool.self, forKey: .blockAppsEnabled) ?? false
+        blockedSelectionData = try container.decodeIfPresent(Data.self, forKey: .blockedSelectionData)
+        penaltyEnabled = try container.decodeIfPresent(Bool.self, forKey: .penaltyEnabled) ?? false
+        penaltyAmountEuro = min(10, max(1, try container.decodeIfPresent(Int.self, forKey: .penaltyAmountEuro) ?? 1))
+        penaltyStrategy = try container.decodeIfPresent(PenaltyStrategy.self, forKey: .penaltyStrategy) ?? .credits
+        penaltyRules = try container.decodeIfPresent(PenaltyRules.self, forKey: .penaltyRules) ?? .default
+        lastPenaltyEventAt = try container.decodeIfPresent(Date.self, forKey: .lastPenaltyEventAt)
+        penaltyEventLog = try container.decodeIfPresent([PenaltyEventRecord].self, forKey: .penaltyEventLog) ?? []
         habitReminderEnabled = try container.decodeIfPresent(Bool.self, forKey: .habitReminderEnabled) ?? false
         habitReminderInterval = try container.decodeIfPresent(Int.self, forKey: .habitReminderInterval) ?? 20
         habitReminderDuration = try container.decodeIfPresent(Int.self, forKey: .habitReminderDuration) ?? 20
@@ -122,6 +142,15 @@ struct Alarm: Identifiable, Codable, Equatable {
         createdAt: Date,
         isSkippedOnce: Bool = false,
         missions: [AlarmMission] = [],
+        enforcementMode: EnforcementMode = .none,
+        blockAppsEnabled: Bool = false,
+        blockedSelectionData: Data? = nil,
+        penaltyEnabled: Bool = false,
+        penaltyAmountEuro: Int = 1,
+        penaltyStrategy: PenaltyStrategy = .credits,
+        penaltyRules: PenaltyRules = .default,
+        lastPenaltyEventAt: Date? = nil,
+        penaltyEventLog: [PenaltyEventRecord] = [],
         habitReminderEnabled: Bool = false,
         habitReminderInterval: Int = 20,
         habitReminderDuration: Int = 20,
@@ -157,6 +186,15 @@ struct Alarm: Identifiable, Codable, Equatable {
         self.createdAt = createdAt
         self.isSkippedOnce = isSkippedOnce
         self.missions = missions
+        self.enforcementMode = enforcementMode
+        self.blockAppsEnabled = blockAppsEnabled
+        self.blockedSelectionData = blockedSelectionData
+        self.penaltyEnabled = penaltyEnabled
+        self.penaltyAmountEuro = min(10, max(1, penaltyAmountEuro))
+        self.penaltyStrategy = penaltyStrategy
+        self.penaltyRules = penaltyRules
+        self.lastPenaltyEventAt = lastPenaltyEventAt
+        self.penaltyEventLog = penaltyEventLog
         self.habitReminderEnabled = habitReminderEnabled
         self.habitReminderInterval = habitReminderInterval
         self.habitReminderDuration = habitReminderDuration
@@ -195,6 +233,15 @@ struct Alarm: Identifiable, Codable, Equatable {
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(isSkippedOnce, forKey: .isSkippedOnce)
         try container.encode(missions, forKey: .missions)
+        try container.encode(enforcementMode, forKey: .enforcementMode)
+        try container.encode(blockAppsEnabled, forKey: .blockAppsEnabled)
+        try container.encodeIfPresent(blockedSelectionData, forKey: .blockedSelectionData)
+        try container.encode(penaltyEnabled, forKey: .penaltyEnabled)
+        try container.encode(min(10, max(1, penaltyAmountEuro)), forKey: .penaltyAmountEuro)
+        try container.encode(penaltyStrategy, forKey: .penaltyStrategy)
+        try container.encode(penaltyRules, forKey: .penaltyRules)
+        try container.encodeIfPresent(lastPenaltyEventAt, forKey: .lastPenaltyEventAt)
+        try container.encode(penaltyEventLog, forKey: .penaltyEventLog)
         try container.encode(habitReminderEnabled, forKey: .habitReminderEnabled)
         try container.encode(habitReminderInterval, forKey: .habitReminderInterval)
         try container.encode(habitReminderDuration, forKey: .habitReminderDuration)
@@ -216,6 +263,9 @@ struct Alarm: Identifiable, Codable, Equatable {
         case gentleWakeUpSeconds, timeReminderEnabled, weatherReminderEnabled
         case labelReminderEnabled, extraLoudEnabled, bypassSilentMode, snoozeMinutes, snoozeCount
         case wallpaperId, createdAt, isSkippedOnce, missions
+        case enforcementMode, blockAppsEnabled, blockedSelectionData
+        case penaltyEnabled, penaltyAmountEuro, penaltyStrategy, penaltyRules
+        case lastPenaltyEventAt, penaltyEventLog
         case habitReminderEnabled, habitReminderInterval, habitReminderDuration
         case habitReminderStartTime, habitReminderEndTime
         case timeZoneMode, timeZoneIdentifier, timeZoneCity

@@ -136,6 +136,14 @@ class TaskStore: ObservableObject {
         }
         save()
     }
+
+    func renameTask(_ id: UUID, to newName: String) {
+        let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+        guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
+        tasks[index].name = String(trimmedName.prefix(50))
+        save()
+    }
     
     func isDuplicate(name: String) -> Bool {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

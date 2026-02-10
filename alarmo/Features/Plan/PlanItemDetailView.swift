@@ -150,6 +150,7 @@ struct PlanItemDetailView: View {
 struct MindfulHabitProgressView: View {
     @Bindable var item: PlanItem
     @State private var pulse = false
+    @Environment(\.modelContext) var modelContext
     
     var body: some View {
         VStack(spacing: 40) {
@@ -177,9 +178,35 @@ struct MindfulHabitProgressView: View {
                         .font(.largeTitle)
                         .foregroundColor(itemColor)
                     
-                    Text("\(Int(currentValue))/\(Int(item.goalValue)) \(item.goalUnit)")
+                    Text("\(Int(min(currentValue, item.goalValue)))/\(Int(item.goalValue)) \(item.goalUnit)")
                         .font(.system(size: 24, weight: .bold))
                 }
+                
+                // Plus and Minus buttons inside the circle
+                VStack {
+                    Spacer()
+                    HStack(spacing: 80) {
+                        // Minus Button
+                        Button(action: decrementProgress) {
+                            Image(systemName: "minus.circle.fill")
+                                .font(.system(size: 36))
+                                .foregroundColor(itemColor.opacity(0.8))
+                                .background(Circle().fill(Colors.bgPrimary).frame(width: 32, height: 32))
+                        }
+                        .disabled(currentValue <= 0)
+                        .opacity(currentValue <= 0 ? 0.3 : 1.0)
+                        
+                        // Plus Button
+                        Button(action: incrementProgress) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 36))
+                                .foregroundColor(itemColor)
+                                .background(Circle().fill(Colors.bgPrimary).frame(width: 32, height: 32))
+                        }
+                    }
+                    .padding(.bottom, 20)
+                }
+                .frame(width: 200, height: 200)
             }
             .onAppear {
                 withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true)) {
@@ -208,6 +235,67 @@ struct MindfulHabitProgressView: View {
     
     private var progress: Double {
         min(max(currentValue / item.goalValue, 0), 1)
+    }
+    
+    private func incrementProgress() {
+        let calendar = Calendar.current
+        let amount = incrementAmount
+        
+        if let existingLog = item.completionLogs.first(where: { calendar.isDateInToday($0.date) }) {
+            if item.metricKind == .time {
+                existingLog.durationSeconds = (existingLog.durationSeconds ?? 0) + Int(amount * 60)
+            } else {
+                existingLog.value = (existingLog.value ?? 0) + amount
+            }
+            existingLog.completed = item.isGoalMet()
+        } else {
+            let log = CompletionLog(date: Date(), completed: false)
+            if item.metricKind == .time {
+                log.durationSeconds = Int(amount * 60)
+            } else {
+                log.value = amount
+            }
+            item.completionLogs.append(log)
+            log.completed = item.isGoalMet()
+        }
+        
+        item.updatedAt = Date()
+        try? modelContext.save()
+    }
+    
+    private func decrementProgress() {
+        let calendar = Calendar.current
+        let amount = incrementAmount
+        
+        if let existingLog = item.completionLogs.first(where: { calendar.isDateInToday($0.date) }) {
+            if item.metricKind == .time {
+                let newSeconds = max((existingLog.durationSeconds ?? 0) - Int(amount * 60), 0)
+                if newSeconds > 0 {
+                    existingLog.durationSeconds = newSeconds
+                    existingLog.completed = item.isGoalMet()
+                } else {
+                    modelContext.delete(existingLog)
+                }
+            } else {
+                let newValue = max((existingLog.value ?? 0) - amount, 0)
+                if newValue > 0 {
+                    existingLog.value = newValue
+                    existingLog.completed = item.isGoalMet()
+                } else {
+                    modelContext.delete(existingLog)
+                }
+            }
+        }
+        
+        item.updatedAt = Date()
+        try? modelContext.save()
+    }
+    
+    private var incrementAmount: Double {
+        let unit = item.goalUnit.lowercased()
+        if unit.contains("min") { return 5 }
+        if unit.contains("hr") || unit.contains("hour") { return 0.25 }
+        return 1
     }
     
     private var itemColor: Color {
@@ -270,6 +358,7 @@ struct WaterProgressView: View {
 
 struct GenericHabitProgressView: View {
     @Bindable var item: PlanItem
+    @Environment(\.modelContext) var modelContext
     
     var body: some View {
         VStack(spacing: 32) {
@@ -287,7 +376,7 @@ struct GenericHabitProgressView: View {
                     .rotationEffect(.degrees(-90))
                 
                 VStack(spacing: 4) {
-                    Text("\(progressValue.formatted())")
+                    Text("\(min(progressValue, item.goalValue).formatted())")
                         .font(.system(size: 44, weight: .bold))
                         .foregroundColor(Colors.textPrimary)
                     
@@ -299,6 +388,32 @@ struct GenericHabitProgressView: View {
                         .font(.caption)
                         .foregroundColor(Colors.textSecondary)
                 }
+                
+                // Plus and Minus buttons inside the circle
+                VStack {
+                    Spacer()
+                    HStack(spacing: 80) {
+                        // Minus Button
+                        Button(action: decrementProgress) {
+                            Image(systemName: "minus.circle.fill")
+                                .font(.system(size: 36))
+                                .foregroundColor(itemColor.opacity(0.8))
+                                .background(Circle().fill(Colors.bgPrimary).frame(width: 32, height: 32))
+                        }
+                        .disabled(progressValue <= 0)
+                        .opacity(progressValue <= 0 ? 0.3 : 1.0)
+                        
+                        // Plus Button
+                        Button(action: incrementProgress) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 36))
+                                .foregroundColor(itemColor)
+                                .background(Circle().fill(Colors.bgPrimary).frame(width: 32, height: 32))
+                        }
+                    }
+                    .padding(.bottom, 20)
+                }
+                .frame(width: 200, height: 200)
             }
             
             VStack(alignment: .leading, spacing: 12) {
@@ -327,6 +442,53 @@ struct GenericHabitProgressView: View {
     
     private var progress: Double {
         min(max(progressValue / item.goalValue, 0), 1)
+    }
+    
+    private func incrementProgress() {
+        let calendar = Calendar.current
+        let amount = incrementAmount
+        
+        if let existingLog = item.completionLogs.first(where: { calendar.isDateInToday($0.date) }) {
+            existingLog.value = (existingLog.value ?? 0) + amount
+            existingLog.completed = item.isGoalMet()
+        } else {
+            let log = CompletionLog(date: Date(), completed: false)
+            log.value = amount
+            item.completionLogs.append(log)
+            log.completed = item.isGoalMet()
+        }
+        
+        item.updatedAt = Date()
+        try? modelContext.save()
+    }
+    
+    private func decrementProgress() {
+        let calendar = Calendar.current
+        let amount = incrementAmount
+        
+        if let existingLog = item.completionLogs.first(where: { calendar.isDateInToday($0.date) }) {
+            let newValue = max((existingLog.value ?? 0) - amount, 0)
+            if newValue > 0 {
+                existingLog.value = newValue
+                existingLog.completed = item.isGoalMet()
+            } else {
+                // Remove the log if value reaches 0
+                modelContext.delete(existingLog)
+            }
+        }
+        
+        item.updatedAt = Date()
+        try? modelContext.save()
+    }
+    
+    private var incrementAmount: Double {
+        let unit = item.goalUnit.lowercased()
+        if unit == "ml" { return 250 }
+        if unit == "oz" { return 8 }
+        if unit == "steps" { return 1000 }
+        if unit.contains("min") { return 5 }
+        if unit.contains("hr") || unit.contains("hour") { return 0.25 }
+        return 1
     }
     
     private var itemColor: Color {

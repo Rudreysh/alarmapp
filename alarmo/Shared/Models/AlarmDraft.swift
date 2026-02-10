@@ -26,6 +26,14 @@ struct AlarmDraft: Equatable {
     var snoozeCount: Int = 3
     var wallpaperId: String = "default"
     var missions: [AlarmMission] = []
+    
+    // Accountability Shield
+    var accountabilityEnabled: Bool = false
+    var blockAppsEnabled: Bool = false
+    var blockedSelectionData: Data?
+    var penaltyEnabled: Bool = false
+    var penaltyAmountEuro: Int = 1
+    var penaltyRules: PenaltyRules = .default
 
     init(defaultHour: Int, defaultMinute: Int, defaultSecond: Int = 0, defaultRepeatMask: Int, defaultSoundName: String, defaultSoundVolume: Float, defaultWallpaperId: String) {
         self.hour = defaultHour

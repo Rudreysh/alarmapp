@@ -16,6 +16,9 @@ class PlanViewModel: ObservableObject {
     @Published var isHabitsExpanded = true
     @Published var isTasksExpanded = true
     
+    // Rate Display Mode
+    @Published var showMonthlyRate = false // false = Overall Rate, true = Monthly Rate
+    
     @Published var allItems: [PlanItem] = []
     
     private var modelContext: ModelContext?
@@ -29,7 +32,7 @@ class PlanViewModel: ObservableObject {
         let calendar = Calendar.current
         let isToday = calendar.isDateInToday(selectedDate)
         
-        return allItems.filter { item in
+        let result = allItems.filter { item in
             // Filter out subtasks
             if item.parentTask != nil { return false }
             
@@ -56,6 +59,8 @@ class PlanViewModel: ObservableObject {
             
             return false
         }
+        print("[PlanFilter] selectedDate=\(selectedDate) input=\(allItems.count) output=\(result.count)")
+        return result
     }
     
     func isCompleted(_ item: PlanItem, on date: Date) -> Bool {
@@ -75,10 +80,22 @@ class PlanViewModel: ObservableObject {
         if let log = todayLog {
             // Toggle off
             context.delete(log)
+            // Log skip or fail? Toggled off usually means reverting success. 
+            // Better to remove previous event or log a new state.
+            // Requirement says: "When a habit is marked done / value entered -> write success"
+            // For now, let's just insert a "success" when toggled on.
         } else {
             // Toggle on
             let newLog = CompletionLog(date: selectedDate, completed: true)
             item.completionLogs.append(newLog)
+            
+            let event = ActivityEvent(
+                domain: item.type == .habit ? .habit : .task,
+                entityId: item.id,
+                timestampUTC: Date(),
+                status: .success
+            )
+            context.insert(event)
         }
         
         item.updatedAt = Date()
@@ -92,18 +109,39 @@ class PlanViewModel: ObservableObject {
             if unit == "ml" { return 250 }
             if unit == "oz" { return 8 }
             if unit == "steps" { return 1000 }
+            // Time-based habits (min, minutes, hr, hours)
+            if unit.contains("min") { return 5 }
+            if unit.contains("hr") || unit.contains("hour") { return 0.25 } // 15 minutes
             return 1
         }()
 
         if let existingLog = item.completionLogs.first(where: { calendar.isDateInToday($0.date) }) {
-            existingLog.value = (existingLog.value ?? 0) + increment
+            if item.metricKind == .time {
+                // For time-based habits, store in seconds
+                existingLog.durationSeconds = (existingLog.durationSeconds ?? 0) + Int(increment * 60)
+            } else {
+                existingLog.value = (existingLog.value ?? 0) + increment
+            }
             existingLog.completed = item.isGoalMet()
         } else {
             let log = CompletionLog(date: Date(), completed: false)
-            log.value = increment
+            if item.metricKind == .time {
+                log.durationSeconds = Int(increment * 60)
+            } else {
+                log.value = increment
+            }
             item.completionLogs.append(log)
             log.completed = item.isGoalMet()
         }
+        
+        let event = ActivityEvent(
+            domain: item.type == .habit ? .habit : .task,
+            entityId: item.id,
+            timestampUTC: Date(),
+            status: .success,
+            value: increment
+        )
+        context.insert(event)
         
         item.updatedAt = Date()
         try? context.save()
@@ -118,18 +156,38 @@ class PlanViewModel: ObservableObject {
             if unit == "ml" { return 250 }
             if unit == "oz" { return 8 }
             if unit == "steps" { return 1000 }
+            // Time-based habits (min, minutes, hr, hours)
+            if unit.contains("min") { return 5 }
+            if unit.contains("hr") || unit.contains("hour") { return 0.25 } // 15 minutes
             return 1
         }()
 
         if let existingLog = item.completionLogs.first(where: { calendar.isDateInToday($0.date) }) {
-            existingLog.value = (existingLog.value ?? 0) + amount
+            if item.metricKind == .time {
+                existingLog.durationSeconds = (existingLog.durationSeconds ?? 0) + Int(amount * 60)
+            } else {
+                existingLog.value = (existingLog.value ?? 0) + amount
+            }
             existingLog.completed = item.isGoalMet()
         } else {
             let log = CompletionLog(date: Date(), completed: false)
-            log.value = amount
+            if item.metricKind == .time {
+                log.durationSeconds = Int(amount * 60)
+            } else {
+                log.value = amount
+            }
             item.completionLogs.append(log)
             log.completed = item.isGoalMet()
         }
+
+        let event = ActivityEvent(
+            domain: item.type == .habit ? .habit : .task,
+            entityId: item.id,
+            timestampUTC: Date(),
+            status: .success,
+            value: amount
+        )
+        context.insert(event)
         
         item.updatedAt = Date()
         try? context.save()
@@ -234,5 +292,48 @@ class PlanViewModel: ObservableObject {
             log.completed = item.isGoalMet()
             item.updatedAt = Date()
         }
+    }
+    
+    // Calculate overall rate for today (completed habits / total habits)
+    func calculateOverallRate(habits: [PlanItem]) -> Double {
+        guard !habits.isEmpty else { return 0 }
+        let completedCount = habits.filter { isCompleted($0, on: selectedDate) }.count
+        return Double(completedCount) / Double(habits.count)
+    }
+    
+    // Calculate monthly rate (average completion rate for the month)
+    func calculateMonthlyRate(habits: [PlanItem]) -> Double {
+        guard !habits.isEmpty else { return 0 }
+        
+        let calendar = Calendar.current
+        let month = calendar.component(.month, from: selectedDate)
+        let year = calendar.component(.year, from: selectedDate)
+        
+        // Get all days in the current month up to today
+        guard let monthStart = calendar.date(from: DateComponents(year: year, month: month, day: 1)) else { return 0 }
+        let today = Date()
+        let daysInMonth = calendar.range(of: .day, in: .month, for: selectedDate)?.count ?? 30
+        let currentDay = calendar.component(.day, from: today)
+        
+        // Only count days up to today if we're in the current month
+        let daysToCount = calendar.isDate(selectedDate, equalTo: today, toGranularity: .month) ? currentDay : daysInMonth
+        
+        var totalCompletions = 0
+        var totalPossible = 0
+        
+        for day in 1...daysToCount {
+            guard let date = calendar.date(from: DateComponents(year: year, month: month, day: day)) else { continue }
+            if date > today { break }
+            
+            for habit in habits {
+                totalPossible += 1
+                if isCompleted(habit, on: date) {
+                    totalCompletions += 1
+                }
+            }
+        }
+        
+        guard totalPossible > 0 else { return 0 }
+        return Double(totalCompletions) / Double(totalPossible)
     }
 }

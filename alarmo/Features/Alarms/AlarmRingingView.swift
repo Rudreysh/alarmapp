@@ -53,6 +53,7 @@ struct AlarmRingingView: View {
 
                         Button(action: {
                             if let mission = ringCoordinator.activeAlarm?.missions.first(where: { $0.type != .off }) {
+                                ringCoordinator.beginMissionMonitoring()
                                 currentMission = mission
                             } else {
                                 ringCoordinator.stopRinging()
@@ -101,6 +102,7 @@ struct AlarmRingingView: View {
                     QRBarcodeMissionView(
                         targetCode: mission.customData["barcodeVal"] ?? "",
                         onSuccess: {
+                            ringCoordinator.completeMission(success: true)
                             currentMission = nil
                             ringCoordinator.stopRinging()
                         }
@@ -112,6 +114,7 @@ struct AlarmRingingView: View {
                              config: MathMissionConfig(difficulty: MathDifficulty(rawValue: mission.difficulty) ?? .easy, repeatCount: mission.rounds),
                              isPreviewMode: false,
                              onComplete: {
+                                ringCoordinator.completeMission(success: true)
                                 currentMission = nil
                                 ringCoordinator.stopRinging()
                              }
@@ -122,6 +125,7 @@ struct AlarmRingingView: View {
                     VStack {
                         Text(mission.title)
                         Button("Complete (Debug)") {
+                            ringCoordinator.completeMission(success: true)
                             currentMission = nil
                             ringCoordinator.stopRinging()
                         }
@@ -129,6 +133,12 @@ struct AlarmRingingView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Colors.bgPrimary.ignoresSafeArea())
                 }
+            }
+        }
+        .onChange(of: ringCoordinator.missionTimeoutTriggered) { _, timedOut in
+            if timedOut {
+                currentMission = nil
+                ringCoordinator.missionTimeoutTriggered = false
             }
         }
     }

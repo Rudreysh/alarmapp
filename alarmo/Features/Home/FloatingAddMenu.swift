@@ -7,14 +7,18 @@ struct FloatingAddMenu: View {
     let onSelectAlarm: () -> Void
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 12) {
+        VStack(alignment: .trailing, spacing: 10) {
             VStack(spacing: 0) {
-                FloatingMenuRow(icon: "timer", title: "Timer", tint: Color.orange) {
+                FloatingMenuRow(icon: "timer", title: "Pomodoro", tint: Color.orange) {
                     onSelectTimer()
                 }
             }
-            .background(Color.white)
-            .cornerRadius(18)
+            .background(Colors.textPrimary)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Color.black.opacity(0.22), lineWidth: 1.2)
+            )
             .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 6)
 
             VStack(spacing: 0) {
@@ -26,8 +30,12 @@ struct FloatingAddMenu: View {
                     onSelectQuick()
                 }
             }
-            .background(Color.white)
-            .cornerRadius(18)
+            .background(Colors.textPrimary)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Color.black.opacity(0.22), lineWidth: 1.2)
+            )
             .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 6)
 
             VStack(spacing: 0) {
@@ -35,12 +43,15 @@ struct FloatingAddMenu: View {
                     onSelectAlarm()
                 }
             }
-            .background(Color.white)
-            .cornerRadius(18)
+            .background(Colors.textPrimary)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Color.black.opacity(0.22), lineWidth: 1.2)
+            )
             .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 6)
         }
-        .padding(.trailing, Spacing.l)
-        .padding(.bottom, AppConstants.tabBarHeight + 80)
+        .frame(width: 210)
     }
 }
 
@@ -62,9 +73,8 @@ private struct FloatingMenuRow: View {
                     .foregroundColor(.black)
                 Spacer()
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 14)
             .padding(.vertical, 12)
-            .frame(minWidth: 200)
         }
         .buttonStyle(PressedScaleButtonStyle())
     }

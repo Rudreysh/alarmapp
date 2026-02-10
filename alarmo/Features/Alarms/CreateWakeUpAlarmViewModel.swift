@@ -46,6 +46,12 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
         draft.snoozeMinutes = alarm.snoozeMinutes
         draft.snoozeCount = alarm.snoozeCount
         draft.missions = alarm.missions
+        draft.accountabilityEnabled = alarm.enforcementMode != .none
+        draft.blockAppsEnabled = alarm.blockAppsEnabled
+        draft.blockedSelectionData = alarm.blockedSelectionData
+        draft.penaltyEnabled = alarm.penaltyEnabled
+        draft.penaltyAmountEuro = alarm.penaltyAmountEuro
+        draft.penaltyRules = alarm.penaltyRules
         self.draft = draft
     }
     

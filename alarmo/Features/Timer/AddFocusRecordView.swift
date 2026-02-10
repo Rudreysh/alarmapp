@@ -29,7 +29,7 @@ struct AddFocusRecordView: View {
                         
                         // Type Segment
                         Picker("", selection: $type) {
-                            Text("Pomo Timer").tag(0)
+                            Text("Pomodoro Timer").tag(0)
                             Text("Stopwatch").tag(1)
                         }
                         .pickerStyle(.segmented)
@@ -39,7 +39,7 @@ struct AddFocusRecordView: View {
                         if type == 0 {
                             // Pomo Number
                             HStack {
-                                Text("Pomo Number")
+                                Text("Pomodoro Count")
                                     .font(.system(size: 16, weight: .semibold))
                                     .foregroundColor(Colors.textPrimary)
                                 Spacer()

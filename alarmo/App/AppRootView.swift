@@ -11,8 +11,11 @@ struct AppRootView: View {
     @StateObject private var pomodoroEngine = PomodoroEngine()
     @StateObject private var navigationStore = NavigationStore()
     @ObservedObject private var settingsStore = SettingsStore.shared
+    @Environment(\.modelContext) var modelContext
     @State private var foregroundScheduler: AlarmForegroundScheduler?
     @State private var showingMainTab = false
+    @State private var didRunAppListMigration = false
+    @StateObject private var accountabilityManager = AccountabilityEnforcementManager.shared
 
     var body: some View {
         let _ = print("[AppRootView] body re-evaluating. onboardingCompleted: \(appPreferences.onboardingCompleted), showingMainTab: \(showingMainTab)")
@@ -31,9 +34,14 @@ struct AppRootView: View {
             if foregroundScheduler == nil {
                 let scheduler = AlarmForegroundScheduler(alarmStore: alarmStore, ringCoordinator: ringCoordinator)
                 foregroundScheduler = scheduler
-                ringCoordinator.configure(alarmStore: alarmStore, foregroundScheduler: scheduler)
+                ringCoordinator.configure(alarmStore: alarmStore, foregroundScheduler: scheduler, modelContext: modelContext)
                 notificationManager.configure(ringCoordinator: ringCoordinator, alarmStore: alarmStore)
                 scheduler.start()
+            }
+            accountabilityManager.ensureShieldRestoredOnLaunch()
+            if !didRunAppListMigration {
+                AppListMigrationCoordinator.migrateLegacySelectionIfNeeded(context: modelContext, settings: settingsStore)
+                didRunAppListMigration = true
             }
         }
         .environmentObject(ringCoordinator)

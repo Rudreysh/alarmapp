@@ -11,6 +11,7 @@ class PomodoroEngine: ObservableObject {
     private var eventStore: PomodoroEventStore
     private var timer: AnyCancellable?
     private var entitlementProvider: EntitlementProvider
+    private let accountabilityManager = AccountabilityEnforcementManager.shared
     
     /// Callback for when a segment (like Focus) is completed. 
     /// Parameters:TaskId, SegmentKind, DurationSeconds
@@ -86,8 +87,19 @@ class PomodoroEngine: ObservableObject {
         startTicker()
     }
     
-    func stop(reset: Bool = true) {
+    func stop(reset: Bool = true, userInitiated: Bool = false) {
+        let shouldApplyEarlyPenalty =
+            userInitiated &&
+            (state.currentSegment == .focus) &&
+            (state.remainingSeconds > 0) &&
+            (isRunning || (state.phase.isPaused))
+        
+        if shouldApplyEarlyPenalty {
+            _ = accountabilityManager.handleFocusEarlyStopPenalty()
+        }
+        
         timer?.cancel()
+        accountabilityManager.endFocusSession()
         if reset {
             state = PomodoroRuntimeState() // Full reset
             // If simple mode, reset duration
@@ -109,6 +121,11 @@ class PomodoroEngine: ObservableObject {
     private func startSegment(_ kind: SegmentKind) {
         state.currentSegment = kind
         state.phase = .running(segment: kind)
+        if kind == .focus {
+            accountabilityManager.beginFocusSession(taskId: state.selectedTaskId)
+        } else {
+            accountabilityManager.endFocusSession()
+        }
         
         // Set duration
         let duration = totalDuration(for: kind)
@@ -212,6 +229,7 @@ class PomodoroEngine: ObservableObject {
         state.phase = .finishedCycle
         state.completedFocusInCycle = 0
         state.cycleIndex += 1
+        accountabilityManager.endFocusSession()
         
         if config.autoStartNextCycle {
             startSegment(.focus)
@@ -355,5 +373,12 @@ extension PomodoroEngine {
         case .shortBreak: return config.shortBreakSeconds
         case .longBreak: return config.longBreakSeconds
         }
+    }
+}
+
+private extension PomodoroPhase {
+    var isPaused: Bool {
+        if case .paused = self { return true }
+        return false
     }
 }

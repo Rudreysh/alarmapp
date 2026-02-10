@@ -14,6 +14,7 @@ struct PomoTimerView: View {
     @State private var showIntervalSettings = false
     @State private var showTimerEditSheet = false
     @State private var editingSeconds: Int = 0
+    @State private var showAppLists = false
     
     var habitProgressText: String? {
         guard let taskId = engine.state.selectedTaskId else { return nil }
@@ -125,7 +126,10 @@ struct PomoTimerView: View {
                     // Controls
                     VStack(spacing: Spacing.m) {
                         if case .idle = engine.state.phase {
-                            PrimaryButton(title: "Start") {
+                            idleControlRow
+                                .padding(.horizontal, Spacing.l)
+                            
+                            PrimaryButton(title: "Start Timer") {
                                 engine.start(taskId: taskStore.selectedTaskId)
                             }
                             .padding(.horizontal, Spacing.l)
@@ -162,7 +166,7 @@ struct PomoTimerView: View {
                                 }
                                 
                                 // Stop
-                                Button(action: { engine.stop() }) {
+                                Button(action: { engine.stop(userInitiated: true) }) {
                                     Image(systemName: "stop.fill")
                                         .font(.system(size: 20))
                                         .foregroundColor(Colors.textPrimary)
@@ -189,7 +193,7 @@ struct PomoTimerView: View {
                             // Skip Button
                             if engine.isRunning {
                                 Button(action: { engine.skipSegment() }) {
-                                    Text("Skip Segment")
+                                    Text("Take a short break")
                                         .font(.caption)
                                         .foregroundColor(Colors.textSecondary)
                                 }
@@ -234,22 +238,18 @@ struct PomoTimerView: View {
             ))
         }
         .sheet(isPresented: $showTimerEditSheet) {
-            // Using a temporary binding to convert seconds <-> minutes for the picker
-            let minutesBinding = Binding<Int>(
-                get: { editingSeconds / 60 },
-                set: { 
-                    editingSeconds = $0 * 60 
-                    engine.adjustRemainingTime(to: editingSeconds)
+            TimerDurationPickerView(
+                initialMinutes: editingSeconds / 60,
+                segmentTitle: engine.state.currentSegment?.title ?? "Timer",
+                onSave: { minutes in
+                    applySelectedMinutes(minutes)
+                    showTimerEditSheet = false
                 }
             )
-            
-            NumberPickerSheet(
-                title: engine.state.currentSegment?.title ?? "Timer",
-                unit: "min", 
-                value: minutesBinding, 
-                range: 1...120
-            ) 
             .presentationDetents([.fraction(0.4)])
+        }
+        .sheet(isPresented: $showAppLists) {
+            AppListsView()
         }
         .onAppear {
             // Check background foreground refresh
@@ -262,6 +262,100 @@ struct PomoTimerView: View {
     
     // MARK: - Helpers
     
+    private var idleControlRow: some View {
+        HStack(spacing: 12) {
+            roundStepButton(symbol: "minus") {
+                adjustFocusDuration(byMinutes: -5)
+            }
+            
+            Button {
+                editingSeconds = max(60, engine.config.focusSeconds)
+                showTimerEditSheet = true
+            } label: {
+                Text("\(max(1, engine.config.focusSeconds / 60))m")
+                    .font(.system(size: 19, weight: .bold))
+                    .foregroundColor(Colors.bgPrimary)
+                    .frame(minWidth: 92)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(Color.white)
+                    )
+            }
+            .buttonStyle(.plain)
+            
+            roundStepButton(symbol: "plus") {
+                adjustFocusDuration(byMinutes: 5)
+            }
+            
+            Button {
+                showAppLists = true
+            } label: {
+                HStack(spacing: 10) {
+                    Text("Block")
+                        .font(.system(size: 17, weight: .semibold))
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundColor(Colors.textPrimary)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(Colors.cardSurface.opacity(0.95))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(Colors.cardStroke, lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+    
+    private func roundStepButton(symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(Colors.textPrimary)
+                .frame(width: 56, height: 56)
+                .background(
+                    Circle()
+                        .fill(Colors.cardSurface.opacity(0.95))
+                )
+                .overlay(
+                    Circle()
+                        .stroke(Colors.cardStroke, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private func adjustFocusDuration(byMinutes delta: Int) {
+        let currentMinutes = max(1, engine.config.focusSeconds / 60)
+        let nextMinutes = min(180, max(1, currentMinutes + delta))
+        var updated = engine.config
+        updated.focusSeconds = nextMinutes * 60
+        engine.updateConfig(updated)
+    }
+
+    private func applySelectedMinutes(_ minutes: Int) {
+        let clampedMinutes = min(180, max(1, minutes))
+        let seconds = clampedMinutes * 60
+
+        if case .idle = engine.state.phase {
+            // Idle selection is a base duration change: keep config, picker pill and center timer in sync.
+            var updated = engine.config
+            updated.focusSeconds = seconds
+            engine.updateConfig(updated)
+        } else {
+            // During active/paused sessions, user is editing only the current segment remaining time.
+            engine.adjustRemainingTime(to: seconds)
+        }
+    }
+
     var isOverlayVisible: Bool {
         if case .finishedSegment = engine.state.phase { return true }
         if case .finishedCycle = engine.state.phase { return true }
@@ -318,7 +412,7 @@ struct PomoTimerView: View {
             }
             
             Button(action: {
-                engine.stop()
+                engine.stop(userInitiated: true)
             }) {
                 Text("Done")
                     .font(.subheadline)
@@ -361,7 +455,7 @@ struct PomoTimerView: View {
             }
             
             Button(action: {
-                engine.stop()
+                engine.stop(userInitiated: true)
             }) {
                 Text("Finish")
                     .font(.subheadline)
