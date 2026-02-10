@@ -16,6 +16,7 @@ struct AppRootView: View {
     @State private var showingMainTab = false
     @State private var didRunAppListMigration = false
     @StateObject private var accountabilityManager = AccountabilityEnforcementManager.shared
+    @StateObject private var shutdownDetectionService = ShutdownDetectionService()
 
     var body: some View {
         let _ = print("[AppRootView] body re-evaluating. onboardingCompleted: \(appPreferences.onboardingCompleted), showingMainTab: \(showingMainTab)")
@@ -38,6 +39,7 @@ struct AppRootView: View {
                 notificationManager.configure(ringCoordinator: ringCoordinator, alarmStore: alarmStore)
                 scheduler.start()
             }
+            shutdownDetectionService.startMonitoring(alarmStore: alarmStore, ringingAlarmId: ringCoordinator.activeAlarm?.id)
             accountabilityManager.ensureShieldRestoredOnLaunch()
             if !didRunAppListMigration {
                 AppListMigrationCoordinator.migrateLegacySelectionIfNeeded(context: modelContext, settings: settingsStore)
@@ -62,6 +64,9 @@ struct AppRootView: View {
             DispatchQueue.main.async {
                 updateViewState()
             }
+        }
+        .onChange(of: ringCoordinator.activeAlarm) { newAlarm in
+            shutdownDetectionService.startMonitoring(alarmStore: alarmStore, ringingAlarmId: newAlarm?.id)
         }
     }
     

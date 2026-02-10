@@ -43,6 +43,10 @@ final class AlarmRingCoordinator: ObservableObject {
         isPreviewMode = false
         missionTimeoutTriggered = false
         activeSnoozeCount = 0
+        
+        // PERSISTENCE: Record that an alarm is ringing for dirty shutdown detection
+        UserDefaults.standard.set(alarm.id.uuidString, forKey: "last_ringing_alarm_id")
+        
         accountabilityManager.beginAlarmEnforcement(alarm: alarm)
         
         soundPlayer.playLooping(resourceName: alarm.soundName, volume: alarm.soundVolume, fadeDuration: TimeInterval(alarm.gentleWakeUpSeconds))
@@ -82,6 +86,7 @@ final class AlarmRingCoordinator: ObservableObject {
         soundPlayer.stop()
         hapticsPlayer.stop()
         isRinging = false
+        UserDefaults.standard.removeObject(forKey: "last_ringing_alarm_id")
         
         if let alarm = activeAlarm {
             if alarm.type == .quick {

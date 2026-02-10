@@ -48,6 +48,10 @@ struct Alarm: Identifiable, Codable, Equatable {
     var lastPenaltyEventAt: Date?
     var penaltyEventLog: [PenaltyEventRecord] = []
     
+    // Shutdown Protection
+    var shutdownProtectionEnabled: Bool = false
+    var shutdownAttemptLog: [ShutdownAttempt] = []
+    
     // Habit Reminder
     var habitReminderEnabled: Bool = false
     var habitReminderInterval: Int = 20
@@ -104,6 +108,8 @@ struct Alarm: Identifiable, Codable, Equatable {
         penaltyRules = try container.decodeIfPresent(PenaltyRules.self, forKey: .penaltyRules) ?? .default
         lastPenaltyEventAt = try container.decodeIfPresent(Date.self, forKey: .lastPenaltyEventAt)
         penaltyEventLog = try container.decodeIfPresent([PenaltyEventRecord].self, forKey: .penaltyEventLog) ?? []
+        shutdownProtectionEnabled = try container.decodeIfPresent(Bool.self, forKey: .shutdownProtectionEnabled) ?? false
+        shutdownAttemptLog = try container.decodeIfPresent([ShutdownAttempt].self, forKey: .shutdownAttemptLog) ?? []
         habitReminderEnabled = try container.decodeIfPresent(Bool.self, forKey: .habitReminderEnabled) ?? false
         habitReminderInterval = try container.decodeIfPresent(Int.self, forKey: .habitReminderInterval) ?? 20
         habitReminderDuration = try container.decodeIfPresent(Int.self, forKey: .habitReminderDuration) ?? 20
@@ -151,6 +157,8 @@ struct Alarm: Identifiable, Codable, Equatable {
         penaltyRules: PenaltyRules = .default,
         lastPenaltyEventAt: Date? = nil,
         penaltyEventLog: [PenaltyEventRecord] = [],
+        shutdownProtectionEnabled: Bool = false,
+        shutdownAttemptLog: [ShutdownAttempt] = [],
         habitReminderEnabled: Bool = false,
         habitReminderInterval: Int = 20,
         habitReminderDuration: Int = 20,
@@ -195,6 +203,8 @@ struct Alarm: Identifiable, Codable, Equatable {
         self.penaltyRules = penaltyRules
         self.lastPenaltyEventAt = lastPenaltyEventAt
         self.penaltyEventLog = penaltyEventLog
+        self.shutdownProtectionEnabled = shutdownProtectionEnabled
+        self.shutdownAttemptLog = shutdownAttemptLog
         self.habitReminderEnabled = habitReminderEnabled
         self.habitReminderInterval = habitReminderInterval
         self.habitReminderDuration = habitReminderDuration
@@ -266,6 +276,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         case enforcementMode, blockAppsEnabled, blockedSelectionData
         case penaltyEnabled, penaltyAmountEuro, penaltyStrategy, penaltyRules
         case lastPenaltyEventAt, penaltyEventLog
+        case shutdownProtectionEnabled, shutdownAttemptLog
         case habitReminderEnabled, habitReminderInterval, habitReminderDuration
         case habitReminderStartTime, habitReminderEndTime
         case timeZoneMode, timeZoneIdentifier, timeZoneCity

@@ -35,6 +35,7 @@ class CreateHabitAlarmViewModel: ObservableObject {
     @Published var blockAppsEnabled: Bool = false
     @Published var penaltyEnabled: Bool = false
     @Published var penaltyAmountEuro: Int = 1
+    @Published var shutdownProtectionEnabled: Bool = false
     
     // Reminder Feature
     @Published var reminderEnabled: Bool = false
@@ -61,6 +62,63 @@ class CreateHabitAlarmViewModel: ObservableObject {
         self.penaltyEnabled = settings.penaltyEnabled
         self.penaltyAmountEuro = settings.penaltyAmountEuro
         
+        updateRingInText()
+    }
+
+    convenience init(alarm: Alarm) {
+        self.init(
+            defaultHour: alarm.hour,
+            defaultMinute: alarm.minute,
+            defaultSecond: alarm.second,
+            defaultSoundName: alarm.soundName,
+            defaultSoundVolume: alarm.soundVolume,
+            defaultWallpaperId: alarm.wallpaperId
+        )
+
+        name = alarm.name
+        emoji = alarm.emoji
+        hour = alarm.hour
+        minute = alarm.minute
+        second = alarm.second
+        isDaily = alarm.isDaily
+        selectedWeekdays = Set(RepeatMask.weekdays(from: alarm.repeatMask))
+
+        soundName = alarm.soundName
+        soundVolume = alarm.soundVolume
+        vibrateEnabled = alarm.vibrateEnabled
+        gentleWakeUpSeconds = alarm.gentleWakeUpSeconds
+        bypassSilentMode = alarm.bypassSilentMode
+        timeZoneMode = alarm.timeZoneMode
+        timeZoneIdentifier = alarm.timeZoneIdentifier
+        timeZoneCity = alarm.timeZoneCity
+
+        timeReminderEnabled = alarm.timeReminderEnabled
+        weatherReminderEnabled = alarm.weatherReminderEnabled
+        labelReminderEnabled = alarm.labelReminderEnabled
+        extraLoudEnabled = alarm.extraLoudEnabled
+
+        snoozeMinutes = alarm.snoozeMinutes
+        snoozeCount = alarm.snoozeCount
+        wallpaperId = alarm.wallpaperId
+        wakeUpCheckEnabled = alarm.wakeUpCheckEnabled
+        missions = alarm.missions
+
+        accountabilityEnabled = alarm.enforcementMode != .none
+        blockAppsEnabled = alarm.blockAppsEnabled
+        penaltyEnabled = alarm.penaltyEnabled
+        penaltyAmountEuro = alarm.penaltyAmountEuro
+        shutdownProtectionEnabled = alarm.shutdownProtectionEnabled
+
+        reminderEnabled = alarm.habitReminderEnabled
+        reminderIntervalMinutes = alarm.habitReminderInterval
+        reminderDurationSeconds = alarm.habitReminderDuration
+        if let start = alarm.habitReminderStartTime {
+            reminderStartTime = start
+        }
+        if let end = alarm.habitReminderEndTime {
+            reminderEndTime = end
+        }
+
         updateRingInText()
     }
     

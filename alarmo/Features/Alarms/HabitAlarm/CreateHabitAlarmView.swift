@@ -4,6 +4,7 @@ struct CreateHabitAlarmView: View {
     @ObservedObject var alarmStore: AlarmStore
     @EnvironmentObject private var notificationManager: NotificationManager
     let onClose: () -> Void
+    private let existingAlarm: Alarm?
     
     @StateObject private var viewModel: CreateHabitAlarmViewModel
     @FocusState private var nameFocused: Bool
@@ -19,6 +20,7 @@ struct CreateHabitAlarmView: View {
     @State private var selectedMissionForConfig: AlarmMission?
     @State private var editingMissionIndex: Int?
     @State private var showAccountabilityInfo = false
+    @State private var showAppProtectionGuide = false
     
     // Reminder Pickers
     @State private var showFrequencyPicker = false
@@ -30,18 +32,23 @@ struct CreateHabitAlarmView: View {
     @ObservedObject private var settingsStore = SettingsStore.shared
     private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
     
-    init(alarmStore: AlarmStore, onClose: @escaping () -> Void) {
+    init(alarmStore: AlarmStore, existingAlarm: Alarm? = nil, onClose: @escaping () -> Void) {
         self.alarmStore = alarmStore
         self.onClose = onClose
+        self.existingAlarm = existingAlarm
         let defaults = AppPreferences()
-        _viewModel = StateObject(wrappedValue: CreateHabitAlarmViewModel(
-            defaultHour: defaults.onboardingAlarmHour,
-            defaultMinute: defaults.onboardingAlarmMinute,
-            defaultSecond: defaults.onboardingAlarmSecond,
-            defaultSoundName: defaults.onboardingSoundName,
-            defaultSoundVolume: defaults.onboardingSoundVolume,
-            defaultWallpaperId: defaults.onboardingWallpaperId
-        ))
+        if let alarm = existingAlarm {
+            _viewModel = StateObject(wrappedValue: CreateHabitAlarmViewModel(alarm: alarm))
+        } else {
+            _viewModel = StateObject(wrappedValue: CreateHabitAlarmViewModel(
+                defaultHour: defaults.onboardingAlarmHour,
+                defaultMinute: defaults.onboardingAlarmMinute,
+                defaultSecond: defaults.onboardingAlarmSecond,
+                defaultSoundName: defaults.onboardingSoundName,
+                defaultSoundVolume: defaults.onboardingSoundVolume,
+                defaultWallpaperId: defaults.onboardingWallpaperId
+            ))
+        }
     }
     
     var body: some View {
@@ -313,6 +320,28 @@ struct CreateHabitAlarmView: View {
                                     .padding(.vertical, 10)
                                 }
 
+                                Divider().padding(.leading, 16).opacity(0.3)
+
+                                Toggle(isOn: $viewModel.shutdownProtectionEnabled) {
+                                    HStack(spacing: 8) {
+                                        Text("Shutdown Protection")
+                                            .foregroundColor(Colors.textPrimary)
+                                        Image(systemName: "info.circle")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(Colors.textSecondary)
+                                    }
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 10)
+
+                                if viewModel.shutdownProtectionEnabled {
+                                    Text("Detects shutdown attempts while alarm is active. Applies penalty if enabled.")
+                                        .font(.caption)
+                                        .foregroundColor(Colors.textSecondary)
+                                        .padding(.horizontal)
+                                        .padding(.bottom, 4)
+                                }
+
                                 Text("Advanced penalty rules can be configured in Settings > Accountability Shield.")
                                     .font(.caption)
                                     .foregroundColor(Colors.textSecondary)
@@ -327,6 +356,20 @@ struct CreateHabitAlarmView: View {
                                         .foregroundColor(Colors.accentTeal)
                                         .padding(.horizontal)
                                         .padding(.bottom, 8)
+                                }
+                                
+                                Button {
+                                    showAppProtectionGuide = true
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "shield.checkered")
+                                            .font(.system(size: 12))
+                                        Text("App Protection Guide")
+                                    }
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(Colors.accentTeal)
+                                    .padding(.horizontal)
+                                    .padding(.bottom, 8)
                                 }
                             }
                         }
@@ -411,6 +454,9 @@ struct CreateHabitAlarmView: View {
         }
         .sheet(isPresented: $showAccountabilityInfo) {
             AccountabilityInfoView()
+        }
+        .sheet(isPresented: $showAppProtectionGuide) {
+            AppProtectionGuideView()
         }
         .sheet(isPresented: $showMissionSelection) {
             MissionSelectionView { mission in
@@ -550,7 +596,7 @@ struct CreateHabitAlarmView: View {
             alarmPenaltyRules.alarmMissionFailTriggersPenalty = false
             
             let alarm = Alarm(
-                id: UUID(),
+                id: existingAlarm?.id ?? UUID(),
                 type: .habit,
                 name: viewModel.name,
                 emoji: viewModel.emoji,
@@ -576,7 +622,7 @@ struct CreateHabitAlarmView: View {
                 snoozeMinutes: viewModel.snoozeMinutes,
                 snoozeCount: viewModel.snoozeCount,
                 wallpaperId: viewModel.wallpaperId,
-                createdAt: Date(),
+                createdAt: existingAlarm?.createdAt ?? Date(),
                 missions: viewModel.missions,
                 enforcementMode: viewModel.accountabilityEnabled
                     ? (viewModel.blockAppsEnabled && viewModel.penaltyEnabled
@@ -589,6 +635,7 @@ struct CreateHabitAlarmView: View {
                 penaltyAmountEuro: viewModel.penaltyAmountEuro,
                 penaltyStrategy: .credits,
                 penaltyRules: alarmPenaltyRules,
+                shutdownProtectionEnabled: viewModel.accountabilityEnabled && viewModel.shutdownProtectionEnabled,
                 habitReminderEnabled: viewModel.reminderEnabled,
                 habitReminderInterval: viewModel.reminderIntervalMinutes,
                 habitReminderDuration: viewModel.reminderDurationSeconds,
@@ -597,7 +644,12 @@ struct CreateHabitAlarmView: View {
             )
             
             print("[HabitAlarm] Saving habit: \(alarm.name) at \(alarm.hour):\(alarm.minute)")
-            alarmStore.add(alarm)
+            if existingAlarm != nil {
+                alarmStore.update(alarm)
+            } else {
+                alarmStore.add(alarm)
+            }
+            scheduler.cancel(alarmId: alarm.id)
             scheduler.schedule(alarm: alarm)
             onClose()
         }

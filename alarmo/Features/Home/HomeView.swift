@@ -12,6 +12,7 @@ struct HomeView: View {
     @State private var showCreateHabit = false
     @State private var showTimer = false
     @State private var selectedAlarm: Alarm?
+    @State private var selectedHabitAlarm: Alarm?
     @State private var openAlarmActionsId: UUID? = nil
     private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
 
@@ -118,8 +119,14 @@ struct HomeView: View {
                                         }
                                     )
                                     .onTapGesture(count: 2) {
-                                        guard alarm.type == .wakeUp else { return }
-                                        selectedAlarm = alarm
+                                        switch alarm.type {
+                                        case .wakeUp:
+                                            selectedAlarm = alarm
+                                        case .habit:
+                                            selectedHabitAlarm = alarm
+                                        case .quick:
+                                            break
+                                        }
                                     }
                                 }
                             }
@@ -272,6 +279,13 @@ struct HomeView: View {
             CreateHabitAlarmView(
                 alarmStore: alarmStore,
                 onClose: { showCreateHabit = false }
+            )
+        }
+        .fullScreenCover(item: $selectedHabitAlarm) { alarm in
+            CreateHabitAlarmView(
+                alarmStore: alarmStore,
+                existingAlarm: alarm,
+                onClose: { selectedHabitAlarm = nil }
             )
         }
         .fullScreenCover(isPresented: $showTimer) {
