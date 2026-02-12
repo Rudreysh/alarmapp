@@ -19,7 +19,7 @@ struct OnboardingSetTimeView: View {
                     .multilineTextAlignment(.center)
                     .padding(.top, Spacing.m)
 
-                TimeWheelPickerView(
+                SunRayTimePickerView(
                     hour: Binding(
                         get: { viewModel.selectedHour },
                         set: { viewModel.selectedHour = $0 }
@@ -28,11 +28,9 @@ struct OnboardingSetTimeView: View {
                         get: { viewModel.selectedMinute },
                         set: { viewModel.selectedMinute = $0 }
                     ),
-                    second: Binding(
-                        get: { viewModel.selectedSecond },
-                        set: { viewModel.selectedSecond = $0 }
-                    )
+                    second: nil
                 )
+                .frame(maxHeight: 300)
 
                 Spacer()
             }

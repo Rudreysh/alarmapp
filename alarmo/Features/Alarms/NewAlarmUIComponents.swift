@@ -71,12 +71,9 @@ struct DigitalTimeDisplay: View {
     @Binding var second: Int
     
     var body: some View {
-        HStack(spacing: 0) {
-            TimeWheelPickerView(hour: $hour, minute: $minute, second: $second)
-                .frame(width: 260, height: 140)
-        }
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity)
+        SunRayTimePickerView(hour: $hour, minute: $minute, second: $second)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 30)
     }
 }
 
