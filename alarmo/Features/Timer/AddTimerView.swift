@@ -16,7 +16,7 @@ struct AddTimerView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                TimerGlassBackground()
                 
                 ScrollView {
                     VStack(spacing: Spacing.xl) {
@@ -104,7 +104,7 @@ struct AddTimerView: View {
                         onSave?(finalName, selectedIcon, timerMode, pomoMinutes)
                         dismiss()
                     }
-                    .foregroundColor(Colors.accentRed)
+                    .foregroundColor(TimerPalette.accent)
                 }
             }
             .sheet(isPresented: $showMinutesPicker) {
@@ -126,12 +126,12 @@ struct AddTimerView: View {
             
             if selectedIcon == icon {
                 Circle()
-                    .stroke(Colors.accentRed, lineWidth: 2)
+                    .stroke(TimerPalette.accent, lineWidth: 2)
                     .frame(width: 48, height: 48)
                 
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 14))
-                    .foregroundColor(Colors.accentRed)
+                    .foregroundColor(TimerPalette.accent)
                     .background(Circle().fill(Colors.textPrimary))
                     .offset(x: 16, y: 16)
             }
@@ -146,11 +146,11 @@ struct AddTimerView: View {
             HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .stroke(timerMode == mode ? Colors.accentRed : Colors.textTertiary, lineWidth: 2)
+                        .stroke(timerMode == mode ? TimerPalette.accent : Colors.textTertiary, lineWidth: 2)
                         .frame(width: 22, height: 22)
                     if timerMode == mode {
                         Circle()
-                            .fill(Colors.accentRed)
+                            .fill(TimerPalette.accent)
                             .frame(width: 12, height: 12)
                     }
                 }

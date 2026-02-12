@@ -7,7 +7,7 @@ struct FocusNoteSheet: View {
     
     var body: some View {
         ZStack {
-            Colors.bgSecondary.ignoresSafeArea()
+            TimerGlassBackground()
             
             VStack(spacing: Spacing.xl) {
                 Text("Focus Note")
@@ -19,8 +19,7 @@ struct FocusNoteSheet: View {
                     TextEditor(text: $viewModel.focusNote)
                         .frame(height: 140)
                         .padding(Spacing.s)
-                        .background(Colors.cardSurface)
-                        .cornerRadius(12)
+                        .timerGlassCard(cornerRadius: 12)
                         .foregroundColor(Colors.textPrimary)
                         .focused($isNoteFocused)
                     
@@ -40,8 +39,7 @@ struct FocusNoteSheet: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Colors.cardSurface)
-                    .cornerRadius(Radii.button)
+                    .timerGlassCard(cornerRadius: Radii.button)
                     .foregroundColor(Colors.textPrimary)
                     
                     Button("Done") {
@@ -49,8 +47,7 @@ struct FocusNoteSheet: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Colors.accentRed)
-                    .cornerRadius(Radii.button)
+                    .timerNeonFill(cornerRadius: Radii.button)
                     .foregroundColor(Colors.textPrimary)
                 }
                 .padding(.horizontal, Spacing.l)

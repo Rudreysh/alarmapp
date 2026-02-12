@@ -11,12 +11,12 @@ struct CreateHabitGalleryView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                PlanGlassBackground()
                 
                 VStack(spacing: 0) {
                     // Category Tabs
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
+                        HStack(spacing: 10) {
                             ForEach(HabitCategory.allCases, id: \.self) { category in
                                 CategoryTabButton(
                                     title: category.rawValue,
@@ -25,10 +25,13 @@ struct CreateHabitGalleryView: View {
                                 )
                             }
                         }
-                        .padding(.horizontal)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 8)
+                        .planGlassPanel(cornerRadius: 24, fillOpacity: 0.10)
+                        .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                     }
-                    .background(Colors.bgPrimary)
+                    .scrollBounceBehavior(.basedOnSize)
                     
                     // Habits List
                     ScrollView {
@@ -54,11 +57,10 @@ struct CreateHabitGalleryView: View {
                     }) {
                         Text("Create a new habit")
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Color.white.opacity(0.95))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(Colors.accentBlue)
-                            .cornerRadius(16)
+                            .planPrimaryCTA(cornerRadius: 16)
                     }
                     .padding()
                 }
@@ -68,7 +70,7 @@ struct CreateHabitGalleryView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
-                        .foregroundColor(Colors.accentBlue)
+                        .foregroundColor(PlanPalette.accent)
                         .fontWeight(.bold)
                 }
             }
@@ -153,12 +155,34 @@ struct CategoryTabButton: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 15, weight: .medium))
-                .foregroundColor(isSelected ? Colors.accentBlue : Colors.textSecondary)
+                .foregroundColor(isSelected ? Color.white.opacity(0.96) : PlanPalette.textSecondary)
                 .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(isSelected ? Colors.accentBlue.opacity(0.15) : Color.clear)
-                .cornerRadius(20)
+                .padding(.vertical, 9)
+                .background {
+                    if isSelected {
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 0.15, green: 0.71, blue: 0.93).opacity(0.42),
+                                        Color(red: 0.12, green: 0.56, blue: 0.86).opacity(0.30)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .background(.ultraThinMaterial, in: Capsule())
+                            .overlay(
+                                Capsule()
+                                    .stroke(Color.white.opacity(0.28), lineWidth: 1)
+                            )
+                    } else {
+                        Capsule()
+                            .fill(Color.clear)
+                    }
+                }
         }
+        .buttonStyle(.plain)
     }
 }
 
@@ -196,7 +220,7 @@ struct HabitCard: View {
                     .foregroundColor(Colors.textSecondary)
             }
             .padding(16)
-            .background(Colors.cardSurface)
+            .planGlassPanel(cornerRadius: 16)
             .cornerRadius(20)
         }
         .buttonStyle(.plain)

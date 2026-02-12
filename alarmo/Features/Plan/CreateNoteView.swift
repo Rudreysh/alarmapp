@@ -209,7 +209,7 @@ struct CreateNoteView: View {
                          Button(action: saveNote) {
                              Image(systemName: "arrow.up.circle.fill")
                                  .font(.system(size: 28))
-                                 .foregroundColor(Colors.accentBlue)
+                                 .foregroundColor(PlanPalette.accent)
                          }
                          .transition(.scale)
                     }
@@ -218,7 +218,7 @@ struct CreateNoteView: View {
                 .padding(.bottom, 20) // More bottom padding
                 .padding(.top, 4)
             }
-            .background(Colors.cardSurface) // Use card surface for the panel
+            .planGlassPanel(cornerRadius: 16) // Use card surface for the panel
             .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             .shadow(color: Color.black.opacity(0.3), radius: 20, x: 0, y: -5) // Drop shadow for floating effect
             .padding(.horizontal, 0) // Edge to edge or slightly floated? User image shows edge to edge mostly or modal.
@@ -403,7 +403,7 @@ struct PriorityPickerSheet: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            PlanGlassBackground()
             VStack {
                 Text("Priority").font(.headline).foregroundColor(Colors.textPrimary).padding()
                 List {
@@ -421,7 +421,7 @@ struct PriorityPickerSheet: View {
                                     Spacer()
                                     if selection == option {
                                         Image(systemName: "checkmark")
-                                            .foregroundColor(Colors.accentBlue)
+                                            .foregroundColor(PlanPalette.accent)
                                     }
                                 }
                             }
@@ -532,7 +532,7 @@ struct AdvancedDatePickerSheet: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            PlanGlassBackground()
             
             VStack(spacing: 0) {
                 // Header
@@ -553,24 +553,24 @@ struct AdvancedDatePickerSheet: View {
                         date = tempDate
                         dismiss()
                     }
-                    .foregroundColor(Colors.accentBlue)
+                    .foregroundColor(PlanPalette.accent)
                     .fontWeight(.bold)
                 }
                 .padding()
-                .background(Colors.cardSurface)
+                .planGlassPanel(cornerRadius: 16)
                 
                 ScrollView {
                     VStack(spacing: 20) {
                         DatePicker("", selection: $tempDate, displayedComponents: .date)
                             .datePickerStyle(.graphical)
                             .padding(.horizontal)
-                            .tint(Colors.accentBlue)
+                            .tint(PlanPalette.accent)
                             .colorScheme(.dark)
                         
                         VStack(spacing: 0) {
                             HStack {
                                 Image(systemName: "clock")
-                                    .foregroundColor(Colors.accentBlue)
+                                    .foregroundColor(PlanPalette.accent)
                                     .frame(width: 24)
                                 Text("Time")
                                     .font(.system(size: 16))
@@ -584,28 +584,28 @@ struct AdvancedDatePickerSheet: View {
                                         Image(systemName: "xmark").foregroundColor(Colors.textSecondary)
                                     }
                                 } else {
-                                    Button("Set") { withAnimation { hasTime = true } }.foregroundColor(Colors.accentBlue)
+                                    Button("Set") { withAnimation { hasTime = true } }.foregroundColor(PlanPalette.accent)
                                 }
                             }
                             .padding()
-                            .background(Colors.cardSurface)
+                            .planGlassPanel(cornerRadius: 16)
                             
                             Divider().background(Colors.cardStroke).padding(.leading, 40)
                             
                             Button(action: { showingReminderSheet = true }) {
                                 HStack {
                                     Image(systemName: "bell")
-                                        .foregroundColor(hasTime ? Colors.accentBlue : Colors.textSecondary)
+                                        .foregroundColor(hasTime ? PlanPalette.accent : Colors.textSecondary)
                                         .frame(width: 24)
                                     Text("Reminder")
                                         .font(.system(size: 16))
                                         .foregroundColor(hasTime ? Colors.textPrimary : Colors.textSecondary)
                                     Spacer()
-                                    Text(reminder.title).foregroundColor(Colors.accentBlue)
+                                    Text(reminder.title).foregroundColor(PlanPalette.accent)
                                     Image(systemName: "chevron.right").font(.caption).foregroundColor(Colors.textSecondary)
                                 }
                                 .padding()
-                                .background(Colors.cardSurface)
+                                .planGlassPanel(cornerRadius: 16)
                             }
                             
                             Divider().background(Colors.cardStroke).padding(.leading, 40)
@@ -623,7 +623,7 @@ struct AdvancedDatePickerSheet: View {
                                     Image(systemName: "chevron.right").font(.caption).foregroundColor(Colors.textSecondary)
                                 }
                                 .padding()
-                                .background(Colors.cardSurface)
+                                .planGlassPanel(cornerRadius: 16)
                             }
                         }
                         .cornerRadius(12)
@@ -636,7 +636,7 @@ struct AdvancedDatePickerSheet: View {
                             repeatRule = .none
                             dismiss()
                         }) {
-                            Text("Clear").foregroundColor(Colors.accentRed).fontWeight(.medium)
+                            Text("Clear").foregroundColor(PlanPalette.accent).fontWeight(.medium)
                         }
                         .padding(.top, 20)
                     }
@@ -672,7 +672,7 @@ struct ReminderPickerSheet: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            PlanGlassBackground()
             VStack(spacing: 0) {
                  Capsule()
                      .fill(Colors.textSecondary.opacity(0.3))
@@ -691,7 +691,7 @@ struct ReminderPickerSheet: View {
                                     Text(option.title).foregroundColor(Colors.textPrimary)
                                     Spacer()
                                     if selection == option {
-                                        Image(systemName: "checkmark").foregroundColor(Colors.accentBlue)
+                                        Image(systemName: "checkmark").foregroundColor(PlanPalette.accent)
                                     }
                                 }
                             }
@@ -716,13 +716,13 @@ struct RepeatPickerSheet: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            PlanGlassBackground()
             VStack {
                 Text("Repeat").font(.headline).foregroundColor(Colors.textPrimary).padding()
                 List {
                     Section {
                         ForEach(RepeatOption.allCases.filter { $0 != .custom }, id: \.self) { option in
-                            Button { selection = option; dismiss() } label: { HStack { Text(option.title).foregroundColor(Colors.textPrimary); Spacer(); if selection == option { Image(systemName: "checkmark").foregroundColor(Colors.accentBlue) } } }.listRowBackground(Colors.cardSurface)
+                            Button { selection = option; dismiss() } label: { HStack { Text(option.title).foregroundColor(Colors.textPrimary); Spacer(); if selection == option { Image(systemName: "checkmark").foregroundColor(PlanPalette.accent) } } }.listRowBackground(Colors.cardSurface)
                         }
                     }
                     Section {
@@ -748,14 +748,14 @@ struct CustomRepeatView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                PlanGlassBackground()
                 VStack(spacing: 24) {
                     HStack {
                         Text("Repeat Type").foregroundColor(Colors.textPrimary).font(.system(size: 16, weight: .medium))
                         Spacer()
                         Menu { Button("By Due Dates") { repeatType = "By Due Dates" }; Button("By Completion Date") { repeatType = "By Completion Date" } } label: { HStack { Text(repeatType).foregroundColor(Colors.textSecondary); Image(systemName: "chevron.up.chevron.down").font(.caption).foregroundColor(Colors.textSecondary) } }
                     }
-                    .padding().background(Colors.cardSurface).cornerRadius(12)
+                    .padding().planGlassPanel(cornerRadius: 16).cornerRadius(12)
                     
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Frequency").foregroundColor(Colors.textPrimary).font(.headline)
@@ -769,7 +769,7 @@ struct CustomRepeatView: View {
                         }
                         Text(footerText).foregroundColor(Colors.textSecondary).font(.caption)
                     }
-                    .padding().background(Colors.cardSurface).cornerRadius(12)
+                    .padding().planGlassPanel(cornerRadius: 16).cornerRadius(12)
                     
                     if intervalType == "Week" {
                         VStack(alignment: .leading, spacing: 16) {
@@ -777,12 +777,12 @@ struct CustomRepeatView: View {
                             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 12) {
                                 ForEach(days, id: \.self) { day in
                                     Button(action: { if selectedDays.contains(day) { if selectedDays.count > 1 { selectedDays.remove(day) } } else { selectedDays.insert(day) } }) {
-                                        Text(day).font(.system(size: 14, weight: .medium)).frame(maxWidth: .infinity).padding(.vertical, 8).background(selectedDays.contains(day) ? Colors.accentBlue : Colors.cardSurface).foregroundColor(selectedDays.contains(day) ? .white : Colors.textPrimary).cornerRadius(8).overlay(RoundedRectangle(cornerRadius: 8).stroke(Colors.cardStroke, lineWidth: selectedDays.contains(day) ? 0 : 1))
+                                        Text(day).font(.system(size: 14, weight: .medium)).frame(maxWidth: .infinity).padding(.vertical, 8).background(selectedDays.contains(day) ? PlanPalette.accent : Colors.cardSurface).foregroundColor(selectedDays.contains(day) ? .white : Colors.textPrimary).cornerRadius(8).overlay(RoundedRectangle(cornerRadius: 8).stroke(Colors.cardStroke, lineWidth: selectedDays.contains(day) ? 0 : 1))
                                     }
                                 }
                             }
                         }
-                        .padding().background(Colors.cardSurface).cornerRadius(12)
+                        .padding().planGlassPanel(cornerRadius: 16).cornerRadius(12)
                     }
                     Spacer()
                 }
@@ -790,8 +790,8 @@ struct CustomRepeatView: View {
             }
             .navigationTitle("Custom Repeat").navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.foregroundColor(Colors.accentBlue) }
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.foregroundColor(Colors.accentBlue).fontWeight(.bold) }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.foregroundColor(PlanPalette.accent) }
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.foregroundColor(PlanPalette.accent).fontWeight(.bold) }
             }
         }
     }
@@ -828,7 +828,7 @@ struct NoteToolbarConfigurationSheet: View {
     var body: some View {
         NavigationView {
              ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                PlanGlassBackground()
                 
                 VStack(spacing: 0) {
                     // Preview
@@ -852,11 +852,11 @@ struct NoteToolbarConfigurationSheet: View {
                             
                             Image(systemName: "arrow.up.circle.fill")
                                 .font(.system(size: 28))
-                                .foregroundColor(Colors.accentBlue.opacity(0.5))
+                                .foregroundColor(PlanPalette.accent.opacity(0.5))
                         }
                     }
                     .padding(20)
-                    .background(Colors.cardSurface)
+                    .planGlassPanel(cornerRadius: 16)
                     .cornerRadius(16)
                     .padding()
                     
@@ -865,7 +865,7 @@ struct NoteToolbarConfigurationSheet: View {
                             ForEach(activeItems) { item in
                                 HStack {
                                     Button(action: { move(item: item, toActive: false) }) {
-                                        Image(systemName: "minus.circle.fill").foregroundColor(.red)
+                                        Image(systemName: "minus.circle.fill").foregroundColor(PlanPalette.accentStrong)
                                     }
                                     .buttonStyle(.plain)
                                     Image(systemName: item.icon).frame(width: 24).foregroundColor(Colors.textPrimary)
@@ -882,7 +882,7 @@ struct NoteToolbarConfigurationSheet: View {
                             ForEach(availableItems) { item in
                                 HStack {
                                     Button(action: { move(item: item, toActive: true) }) {
-                                        Image(systemName: "plus.circle.fill").foregroundColor(.green)
+                                        Image(systemName: "plus.circle.fill").foregroundColor(PlanPalette.accent)
                                     }
                                     .buttonStyle(.plain)
                                     Image(systemName: item.icon).frame(width: 24).foregroundColor(Colors.textPrimary)
@@ -902,11 +902,11 @@ struct NoteToolbarConfigurationSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(Colors.accentBlue)
+                        .foregroundColor(PlanPalette.accent)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
-                        .foregroundColor(Colors.accentBlue)
+                        .foregroundColor(PlanPalette.accent)
                         .fontWeight(.bold)
                 }
             }
@@ -1000,7 +1000,7 @@ struct AttachmentSheet: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            PlanGlassBackground()
             VStack(alignment: .leading, spacing: 0) {
                 List {
                     Section {

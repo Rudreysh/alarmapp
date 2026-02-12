@@ -10,7 +10,7 @@ struct TagSelectionView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                TimerGlassBackground()
                 
                 VStack(spacing: Spacing.m) {
                     
@@ -47,7 +47,7 @@ struct TagSelectionView: View {
                                         if selectedTags.contains(tag.name) {
                                             Image(systemName: "checkmark")
                                                 .font(.system(size: 14, weight: .bold))
-                                                .foregroundColor(Colors.accentTeal)
+                                                .foregroundColor(TimerPalette.accent)
                                         }
                                     }
                                     .padding()
@@ -66,7 +66,7 @@ struct TagSelectionView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(Colors.accentRed)
+                        .foregroundColor(TimerPalette.accent)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
@@ -96,11 +96,11 @@ struct CreateTagView: View {
     @EnvironmentObject var taskStore: TaskStore
     
     @State private var tagName: String = ""
-    @State private var selectedColorHex: String = "ff5252" // Default red-ish
+    @State private var selectedColorHex: String = "29b6f6" // Default blue
     
     // Palette based on screenshot
     let colors: [String] = [
-        "ff5252", "ff7043", "ffb74d", "aeea00", "00e676", "29b6f6", // Row 1
+        "29b6f6", "42a5f5", "64b5f6", "90caf9", "80deea", "4dd0e1", // Row 1
         "2979ff", "7c4dff", "ea80fc", "304ffe", "ce93d8", "f48fb1", // Row 2
         "9fa8da", "d50000", "e91e63", "8d6e63", "f8bbd0", "5d4037", // Row 3
         "d84315", "827717", "f9a825", "bcaaa4", "ffcc80", "f0da50", // Row 4 (Golds/Browns)
@@ -112,7 +112,7 @@ struct CreateTagView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                TimerGlassBackground()
                 
                 VStack(spacing: Spacing.l) {
                     
@@ -153,7 +153,7 @@ struct CreateTagView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(Colors.accentRed)
+                        .foregroundColor(TimerPalette.accent)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {

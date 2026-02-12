@@ -7,7 +7,7 @@ struct SignInView: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            SettingsGlassBackground()
             
             VStack {
                 HStack {
@@ -62,7 +62,7 @@ struct SignInView: View {
                     }
                     .font(.system(size: 13))
                     .foregroundColor(Colors.textSecondary)
-                    .accentColor(.cyan)
+                    .accentColor(SettingsPalette.accent)
                 }
                 .padding(.horizontal, 30)
                 .padding(.bottom, 20)

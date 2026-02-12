@@ -7,7 +7,7 @@ struct NotificationSettingsView: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            SettingsGlassBackground()
             
             ScrollView {
                 VStack(spacing: 24) {
@@ -29,7 +29,7 @@ struct NotificationSettingsView: View {
                             }) {
                                 Text(notificationManager.authorizationStatus == .authorized ? "Allowed" : "Allow")
                                     .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(.cyan)
+                                    .foregroundColor(SettingsPalette.accent)
                             }
                         }
                         

@@ -8,76 +8,106 @@ struct PlanItemTaskDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var showingEditSheet = false
     @State private var showingAddSubtask = false
+    @State private var editingSubtask: PlanItem? // For editing subtasks
     
     var body: some View {
         VStack(spacing: 32) {
-            // Header: Icon, Info, Checkbox
-            HStack(alignment: .center, spacing: 16) {
-                // Icon
-                ZStack {
-                     Circle()
-                         .fill(Colors.bgSecondary)
-                         .frame(width: 56, height: 56)
-                     if item.iconName.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "." || $0 == "-" }) {
-                         Image(systemName: item.iconName)
-                             .font(.system(size: 28))
-                             .foregroundColor(tintColor)
-                     } else {
-                         Text(item.iconName)
-                             .font(.system(size: 28))
-                     }
-                }
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Time: \(timeString)")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(Colors.textSecondary)
-                    
-                    Text(item.title)
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(Colors.textPrimary)
-                }
-                
-                
-                
-                Spacer()
-                
-                // Priority Checkbox
-                // Priority Selection (Cleaner inline style)
-                HStack(spacing: 8) {
-                    ForEach(PriorityLevel.allCases.reversed(), id: \.self) { p in
-                        Button(action: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                item.priority = p.rawValue
-                            }
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        }) {
-                            ZStack {
-                                Circle()
-                                    .fill(p.rawValue == item.priority ? colorForPriority(p).opacity(0.15) : Colors.bgSecondary)
-                                    .frame(width: 38, height: 38)
-                                
-                                Image(systemName: p.icon)
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(p.rawValue == item.priority ? colorForPriority(p) : Colors.textTertiary)
-                            }
+            // Header
+            VStack(spacing: 14) {
+                HStack(alignment: .center, spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.white.opacity(0.10))
+                            .frame(width: 52, height: 52)
+                            .overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 1))
+                        if item.iconName.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "." || $0 == "-" }) {
+                            Image(systemName: item.iconName)
+                                .font(.system(size: 24))
+                                .foregroundColor(iconPriorityColor)
+                        } else {
+                            Text(item.iconName)
+                                .font(.system(size: 24))
                         }
-                        .buttonStyle(.plain)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(timeString)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(PlanPalette.textSecondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        
+                        Text(item.title)
+                            .font(.system(size: 30, weight: .bold))
+                            .foregroundColor(PlanPalette.textPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                            .truncationMode(.tail)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .layoutPriority(1)
+                    
+                    Button(action: onDismiss) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(PlanPalette.textSecondary)
+                            .planGlassCircle(size: 34, fillOpacity: 0.12)
+                    }
+                    .buttonStyle(.plain)
+                }
+                
+                HStack(spacing: 10) {
+                    Text("Priority")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(PlanPalette.textMuted)
+                    
+                    Text(selectedPriorityTitle)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(selectedPriorityColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(selectedPriorityColor.opacity(0.18))
+                        )
+                    
+                    Spacer()
+                    
+                    HStack(spacing: 8) {
+                        ForEach(PriorityLevel.allCases.reversed(), id: \.self) { p in
+                            Button(action: {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    item.priority = p.rawValue
+                                    item.tintKey = tintKey(for: p, fallback: item.tintKey)
+                                    item.updatedAt = Date()
+                                }
+                                try? modelContext.save()
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            }) {
+                                ZStack {
+                                    Circle()
+                                        .fill(colorForPriority(p).opacity(p.rawValue == item.priority ? 0.34 : 0.16))
+                                        .frame(width: 34, height: 34)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(
+                                                    p.rawValue == item.priority ? colorForPriority(p).opacity(0.9) : Color.white.opacity(0.18),
+                                                    lineWidth: p.rawValue == item.priority ? 1.4 : 1
+                                                )
+                                        )
+                                    
+                                    Image(systemName: p.icon)
+                                        .font(.system(size: 15, weight: .bold))
+                                        .foregroundColor(colorForPriority(p))
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
-                .padding(4)
-                .background(Colors.cardSurface)
-                .cornerRadius(24)
-                 
-                // Close Button
-                Button(action: onDismiss) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(Colors.textSecondary)
-                        .frame(width: 32, height: 32)
-                        .background(Colors.bgSecondary)
-                        .clipShape(Circle())
-                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .planGlassPanel(cornerRadius: 16, fillOpacity: 0.10)
             }
             .padding(.horizontal)
             .padding(.top, 24)
@@ -108,11 +138,11 @@ struct PlanItemTaskDetailView: View {
                             .font(.system(size: 16))
                         Spacer()
                     }
-                    .foregroundColor(Colors.accentBlue)
+                    .foregroundColor(PlanPalette.accent)
                     .padding()
                 }
             }
-            .background(Colors.cardSurface) // Solid card background
+            .planGlassPanel(cornerRadius: 16) // Solid card background
             .cornerRadius(12)
             .padding(.horizontal)
             
@@ -133,7 +163,7 @@ struct PlanItemTaskDetailView: View {
             .padding(.horizontal, 40)
             .padding(.bottom, 24)
         }
-        .background(Colors.bgPrimary)
+        .background(PlanGlassBackground())
         .clipShape(RoundedRectangle(cornerRadius: 24))
         // Edit Sheet
         .sheet(isPresented: $showingEditSheet) {
@@ -152,8 +182,6 @@ struct PlanItemTaskDetailView: View {
                  .presentationBackground(.clear)
         }
     }
-    
-    @State private var editingSubtask: PlanItem? // For editing subtasks
     
     // MARK: - Logic
     
@@ -191,6 +219,7 @@ struct PlanItemTaskDetailView: View {
         case "orange": return .orange
         case "purple": return .purple
         case "pink": return .pink
+        case "gray": return .gray
         default: return .blue
         }
     }
@@ -227,9 +256,48 @@ struct PlanItemTaskDetailView: View {
          case .high: return .red
          case .medium: return .orange
          case .low: return .blue
-         case .none: return Colors.textSecondary
+         case .none: return Color.gray
          }
      }
+
+    private var selectedPriority: PriorityLevel {
+        PriorityLevel(rawValue: item.priority) ?? .none
+    }
+
+    private var selectedPriorityColor: Color {
+        colorForPriority(selectedPriority)
+    }
+
+    private var iconPriorityColor: Color {
+        switch selectedPriority {
+        case .high:
+            return colorForPriority(.high)
+        case .medium:
+            return colorForPriority(.medium)
+        case .low:
+            return tintColor
+        case .none:
+            return colorForPriority(.none)
+        }
+    }
+
+    private var selectedPriorityTitle: String {
+        switch selectedPriority {
+        case .high: return "High"
+        case .medium: return "Medium"
+        case .low: return "Low"
+        case .none: return "None"
+        }
+    }
+
+    private func tintKey(for priority: PriorityLevel, fallback: String) -> String {
+        switch priority {
+        case .high: return "red"
+        case .medium: return "orange"
+        case .low: return "blue"
+        case .none: return "gray"
+        }
+    }
     
     // Subtask Logic
     private func isSubtaskCompleted(_ sub: PlanItem) -> Bool {
@@ -280,7 +348,7 @@ struct SwipeableSubtaskRow: View {
                         if isCompleted {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(.green)
+                                .foregroundColor(PlanPalette.accent)
                         } else {
                             Circle()
                                 .stroke(Colors.textSecondary.opacity(0.5), lineWidth: 1.5)
@@ -299,7 +367,7 @@ struct SwipeableSubtaskRow: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Colors.cardSurface) // Opaque background to hide actions
+            .planGlassPanel(cornerRadius: 16) // Opaque background to hide actions
 
         }
         .clipped()

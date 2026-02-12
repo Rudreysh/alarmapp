@@ -44,7 +44,7 @@ struct PlanView: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            PlanGlassBackground()
             
             VStack(spacing: 0) {
                 // Top Bar
@@ -63,7 +63,7 @@ struct PlanView: View {
                          // All Day / Anytime Section
                          let anytimeItems = filtered.filter { $0.anytime || $0.scheduledTime == nil }
                          if !anytimeItems.isEmpty {
-                             Section(header: Text("All Day").font(.caption).foregroundColor(Colors.textSecondary)) {
+                             Section(header: Text("All Day").font(.caption).foregroundColor(PlanPalette.textSecondary)) {
                                  ForEach(anytimeItems) { item in
                                      PlanItemTimelineRow(item: item, timeString: "All Day", isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
                                          viewModel.toggleComplete(item, context: modelContext)
@@ -90,7 +90,7 @@ struct PlanView: View {
                              .sorted { ($0.scheduledTime ?? Date()) < ($1.scheduledTime ?? Date()) }
                              
                          if !scheduledItems.isEmpty {
-                             Section(header: Text("Scheduled").font(.caption).foregroundColor(Colors.textSecondary)) {
+                             Section(header: Text("Scheduled").font(.caption).foregroundColor(PlanPalette.textSecondary)) {
                                  ForEach(scheduledItems) { item in
                                      let timeStr = formatTime(item.scheduledTime)
                                      PlanItemTimelineRow(item: item, timeString: timeStr, isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
@@ -134,10 +134,10 @@ struct PlanView: View {
                                     HStack {
                                         Text("Anytime (\(anytimeItems.count))")
                                             .font(.system(size: 14, weight: .medium))
-                                            .foregroundColor(Colors.textSecondary)
+                                            .foregroundColor(PlanPalette.textSecondary)
                                         Image(systemName: "chevron.right")
                                             .font(.caption)
-                                            .foregroundColor(Colors.textSecondary)
+                                            .foregroundColor(PlanPalette.textSecondary)
                                             .rotationEffect(.degrees(viewModel.isAnytimeExpanded ? 90 : 0))
                                         Spacer()
                                     }
@@ -184,10 +184,10 @@ struct PlanView: View {
                                     HStack {
                                         Text("Habits (\(habits.count))")
                                            .font(.system(size: 14, weight: .medium))
-                                           .foregroundColor(Colors.textSecondary)
+                                           .foregroundColor(PlanPalette.textSecondary)
                                         Image(systemName: "chevron.right")
                                             .font(.caption)
-                                            .foregroundColor(Colors.textSecondary)
+                                            .foregroundColor(PlanPalette.textSecondary)
                                             .rotationEffect(.degrees(viewModel.isHabitsExpanded ? 90 : 0))
                                         Spacer()
                                     }
@@ -235,10 +235,10 @@ struct PlanView: View {
                                     HStack {
                                         Text("Tasks (\(tasks.count))")
                                            .font(.system(size: 14, weight: .medium))
-                                           .foregroundColor(Colors.textSecondary)
+                                           .foregroundColor(PlanPalette.textSecondary)
                                         Image(systemName: "chevron.right")
                                             .font(.caption)
-                                            .foregroundColor(Colors.textSecondary)
+                                            .foregroundColor(PlanPalette.textSecondary)
                                             .rotationEffect(.degrees(viewModel.isTasksExpanded ? 90 : 0))
                                         Spacer()
                                     }
@@ -288,11 +288,10 @@ struct PlanView: View {
             ForEach(floatingBubbles) { bubble in
                 Text(bubble.value)
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(Colors.accentBlue)
+                    .foregroundColor(PlanPalette.textPrimary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.white.shadow(radius: 2))
-                    .cornerRadius(8)
+                    .planGlassPanel(cornerRadius: 10, fillOpacity: 0.14)
                     .position(x: bubble.x, y: bubble.y)
                     .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .offset(y: -100).combined(with: .opacity)))
             }
@@ -357,11 +356,9 @@ struct PlanView: View {
                     }) {
                         Image(systemName: showingAddMenu ? "xmark" : "plus")
                             .font(.system(size: 24, weight: .bold))
-                            .foregroundColor(Colors.bgPrimary)
-                            .frame(width: 56, height: 56)
-                            .background(Colors.textPrimary)
-                            .clipShape(Circle())
-                            .shadow(radius: 4)
+                            .foregroundColor(Colors.textPrimary)
+                            .planGlassCircle(size: 56, fillOpacity: 0.13)
+                            .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
                     }
                     .padding(.trailing, 20)
                     .padding(.bottom, 90)
@@ -515,7 +512,7 @@ struct PlanItemTimelineRow: View {
                     ZStack {
                         if isCompleted {
                              Image(systemName: "checkmark.circle.fill") // or just circle fill
-                                 .foregroundColor(.green)
+                                 .foregroundColor(PlanPalette.accent)
                                  .font(.system(size: 14))
                         } else {
                             if item.iconName.allSatisfy({ !$0.isASCII }) {
@@ -550,8 +547,7 @@ struct PlanItemTimelineRow: View {
                     Spacer()
                 }
                 .padding(12)
-                .background(Colors.cardSurface)
-                .cornerRadius(12)
+                .planGlassPanel(cornerRadius: 12, fillOpacity: 0.12)
                 .contentShape(Rectangle())
                 .onTapGesture(count: 2, perform: onToggle)
             } else {
@@ -618,8 +614,7 @@ struct PlanItemTimelineRow: View {
                     }
                 }
                 .padding(12)
-                .background(Colors.cardSurface)
-                .cornerRadius(12)
+                .planGlassPanel(cornerRadius: 12, fillOpacity: 0.12)
             }
         }
         .padding(.vertical, 4)
@@ -633,6 +628,7 @@ struct PlanItemTimelineRow: View {
         case "orange": return .orange
         case "purple": return .purple
         case "pink": return .pink
+        case "gray": return .gray
         default: return .blue
         }
     }
@@ -651,14 +647,13 @@ struct PlanHeaderView: View {
                 HStack(spacing: 4) {
                     Text("Shield Off")
                         .font(.caption)
-                        .foregroundColor(Colors.textPrimary)
+                        .foregroundColor(PlanPalette.textPrimary)
                     Image(systemName: "shield.slash.fill")
                         .foregroundColor(.gray)
                 }
                 .padding(.vertical, 6)
                 .padding(.horizontal, 10)
-                .background(Colors.cardSurface)
-                .cornerRadius(16)
+                .planGlassPanel(cornerRadius: 16, fillOpacity: 0.12)
                 
                 HStack(spacing: 4) {
                     Image(systemName: "flame.fill")
@@ -666,12 +661,11 @@ struct PlanHeaderView: View {
                     Text("1") 
                         .font(.caption)
                         .fontWeight(.bold)
-                        .foregroundColor(Colors.textPrimary)
+                        .foregroundColor(PlanPalette.textPrimary)
                 }
                 .padding(.vertical, 6)
                 .padding(.horizontal, 10)
-                .background(Colors.cardSurface)
-                .cornerRadius(16)
+                .planGlassPanel(cornerRadius: 16, fillOpacity: 0.12)
             }
         }
         .padding()
@@ -723,9 +717,9 @@ struct CalendarHeaderView: View {
                         withAnimation { isListView = true } 
                     }) {
                         Image(systemName: "list.bullet")
-                            .foregroundColor(isListView ? Colors.textPrimary : Colors.textSecondary)
+                            .foregroundColor(isListView ? PlanPalette.textPrimary : PlanPalette.textMuted)
                             .padding(8)
-                            .background(isListView ? Colors.cardSurface : Color.clear)
+                            .background(isListView ? Color.white.opacity(0.12) : Color.clear)
                             .clipShape(Circle())
                     }
                     
@@ -734,15 +728,14 @@ struct CalendarHeaderView: View {
                         withAnimation { isListView = false } 
                     }) {
                         Image(systemName: "calendar")
-                            .foregroundColor(!isListView ? Colors.textPrimary : Colors.textSecondary)
+                            .foregroundColor(!isListView ? PlanPalette.textPrimary : PlanPalette.textMuted)
                             .padding(8)
-                            .background(!isListView ? Colors.cardSurface : Color.clear)
+                            .background(!isListView ? Color.white.opacity(0.12) : Color.clear)
                             .clipShape(Circle())
                     }
                 }
                 .padding(4)
-                .background(Colors.bgSecondary.opacity(0.3))
-                .clipShape(Capsule())
+                .planGlassPanel(cornerRadius: 16, fillOpacity: 0.10)
             }
             .padding(.horizontal)
             
@@ -811,7 +804,7 @@ struct WeekDayCell: View {
                 .font(.system(size: 16, weight: isSelected ? .bold : .regular))
                 .foregroundColor(isSelected ? .white : Colors.textSecondary)
                 .frame(width: 32, height: 32)
-                .background(isSelected ? Colors.accentRed : Color.clear)
+                .background(isSelected ? Color(red: 0.06, green: 0.45, blue: 0.62) : Color.clear)
                 .clipShape(Circle())
         }
         .frame(maxWidth: .infinity)
@@ -864,37 +857,84 @@ struct PlanItemRow: View {
     @State private var quickAddScale: CGFloat = 1.0
     
     var body: some View {
-        ZStack(alignment: .leading) {
-            // Background Progress Fill
+        ZStack {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(
+                    isHabitItem
+                    ? AnyShapeStyle(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.04, green: 0.08, blue: 0.12).opacity(0.92),
+                                Color(red: 0.06, green: 0.11, blue: 0.17).opacity(0.86),
+                                Color(red: 0.03, green: 0.05, blue: 0.09).opacity(0.92)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    : AnyShapeStyle(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.05, green: 0.07, blue: 0.11).opacity(0.94),
+                                Color(red: 0.09, green: 0.12, blue: 0.17).opacity(0.88),
+                                Color(red: 0.04, green: 0.06, blue: 0.10).opacity(0.94)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                )
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            
+            // Horizontal "cover" style strip inspired by media cards while staying list-friendly.
+            HStack(spacing: 0) {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                tintColor.opacity(0.38),
+                                tintColor.opacity(0.18),
+                                Color.black.opacity(0.02)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 86)
+                    .padding(.leading, 6)
+                    .padding(.vertical, 6)
+                
+                Spacer(minLength: 0)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            
+            // Progress fill on top of base card
             progressBackground
             
             HStack(spacing: 12) {
-                // Icon / Checkmark button
                 iconSection
                 
-                // Content
                 VStack(alignment: .leading, spacing: 1) {
                     Text(item.title)
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(Colors.textPrimary)
+                        .foregroundColor(PlanPalette.textPrimary)
                         .strikethrough(isCompleted)
                     
                     if let goalText = goalText {
                         Text(goalText)
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(Colors.textSecondary)
+                            .foregroundColor(PlanPalette.textSecondary)
                     }
                 }
                 
                 Spacer()
                 
-                // Quick Add Button (For Habits)
                 if item.type == .habit && !isCompleted {
                     GeometryReader { geo in
                         Button(action: {
                             let frame = geo.frame(in: .global)
                             let center = CGPoint(x: frame.midX, y: frame.midY)
-                            onQuickAdd?(1, center) // Pass 1 for default increment
+                            onQuickAdd?(1, center)
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                                 quickAddScale = 1.2
                             }
@@ -914,7 +954,6 @@ struct PlanItemRow: View {
                     .padding(.trailing, 4)
                 }
                 
-                // Play Button (For focus sessions)
                 if let duration = item.defaultDurationSeconds, duration > 0, !isCompleted {
                     Button(action: { onPlay?() }) {
                         Image(systemName: "play.circle.fill")
@@ -924,42 +963,41 @@ struct PlanItemRow: View {
                     .buttonStyle(.plain)
                 }
                 
-                // Checkmark for completed habits
                 if isCompleted {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 24))
-                        .foregroundColor(.green)
+                        .foregroundColor(PlanPalette.accent)
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
-        .background(Colors.cardSurface)
-        .cornerRadius(16)
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(isCompleted ? Color.green.opacity(0.3) : Colors.cardStroke, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(isCompleted ? PlanPalette.accent.opacity(0.32) : Color.white.opacity(0.20), lineWidth: 1)
         )
-        .shadow(color: isCompleted ? Color.green.opacity(0.2) : Color.clear, radius: 10, x: 0, y: 0)
+        .shadow(color: isCompleted ? PlanPalette.accent.opacity(0.20) : Color.black.opacity(0.16), radius: 10, x: 0, y: 4)
     }
     
     @ViewBuilder
     private var progressBackground: some View {
         GeometryReader { geo in
             let p = progress
-            if isWaterHabit {
-                // Water Fill
-                Rectangle()
-                    .fill(Color.blue.opacity(0.15))
-                    .frame(width: geo.size.width * p)
-                    .animation(.spring(), value: p)
-            } else {
-                // Subtle Bar Fill
-                Rectangle()
-                    .fill(tintColor.opacity(0.15))
-                    .frame(width: geo.size.width * p)
-                    .animation(.spring(), value: p)
-            }
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            (isWaterHabit ? Color.blue : tintColor).opacity(0.24),
+                            (isWaterHabit ? Color.cyan : tintColor).opacity(0.10)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(width: max(0, geo.size.width * p))
+                .animation(.spring(), value: p)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
     }
     
@@ -968,20 +1006,25 @@ struct PlanItemRow: View {
             ZStack {
                 if isSFIcon {
                     Image(systemName: item.iconName)
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: iconFontSize, weight: .bold))
                         .foregroundColor(tintColor)
-                        .frame(width: 32, height: 32)
-                        .background(tintColor.opacity(0.1))
+                        .frame(width: iconContainerSize, height: iconContainerSize)
+                        .background(tintColor.opacity(0.14))
                         .clipShape(Circle())
                 } else {
                     Text(item.iconName)
-                        .font(.system(size: 20))
-                        .frame(width: 32, height: 32)
+                        .font(.system(size: emojiFontSize))
+                        .frame(width: iconContainerSize, height: iconContainerSize)
                 }
             }
         }
         .buttonStyle(.plain)
     }
+
+    private var isHabitItem: Bool { item.type == .habit }
+    private var iconFontSize: CGFloat { isHabitItem ? 22.8 : 19.0 }        // +20% for habits
+    private var emojiFontSize: CGFloat { isHabitItem ? 28.8 : 24.0 }       // +20% for habits
+    private var iconContainerSize: CGFloat { isHabitItem ? 50.4 : 42.0 }   // +20% for habits
     
     private var isSFIcon: Bool {
         item.iconName.allSatisfy { $0.isASCII }
@@ -1037,6 +1080,7 @@ struct PlanItemRow: View {
         case "teal": return .teal
         case "indigo": return .indigo
         case "mint": return .mint
+        case "gray": return .gray
         default: return .blue
         }
     }

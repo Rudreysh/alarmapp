@@ -5,7 +5,7 @@ struct SystemConfigurationView: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            SettingsGlassBackground()
             
             VStack(spacing: 24) {
                 SettingsCard {
@@ -19,7 +19,7 @@ struct SystemConfigurationView: View {
                             Spacer()
                             Text(currentLanguageName)
                                 .font(.system(size: 17))
-                                .foregroundColor(.cyan)
+                                .foregroundColor(SettingsPalette.accent)
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(Colors.textTertiary)
@@ -91,7 +91,7 @@ struct AppLanguageView: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            SettingsGlassBackground()
             
             ScrollView {
                 VStack(spacing: 0) {

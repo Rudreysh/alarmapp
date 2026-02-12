@@ -7,7 +7,7 @@ struct PomoDurationPickerSheet: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            TimerGlassBackground()
             
             VStack(spacing: 0) {
                 Spacer()
@@ -65,7 +65,7 @@ struct PomoDurationPickerSheet: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(Colors.accentRed)
+                            .background(TimerPalette.accent)
                             .clipShape(Capsule())
                     }
                 }

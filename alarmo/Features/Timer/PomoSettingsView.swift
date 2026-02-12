@@ -17,7 +17,7 @@ struct PomoSettingsView: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            TimerGlassBackground()
             
             VStack(spacing: 0) {
                 // Header
@@ -29,7 +29,7 @@ struct PomoSettingsView: View {
                     }
                     Spacer()
                     Text("Pomodoro Settings")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.system(size: 28, weight: .black))
                         .foregroundColor(Colors.textPrimary)
                     Spacer()
                     Image(systemName: "chevron.left")
@@ -37,8 +37,13 @@ struct PomoSettingsView: View {
                         .frame(width: 44)
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 20)
-                .padding(.bottom, 24)
+                .padding(.top, 16)
+                .padding(.bottom, 18)
+
+                Text("Configure focus cycle, sounds and accountability")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Colors.textSecondary)
+                    .padding(.bottom, 16)
                 
                 ScrollView {
                     VStack(spacing: 24) {
@@ -123,7 +128,7 @@ struct PomoSettingsView: View {
                                     .labelsHidden()
                                     Text("€\(settingsStore.penaltyAmountEuro)")
                                         .font(.system(size: 16, weight: .semibold))
-                                        .foregroundColor(Colors.accentTeal)
+                                        .foregroundColor(TimerPalette.accent)
                                 }
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 12)
@@ -135,7 +140,7 @@ struct PomoSettingsView: View {
                                 HStack {
                                     Text("How this works")
                                         .font(.system(size: 15, weight: .semibold))
-                                        .foregroundColor(Colors.accentTeal)
+                                        .foregroundColor(TimerPalette.accent)
                                     Spacer()
                                     Image(systemName: "chevron.right")
                                         .foregroundColor(Colors.textSecondary)
@@ -201,7 +206,7 @@ struct VibrationPickerView: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            TimerGlassBackground()
             
             VStack(spacing: 0) {
                 HStack {
@@ -225,7 +230,12 @@ struct VibrationPickerView: View {
                 
                 ZStack {
                     RoundedRectangle(cornerRadius: 24)
-                        .fill(Colors.cardSurface)
+                        .fill(Color.white.opacity(0.12))
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 24)
+                                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                        )
                         .frame(height: 250)
                         .padding(.horizontal, 20)
                     

@@ -69,7 +69,7 @@ struct FrequentlyUsedPomoSheet: View {
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? Colors.accentRed : Color.clear, lineWidth: 2)
+                    .stroke(isSelected ? TimerPalette.accent : Color.clear, lineWidth: 2)
             )
         }
     }

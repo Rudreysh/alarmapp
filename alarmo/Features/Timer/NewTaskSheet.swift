@@ -55,7 +55,7 @@ struct NewTaskSheet: View {
                         Button(action: createQuickTask) {
                             Image(systemName: "arrow.up.circle.fill")
                                 .font(.system(size: 32))
-                                .foregroundColor(!taskName.isEmpty ? Colors.accentTeal : Colors.textTertiary)
+                                .foregroundColor(!taskName.isEmpty ? TimerPalette.accent : Colors.textTertiary)
                         }
                         .disabled(taskName.isEmpty)
                     }
@@ -77,7 +77,7 @@ struct NewTaskSheet: View {
                                     .background(Colors.cardSurface)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 30)
-                                            .stroke(showTimePicker ? Colors.accentRed : Color.clear, lineWidth: 1)
+                                            .stroke(showTimePicker ? TimerPalette.accent : Color.clear, lineWidth: 1)
                                     )
                                     .cornerRadius(30)
                             }
@@ -96,7 +96,7 @@ struct NewTaskSheet: View {
                                 .background(Colors.cardSurface)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 30)
-                                        .stroke(showDurationPicker ? Colors.accentRed : Color.clear, lineWidth: 1) // Red outline when active
+                                        .stroke(showDurationPicker ? TimerPalette.accent : Color.clear, lineWidth: 1) // Red outline when active
                                 )
                                 .cornerRadius(30)
                             }

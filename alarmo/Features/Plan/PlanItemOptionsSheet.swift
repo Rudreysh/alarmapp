@@ -16,7 +16,7 @@ struct PlanItemOptionsSheet: View {
                     item.isPinned.toggle()
                     dismiss()
                 }
-                OptionGridItem(icon: "square.and.arrow.up", title: "Share", color: .green) {
+                OptionGridItem(icon: "square.and.arrow.up", title: "Share", color: PlanPalette.accent) {
                     // Share action
                     dismiss()
                 }
@@ -33,7 +33,7 @@ struct PlanItemOptionsSheet: View {
                 }
             }
             .padding(.vertical, 20)
-            .background(Colors.bgSecondary.opacity(0.3))
+            .planGlassPanel(cornerRadius: 18, fillOpacity: 0.12)
             
             // List Items
             ScrollView {
@@ -98,12 +98,11 @@ struct PlanItemOptionsSheet: View {
                     Image(systemName: "ellipsis")
                 }
                 .padding()
-                .background(Colors.cardSurface)
-                .cornerRadius(12)
+                .planGlassPanel(cornerRadius: 12)
             }
             .padding()
         }
-        .background(Colors.bgPrimary)
+        .background(PlanGlassBackground())
     }
 }
 
@@ -120,8 +119,7 @@ struct OptionGridItem: View {
                     .font(.system(size: 24))
                     .foregroundColor(color)
                     .frame(width: 50, height: 50)
-                    .background(Colors.cardSurface)
-                    .cornerRadius(12)
+                    .planGlassPanel(cornerRadius: 12, fillOpacity: 0.14)
                     .shadow(color: Color.black.opacity(0.05), radius: 2)
                 
                 Text(title)

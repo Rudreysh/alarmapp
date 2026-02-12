@@ -14,6 +14,7 @@ struct AppListsView: View {
     private var appLists: [AppList]
 
     @State private var selectedDetailList: AppList?
+    @State private var listPendingDelete: AppList?
 
     private var blockLists: [AppList] { appLists.filter { $0.type == .block } }
     private var allowLists: [AppList] { appLists.filter { $0.type == .allow } }
@@ -21,7 +22,7 @@ struct AppListsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                SettingsGlassBackground()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
@@ -79,6 +80,24 @@ struct AppListsView: View {
                     viewModel.showProPaywall = false
                 }
             }
+            .alert("Delete this block list?", isPresented: Binding(
+                get: { listPendingDelete != nil },
+                set: { if !$0 { listPendingDelete = nil } }
+            )) {
+                Button("Delete", role: .destructive) {
+                    guard let target = listPendingDelete else { return }
+                    if let detailList = selectedDetailList, detailList.id == target.id {
+                        selectedDetailList = nil
+                    }
+                    viewModel.deleteList(target, context: modelContext)
+                    listPendingDelete = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    listPendingDelete = nil
+                }
+            } message: {
+                Text("This action cannot be undone.")
+            }
         }
     }
 
@@ -90,7 +109,7 @@ struct AppListsView: View {
         HStack(spacing: 14) {
             Image(systemName: list.type == .block ? "stop.fill" : "checkmark.shield.fill")
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(list.type == .block ? Colors.accentRed : Colors.accentGreen)
+                .foregroundColor(SettingsPalette.accent)
                 .frame(width: 44, height: 44)
                 .background(Colors.bgSecondary)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -112,7 +131,7 @@ struct AppListsView: View {
                 } label: {
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                         .font(.system(size: 28, weight: .semibold))
-                        .foregroundColor(isSelected ? Colors.accentBlue : Colors.textSecondary)
+                        .foregroundColor(isSelected ? SettingsPalette.accent : Colors.textSecondary)
                 }
                 .buttonStyle(.plain)
             } else {
@@ -128,12 +147,25 @@ struct AppListsView: View {
             }
         }
         .padding(16)
-        .background(Colors.cardSurface)
+        .background(
+            LinearGradient(
+                colors: [SettingsPalette.cardTop, SettingsPalette.cardBottom],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Colors.cardStroke, lineWidth: 1)
+                .stroke(Color.white.opacity(0.14), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                listPendingDelete = list
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
     }
 
     private func listSelectionSummary(for list: AppList) -> String {
@@ -181,11 +213,17 @@ struct AppListsView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 28)
-            .background(Colors.cardSurface.opacity(0.7))
+            .background(
+                LinearGradient(
+                    colors: [SettingsPalette.cardTop.opacity(0.85), SettingsPalette.cardBottom.opacity(0.85)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .stroke(style: StrokeStyle(lineWidth: 1, dash: [6]))
-                    .foregroundColor(Colors.cardStroke)
+                    .foregroundColor(Color.white.opacity(0.22))
             )
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
@@ -220,7 +258,7 @@ struct BlockListDetailView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                SettingsGlassBackground()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
@@ -240,7 +278,7 @@ struct BlockListDetailView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
                                 .background(
-                                    LinearGradient(colors: [Color(red: 0.67, green: 0.80, blue: 1.0), Color(red: 0.67, green: 0.55, blue: 0.95)], startPoint: .leading, endPoint: .trailing)
+                                    SettingsPalette.accentGradient
                                 )
                                 .clipShape(Capsule())
                         }
@@ -251,7 +289,7 @@ struct BlockListDetailView: View {
                         } label: {
                             Text("Delete Block List")
                                 .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(Colors.accentRed)
+                                .foregroundColor(SettingsPalette.accentDark)
                                 .frame(maxWidth: .infinity)
                         }
                         .padding(.top, 4)
@@ -362,7 +400,7 @@ struct BlockListDetailView: View {
                 Button("Add / Remove") {
                     openPickerWithAuthorizationCheck()
                 }
-                .foregroundColor(Colors.accentBlue)
+                .foregroundColor(SettingsPalette.accent)
             }
 
             selectionCard(title: viewModel.selectedCategoriesCount == 0 ? "No categories selected" : "\(viewModel.selectedCategoriesCount) selected category")
@@ -384,7 +422,7 @@ struct BlockListDetailView: View {
                 Button("Add / Remove") {
                     openPickerWithAuthorizationCheck()
                 }
-                .foregroundColor(Colors.accentBlue)
+                .foregroundColor(SettingsPalette.accent)
             }
 
             selectionCard(title: viewModel.selectedAppsCount == 0 ? "No apps selected" : "\(viewModel.selectedAppsCount) selected app")
@@ -407,10 +445,16 @@ struct BlockListDetailView: View {
                 .foregroundColor(Color.yellow)
         }
         .padding(16)
-        .background(Colors.cardSurface)
+        .background(
+            LinearGradient(
+                colors: [SettingsPalette.cardTop, SettingsPalette.cardBottom],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Colors.cardStroke, lineWidth: 1)
+                .stroke(Color.white.opacity(0.14), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
@@ -423,10 +467,16 @@ struct BlockListDetailView: View {
             Spacer()
         }
         .padding(16)
-        .background(Colors.cardSurface)
+        .background(
+            LinearGradient(
+                colors: [SettingsPalette.cardTop, SettingsPalette.cardBottom],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Colors.cardStroke, lineWidth: 1)
+                .stroke(Color.white.opacity(0.14), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }

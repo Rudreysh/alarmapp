@@ -7,7 +7,7 @@ struct FocusSettingsView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                TimerGlassBackground()
                 
                 VStack(spacing: 0) {
                     // Header

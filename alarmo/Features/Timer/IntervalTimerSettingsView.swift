@@ -30,7 +30,7 @@ struct IntervalTimerSettingsView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                TimerGlassBackground()
                 
                 ScrollView {
                     VStack(spacing: Spacing.xl) {
@@ -137,7 +137,7 @@ struct IntervalTimerSettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
-                        .foregroundColor(Colors.accentTeal)
+                        .foregroundColor(TimerPalette.accent)
                 }
             }
             .sheet(item: $activeDurationPicker) { target in
@@ -242,7 +242,7 @@ struct DurationSelectionSheet: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            TimerGlassBackground()
             
             VStack(spacing: 16) {
                 Capsule()
@@ -256,7 +256,7 @@ struct DurationSelectionSheet: View {
                 
                 Text(previewText)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Colors.accentTeal)
+                    .foregroundColor(TimerPalette.accent)
                 
                 HStack(spacing: 0) {
                     Picker("Minutes", selection: $minutes) {
@@ -315,7 +315,7 @@ struct PickerSelectionView: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            TimerGlassBackground()
             List {
                 ForEach(options, id: \.self) { option in
                     Button(action: {
@@ -328,7 +328,7 @@ struct PickerSelectionView: View {
                             Spacer()
                             if selection == option {
                                 Image(systemName: "checkmark")
-                                    .foregroundColor(Colors.accentTeal)
+                                    .foregroundColor(TimerPalette.accent)
                             }
                         }
                     }

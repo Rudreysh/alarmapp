@@ -12,7 +12,7 @@ struct SettingsRootView: View {
     var body: some View {
         NavigationStack(path: $coordinator.path) {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                SettingsGlassBackground()
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
@@ -101,7 +101,17 @@ struct SettingsRootView: View {
                         // Banner Placeholder
                         ZStack(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.blue)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            SettingsPalette.accentDark.opacity(0.92),
+                                            SettingsPalette.accent.opacity(0.72),
+                                            SettingsPalette.accentDark.opacity(0.95)
+                                        ],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
                             
                             HStack {
                                 Image(systemName: "bell.badge.fill")
@@ -175,7 +185,7 @@ struct SimplePlaceholderView: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            SettingsGlassBackground()
             Text("\(title) coming soon")
                 .foregroundColor(Colors.textSecondary)
         }

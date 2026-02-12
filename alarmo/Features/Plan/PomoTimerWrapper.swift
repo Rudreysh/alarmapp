@@ -16,7 +16,7 @@ struct PomoTimerWrapper: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            PlanGlassBackground()
             
             PomoTimerView(viewModel: viewModel, engine: engine)
                 .environmentObject(taskStore)
@@ -32,7 +32,7 @@ struct PomoTimerWrapper: View {
                             .font(.system(size: 24, weight: .bold))
                             .foregroundColor(Colors.textPrimary)
                             .padding()
-                            .background(Colors.cardSurface.opacity(0.8))
+                            .planGlassPanel(cornerRadius: 22, fillOpacity: 0.18)
                             .clipShape(Circle())
                     }
                     Spacer()

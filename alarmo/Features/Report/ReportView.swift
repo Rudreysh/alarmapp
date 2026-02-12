@@ -17,7 +17,7 @@ struct ReportView: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            TimerGlassBackground()
             
             VStack(spacing: 0) {
                 // Header (Domain & Period Selection)
@@ -67,7 +67,7 @@ struct ReportView: View {
                                     KPICard(icon: "xmark.circle.fill", iconColor: .red, value: "\(viewModel.metrics.missedCount)", unit: "Missed", label: "Total Missed")
                                 } else {
                                     KPICard(icon: "medal.fill", iconColor: .orange, value: "\(viewModel.metrics.currentStreak)", unit: "Day", label: "Best Streaks")
-                                    KPICard(icon: "calendar.badge.checkmark", iconColor: .blue, value: "\(viewModel.metrics.perfectDays)", unit: "Day", label: "Perfect Days")
+                                    KPICard(icon: "calendar.badge.checkmark", iconColor: ReportPalette.accent, value: "\(viewModel.metrics.perfectDays)", unit: "Day", label: "Perfect Days")
                                     KPICard(icon: "checkmark.circle.fill", iconColor: .green, value: "\(viewModel.metrics.totalDone)", unit: "Done", label: "Habits Done")
                                     KPICard(icon: "chart.line.uptrend.xyaxis", iconColor: .purple, value: String(format: "%.1f", viewModel.metrics.dailyAverage), unit: "Avg", label: "Daily Average")
                                 }
@@ -132,9 +132,9 @@ struct ReportView: View {
                             ZStack {
                                 if isSelected {
                                     RoundedRectangle(cornerRadius: 15)
-                                        .fill(Colors.accentBlue)
+                                        .fill(ReportPalette.accentGradient)
                                         .matchedGeometryEffect(id: "domain_bg", in: domainNamespace)
-                                        .shadow(color: Colors.accentBlue.opacity(0.3), radius: 8, x: 0, y: 4)
+                                        .shadow(color: ReportPalette.glow.opacity(0.28), radius: 10, x: 0, y: 4)
                                 }
                             }
                         )
@@ -142,7 +142,16 @@ struct ReportView: View {
                     }
                 }
             }
-            .background(Colors.cardSurface.opacity(0.5))
+            .background(
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(
+                        LinearGradient(
+                            colors: [ReportPalette.cardStart, ReportPalette.cardEnd],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
             .cornerRadius(18)
             .padding(.horizontal)
             
@@ -189,7 +198,7 @@ struct ReportView: View {
                             .overlay(
                                 Image(systemName: "chevron.left")
                                     .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(Colors.accentBlue)
+                                    .foregroundColor(ReportPalette.accent)
                             )
                     }
                     
@@ -206,7 +215,7 @@ struct ReportView: View {
                             .overlay(
                                 Image(systemName: "chevron.right")
                                     .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(Colors.accentBlue)
+                                    .foregroundColor(ReportPalette.accent)
                             )
                     }
                 }
@@ -231,11 +240,11 @@ struct ReportView: View {
                     VStack(spacing: 8) {
                         ZStack {
                             Circle()
-                                .fill(isAllSelected ? Colors.accentBlue.opacity(0.15) : Color.clear)
+                                .fill(isAllSelected ? ReportPalette.accent.opacity(0.14) : Color.clear)
                                 .frame(width: 48, height: 48)
                             Image(systemName: isAllSelected ? "square.grid.2x2.fill" : "square.grid.2x2")
                                 .font(.system(size: 20))
-                                .foregroundColor(isAllSelected ? Colors.accentBlue : Colors.textSecondary)
+                                .foregroundColor(isAllSelected ? ReportPalette.accent : Colors.textSecondary)
                         }
                         Text("All")
                             .font(.system(size: 11, weight: isAllSelected ? .heavy : .medium))
@@ -254,11 +263,11 @@ struct ReportView: View {
                         VStack(spacing: 8) {
                             ZStack {
                                 Circle()
-                                    .fill(isSelected ? Colors.accentBlue.opacity(0.15) : Color.clear)
+                                    .fill(isSelected ? ReportPalette.accent.opacity(0.14) : Color.clear)
                                     .frame(width: 48, height: 48)
                                     .overlay(
                                         Circle()
-                                            .stroke(isSelected ? Colors.accentBlue.opacity(0.3) : Colors.cardStroke, lineWidth: 1)
+                                            .stroke(isSelected ? ReportPalette.accent.opacity(0.3) : Colors.cardStroke, lineWidth: 1)
                                     )
                                 
                                 if item.icon.allSatisfy({ !$0.isASCII }) {
@@ -267,7 +276,7 @@ struct ReportView: View {
                                 } else {
                                     Image(systemName: item.icon)
                                         .font(.system(size: 20))
-                                        .foregroundColor(isSelected ? Colors.accentBlue : Colors.textSecondary)
+                                        .foregroundColor(isSelected ? ReportPalette.accent : Colors.textSecondary)
                                 }
                             }
                             Text(item.title)

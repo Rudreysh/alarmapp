@@ -9,7 +9,7 @@ struct StopwatchSettingsView: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            TimerGlassBackground()
             
             VStack(spacing: 0) {
                 // Header

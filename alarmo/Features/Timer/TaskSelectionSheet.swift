@@ -20,7 +20,7 @@ struct TaskSelectionSheet: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                TimerGlassBackground()
                 
                 VStack(spacing: 0) {
                     // "New Task" row
@@ -28,11 +28,11 @@ struct TaskSelectionSheet: View {
                         HStack(spacing: 16) {
                             ZStack {
                                 Circle()
-                                    .fill(Colors.accentTeal.opacity(0.15))
+                                    .fill(TimerPalette.accent.opacity(0.15))
                                     .frame(width: 40, height: 40)
                                 Image(systemName: "plus")
                                     .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(Colors.accentTeal)
+                                    .foregroundColor(TimerPalette.accent)
                             }
                             
                             Text("New Task")
@@ -72,7 +72,7 @@ struct TaskSelectionSheet: View {
                                     } label: {
                                         Label("Rename", systemImage: "pencil")
                                     }
-                                    .tint(.blue)
+                                    .tint(TimerPalette.accent)
 
                                     Button(role: .destructive) {
                                         if engine.state.selectedTaskId == plan.id {
@@ -117,7 +117,7 @@ struct TaskSelectionSheet: View {
                                     } label: {
                                         Label("Rename", systemImage: "pencil")
                                     }
-                                    .tint(.blue)
+                                    .tint(TimerPalette.accent)
 
                                     Button(role: .destructive) {
                                         if engine.state.selectedTaskId == task.id {
@@ -215,14 +215,14 @@ struct TaskRowCard: View {
                 // Play button indicator (decorative/functional selection)
                 Image(systemName: "play.circle.fill")
                     .font(.system(size: 24))
-                    .foregroundColor(isSelected ? Colors.accentTeal : Colors.textTertiary.opacity(0.3))
+                    .foregroundColor(isSelected ? TimerPalette.accent : Colors.textTertiary.opacity(0.3))
             }
             .padding()
             .background(Colors.cardSurface.opacity(0.6))
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? Colors.accentTeal.opacity(0.3) : Color.clear, lineWidth: 2)
+                    .stroke(isSelected ? TimerPalette.accent.opacity(0.3) : Color.clear, lineWidth: 2)
             )
         }
     }
@@ -244,17 +244,17 @@ struct TaskRowCard: View {
     private func getTaskMetaData(name: String) -> (String, Color) {
         let lower = name.lowercased()
         if lower.contains("water") || lower.contains("drink") {
-            return ("drop.fill", Color.blue)
+            return ("drop.fill", TimerPalette.accent)
         } else if lower.contains("focus") || lower.contains("study") {
             return ("timer", Color.orange)
         } else if lower.contains("read") || lower.contains("book") {
             return ("book.fill", Color(red: 1.0, green: 0.4, blue: 0.6)) // Pinkish
         } else if lower.contains("pomo") {
-            return ("stopwatch.fill", Colors.accentRed)
+            return ("stopwatch.fill", TimerPalette.accent)
         } else if lower.contains("exercise") || lower.contains("gym") || lower.contains("fitness") {
-            return ("figure.run", Colors.accentGreen)
+            return ("figure.run", TimerPalette.accent)
         } else if lower.contains("code") || lower.contains("work") {
-            return ("briefcase.fill", Colors.accentTeal)
+            return ("briefcase.fill", TimerPalette.accent)
         }
         return ("pencil.and.outline", Colors.textTertiary)
     }
@@ -288,14 +288,14 @@ struct PlanTaskRowCard: View {
                 // Play button indicator
                 Image(systemName: "play.circle.fill")
                     .font(.system(size: 24))
-                    .foregroundColor(isSelected ? Colors.accentTeal : Colors.textTertiary.opacity(0.3))
+                    .foregroundColor(isSelected ? TimerPalette.accent : Colors.textTertiary.opacity(0.3))
             }
             .padding()
             .background(Colors.cardSurface.opacity(0.6))
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? Colors.accentTeal.opacity(0.3) : Color.clear, lineWidth: 2)
+                    .stroke(isSelected ? TimerPalette.accent.opacity(0.3) : Color.clear, lineWidth: 2)
             )
         }
     }
@@ -303,12 +303,12 @@ struct PlanTaskRowCard: View {
     var tintColor: Color {
         switch item.tintKey {
         case "red": return .red
-        case "blue": return .blue
+        case "blue": return TimerPalette.accent
         case "green": return .green
         case "orange": return .orange
         case "purple": return .purple
         case "pink": return .pink
-        default: return .blue
+        default: return TimerPalette.accent
         }
     }
 }

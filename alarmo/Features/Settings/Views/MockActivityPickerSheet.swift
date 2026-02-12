@@ -58,7 +58,7 @@ struct MockActivityPickerSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                SettingsGlassBackground()
 
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Choose Activities")
@@ -157,7 +157,7 @@ struct MockActivityPickerSheet: View {
             HStack(spacing: 12) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 24, weight: .medium))
-                    .foregroundColor(isSelected ? Colors.accentBlue : Colors.textSecondary)
+                    .foregroundColor(isSelected ? SettingsPalette.accent : Colors.textSecondary)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)

@@ -12,7 +12,7 @@ struct AddFocusRecordView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                TimerGlassBackground()
                 
                 ScrollView {
                     VStack(spacing: Spacing.xl) {
@@ -99,7 +99,7 @@ struct AddFocusRecordView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") { dismiss() }
-                        .foregroundColor(Colors.accentRed)
+                        .foregroundColor(TimerPalette.accent)
                 }
             }
         }

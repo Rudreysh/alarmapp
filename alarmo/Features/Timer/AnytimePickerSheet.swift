@@ -9,7 +9,7 @@ struct AnytimePickerSheet: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            TimerGlassBackground()
             
             VStack(spacing: Spacing.xl) {
                 // Drag Indicator area handled by sheet presentation

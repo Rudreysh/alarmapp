@@ -16,7 +16,7 @@ struct DateSelectionSheet: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            PlanGlassBackground()
             
             VStack(spacing: 0) {
                 // Header
@@ -77,7 +77,7 @@ struct DateSelectionSheet: View {
                         DatePicker("", selection: $tempDate, displayedComponents: .date)
                             .datePickerStyle(.graphical)
                             .padding(.horizontal)
-                            .accentColor(Colors.accentGreen) 
+                            .accentColor(PlanPalette.accent) 
                         
                         // Quick Action Chips
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -96,7 +96,7 @@ struct DateSelectionSheet: View {
                         // Time Selection
                         VStack(alignment: .leading, spacing: 20) {
                             Toggle("Specified time", isOn: $tempHasTime)
-                                .toggleStyle(SwitchToggleStyle(tint: Colors.accentGreen))
+                                .toggleStyle(SwitchToggleStyle(tint: PlanPalette.accent))
                             
                             if tempHasTime {
                                 Picker("Time Mode", selection: $tempTimeMode) {
@@ -160,7 +160,7 @@ struct DateSelectionSheet: View {
                 .foregroundColor(Colors.textPrimary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(Colors.cardSurface)
+                .planGlassPanel(cornerRadius: 16)
                 .cornerRadius(20)
                 .overlay(RoundedRectangle(cornerRadius: 20).stroke(Colors.cardStroke, lineWidth: 1))
         }
@@ -219,7 +219,7 @@ struct ReminderSelectionSheet: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                PlanGlassBackground()
                 
                 VStack(spacing: 32) {
                     // Title
@@ -244,7 +244,7 @@ struct ReminderSelectionSheet: View {
                         Spacer()
                         Toggle("", isOn: $tempIsEnabled)
                             .labelsHidden()
-                            .toggleStyle(SwitchToggleStyle(tint: Colors.accentGreen))
+                            .toggleStyle(SwitchToggleStyle(tint: PlanPalette.accent))
                     }
                     .padding(.horizontal)
                     
@@ -344,7 +344,7 @@ struct GoalSelectionSheet: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            PlanGlassBackground()
             
             VStack(spacing: 0) {
                 HStack {
@@ -369,7 +369,7 @@ struct GoalSelectionSheet: View {
                             Text("Set a tracking goal for your task").font(.subheadline).foregroundColor(Colors.textSecondary)
                         }
                         Spacer()
-                        Toggle("", isOn: $tempIsEnabled).labelsHidden().toggleStyle(SwitchToggleStyle(tint: Colors.accentGreen))
+                        Toggle("", isOn: $tempIsEnabled).labelsHidden().toggleStyle(SwitchToggleStyle(tint: PlanPalette.accent))
                     }.padding(.horizontal)
                     
                     if tempIsEnabled {
@@ -393,7 +393,7 @@ struct GoalSelectionSheet: View {
                                     }
                                     .pickerStyle(.wheel)
                                     .frame(width: 80, height: 100)
-                                    .background(Colors.cardSurface)
+                                    .planGlassPanel(cornerRadius: 16)
                                     .cornerRadius(16)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 16)
@@ -414,7 +414,7 @@ struct GoalSelectionSheet: View {
                                     }
                                     .pickerStyle(.wheel)
                                     .frame(width: 80, height: 100)
-                                    .background(Colors.cardSurface)
+                                    .planGlassPanel(cornerRadius: 16)
                                     .cornerRadius(16)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 16)
@@ -433,10 +433,9 @@ struct GoalSelectionSheet: View {
                                     VStack(spacing: 12) {
                                         Text("\(tempCount)")
                                             .font(.system(size: 32, weight: .bold))
-                                            .foregroundColor(.black)
+                                            .foregroundColor(Colors.textPrimary)
                                             .frame(width: 140, height: 80)
-                                            .background(Color.white)
-                                            .cornerRadius(16)
+                                            .planGlassPanel(cornerRadius: 16, fillOpacity: 0.11)
                                         
                                         Text("Goal")
                                             .font(.headline)
@@ -450,10 +449,9 @@ struct GoalSelectionSheet: View {
                                     VStack(spacing: 12) {
                                         Text(tempUnit)
                                             .font(.system(size: 24, weight: .bold))
-                                            .foregroundColor(.black)
+                                            .foregroundColor(Colors.textPrimary)
                                             .frame(width: 140, height: 80)
-                                            .background(Color.white)
-                                            .cornerRadius(16)
+                                            .planGlassPanel(cornerRadius: 16, fillOpacity: 0.11)
                                         
                                         Text("Unit")
                                             .font(.headline)
@@ -504,20 +502,20 @@ struct NumberInputSheet: View {
     
     var body: some View {
         ZStack {
-            Colors.bgSecondary.ignoresSafeArea() // Light green/bg from image
+            PlanGlassBackground()
             
             VStack(spacing: 20) {
                 // Header
                 HStack {
                     Button(action: { dismiss() }) {
                         Image(systemName: "xmark")
-                            .foregroundColor(.black)
+                            .foregroundColor(PlanPalette.textPrimary)
                             .font(.title2)
                     }
                     Spacer()
                     Text("Count")
                         .font(.headline)
-                        .foregroundColor(.black)
+                        .foregroundColor(PlanPalette.textPrimary)
                     Spacer()
                     Spacer().frame(width: 24) // Balance
                 }
@@ -526,7 +524,7 @@ struct NumberInputSheet: View {
                 // Display
                 Text("\(value)")
                     .font(.system(size: 80, weight: .bold))
-                    .foregroundColor(.black)
+                    .foregroundColor(PlanPalette.textPrimary)
                     .padding(.vertical, 20)
                 
                 // Keypad
@@ -537,23 +535,27 @@ struct NumberInputSheet: View {
                                 Button(action: { handleKey(key) }) {
                                     ZStack {
                                         if key == "checkmark" {
-                                            Color.black
+                                            Color(red: 0.13, green: 0.74, blue: 0.84)
                                         } else if key == "backspace" {
-                                            Color.green.opacity(0.2) // Light green accent
+                                            Color.white.opacity(0.18)
                                         } else {
-                                            Color.white
+                                            Color.white.opacity(0.12)
                                         }
                                     }
                                     .cornerRadius(16)
                                     .frame(height: 70)
                                     .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                                    )
+                                    .overlay(
                                         Group {
                                             if key == "checkmark" {
                                                 Image(systemName: "checkmark").foregroundColor(.white).font(.title)
                                             } else if key == "backspace" {
-                                                Image(systemName: "delete.left").foregroundColor(.black).font(.title2)
+                                                Image(systemName: "delete.left").foregroundColor(PlanPalette.textPrimary).font(.title2)
                                             } else {
-                                                Text(key).font(.title).fontWeight(.bold).foregroundColor(.black)
+                                                Text(key).font(.title).fontWeight(.bold).foregroundColor(PlanPalette.textPrimary)
                                             }
                                         }
                                     )
@@ -565,7 +567,6 @@ struct NumberInputSheet: View {
                 .padding(.horizontal)
                 .padding(.bottom)
             }
-            .background(Color(red: 0.85, green: 0.98, blue: 0.92)) // Aprox mint color
         }
     }
     
@@ -594,27 +595,27 @@ struct UnitSelectionSheet: View {
     
     var body: some View {
         ZStack {
-            Color.white.ignoresSafeArea()
+            PlanGlassBackground()
             
             VStack(spacing: 20) {
                 // Header
                 HStack {
                     Button(action: { dismiss() }) {
                         Image(systemName: "xmark")
-                            .foregroundColor(.black)
+                            .foregroundColor(PlanPalette.textPrimary)
                             .font(.title2)
                     }
                     Spacer()
                     Button("Save") { dismiss() }
                         .font(.headline)
-                        .foregroundColor(.black)
+                        .foregroundColor(PlanPalette.textPrimary)
                 }
                 .padding()
                 
                 Text("Unit selection")
                     .font(.title3)
                     .fontWeight(.bold)
-                    .foregroundColor(.black)
+                    .foregroundColor(PlanPalette.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal)
                 
@@ -623,11 +624,19 @@ struct UnitSelectionSheet: View {
                         Button(action: { selectedUnit = unit }) {
                             Text(unit)
                                 .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(selectedUnit == unit ? .white : .black)
+                                .foregroundColor(selectedUnit == unit ? .white : PlanPalette.textPrimary)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 50)
-                                .background(selectedUnit == unit ? Color.black : Color(red: 0.85, green: 0.98, blue: 0.92))
+                                .background(
+                                    selectedUnit == unit
+                                    ? Color(red: 0.13, green: 0.74, blue: 0.84)
+                                    : Color.white.opacity(0.10)
+                                )
                                 .cornerRadius(25)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 25)
+                                        .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                                )
                         }
                     }
                 }
@@ -650,7 +659,7 @@ struct TagSelectionSheet: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            PlanGlassBackground()
             
             VStack(spacing: 0) {
                 HStack {
@@ -676,7 +685,7 @@ struct TagSelectionSheet: View {
                             }
                         }
                     }
-                    .listRowBackground(tempTag == nil ? Colors.accentGreen.opacity(0.3) : Colors.bgSecondary)
+                    .listRowBackground(tempTag == nil ? PlanPalette.accent.opacity(0.3) : Colors.bgSecondary)
                     
                     ForEach(tags, id: \.self) { tag in
                         Button { tempTag = tag } label: {
@@ -729,7 +738,7 @@ struct RepeatSelectionSheet: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            PlanGlassBackground()
             VStack(spacing: 0) {
                 // Header
                 HStack {
@@ -782,7 +791,7 @@ struct RepeatSelectionSheet: View {
                             Spacer()
                             Toggle("", isOn: $tempIsRepeatOn)
                                 .labelsHidden()
-                                .toggleStyle(SwitchToggleStyle(tint: Colors.accentGreen))
+                                .toggleStyle(SwitchToggleStyle(tint: PlanPalette.accent))
                         }
                         .padding(.horizontal)
                         
@@ -793,7 +802,7 @@ struct RepeatSelectionSheet: View {
                                 SegmentButton(title: "Weekly", isSelected: tempIntervalType == 1) { tempIntervalType = 1 }
                                 SegmentButton(title: "Monthly", isSelected: tempIntervalType == 2) { tempIntervalType = 2 }
                             }
-                            .background(Colors.cardSurface) // Light gray bg
+                            .planGlassPanel(cornerRadius: 16) // Light gray bg
                             .cornerRadius(12)
                             .padding(.horizontal)
                             
@@ -841,7 +850,7 @@ struct RepeatSelectionSheet: View {
                                     Spacer()
                                     Toggle("", isOn: $tempHasEndDate)
                                         .labelsHidden()
-                                        .toggleStyle(SwitchToggleStyle(tint: Colors.accentGreen))
+                                        .toggleStyle(SwitchToggleStyle(tint: PlanPalette.accent))
                                 }
                                 .padding()
                                 
@@ -915,7 +924,7 @@ struct SegmentButton: View {
                 .foregroundColor(isSelected ? Colors.textPrimary : Colors.textSecondary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(isSelected ? Colors.accentGreen.opacity(0.3) : Color.clear) // Light green for selected
+                .background(isSelected ? PlanPalette.accent.opacity(0.3) : Color.clear) // Light green for selected
                 .cornerRadius(10)
         }
         .buttonStyle(.plain)
@@ -936,7 +945,7 @@ struct TimeSelectionSheet: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            PlanGlassBackground()
             
             VStack(spacing: 0) {
                 // Header
@@ -1000,7 +1009,7 @@ struct TimeSelectionSheet: View {
                             Spacer()
                             Toggle("", isOn: $tempHasTime)
                                 .labelsHidden()
-                                .toggleStyle(SwitchToggleStyle(tint: Colors.accentGreen))
+                                .toggleStyle(SwitchToggleStyle(tint: PlanPalette.accent))
                         }
                         .padding(.horizontal)
                         
@@ -1073,4 +1082,3 @@ struct TimeSelectionSheet: View {
         }
     }
 }
-

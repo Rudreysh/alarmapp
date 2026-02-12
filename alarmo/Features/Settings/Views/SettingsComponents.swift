@@ -11,8 +11,23 @@ struct SettingsCard<Content: View>: View {
         VStack(spacing: 0) {
             content
         }
-        .background(Colors.cardSurface)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(
+                    LinearGradient(
+                        colors: [SettingsPalette.cardTop, SettingsPalette.cardBottom],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
+        )
         .cornerRadius(24)
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(Color.white.opacity(0.14), lineWidth: 1)
+        )
+        .shadow(color: SettingsPalette.accent.opacity(0.10), radius: 12, x: 0, y: 6)
         .padding(.horizontal, 16)
     }
 }
@@ -112,12 +127,12 @@ struct SettingsRadioRow: View {
                 
                 ZStack {
                     Circle()
-                        .stroke(isSelected ? Color.cyan : Color.white.opacity(0.2), lineWidth: 2)
+                        .stroke(isSelected ? SettingsPalette.accent : Color.white.opacity(0.2), lineWidth: 2)
                         .frame(width: 20, height: 20)
                     
                     if isSelected {
                         Circle()
-                            .fill(Color.cyan)
+                            .fill(SettingsPalette.accent)
                             .frame(width: 10, height: 10)
                     }
                 }
@@ -163,7 +178,7 @@ struct SettingsCardToggleRow: View {
                 Spacer()
                 
                 Toggle("", isOn: $isOn)
-                    .toggleStyle(SwitchToggleStyle(tint: .cyan))
+                    .toggleStyle(SwitchToggleStyle(tint: SettingsPalette.accent))
                     .labelsHidden()
                     .onChange(of: isOn) { _, _ in
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()

@@ -65,6 +65,20 @@ final class AppListsViewModel: ObservableObject {
         try? context.save()
     }
 
+    func deleteList(_ list: AppList, context: ModelContext) {
+        let deletingSelected = selectedListID == list.id
+        context.delete(list)
+        try? context.save()
+
+        if deletingSelected {
+            selectedListID = nil
+            settings.selectedBlockListId = ""
+            settings.blockedAppsSelectionData = Data()
+            settings.blockedMockApps = []
+            settings.blockedMockCategories = []
+        }
+    }
+
     private func listCount(of type: AppListType, context: ModelContext) -> Int {
         let descriptor = FetchDescriptor<AppList>()
         let all = (try? context.fetch(descriptor)) ?? []

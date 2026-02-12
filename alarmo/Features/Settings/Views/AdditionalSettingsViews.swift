@@ -6,7 +6,7 @@ struct AdvancedSettingsView: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            SettingsGlassBackground()
             
             VStack(spacing: 24) {
                 SettingsCard {
@@ -40,7 +40,7 @@ struct MissionTimeLimitSheet: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            SettingsGlassBackground()
             
             VStack(spacing: 0) {
                 Text("Mission time limit")
@@ -76,7 +76,7 @@ struct ThemeSettingsView: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            SettingsGlassBackground()
             
             VStack(spacing: 24) {
                 SettingsCard {
@@ -114,7 +114,7 @@ struct SoundOutputView: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            SettingsGlassBackground()
             
             VStack(spacing: 24) {
                 VStack(spacing: 16) {

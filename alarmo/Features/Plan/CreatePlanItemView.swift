@@ -52,10 +52,10 @@ struct CreatePlanItemView: View {
     
     // Preset Colors
     let presetColors: [(Color, String)] = [
-        (Colors.accentBlue, "blue"),
-        (Colors.accentRed, "red"),
-        (Colors.accentGreen, "green"),
-        (Colors.accentOrange, "orange"),
+        (PlanPalette.accent, "blue"),
+        (PlanPalette.accentStrong, "red"),
+        (PlanPalette.accent, "green"),
+        (PlanPalette.accentSoft, "orange"),
         (Color.purple, "purple"),
         (Color.cyan, "cyan"),
         (Color.pink, "pink"),
@@ -121,7 +121,7 @@ struct CreatePlanItemView: View {
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(Colors.textPrimary)
                                 .frame(width: 32, height: 32)
-                                .background(Colors.cardSurface)
+                                .planGlassPanel(cornerRadius: 16)
                                 .clipShape(Circle())
                                 .overlay(Circle().stroke(Colors.cardStroke, lineWidth: 1))
                         }
@@ -132,10 +132,18 @@ struct CreatePlanItemView: View {
                     }) {
                         Text("Save")
                             .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.black)
+                            .foregroundColor(Colors.textPrimary)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 8)
-                            .background(Color.white)
+                            .background(
+                                Capsule()
+                                    .fill(Color.white.opacity(0.24))
+                                    .background(.ultraThinMaterial, in: Capsule())
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                            )
                             .clipShape(Capsule())
                     }
                 }
@@ -210,7 +218,7 @@ struct CreatePlanItemView: View {
     @ViewBuilder
     private var formContent: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            PlanGlassBackground()
             
             VStack(spacing: 0) {
                 ScrollView {
@@ -244,13 +252,13 @@ struct CreatePlanItemView: View {
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 18)
-                                .background(Colors.accentRed)
+                                .background(PlanPalette.accent)
                                 .foregroundColor(.white)
                                 .cornerRadius(16)
                             }
                             .padding(.horizontal, 16)
                             .padding(.top, 20)
-                            .shadow(color: Colors.accentRed.opacity(0.3), radius: 10, x: 0, y: 5)
+                            .shadow(color: PlanPalette.accent.opacity(0.3), radius: 10, x: 0, y: 5)
                         }
                     }
                     .padding(.bottom, 40)
@@ -835,7 +843,7 @@ struct CreatePlanItemView: View {
         return f.string(from: date)
     }
     private func possibleColor(for key: String) -> Color {
-        return presetColors.first(where: { $0.1 == key })?.0 ?? Colors.accentBlue
+        return presetColors.first(where: { $0.1 == key })?.0 ?? PlanPalette.accent
     }
     // MARK: - Sub-View Sections
 
@@ -968,7 +976,7 @@ struct CreatePlanItemView: View {
                     showTagPicker = true
                 }
             }
-            .background(Colors.cardSurface)
+            .planGlassPanel(cornerRadius: 16)
             .cornerRadius(20)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
@@ -1015,7 +1023,7 @@ struct CreatePlanItemView: View {
                     }
                 }
                 .padding(4)
-                .background(Colors.cardSurface.opacity(0.5))
+                .planGlassPanel(cornerRadius: 12, fillOpacity: 0.08)
                 .cornerRadius(16)
                 .padding(Spacing.m)
                 
@@ -1041,7 +1049,7 @@ struct CreatePlanItemView: View {
                 }
                 .padding(Spacing.m)
             }
-            .background(Colors.cardSurface)
+            .planGlassPanel(cornerRadius: 16)
             .cornerRadius(20)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
@@ -1187,7 +1195,7 @@ struct CreatePlanItemView: View {
                 showGoalPicker = true
             }
         }
-        .background(Colors.cardSurface)
+        .planGlassPanel(cornerRadius: 16)
         .cornerRadius(20)
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Colors.cardStroke, lineWidth: 1))
         .padding(.horizontal, Spacing.m)
@@ -1200,7 +1208,7 @@ struct CreatePlanItemView: View {
                 showFocusPicker = true
             }
         }
-        .background(Colors.cardSurface)
+        .planGlassPanel(cornerRadius: 16)
         .cornerRadius(20)
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Colors.cardStroke, lineWidth: 1))
         .padding(.horizontal, Spacing.m)
@@ -1212,11 +1220,11 @@ struct CreatePlanItemView: View {
             HStack(spacing: Spacing.m) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Colors.accentGreen.opacity(0.1))
+                        .fill(PlanPalette.accent.opacity(0.1))
                         .frame(width: 32, height: 32)
                     Image(systemName: "hourglass.badge.plus")
                         .font(.system(size: 16))
-                        .foregroundColor(Colors.accentGreen)
+                        .foregroundColor(PlanPalette.accent)
                 }
                 
                 Text("Interval Timer")
@@ -1227,7 +1235,7 @@ struct CreatePlanItemView: View {
                 
                 Toggle("", isOn: $enableIntervals)
                     .labelsHidden()
-                    .tint(Colors.accentGreen)
+                    .tint(PlanPalette.accent)
                     .disabled(goalMode != 0)
                     .onChange(of: enableIntervals) { _, newValue in
                         if newValue { isFocusMode = true }
@@ -1289,7 +1297,7 @@ struct CreatePlanItemView: View {
                 .padding(Spacing.m)
             }
         }
-        .background(Colors.cardSurface)
+        .planGlassPanel(cornerRadius: 16)
         .cornerRadius(20)
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Colors.cardStroke, lineWidth: 1))
         .padding(.horizontal, Spacing.m)
@@ -1303,11 +1311,11 @@ struct CreatePlanItemView: View {
             HStack(spacing: Spacing.m) {
                  ZStack {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Colors.accentOrange.opacity(0.1))
+                        .fill(PlanPalette.accentSoft.opacity(0.1))
                         .frame(width: 32, height: 32)
                     Image(systemName: "checklist")
                         .font(.system(size: 16))
-                        .foregroundColor(Colors.accentOrange)
+                        .foregroundColor(PlanPalette.accentSoft)
                 }
                 
                 Text("Missions")
@@ -1345,10 +1353,10 @@ struct CreatePlanItemView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(Colors.accentBlue.opacity(0.1))
-                        .foregroundColor(Colors.accentBlue)
+                        .background(PlanPalette.accent.opacity(0.1))
+                        .foregroundColor(PlanPalette.accent)
                         .clipShape(Capsule())
-                        .overlay(Capsule().stroke(Colors.accentBlue.opacity(0.3), lineWidth: 1))
+                        .overlay(Capsule().stroke(PlanPalette.accent.opacity(0.3), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                     
@@ -1362,7 +1370,7 @@ struct CreatePlanItemView: View {
                 .padding(.bottom, Spacing.m)
             }
         }
-        .background(Colors.cardSurface)
+        .planGlassPanel(cornerRadius: 16)
         .cornerRadius(20)
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Colors.cardStroke, lineWidth: 1))
         .padding(.horizontal, Spacing.m)
@@ -1374,11 +1382,11 @@ struct CreatePlanItemView: View {
             HStack(spacing: Spacing.m) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Colors.accentBlue.opacity(0.1))
+                        .fill(PlanPalette.accent.opacity(0.1))
                         .frame(width: 32, height: 32)
                     Image(systemName: "list.bullet.indent")
                         .font(.system(size: 16))
-                        .foregroundColor(Colors.accentBlue)
+                        .foregroundColor(PlanPalette.accent)
                 }
                 
                 Text("Subtasks")
@@ -1394,7 +1402,7 @@ struct CreatePlanItemView: View {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 22))
                         .symbolRenderingMode(.hierarchical)
-                        .foregroundColor(Colors.accentBlue)
+                        .foregroundColor(PlanPalette.accent)
                 }
             }
             .padding(Spacing.m)
@@ -1419,7 +1427,7 @@ struct CreatePlanItemView: View {
                     .padding(.vertical, Spacing.m)
             }
         }
-        .background(Colors.cardSurface)
+        .planGlassPanel(cornerRadius: 16)
         .cornerRadius(20)
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(Colors.cardStroke, lineWidth: 1))
         .padding(.horizontal, Spacing.m)
@@ -1591,7 +1599,7 @@ struct FocusSelectionSheet: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                PlanGlassBackground()
                 
                 VStack(spacing: 24) {
                     VStack(alignment: .leading, spacing: 0) {
@@ -1605,7 +1613,7 @@ struct FocusSelectionSheet: View {
                             Spacer()
                             Toggle("", isOn: $isEnabled)
                                 .labelsHidden()
-                                .tint(Colors.accentGreen)
+                                .tint(PlanPalette.accent)
                         }
                         .padding()
                         
@@ -1632,7 +1640,7 @@ struct FocusSelectionSheet: View {
                                     }
                                     .pickerStyle(.wheel)
                                     .frame(width: 80, height: 80)
-                                    .background(Colors.cardSurface)
+                                    .planGlassPanel(cornerRadius: 16)
                                     .cornerRadius(16)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 16)
@@ -1651,7 +1659,7 @@ struct FocusSelectionSheet: View {
                                     }
                                     .pickerStyle(.wheel)
                                     .frame(width: 80, height: 80)
-                                    .background(Colors.cardSurface)
+                                    .planGlassPanel(cornerRadius: 16)
                                     .cornerRadius(16)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 16)
@@ -1680,7 +1688,7 @@ struct FocusSelectionSheet: View {
                                      .foregroundColor(Colors.textPrimary)
                              }
                              .padding()
-                             .background(Colors.cardSurface)
+                             .planGlassPanel(cornerRadius: 16)
                              .cornerRadius(16)
                              .padding(.horizontal)
                         }
@@ -1766,7 +1774,7 @@ struct MetricSelectionSheet: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                PlanGlassBackground()
                 
                 VStack(spacing: 24) {
                     // Metric Type Selector
@@ -1862,13 +1870,13 @@ struct MetricTypeButton: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 80)
-            .background(isSelected ? Colors.accentBlue.opacity(0.2) : Colors.cardSurface)
+            .background(isSelected ? PlanPalette.accent.opacity(0.2) : Colors.cardSurface)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? Colors.accentBlue : Colors.cardStroke, lineWidth: 2)
+                    .stroke(isSelected ? PlanPalette.accent : Colors.cardStroke, lineWidth: 2)
             )
             .cornerRadius(12)
-            .foregroundColor(isSelected ? Colors.accentBlue : Colors.textSecondary)
+            .foregroundColor(isSelected ? PlanPalette.accent : Colors.textSecondary)
         }
         .buttonStyle(.plain)
     }
@@ -1890,7 +1898,7 @@ struct WrappableHStack: View {
                         .font(.system(size: 14, weight: .medium))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(selectedTag == tag ? Colors.accentBlue : Colors.bgSecondary)
+                        .background(selectedTag == tag ? PlanPalette.accent : Colors.bgSecondary)
                         .foregroundColor(selectedTag == tag ? .white : Colors.textPrimary)
                         .cornerRadius(16)
                 }
@@ -1926,11 +1934,11 @@ struct MissionChip: View {
         .background(
             Capsule()
                 .fill(LinearGradient(
-                    colors: [Colors.accentBlue, Color.purple],
+                    colors: [PlanPalette.accent, Color.purple],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 ))
         )
-        .shadow(color: Colors.accentBlue.opacity(0.3), radius: 4, x: 0, y: 2)
+        .shadow(color: PlanPalette.accent.opacity(0.3), radius: 4, x: 0, y: 2)
     }
 }

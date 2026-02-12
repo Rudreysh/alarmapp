@@ -10,7 +10,7 @@ struct DurationPickerSheet: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            TimerGlassBackground()
             
             VStack(spacing: Spacing.xl) {
                 // Header (done inside toolbar mostly, but good to have title if needed)
@@ -23,7 +23,7 @@ struct DurationPickerSheet: View {
                     Spacer()
                     Toggle("", isOn: $isPomodoro)
                         .labelsHidden()
-                        .tint(Colors.accentRed)
+                        .tint(TimerPalette.accent)
                 }
                 .padding(.horizontal, Spacing.l)
                 .padding(.top, Spacing.m)

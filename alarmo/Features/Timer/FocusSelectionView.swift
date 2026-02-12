@@ -12,7 +12,7 @@ struct FocusSelectionView: View {
      
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            TimerGlassBackground()
             
             VStack(spacing: 24) {
                 // Header
@@ -73,7 +73,7 @@ struct FocusSelectionView: View {
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Colors.accentTeal)
+                                .background(TimerPalette.accent)
                                 .cornerRadius(16)
                         }
                         .padding(.horizontal, 40)
@@ -91,7 +91,7 @@ struct FocusSelectionView: View {
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Colors.accentBlue)
+                                .background(TimerPalette.accent)
                                 .cornerRadius(16)
                         }
                         .padding(.horizontal, 40)

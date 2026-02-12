@@ -18,7 +18,7 @@ struct TimerRootView: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            TimerGlassBackground()
             
             VStack(spacing: 0) {
                 // Toolbar
@@ -39,7 +39,25 @@ struct TimerRootView: View {
                                 .foregroundColor(viewModel.selectedMode == mode ? Colors.textPrimary : Colors.textSecondary)
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 16)
-                                .background(viewModel.selectedMode == mode ? Colors.cardSurface : Color.clear)
+                                .background(
+                                    Group {
+                                        if viewModel.selectedMode == mode {
+                                            Capsule()
+                                                .fill(
+                                                    LinearGradient(
+                                                        colors: [
+                                                            Color(red: 0.18, green: 0.21, blue: 0.28).opacity(0.95),
+                                                            Color(red: 0.12, green: 0.15, blue: 0.21).opacity(0.95)
+                                                        ],
+                                                        startPoint: .topLeading,
+                                                        endPoint: .bottomTrailing
+                                                    )
+                                                )
+                                        } else {
+                                            Color.clear
+                                        }
+                                    }
+                                )
                                 .clipShape(Capsule())
                                 .onTapGesture {
                                     withAnimation(.spring()) {
@@ -49,7 +67,23 @@ struct TimerRootView: View {
                                 }
                         }
                     }
-                    .background(Colors.bgSecondary)
+                    .background(
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 0.12, green: 0.15, blue: 0.20).opacity(0.92),
+                                        Color(red: 0.09, green: 0.12, blue: 0.17).opacity(0.92)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    )
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                    )
                     .clipShape(Capsule())
                     
                     Spacer()
@@ -106,12 +140,24 @@ struct TimerRootView: View {
                                 viewModel.showAddTimer = true
                             }
                         }
-                        .background(Colors.cardSurface)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(Color.white.opacity(0.10))
+                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        )
                         .clipShape(RoundedRectangle(cornerRadius: 18))
                         .overlay(
                             RoundedRectangle(cornerRadius: 18)
-                                .stroke(Colors.cardStroke, lineWidth: 1)
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.24), Color.white.opacity(0.10)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1
+                                )
                         )
+                        .shadow(color: Color.black.opacity(0.26), radius: 12, x: 0, y: 8)
                         .frame(width: 220)
                     }
                     .padding(.top, 62)
@@ -189,12 +235,16 @@ struct TimerRootView: View {
             action()
         }) {
             HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(Colors.textPrimary)
-                    .frame(width: 22)
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.12))
+                        .frame(width: 28, height: 28)
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Colors.textPrimary)
+                }
                 Text(title)
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(Colors.textPrimary)
                 Spacer()
             }

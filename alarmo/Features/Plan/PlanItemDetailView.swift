@@ -15,7 +15,7 @@ struct PlanItemDetailView: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            PlanGlassBackground()
             
             VStack(spacing: 0) {
                 // Header
@@ -23,10 +23,8 @@ struct PlanItemDetailView: View {
                     Button(action: { dismiss() }) {
                         Image(systemName: "xmark")
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(Colors.textSecondary)
-                            .frame(width: 32, height: 32)
-                            .background(Colors.bgSecondary)
-                            .clipShape(Circle())
+                            .foregroundColor(PlanPalette.textSecondary)
+                            .planGlassCircle(size: 32, fillOpacity: 0.12)
                     }
                     Spacer()
                     Text("Today")
@@ -60,12 +58,9 @@ struct PlanItemDetailView: View {
                                 Text("Start Focus")
                             }
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(Colors.accentRed)
-                            .cornerRadius(30)
-                            .appShadow(Shadows.button)
+                            .planPrimaryCTA(cornerRadius: 30)
                         }
                         .padding(.horizontal, 24)
                     }
@@ -76,12 +71,9 @@ struct PlanItemDetailView: View {
                             Text("Add Progress")
                         }
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(itemColor)
-                        .cornerRadius(30)
-                        .appShadow(Shadows.button)
+                        .planPrimaryCTA(cornerRadius: 30)
                     }
                     .padding(.horizontal, 24)
                     
@@ -572,23 +564,23 @@ struct AddHabitProgressSheet: View {
     
     var body: some View {
         ZStack {
-            itemBgColor.ignoresSafeArea()
+            PlanGlassBackground()
             
             VStack(spacing: 24) {
                 // Header
                 HStack {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(.black)
+                        .foregroundColor(PlanPalette.textPrimary)
                     Spacer()
                     Text("Add \(item.goalUnit)")
                         .font(.headline)
-                        .foregroundColor(.black)
+                        .foregroundColor(PlanPalette.textPrimary)
                     Spacer()
                     Button(action: saveProgress) {
                         Image(systemName: "checkmark")
                             .foregroundColor(.white)
                             .padding(8)
-                            .background(Color.black)
+                            .background(Color(red: 0.13, green: 0.74, blue: 0.84))
                             .clipShape(Circle())
                     }
                 }
@@ -602,7 +594,7 @@ struct AddHabitProgressSheet: View {
                         .font(.title2)
                         .fontWeight(.bold)
                 }
-                .foregroundColor(.black)
+                .foregroundColor(PlanPalette.textPrimary)
                 .padding(.top, 20)
                 
                 // Presets
@@ -617,9 +609,10 @@ struct AddHabitProgressSheet: View {
                                     .fontWeight(.bold)
                             }
                             .frame(width: 64, height: 64)
-                            .background(Color.white.opacity(0.8))
+                            .background(Color.white.opacity(0.12))
+                            .overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 1))
                             .clipShape(Circle())
-                            .foregroundColor(.black)
+                            .foregroundColor(PlanPalette.textPrimary)
                         }
                     }
                 }
@@ -650,9 +643,8 @@ struct AddHabitProgressSheet: View {
                                     }
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 60)
-                                    .background(Color.white)
-                                    .cornerRadius(12)
-                                    .foregroundColor(.black)
+                                    .planGlassPanel(cornerRadius: 12, fillOpacity: 0.11)
+                                    .foregroundColor(Colors.textPrimary)
                                     .opacity(key.isEmpty ? 0 : 1)
                                 }
                                 .disabled(key.isEmpty)
@@ -748,4 +740,3 @@ struct AddHabitProgressSheet: View {
         }
     }
 }
-

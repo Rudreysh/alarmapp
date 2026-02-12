@@ -39,7 +39,7 @@ struct DetailedNewTaskView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                TimerGlassBackground()
                 
                 ScrollView {
                     VStack(spacing: Spacing.l) {
@@ -49,7 +49,7 @@ struct DetailedNewTaskView: View {
                             Button(action: { showEmojiPicker = true }) {
                                 ZStack {
                                     RoundedRectangle(cornerRadius: 12)
-                                        .fill(Colors.accentRed)
+                                        .fill(TimerPalette.accent)
                                         .frame(width: 50, height: 50)
                                     if selectedEmoji.isEmpty {
                                         Image(systemName: "face.smiling")
@@ -206,7 +206,7 @@ struct DetailedNewTaskView: View {
                                         Spacer()
                                         Toggle("", isOn: $autoStartNextSession)
                                             .labelsHidden()
-                                            .tint(Colors.accentRed)
+                                            .tint(TimerPalette.accent)
                                     }
                                     .padding()
                                     
@@ -224,7 +224,7 @@ struct DetailedNewTaskView: View {
                                         Spacer()
                                         Toggle("", isOn: $autoStartNextCycle)
                                             .labelsHidden()
-                                            .tint(Colors.accentRed)
+                                            .tint(TimerPalette.accent)
                                     }
                                     .padding()
                                 }
@@ -301,7 +301,7 @@ struct DetailedNewTaskView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(Colors.accentRed)
+                        .foregroundColor(TimerPalette.accent)
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -385,7 +385,7 @@ struct ToggleRow: View {
             Spacer()
             Toggle("", isOn: $isOn)
                 .labelsHidden()
-                .tint(Colors.accentRed)
+                .tint(TimerPalette.accent)
         }
         .padding()
     }

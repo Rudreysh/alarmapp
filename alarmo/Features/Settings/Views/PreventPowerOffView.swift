@@ -11,21 +11,12 @@ struct PreventPowerOffView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Colors.bgPrimary,
-                    Color(red: 0.04, green: 0.07, blue: 0.14),
-                    Colors.bgPrimary
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            SettingsGlassBackground()
             .overlay(alignment: .topLeading) {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [Colors.accentTeal.opacity(0.18), .clear],
+                            colors: [SettingsPalette.accent.opacity(0.22), .clear],
                             center: .center,
                             startRadius: 10,
                             endRadius: 260
@@ -38,7 +29,7 @@ struct PreventPowerOffView: View {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [Color(red: 0.33, green: 0.44, blue: 0.95).opacity(0.12), .clear],
+                            colors: [SettingsPalette.accentDark.opacity(0.16), .clear],
                             center: .center,
                             startRadius: 10,
                             endRadius: 260
@@ -111,7 +102,7 @@ struct PreventPowerOffView: View {
                                     in: 1...10
                                 )
                                 .labelsHidden()
-                                .tint(Colors.accentTeal)
+                                .tint(SettingsPalette.accent)
                             }
                             .padding(16)
                         }
@@ -128,10 +119,10 @@ struct PreventPowerOffView: View {
 
                             Button("How this works") { showInfo = true }
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(Colors.accentTeal)
+                                .foregroundColor(SettingsPalette.accent)
                             Button("App Protection Guide") { showGuide = true }
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(Colors.accentTeal)
+                                .foregroundColor(SettingsPalette.accent)
                         }
                         .padding(16)
                     }
@@ -143,13 +134,13 @@ struct PreventPowerOffView: View {
                                 .foregroundColor(.white)
                             Text("Balance: \(settings.penaltyCurrency.symbol)\(settings.penaltyCreditsBalance)")
                                 .font(.system(size: 22, weight: .black))
-                                .foregroundColor(Colors.accentTeal)
+                                .foregroundColor(SettingsPalette.accent)
 
                             Button("Add test credits (no card)") {
                                 creditsManager.addTestCredits(25)
                             }
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(Colors.accentTeal)
+                            .foregroundColor(SettingsPalette.accent)
 
                             if creditsManager.products.isEmpty {
                                 Button("Load credit packs") {
@@ -209,11 +200,11 @@ struct PreventPowerOffView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "shield.lefthalf.filled")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(Colors.accentTeal)
+                        .foregroundColor(SettingsPalette.accent)
                         .padding(8)
                         .background(
                             RoundedRectangle(cornerRadius: 10)
-                                .fill(Colors.accentTeal.opacity(0.16))
+                                .fill(SettingsPalette.accent.opacity(0.16))
                         )
                     Text("Accountability Shield")
                         .font(.system(size: 34, weight: .black))
@@ -242,8 +233,8 @@ struct PreventPowerOffView: View {
         .background(
             LinearGradient(
                 colors: [
-                    Color(red: 0.10, green: 0.12, blue: 0.22).opacity(0.95),
-                    Color(red: 0.09, green: 0.11, blue: 0.20).opacity(0.95)
+                    SettingsPalette.cardTop,
+                    SettingsPalette.cardBottom
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -254,9 +245,9 @@ struct PreventPowerOffView: View {
                 .stroke(
                     LinearGradient(
                         colors: [
-                            Colors.accentTeal.opacity(0.22),
+                            SettingsPalette.accent.opacity(0.22),
                             .white.opacity(0.06),
-                            Colors.accentTeal.opacity(0.08)
+                            SettingsPalette.accentDark.opacity(0.12)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -278,7 +269,7 @@ struct PenaltyAmountPickerSheet: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                SettingsGlassBackground()
                 VStack(spacing: 20) {
                     Text("Select penalty amount")
                         .font(.system(size: 20, weight: .bold))
@@ -326,7 +317,7 @@ struct AccountabilityInfoView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                SettingsGlassBackground()
                 VStack(alignment: .leading, spacing: 16) {
                     Text("How it works")
                         .font(.system(size: 24, weight: .bold))

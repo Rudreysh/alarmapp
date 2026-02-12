@@ -38,6 +38,54 @@ struct PomoTimerView: View {
             let diameter = min(availableWidth * 0.75, availableHeight * 0.45)
             
             ZStack {
+                // Opal-like atmospheric background (Pomodoro screen only)
+                LinearGradient(
+                    colors: [
+                        Color.black,
+                        Color(red: 0.02, green: 0.03, blue: 0.06),
+                        Color(red: 0.03, green: 0.06, blue: 0.10),
+                        Color(red: 0.02, green: 0.03, blue: 0.06),
+                        Color.black
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .overlay(alignment: .top) {
+                    RoundedRectangle(cornerRadius: 80, style: .continuous)
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    TimerPalette.accentSoft.opacity(0.24),
+                                    .clear
+                                ],
+                                center: .center,
+                                startRadius: 20,
+                                endRadius: 320
+                            )
+                        )
+                        .frame(width: availableWidth * 0.45, height: 340)
+                        .blur(radius: 26)
+                        .offset(y: -110)
+                }
+                .overlay(alignment: .bottom) {
+                    Ellipse()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    TimerPalette.accent.opacity(0.20),
+                                    .clear
+                                ],
+                                center: .center,
+                                startRadius: 10,
+                                endRadius: 260
+                            )
+                        )
+                        .frame(width: availableWidth * 0.78, height: 170)
+                        .blur(radius: 18)
+                        .offset(y: 80)
+                }
+                .allowsHitTesting(false)
+
                 // Main Timer UI
                 VStack(spacing: 0) {
                     // Task Selection Header
@@ -49,7 +97,7 @@ struct PomoTimerView: View {
                                 
                                 Image(systemName: "plus.circle.fill")
                                     .font(.system(size: 16))
-                                    .foregroundColor(Colors.accentTeal)
+                                    .foregroundColor(TimerPalette.accent)
                                 
                                 Image(systemName: "chevron.right")
                                     .font(.system(size: 14, weight: .bold))
@@ -59,14 +107,29 @@ struct PomoTimerView: View {
                             if let progress = habitProgressText {
                                 Text(progress)
                                     .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(Colors.accentTeal)
+                                    .foregroundColor(TimerPalette.accent)
                             }
                         }
                         .foregroundColor(Colors.textPrimary)
                         .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Colors.cardSurface.opacity(0.4))
-                        .cornerRadius(20)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule()
+                                .fill(Color.white.opacity(0.10))
+                                .background(.ultraThinMaterial, in: Capsule())
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.34), Color.white.opacity(0.10)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1
+                                )
+                        )
+                        .shadow(color: Color.black.opacity(0.28), radius: 10, x: 0, y: 5)
                     }
                     .padding(.top, Spacing.m)
                     .frame(maxHeight: availableHeight * 0.2) // Increased slightly for progress text
@@ -129,9 +192,48 @@ struct PomoTimerView: View {
                             idleControlRow
                                 .padding(.horizontal, Spacing.l)
                             
-                            PrimaryButton(title: "Start Timer") {
+                            Button {
                                 engine.start(taskId: taskStore.selectedTaskId)
                             }
+                            label: {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "play.fill")
+                                        .font(.system(size: 19, weight: .bold))
+                                    Text("Start Timer")
+                                        .font(.system(size: 22, weight: .semibold))
+                                }
+                                .foregroundColor(Color.white.opacity(0.95))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 18)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    TimerPalette.accentSoft.opacity(0.68),
+                                                    TimerPalette.accentStrong.opacity(0.72),
+                                                    TimerPalette.accent.opacity(0.70)
+                                                ],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
+                                            )
+                                        )
+                                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                        .stroke(
+                                            LinearGradient(
+                                                colors: [Color.white.opacity(0.44), Color.white.opacity(0.14)],
+                                                startPoint: .top,
+                                                endPoint: .bottom
+                                            ),
+                                            lineWidth: 1
+                                        )
+                                )
+                                .shadow(color: TimerPalette.accent.opacity(0.10), radius: 7, x: 0, y: 4)
+                            }
+                            .buttonStyle(PressedScaleButtonStyle())
                             .padding(.horizontal, Spacing.l)
                         } else {
                             // Running / Paused Controls
@@ -274,14 +376,19 @@ struct PomoTimerView: View {
             } label: {
                 Text("\(max(1, engine.config.focusSeconds / 60))m")
                     .font(.system(size: 19, weight: .bold))
-                    .foregroundColor(Colors.bgPrimary)
+                    .foregroundColor(Color.black.opacity(0.88))
                     .frame(minWidth: 92)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 14)
                     .background(
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .fill(Color.white)
+                            .fill(Color.white.opacity(0.96))
                     )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(Color.white.opacity(0.7), lineWidth: 0.6)
+                    )
+                    .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 4)
             }
             .buttonStyle(.plain)
             
@@ -304,12 +411,14 @@ struct PomoTimerView: View {
                 .frame(maxWidth: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(Colors.cardSurface.opacity(0.95))
+                        .fill(Color.white.opacity(0.12))
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(Colors.cardStroke, lineWidth: 1)
+                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
                 )
+                .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 5)
             }
             .buttonStyle(.plain)
         }
@@ -323,12 +432,14 @@ struct PomoTimerView: View {
                 .frame(width: 56, height: 56)
                 .background(
                     Circle()
-                        .fill(Colors.cardSurface.opacity(0.95))
+                        .fill(Color.white.opacity(0.12))
+                        .background(.ultraThinMaterial, in: Circle())
                 )
                 .overlay(
                     Circle()
-                        .stroke(Colors.cardStroke, lineWidth: 1)
+                        .stroke(Color.white.opacity(0.24), lineWidth: 1)
                 )
+                .shadow(color: Color.black.opacity(0.26), radius: 10, x: 0, y: 5)
         }
         .buttonStyle(.plain)
     }
@@ -363,11 +474,11 @@ struct PomoTimerView: View {
     }
     
     var currentSegmentColor: Color {
-        guard let segment = engine.state.currentSegment else { return Colors.accentRed }
+        guard let segment = engine.state.currentSegment else { return TimerPalette.accent }
         switch segment {
-        case .focus: return Colors.accentRed
-        case .shortBreak: return Colors.accentTeal
-        case .longBreak: return Colors.accentGreen
+        case .focus: return TimerPalette.accent
+        case .shortBreak: return TimerPalette.accent
+        case .longBreak: return TimerPalette.accent
         }
     }
     
@@ -407,7 +518,7 @@ struct PomoTimerView: View {
                 .foregroundColor(.white)
                 .padding()
                 .frame(maxWidth: .infinity)
-                .background(Colors.accentTeal)
+                .background(TimerPalette.accent)
                 .cornerRadius(12)
             }
             
@@ -430,7 +541,7 @@ struct PomoTimerView: View {
         VStack(spacing: Spacing.l) {
             Image(systemName: "flag.checkered")
                 .font(.system(size: 40))
-                .foregroundColor(Colors.accentGreen)
+                .foregroundColor(TimerPalette.accent)
             
             Text("Cycle Complete!")
                 .font(.title2)
@@ -450,7 +561,7 @@ struct PomoTimerView: View {
                     .foregroundColor(.white)
                     .padding()
                     .frame(maxWidth: .infinity)
-                    .background(Colors.accentGreen)
+                    .background(TimerPalette.accent)
                     .cornerRadius(12)
             }
             

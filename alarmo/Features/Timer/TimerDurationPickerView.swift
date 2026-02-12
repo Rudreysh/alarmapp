@@ -18,12 +18,12 @@ struct TimerDurationPickerView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                TimerGlassBackground()
                 
                 VStack(spacing: Spacing.xl) {
                     Text("\(selectedMinutes) min")
                         .font(.system(size: 44, weight: .bold))
-                        .foregroundColor(Colors.accentTeal)
+                        .foregroundColor(TimerPalette.accent)
                     
                     Picker(segmentTitle, selection: $selectedMinutes) {
                         ForEach(1...120, id: \.self) { i in
@@ -56,7 +56,7 @@ struct TimerDurationPickerView: View {
                     Button("Done") { 
                         onSave(selectedMinutes)
                     }
-                    .foregroundColor(Colors.accentTeal)
+                    .foregroundColor(TimerPalette.accent)
                 }
             }
         }

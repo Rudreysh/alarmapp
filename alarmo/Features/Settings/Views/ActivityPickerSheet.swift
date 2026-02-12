@@ -23,7 +23,7 @@ struct ActivityPickerSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
-                Colors.bgPrimary.ignoresSafeArea()
+                SettingsGlassBackground()
 
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Choose Activities")

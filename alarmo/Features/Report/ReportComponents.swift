@@ -1,6 +1,19 @@
 import SwiftUI
 import Charts
 
+enum ReportPalette {
+    static let accent = Color(red: 0.08, green: 0.78, blue: 0.92)
+    static let accentDark = Color(red: 0.05, green: 0.34, blue: 0.52)
+    static let glow = Color(red: 0.28, green: 0.88, blue: 0.98)
+    static let cardStart = Color(red: 0.05, green: 0.10, blue: 0.15).opacity(0.92)
+    static let cardEnd = Color(red: 0.03, green: 0.06, blue: 0.10).opacity(0.95)
+    static let accentGradient = LinearGradient(
+        colors: [accent, glow.opacity(0.82), accentDark],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+}
+
 struct RingProgressView: View {
     let progress: Double
     let subtitle: String
@@ -14,7 +27,7 @@ struct RingProgressView: View {
             Circle()
                 .trim(from: 0, to: clampedProgress)
                 .stroke(
-                    LinearGradient(colors: [Colors.accentBlue, .purple], startPoint: .top, endPoint: .bottom),
+                    ReportPalette.accentGradient,
                     style: StrokeStyle(lineWidth: 20, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
@@ -103,7 +116,16 @@ struct KPICard: View {
             }
         }
         .padding(16)
-        .background(Colors.cardSurface)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(
+                    LinearGradient(
+                        colors: [ReportPalette.cardStart, ReportPalette.cardEnd],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        )
         .cornerRadius(20)
         .overlay(
             RoundedRectangle(cornerRadius: 20)
@@ -127,7 +149,7 @@ struct ActivityTrendChart: View {
                         x: .value("Date", point.label),
                         y: .value("Value", point.value)
                     )
-                    .foregroundStyle(Colors.accentBlue.gradient)
+                    .foregroundStyle(ReportPalette.accentGradient)
                     .cornerRadius(4)
                 }
             }
@@ -183,18 +205,18 @@ struct HeatmapGridView: View {
                     Button { onMove(-1) } label: {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(Colors.accentBlue)
+                            .foregroundColor(ReportPalette.accent)
                             .padding(6)
-                            .background(Colors.accentBlue.opacity(0.1))
+                            .background(ReportPalette.accent.opacity(0.12))
                             .clipShape(Circle())
                     }
                     
                     Button { onMove(1) } label: {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(Colors.accentBlue)
+                            .foregroundColor(ReportPalette.accent)
                             .padding(6)
-                            .background(Colors.accentBlue.opacity(0.1))
+                            .background(ReportPalette.accent.opacity(0.12))
                             .clipShape(Circle())
                     }
                 }
@@ -203,10 +225,10 @@ struct HeatmapGridView: View {
                 let activeDays = heatmap.values.filter { $0 > 0 }.count
                 Text("\(activeDays) Active Days")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Colors.accentBlue)
+                    .foregroundColor(ReportPalette.accent)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Colors.accentBlue.opacity(0.1))
+                    .background(ReportPalette.accent.opacity(0.12))
                     .cornerRadius(8)
             }
             
@@ -223,7 +245,7 @@ struct HeatmapGridView: View {
                                 if let date = calendar.date(byAdding: .day, value: index, to: startDate) {
                                     Text("\(calendar.component(.day, from: date))")
                                         .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(calendar.isDateInToday(date) ? Colors.accentBlue : Colors.textPrimary)
+                                        .foregroundColor(calendar.isDateInToday(date) ? ReportPalette.accent : Colors.textPrimary)
                                 }
                             }
                         }
@@ -252,7 +274,7 @@ struct HeatmapGridView: View {
                             
                             if isToday {
                                 RoundedRectangle(cornerRadius: 4)
-                                    .stroke(Colors.accentBlue.opacity(0.6), lineWidth: 1.5)
+                                    .stroke(ReportPalette.accent.opacity(0.6), lineWidth: 1.5)
                             }
                             
                             if isSelected {
@@ -338,9 +360,9 @@ struct HeatmapGridView: View {
     
     private func colorForValue(_ value: Double) -> Color {
         if value <= 0 { return Color.white.opacity(0.05) }
-        if value < 1 { return Colors.accentBlue.opacity(0.3) }
-        if value < 2 { return Colors.accentBlue.opacity(0.6) }
-        return Colors.accentBlue
+        if value < 1 { return ReportPalette.accent.opacity(0.30) }
+        if value < 2 { return ReportPalette.accent.opacity(0.62) }
+        return ReportPalette.accent
     }
 }
 
@@ -410,7 +432,7 @@ struct OverallMonthCalendarView: View {
                                 Circle()
                                     .trim(from: 0, to: progress)
                                     .stroke(
-                                        Colors.accentBlue,
+                                        ReportPalette.accent,
                                         style: StrokeStyle(lineWidth: 3, lineCap: .round)
                                     )
                                     .frame(width: 44, height: 44)
@@ -420,7 +442,7 @@ struct OverallMonthCalendarView: View {
                             // Selection indicator
                             if isSelected {
                                 Circle()
-                                    .fill(Colors.accentBlue.opacity(0.15))
+                                    .fill(ReportPalette.accent.opacity(0.14))
                                     .frame(width: 44, height: 44)
                             }
                             
@@ -515,18 +537,18 @@ struct HabitCalendarView: View {
                             
                             ZStack {
                                 Circle()
-                                    .fill(isSelected ? Colors.accentBlue.opacity(0.15) : Color.clear)
+                                    .fill(isSelected ? ReportPalette.accent.opacity(0.14) : Color.clear)
                                     .frame(width: 50, height: 50)
                                 
                                 if value > 0 {
                                     Circle()
                                         .trim(from: 0, to: min(value, 1.0))
-                                        .stroke(Colors.accentBlue, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                                        .stroke(ReportPalette.accent, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                                         .frame(width: 50, height: 50)
                                         .rotationEffect(.degrees(-90))
                                 } else if isToday {
                                     Circle()
-                                        .stroke(Colors.accentBlue.opacity(0.3), lineWidth: 2)
+                                        .stroke(ReportPalette.accent.opacity(0.3), lineWidth: 2)
                                         .frame(width: 50, height: 50)
                                 }
                                 
@@ -542,7 +564,7 @@ struct HabitCalendarView: View {
                             
                             if value > 1.1 {
                                 Circle()
-                                    .fill(Colors.accentBlue)
+                                    .fill(ReportPalette.accent)
                                     .frame(width: 4, height: 4)
                             } else {
                                 Color.clear.frame(width: 4, height: 4)
@@ -578,7 +600,7 @@ struct HabitCalendarView: View {
                         Text("Less").font(.system(size: 10)).foregroundColor(Colors.textTertiary)
                         ForEach([0, 0.3, 0.6, 1.0], id: \.self) { i in
                             Circle()
-                                .stroke(Colors.accentBlue.opacity(i == 0 ? 0.1 : i), lineWidth: 1.5)
+                                .stroke(ReportPalette.accent.opacity(i == 0 ? 0.1 : i), lineWidth: 1.5)
                                 .frame(width: 10, height: 10)
                         }
                         Text("More").font(.system(size: 10)).foregroundColor(Colors.textTertiary)

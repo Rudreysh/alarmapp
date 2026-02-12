@@ -7,7 +7,7 @@ struct AppProtectionGuideView: View {
         NavigationView {
             ScrollView {
                 ZStack {
-                    Colors.bgPrimary.ignoresSafeArea()
+                    SettingsGlassBackground()
                     
                     VStack(alignment: .leading, spacing: Spacing.xl) {
                         // Header

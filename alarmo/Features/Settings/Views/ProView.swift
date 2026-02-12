@@ -6,7 +6,7 @@ struct ProView: View {
     
     var body: some View {
         ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
+            SettingsGlassBackground()
             
             VStack(spacing: 0) {
                 HStack {
@@ -44,8 +44,8 @@ struct ProView: View {
                                 .font(.system(size: 14, weight: .bold))
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 6)
-                                .background(Color.green.opacity(0.2))
-                                .foregroundColor(.green)
+                                .background(SettingsPalette.accent.opacity(0.2))
+                                .foregroundColor(SettingsPalette.accent)
                                 .clipShape(Capsule())
                         }
                         
@@ -54,14 +54,14 @@ struct ProView: View {
                             VStack(alignment: .leading, spacing: 16) {
                                 HStack {
                                     Image(systemName: "exclamationmark.circle.fill")
-                                        .foregroundColor(.red)
+                                        .foregroundColor(SettingsPalette.accentDark)
                                     Text("Strengthen the alarm power!")
                                         .font(.system(size: 16, weight: .bold))
-                                        .foregroundColor(.red)
+                                        .foregroundColor(SettingsPalette.accentDark)
                                     Spacer()
                                     Image(systemName: "chevron.right")
                                         .font(.system(size: 14))
-                                        .foregroundColor(.red.opacity(0.6))
+                                        .foregroundColor(SettingsPalette.accentDark.opacity(0.7))
                                 }
                                 
                                 HStack(alignment: .bottom, spacing: 8) {
@@ -77,7 +77,7 @@ struct ProView: View {
                                     // Small bar chart illustration
                                     HStack(alignment: .bottom, spacing: 4) {
                                         RoundedRectangle(cornerRadius: 2)
-                                            .fill(LinearGradient(colors: [.orange, .red], startPoint: .top, endPoint: .bottom))
+                                            .fill(LinearGradient(colors: [SettingsPalette.accentBright, SettingsPalette.accentDark], startPoint: .top, endPoint: .bottom))
                                             .frame(width: 12, height: 15)
                                         RoundedRectangle(cornerRadius: 2)
                                             .fill(Color.white.opacity(0.1))
@@ -91,7 +91,7 @@ struct ProView: View {
                             }
                             .padding(20)
                         }
-                        .background(Color.red.opacity(0.05))
+                        .background(SettingsPalette.accentDark.opacity(0.06))
                         .cornerRadius(24)
                         
                         // Usage Card
