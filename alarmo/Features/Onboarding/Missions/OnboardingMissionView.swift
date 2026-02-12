@@ -55,7 +55,7 @@ struct OnboardingMissionView: View {
                 Spacer()
             }
             .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "Done") {
+                PrimaryButton(title: "Done", style: .blueGlass) {
                     onboardingViewModel.completeOnboarding()
                     onDone()
                 }

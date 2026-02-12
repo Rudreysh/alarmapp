@@ -37,7 +37,7 @@ struct OnboardingPermissionsView: View {
                     PermissionIconLabel(
                         title: "Notifications",
                         systemImage: "bell.fill",
-                        color: Colors.accentRed
+                        color: Colors.accentTeal
                     )
                 }
 
@@ -51,7 +51,7 @@ struct OnboardingPermissionsView: View {
                 Spacer()
             }
             .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "Next") {
+                PrimaryButton(title: "Next", style: .blueGlass) {
                     requestPermission()
                 }
                 .padding(.horizontal, Spacing.l)

@@ -43,7 +43,7 @@ struct OnboardingWallpaperPreviewView: View {
 
                 Spacer()
 
-                PrimaryButton(title: "Select") {
+                PrimaryButton(title: "Select", style: .blueGlass) {
                     onSelect()
                 }
                 .padding(.horizontal, Spacing.l)

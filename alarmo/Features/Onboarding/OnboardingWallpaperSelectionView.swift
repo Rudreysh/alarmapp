@@ -58,7 +58,7 @@ struct OnboardingWallpaperSelectionView: View {
                 Spacer(minLength: 0)
             }
             .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "Next") {
+                PrimaryButton(title: "Next", style: .blueGlass) {
                     onNext()
                 }
                 .padding(.horizontal, Spacing.l)
@@ -133,7 +133,7 @@ private struct WallpaperCard: View {
         .clipShape(RoundedRectangle(cornerRadius: Radii.card))
         .overlay(
             RoundedRectangle(cornerRadius: Radii.card)
-                .stroke(isSelected ? Colors.accentRed : Colors.cardStroke, lineWidth: isSelected ? 2 : 1)
+                .stroke(isSelected ? Colors.accentTeal : Colors.cardStroke, lineWidth: isSelected ? 2 : 1)
         )
         .appShadow(Shadows.card)
     }
@@ -162,7 +162,7 @@ private struct MyPhotosCard: View {
         .background(Colors.cardSurface)
         .overlay(
             RoundedRectangle(cornerRadius: Radii.card)
-                .stroke(isSelected ? Colors.accentRed : Colors.cardStroke, lineWidth: isSelected ? 2 : 1)
+                .stroke(isSelected ? Colors.accentTeal : Colors.cardStroke, lineWidth: isSelected ? 2 : 1)
         )
         .cornerRadius(Radii.card)
         .appShadow(Shadows.card)

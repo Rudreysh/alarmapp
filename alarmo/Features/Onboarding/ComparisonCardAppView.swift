@@ -6,7 +6,7 @@ struct ComparisonCardAppView: View {
             VStack(alignment: .leading, spacing: Spacing.l) {
                 Text(AppConstants.appName)
                     .cardTitle()
-                    .foregroundColor(Colors.accentRed)
+                    .foregroundColor(Colors.accentTeal)
 
                 HStack {
                     Text("7:00")
@@ -15,7 +15,7 @@ struct ComparisonCardAppView: View {
                     Spacer()
                     Toggle("", isOn: .constant(true))
                         .labelsHidden()
-                        .toggleStyle(SwitchToggleStyle(tint: Colors.accentRed))
+                        .toggleStyle(SwitchToggleStyle(tint: Colors.accentTeal))
                         .disabled(true)
                 }
 

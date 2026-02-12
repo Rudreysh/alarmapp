@@ -222,6 +222,6 @@ struct OnboardingFlowView: View {
                 }
             }
         }
-        .tint(Colors.accentRed)
+        .tint(Colors.accentTeal)
     }
 }

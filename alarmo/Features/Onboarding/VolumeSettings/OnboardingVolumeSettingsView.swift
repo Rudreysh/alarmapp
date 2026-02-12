@@ -36,7 +36,7 @@ struct OnboardingVolumeSettingsView: View {
                 Spacer()
             }
             .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "Next") {
+                PrimaryButton(title: "Next", style: .blueGlass) {
                     onboardingViewModel.setVolume(viewModel.volume)
                     onboardingViewModel.setGentleWakeUp(viewModel.gentleWakeUpEnabled)
                     onNext()

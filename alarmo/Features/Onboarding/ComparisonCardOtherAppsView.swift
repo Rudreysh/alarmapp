@@ -27,7 +27,7 @@ struct ComparisonCardOtherAppsView: View {
             Spacer()
             Toggle("", isOn: .constant(isOn))
                 .labelsHidden()
-                .toggleStyle(SwitchToggleStyle(tint: Colors.accentGreen))
+                .toggleStyle(SwitchToggleStyle(tint: Colors.accentTeal))
                 .disabled(true)
         }
         .opacity(isDimmed ? 0.35 : 1)

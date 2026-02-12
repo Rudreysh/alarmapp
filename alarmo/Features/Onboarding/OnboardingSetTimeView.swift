@@ -37,7 +37,7 @@ struct OnboardingSetTimeView: View {
                 Spacer()
             }
             .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "Next", action: onNext)
+                PrimaryButton(title: "Next", style: .blueGlass, action: onNext)
                     .padding(.horizontal, Spacing.l)
                     .padding(.bottom, Spacing.m)
             }

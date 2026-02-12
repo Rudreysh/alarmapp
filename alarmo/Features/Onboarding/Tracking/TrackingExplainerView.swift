@@ -17,8 +17,8 @@ struct TrackingExplainerView: View {
                     .padding(.top, Spacing.xxl)
 
                 VStack(alignment: .leading, spacing: Spacing.xl) {
-                    TrackingRow(icon: "megaphone.fill", tint: Colors.accentRed, text: "Advertisements that match\nyour interests.")
-                    TrackingRow(icon: "checkmark.shield.fill", tint: .blue, text: "Improvements in personalized\nexperience.")
+                    TrackingRow(icon: "megaphone.fill", tint: Colors.accentTeal, text: "Advertisements that match\nyour interests.")
+                    TrackingRow(icon: "checkmark.shield.fill", tint: Colors.accentBlue, text: "Improvements in personalized\nexperience.")
                     TrackingRow(icon: "gearshape.fill", tint: Colors.textSecondary, text: "You can change this anytime\nin Settings.")
                 }
                 .padding(.horizontal, Spacing.xl)
@@ -27,7 +27,7 @@ struct TrackingExplainerView: View {
                 Spacer()
             }
             .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "Next") {
+                PrimaryButton(title: "Next", style: .blueGlass) {
                     Task { @MainActor in
                         _ = await viewModel.handleNext()
                         onNext()

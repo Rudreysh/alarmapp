@@ -56,7 +56,7 @@ struct OnboardingSoundSelectionView: View {
                 Spacer()
             }
             .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "Next") {
+                PrimaryButton(title: "Next", style: .blueGlass) {
                     onNext()
                 }
                 .padding(.horizontal, Spacing.l)
