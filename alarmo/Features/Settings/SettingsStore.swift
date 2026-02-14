@@ -36,6 +36,12 @@ class SettingsStore: ObservableObject {
         static let accountabilityAuditEvents = "settings.accountabilityAuditEvents"
         static let potentialTimeTamperEvents = "settings.potentialTimeTamperEvents"
         static let penaltyCurrency = "settings.penaltyCurrency"
+        static let activeAlarmSession = "settings.activeAlarmSession"
+        static let violations = "settings.violations"
+        static let exemptionRequests = "settings.exemptionRequests"
+        static let penaltyTransactions = "settings.penaltyTransactions"
+        static let penaltyPaymentToken = "settings.penaltyPaymentToken"
+        static let penaltyTermsAccepted = "settings.penaltyTermsAccepted"
     }
     
     @AppStorage(Keys.isSignedIn) var isSignedIn: Bool = false
@@ -69,6 +75,8 @@ class SettingsStore: ObservableObject {
     @AppStorage(Keys.penaltyCreditsBalance) var penaltyCreditsBalance: Int = 0
     @AppStorage(Keys.lastPenaltyEventAt) var lastPenaltyEventAt: Double = 0
     @AppStorage(Keys.penaltyCurrency) var penaltyCurrencyRaw: String = PenaltyCurrency.eur.rawValue
+    @AppStorage(Keys.penaltyPaymentToken) var penaltyPaymentToken: String = ""
+    @AppStorage(Keys.penaltyTermsAccepted) var penaltyTermsAccepted: Bool = false
     
     @Published var notificationPrefs: NotificationPrefs {
         didSet { saveComplexToDefaults(notificationPrefs, key: Keys.notificationPrefs) }
@@ -93,6 +101,22 @@ class SettingsStore: ObservableObject {
     @Published var potentialTimeTamperEvents: [Date] = [] {
         didSet { saveComplexToDefaults(potentialTimeTamperEvents, key: Keys.potentialTimeTamperEvents) }
     }
+
+    @Published var activeAlarmSession: AlarmSession? {
+        didSet { saveComplexToDefaults(activeAlarmSession, key: Keys.activeAlarmSession) }
+    }
+    
+    @Published var violations: [ViolationEvent] = [] {
+        didSet { saveComplexToDefaults(violations, key: Keys.violations) }
+    }
+
+    @Published var exemptionRequests: [ExemptionRequest] = [] {
+        didSet { saveComplexToDefaults(exemptionRequests, key: Keys.exemptionRequests) }
+    }
+
+    @Published var penaltyTransactions: [PenaltyTransaction] = [] {
+        didSet { saveComplexToDefaults(penaltyTransactions, key: Keys.penaltyTransactions) }
+    }
     
     var missionTimeLimitLabel: String {
         if missionTimeLimitSeconds == 20 {
@@ -112,6 +136,10 @@ class SettingsStore: ObservableObject {
         self.penaltyRules = Self.loadComplexFromDefaults(PenaltyRules.self, key: Keys.penaltyRules) ?? .default
         self.accountabilityAuditEvents = Self.loadComplexFromDefaults([AccountabilityAuditEvent].self, key: Keys.accountabilityAuditEvents) ?? []
         self.potentialTimeTamperEvents = Self.loadComplexFromDefaults([Date].self, key: Keys.potentialTimeTamperEvents) ?? []
+        self.activeAlarmSession = Self.loadComplexFromDefaults(AlarmSession.self, key: Keys.activeAlarmSession)
+        self.violations = Self.loadComplexFromDefaults([ViolationEvent].self, key: Keys.violations) ?? []
+        self.exemptionRequests = Self.loadComplexFromDefaults([ExemptionRequest].self, key: Keys.exemptionRequests) ?? []
+        self.penaltyTransactions = Self.loadComplexFromDefaults([PenaltyTransaction].self, key: Keys.penaltyTransactions) ?? []
         
         if preventPowerOffEnabled && !accountabilityEnabled {
             accountabilityEnabled = true
@@ -179,6 +207,10 @@ class SettingsStore: ObservableObject {
 
     func markPotentialTimeTamper() {
         potentialTimeTamperEvents.append(Date())
+    }
+
+    var hasValidPenaltyPaymentMethod: Bool {
+        isPenaltyPaymentConnected && !penaltyPaymentToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
     
     // Persistence Helpers

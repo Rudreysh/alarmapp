@@ -48,6 +48,50 @@ class PomodoroEngine: ObservableObject {
         // checkBackground() // Subscribed via View or SceneDelegate in full app
     }
     
+    private var cancellables = Set<AnyCancellable>()
+    
+    func configure(with preferences: AppPreferences) {
+        // Initial Sync
+        syncFromPreferences(preferences)
+        
+        // Subscribe to changes
+        preferences.$pomoDurationMinutes
+            .combineLatest(preferences.$shortBreakMinutes, preferences.$longBreakMinutes, preferences.$pomosPerLongBreak)
+            .sink { [weak self] _ in
+                self?.syncFromPreferences(preferences)
+            }
+            .store(in: &cancellables)
+            
+        preferences.$autoStartNextPomo
+            .combineLatest(preferences.$autoStartBreak)
+            .sink { [weak self] _ in
+                self?.syncFromPreferences(preferences)
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func syncFromPreferences(_ preferences: AppPreferences) {
+        var newConfig = self.config
+        newConfig.focusSeconds = preferences.pomoDurationMinutes * 60
+        newConfig.shortBreakSeconds = preferences.shortBreakMinutes * 60
+        newConfig.longBreakSeconds = preferences.longBreakMinutes * 60
+        newConfig.sessionsPerCycle = preferences.pomosPerLongBreak
+        
+        // TimerConfig has single autoStart, we'll favor autoStartNextPomo for now or combine?
+        // AppPreferences has granular control. Engine currently has one flag.
+        // Ideally we update Engine to support granular, but for now let's map 'autoStartNextPomo' to it
+        // OR we can make it true if either is true, but that might be annoying.
+        // Let's assume 'autoStartNextSession' roughly maps to 'autoStartNextPomo' for general cycles.
+        // A better fix would be updating IntervalTimerConfig to have both.
+        newConfig.autoStartNextSession = preferences.autoStartNextPomo 
+        
+        // Update without loop if equality check passes
+        if newConfig != self.config {
+            self.updateConfig(newConfig)
+        }
+    }
+    
+
     // MARK: - Core Actions
     
     func start(taskId: UUID? = nil) {
@@ -204,11 +248,11 @@ class PomodoroEngine: ObservableObject {
         } else if completedKind == .focus {
             // After focus -> check cycle progress
             if state.completedFocusInCycle >= config.sessionsPerCycle {
-                // Next is Long Break
-                handleNextTransition(to: .longBreak, autoStart: config.autoStartNextSession)
+                // Next is Long Break (uses break auto-start)
+                handleNextTransition(to: .longBreak, autoStart: config.autoStartBreak)
             } else {
-                // Next is Short Break
-                handleNextTransition(to: .shortBreak, autoStart: config.autoStartNextSession)
+                // Next is Short Break (uses break auto-start)
+                handleNextTransition(to: .shortBreak, autoStart: config.autoStartBreak)
             }
         }
     }

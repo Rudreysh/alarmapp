@@ -73,7 +73,7 @@ struct DigitalTimeDisplay: View {
     var body: some View {
         SunRayTimePickerView(hour: $hour, minute: $minute, second: $second)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 30)
+            .padding(.vertical, 8)
     }
 }
 

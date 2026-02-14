@@ -2,6 +2,7 @@ import Foundation
 import Combine
 
 final class AlarmStore: ObservableObject {
+    static let shared = AlarmStore() // Allow singleton access for non-view contexts
     @Published private(set) var alarms: [Alarm] = []
 
     private let fileURL: URL

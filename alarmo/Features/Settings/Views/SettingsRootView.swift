@@ -175,7 +175,7 @@ struct SettingsRootView: View {
             ProView()
         }
         .fullScreenCover(isPresented: $showPenalty) {
-            PreventPowerOffView()
+            AccountabilityShieldSettingsView()
         }
     }
 }

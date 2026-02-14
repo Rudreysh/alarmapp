@@ -15,7 +15,15 @@ struct BottomSheetContainer<Content: View>: View {
         .padding(.bottom, Spacing.xl)
         .padding(.horizontal, Spacing.l)
         .background(
-            LinearGradient(colors: [Colors.sheetGradientTop, Colors.sheetGradientBottom], startPoint: .top, endPoint: .bottom)
+            LinearGradient(
+                colors: [
+                    Color(red: 0.05, green: 0.12, blue: 0.22),
+                    Color(red: 0.03, green: 0.07, blue: 0.14),
+                    Color(red: 0.02, green: 0.04, blue: 0.10)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
         )
         .cornerRadius(30, corners: [.topLeft, .topRight])
     }

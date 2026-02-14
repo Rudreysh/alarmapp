@@ -104,48 +104,20 @@ class PlanViewModel: ObservableObject {
 
     func quickIncrement(_ item: PlanItem, context: ModelContext) -> Double {
         let calendar = Calendar.current
+        let unit = item.goalUnit.lowercased()
         let increment: Double = {
-            let unit = item.goalUnit.lowercased()
             if unit == "ml" { return 250 }
             if unit == "oz" { return 8 }
             if unit == "steps" { return 1000 }
+            if unit == "m" || unit == "meters" { return 50 }
+            if unit == "km" || unit == "kilometers" { return 0.5 }
             // Time-based habits (min, minutes, hr, hours)
             if unit.contains("min") { return 5 }
             if unit.contains("hr") || unit.contains("hour") { return 0.25 } // 15 minutes
             return 1
         }()
 
-        if let existingLog = item.completionLogs.first(where: { calendar.isDateInToday($0.date) }) {
-            if item.metricKind == .time {
-                // For time-based habits, store in seconds
-                existingLog.durationSeconds = (existingLog.durationSeconds ?? 0) + Int(increment * 60)
-            } else {
-                existingLog.value = (existingLog.value ?? 0) + increment
-            }
-            existingLog.completed = item.isGoalMet()
-        } else {
-            let log = CompletionLog(date: Date(), completed: false)
-            if item.metricKind == .time {
-                log.durationSeconds = Int(increment * 60)
-            } else {
-                log.value = increment
-            }
-            item.completionLogs.append(log)
-            log.completed = item.isGoalMet()
-        }
-        
-        let event = ActivityEvent(
-            domain: item.type == .habit ? .habit : .task,
-            entityId: item.id,
-            timestampUTC: Date(),
-            status: .success,
-            value: increment
-        )
-        context.insert(event)
-        
-        item.updatedAt = Date()
-        try? context.save()
-        return increment
+        return incrementHabit(item, value: increment, context: context)
     }
 
     func incrementHabit(_ item: PlanItem, value: Double? = nil, context: ModelContext) -> Double {
@@ -156,6 +128,8 @@ class PlanViewModel: ObservableObject {
             if unit == "ml" { return 250 }
             if unit == "oz" { return 8 }
             if unit == "steps" { return 1000 }
+            if unit == "m" || unit == "meters" { return 50 }
+            if unit == "km" || unit == "kilometers" { return 0.5 }
             // Time-based habits (min, minutes, hr, hours)
             if unit.contains("min") { return 5 }
             if unit.contains("hr") || unit.contains("hour") { return 0.25 } // 15 minutes
@@ -192,6 +166,32 @@ class PlanViewModel: ObservableObject {
         item.updatedAt = Date()
         try? context.save()
         return amount
+    }
+
+    func updateHabitValue(_ item: PlanItem, delta: Double, context: ModelContext) {
+        let calendar = Calendar.current
+        if let existingLog = item.completionLogs.first(where: { calendar.isDateInToday($0.date) }) {
+            if item.metricKind == .time {
+                let current = Double(existingLog.durationSeconds ?? 0) / 60.0
+                let newVal = max(0, current + delta)
+                existingLog.durationSeconds = Int(newVal * 60)
+            } else {
+                existingLog.value = max(0, (existingLog.value ?? 0) + delta)
+            }
+            existingLog.completed = item.isGoalMet()
+        } else if delta > 0 {
+            let log = CompletionLog(date: Date(), completed: false)
+            if item.metricKind == .time {
+                log.durationSeconds = Int(max(0, delta) * 60)
+            } else {
+                log.value = max(0, delta)
+            }
+            item.completionLogs.append(log)
+            log.completed = item.isGoalMet()
+        }
+        
+        item.updatedAt = Date()
+        try? context.save()
     }
     
     // Navigation

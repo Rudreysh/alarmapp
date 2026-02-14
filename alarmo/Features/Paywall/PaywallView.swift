@@ -39,7 +39,7 @@ struct PaywallView: View {
                     }
                     .padding(.horizontal, Spacing.l)
 
-                    PrimaryButton(title: "Start Free Trial") {
+                    PrimaryButton(title: "Start Free Trial", style: .blueGlass) {
                         Task { @MainActor in
                             await viewModel.purchaseSelected()
                             if viewModel.alertMessage == nil {
@@ -78,7 +78,7 @@ private struct PaywallHeader: View {
         HStack {
             HStack(spacing: Spacing.s) {
                 Image(systemName: "bolt.fill")
-                    .foregroundColor(Colors.accentRed)
+                    .foregroundColor(Colors.accentTeal)
                     .padding(6)
                     .background(Colors.bgSecondary)
                     .clipShape(Circle())
@@ -130,7 +130,7 @@ private struct PaywallPlanCard: View {
             VStack(alignment: .leading, spacing: Spacing.s) {
                 HStack(alignment: .top) {
                     Circle()
-                        .fill(isSelected ? Colors.accentRed : Colors.textTertiary)
+                        .fill(isSelected ? Colors.accentTeal : Colors.textTertiary)
                         .frame(width: 26, height: 26)
                         .overlay(
                             Image(systemName: "checkmark")
@@ -149,8 +149,8 @@ private struct PaywallPlanCard: View {
                                 .captionText()
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
-                                .background(product.isTrialAvailable ? Color.green.opacity(0.2) : Colors.bgSecondary)
-                                .foregroundColor(product.isTrialAvailable ? Color.green : Colors.textSecondary)
+                                .background(product.isTrialAvailable ? Colors.accentTeal.opacity(0.2) : Colors.bgSecondary)
+                                .foregroundColor(product.isTrialAvailable ? Colors.accentTeal : Colors.textSecondary)
                                 .clipShape(Capsule())
                         }
                     }
@@ -182,7 +182,7 @@ private struct PaywallPlanCard: View {
                         .foregroundColor(Colors.textPrimary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
-                        .background(Colors.accentRed)
+                        .background(Colors.accentTeal)
                         .clipShape(Capsule())
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
@@ -191,7 +191,7 @@ private struct PaywallPlanCard: View {
             .background(Colors.cardSurface)
             .overlay(
                 RoundedRectangle(cornerRadius: Radii.card)
-                    .stroke(isSelected ? Colors.accentRed : Colors.cardStroke, lineWidth: isSelected ? 2 : 1)
+                    .stroke(isSelected ? Colors.accentTeal : Colors.cardStroke, lineWidth: isSelected ? 2 : 1)
             )
             .cornerRadius(Radii.card)
         }

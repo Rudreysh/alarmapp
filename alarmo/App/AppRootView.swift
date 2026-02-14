@@ -43,6 +43,8 @@ struct AppRootView: View {
             }
             shutdownDetectionService.startMonitoring(alarmStore: alarmStore, ringCoordinator: ringCoordinator, ringingAlarmId: ringCoordinator.activeAlarm?.id)
             accountabilityManager.ensureShieldRestoredOnLaunch()
+            AccountabilityShieldEngine.shared.reconcileActiveSessionOnLaunch(ringingAlarmId: ringCoordinator.activeAlarm?.id, alarmStore: alarmStore)
+            pomodoroEngine.configure(with: appPreferences)
             if !didRunAppListMigration {
                 AppListMigrationCoordinator.migrateLegacySelectionIfNeeded(context: modelContext, settings: settingsStore)
                 didRunAppListMigration = true

@@ -19,8 +19,23 @@ struct SunRayTimePickerView: View {
     
     @State private var isInteracting: Bool = false
     
-    @State private var activeComponent: TimeComponent = .minute
+    @State private var activeComponent: TimeComponent = .hour
     @AppStorage("is12HourFormat") private var is12HourFormat: Bool = true // Persist format preference
+    
+    // New state for smooth ring dragging
+    @State private var dragAngle: Double?
+    
+    // New state for precision picker
+    @State private var showWheelPicker: Bool = false
+    
+    // Ring glow pulse animation
+    @State private var ringGlowPulse: CGFloat = 0.0
+    
+    // Track if initial time has been set
+    @State private var hasSetInitialTime: Bool = false
+    
+    // Optional timezone for location-based default
+    var timeZoneIdentifier: String? = nil
     
     private let size: CGFloat = 240
     private let feedback = UISelectionFeedbackGenerator()
@@ -74,6 +89,12 @@ struct SunRayTimePickerView: View {
             ZStack {
                 // Background Ticks (Static & Dynamic Color)
                 ZStack {
+                    // Outer ambient glow circle (subtle)
+                    Circle()
+                        .stroke(Colors.accentTeal.opacity(0.06 + ringGlowPulse * 0.04), lineWidth: 8)
+                        .blur(radius: 6)
+                        .frame(width: size + 14, height: size + 14)
+                    
                     Circle()
                         .stroke(Color.white.opacity(0.05), lineWidth: 1)
                         .frame(width: size, height: size)
@@ -87,6 +108,7 @@ struct SunRayTimePickerView: View {
                             .frame(width: i % 5 == 0 ? 2 : 1, height: i % 5 == 0 ? 10 : 6)
                             .offset(y: -(size/2))
                             .rotationEffect(.degrees(Double(i) * 6))
+                            .shadow(color: isActiveTick ? Colors.accentTeal.opacity(0.6) : .clear, radius: 4)
                             .animation(.easeInOut(duration: 0.2), value: activeComponent) // Smooth transition
                     }
                     
@@ -98,6 +120,7 @@ struct SunRayTimePickerView: View {
                             Text("\(label)")
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(isHourMatch(i) ? Colors.accentTeal : Colors.textSecondary)
+                                .shadow(color: isHourMatch(i) ? Colors.accentTeal.opacity(0.5) : .clear, radius: 4)
                                 .offset(y: -(size/2 - 25))
                                 .rotationEffect(.degrees(Double(i) * 30))
                         }
@@ -105,14 +128,22 @@ struct SunRayTimePickerView: View {
                 }
                 .frame(width: size, height: size)
                 
-                // Active Ring Segment (Arc for Hour/Minute/Second progress)
+                // Active Ring Segment — gradient stroke with glow
                 Circle()
                     .trim(from: 0.0, to: activeProgress())
-                    .stroke(Colors.accentTeal, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                    .frame(width: size + 10, height: size + 10) // Slightly outside
+                    .stroke(
+                        AngularGradient(
+                            colors: [Colors.accentTeal.opacity(0.3), Colors.accentTeal, Colors.accentTeal],
+                            center: .center,
+                            startAngle: .degrees(0),
+                            endAngle: .degrees(360 * activeProgress())
+                        ),
+                        style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
+                    )
+                    .frame(width: size + 10, height: size + 10)
                     .rotationEffect(.degrees(-90))
-                    .animation(.linear(duration: 0.1), value: activeProgress())
-
+                    .shadow(color: Colors.accentTeal.opacity(isInteracting ? 0.6 : Double(0.25 + ringGlowPulse * 0.15)), radius: isInteracting ? 10 : 5)
+                    .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.88), value: activeProgress())
                 
                 // User Interaction Layer (Transparent)
                 ZStack {
@@ -123,11 +154,17 @@ struct SunRayTimePickerView: View {
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { value in
-                            if !isInteracting { isInteracting = true }
+                            if !isInteracting {
+                                isInteracting = true
+                                feedback.prepare()
+                            }
                             updateTimeFromDrag(value)
                         }
                         .onEnded { _ in
-                            isInteracting = false
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                isInteracting = false
+                                dragAngle = nil // Snap back to nearest tick visually
+                            }
                         }
                 )
                 
@@ -136,7 +173,7 @@ struct SunRayTimePickerView: View {
                     // Top Selector (Hour)
                     UnitSelector(
                         val: Binding(get: { displayHour }, set: { _ in }), // Read-only for display here, updated via drag/tap logic
-                        unit: is12HourFormat ? (isPM ? "PM" : "AM") : topUnit,
+                        unit: is12HourFormat ? (isPM ? "PM" : "AM") : "", // Hide unit in 24h mode
                         maxVal: topMax, // Not used strictly for display click
                         offset: $hourOffset,
                         isInteracting: $isInteracting,
@@ -145,7 +182,13 @@ struct SunRayTimePickerView: View {
                         unitSize: second != nil ? 14 : 16,
                         isActive: activeComponent == .hour,
                         highlightColor: Colors.accentTeal,
-                        onTap: { activeComponent = .hour },
+                        onTap: {
+                            activeComponent = .hour
+                        },
+                        onDoubleTap: {
+                            activeComponent = .hour
+                            showWheelPicker = true
+                        },
                         onScroll: { delta in
                             manualScroll(component: .hour, delta: delta)
                         },
@@ -174,7 +217,13 @@ struct SunRayTimePickerView: View {
                         unitSize: second != nil ? 14 : 16,
                         isActive: activeComponent == .minute,
                         highlightColor: Colors.accentTeal,
-                        onTap: { activeComponent = .minute },
+                        onTap: {
+                            activeComponent = .minute
+                        },
+                        onDoubleTap: {
+                            activeComponent = .minute
+                            showWheelPicker = true
+                        },
                         onScroll: { delta in
                             manualScroll(component: .minute, delta: delta)
                         }
@@ -198,7 +247,13 @@ struct SunRayTimePickerView: View {
                             unitSize: 14,
                             isActive: activeComponent == .second,
                             highlightColor: Colors.accentTeal,
-                            onTap: { activeComponent = .second },
+                            onTap: {
+                                activeComponent = .second
+                            },
+                            onDoubleTap: {
+                                activeComponent = .second
+                                showWheelPicker = true
+                            },
                             onScroll: { delta in
                                 manualScroll(component: .second, delta: delta)
                             }
@@ -208,6 +263,7 @@ struct SunRayTimePickerView: View {
                     // 12/24 Mode Toggle (Small text button below)
                     // This button is now removed as it's replaced by the side buttons.
                 }
+                .contentShape(Rectangle())
             }
             .frame(width: size + 30, height: size + 30) // Ensure layout containment
             
@@ -233,8 +289,123 @@ struct SunRayTimePickerView: View {
             .scaleEffect(!is12HourFormat ? 1.05 : 1.0)
             .animation(.spring(), value: is12HourFormat)
         }
-        .padding(.bottom, 60)
-        .frame(height: 300)
+        .padding(.bottom, 4)
+        .frame(height: 275)
+        .onAppear {
+            // Start the breathing glow animation
+            withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
+                ringGlowPulse = 1.0
+            }
+            
+            // Set initial time to current location time (only once)
+            if !hasSetInitialTime {
+                hasSetInitialTime = true
+                let tz: TimeZone
+                if let id = timeZoneIdentifier, let customTZ = TimeZone(identifier: id) {
+                    tz = customTZ
+                } else {
+                    tz = .current
+                }
+                var cal = Calendar.current
+                cal.timeZone = tz
+                let now = Date()
+                hour = cal.component(.hour, from: now)
+                minute = cal.component(.minute, from: now)
+                if let secondBinding = second {
+                    secondBinding.wrappedValue = cal.component(.second, from: now)
+                }
+            }
+        }
+        .sheet(isPresented: $showWheelPicker) {
+            ZStack {
+                // Dark background matching the app theme
+                Color(red: 0.06, green: 0.07, blue: 0.10)
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 0) {
+                    // Close button top-right
+                    HStack {
+                        Spacer()
+                        Button {
+                            showWheelPicker = false
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(Colors.textPrimary.opacity(0.85))
+                                .frame(width: 32, height: 32)
+                                .background(Color.white.opacity(0.12))
+                                .clipShape(Circle())
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 14)
+                    
+                    Spacer()
+                    
+                    // Wheel Picker Area
+                    ZStack {
+                        // Frosted selection bar behind the selected row
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.white.opacity(0.08))
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .frame(height: 44)
+                        
+                        HStack(spacing: 0) {
+                            // Hour Picker
+                            Picker("Hour", selection: $hour) {
+                                ForEach(0..<24) { h in
+                                    Text(String(format: "%02d", h))
+                                        .font(.system(size: 28, weight: .bold))
+                                        .foregroundColor(Colors.textPrimary)
+                                        .tag(h)
+                                }
+                            }
+                            .pickerStyle(.wheel)
+                            .frame(width: 80)
+                            .clipped()
+                            .onChange(of: hour) { _, _ in triggerFeedback() }
+                            
+                            // Minute Picker
+                            Picker("Minute", selection: $minute) {
+                                ForEach(0..<60) { m in
+                                    Text(String(format: "%02d", m))
+                                        .font(.system(size: 28, weight: .bold))
+                                        .foregroundColor(Colors.textPrimary)
+                                        .tag(m)
+                                }
+                            }
+                            .pickerStyle(.wheel)
+                            .frame(width: 80)
+                            .clipped()
+                            .onChange(of: minute) { _, _ in triggerFeedback() }
+                            
+                            // Second Picker (if available)
+                            if let secondBinding = second {
+                                Picker("Second", selection: secondBinding) {
+                                    ForEach(0..<60) { s in
+                                        Text(String(format: "%02d", s))
+                                            .font(.system(size: 28, weight: .bold))
+                                            .foregroundColor(Colors.textPrimary)
+                                            .tag(s)
+                                    }
+                                }
+                                .pickerStyle(.wheel)
+                                .frame(width: 80)
+                                .clipped()
+                                .onChange(of: secondBinding.wrappedValue) { _, _ in triggerFeedback() }
+                            }
+                        }
+                    }
+                    .frame(height: 200)
+                    .padding(.horizontal, 24)
+                    
+                    Spacer()
+                }
+            }
+            .colorScheme(.dark)
+            .presentationDetents([.height(300)])
+            .presentationDragIndicator(.visible)
+        }
     }
     
     // MARK: - Helpers
@@ -246,23 +417,45 @@ struct SunRayTimePickerView: View {
         
         switch component {
         case .hour:
-            var newH = hour + delta
-            if newH > topMax { newH = 0 }
-            if newH < 0 { newH = topMax }
-            hour = newH
+            if is12HourFormat {
+                // Keep AM/PM state while scrolling
+                let wasPM = hour >= 12
+                let h12 = hour % 12
+                var newH12 = h12 + delta
+                
+                // Wrap around 0-11
+                newH12 = (newH12 % 12 + 12) % 12
+                
+                let newH = newH12 + (wasPM ? 12 : 0)
+                
+                withAnimation(.snappy) {
+                    hour = newH
+                }
+            } else {
+                var newH = hour + delta
+                if newH > topMax { newH = 0 }
+                if newH < 0 { newH = topMax }
+                withAnimation(.snappy) {
+                    hour = newH
+                }
+            }
             triggerFeedback()
         case .minute:
             var newM = minute + delta
             if newM > bottomMax { newM = 0 }
             if newM < 0 { newM = bottomMax }
-            minute = newM
+            withAnimation(.snappy) {
+                minute = newM
+            }
             triggerFeedback()
         case .second:
             if let secondBinding = second {
                 var newS = secondBinding.wrappedValue + delta
                 if newS > tertiaryMax { newS = 0 }
                 if newS < 0 { newS = tertiaryMax }
-                secondBinding.wrappedValue = newS
+                withAnimation(.snappy) {
+                    secondBinding.wrappedValue = newS
+                }
                 triggerFeedback()
             }
         }
@@ -286,10 +479,15 @@ struct SunRayTimePickerView: View {
     }
     
     private func activeProgress() -> CGFloat {
+        // If actively dragging the ring, show smooth progress
+        if isInteracting, let angle = dragAngle {
+             return angle / 360.0
+        }
+        
+        // Otherwise show snapped progress
         switch activeComponent {
             case .hour:
-                // Map 0-11 for 12h cycle or 0-23/24? 
-                // Ring usually visualizes 12h face since markers are 12h.
+                // Map 0-11 for 12h cycle
                 return CGFloat(hour % 12) / 12.0
             case .minute:
                 return CGFloat(minute) / 60.0
@@ -342,12 +540,7 @@ struct SunRayTimePickerView: View {
             let currentH24 = hour
             let isPM = currentH24 >= 12
             // Construct new hour maintaining phase
-            var newH24 = newH12 + (isPM ? 12 : 0)
-            
-            if newH24 > topMax {
-               // Clamp or Wrap logic if needed
-               // Standard clock: user rotates safely.
-            }
+            let newH24 = newH12 + (isPM ? 12 : 0)
             
             if newH24 != hour {
                 hour = newH24
@@ -371,6 +564,9 @@ struct SunRayTimePickerView: View {
                 }
             }
         }
+        
+        // Update smooth angle for visualization
+        self.dragAngle = clockAngle
     }
 }
 
@@ -418,14 +614,15 @@ struct UnitSelector: View {
     var isActive: Bool
     var highlightColor: Color
     var onTap: () -> Void
+    var onDoubleTap: () -> Void
     var onScroll: (Int) -> Void
     var onUnitTap: (() -> Void)? = nil
     
     // State to track accumulated drag for smooth continuous scrolling
-    @State private var accumulatedOffset: CGFloat = 0
+    @State private var dragStepIndex: Int = 0
     
     var body: some View {
-        let dragThreshold: CGFloat = 15.0 // Sensitivity
+        let stepHeight: CGFloat = 22.0 // Wheel-like stable stepping distance
         
         VStack(spacing: 2) {
              Image(systemName: "chevron.up")
@@ -439,7 +636,8 @@ struct UnitSelector: View {
                     .font(.system(size: fontSize, weight: .bold, design: .rounded))
                     .foregroundColor(isActive ? Colors.textPrimary : Colors.textTertiary)
                     .scaleEffect(isActive ? 1.1 : 1.0)
-                    .modifier(RollingEffect(offset: offset, active: isActive))
+                    .contentTransition(.numericText(countsDown: false))
+                    .animation(.snappy(duration: 0.25), value: val)
                 
                 Text(unit)
                     .font(.system(size: unitSize, weight: .medium))
@@ -457,6 +655,10 @@ struct UnitSelector: View {
                 onTap()
                 feedback.selectionChanged()
             }
+            .onTapGesture(count: 2) {
+                onDoubleTap()
+                feedback.selectionChanged()
+            }
             
             Image(systemName: "chevron.down")
                 .font(.system(size: 12, weight: .bold))
@@ -468,29 +670,25 @@ struct UnitSelector: View {
             DragGesture(minimumDistance: 0)
                 .onChanged { value in
                     if !isActive { onTap() }
-                    if !isInteracting { isInteracting = true }
-                    
-                    // Cumulative drag logic
-                    let currentTranslation = value.translation.height
-                    let diff = currentTranslation - accumulatedOffset
-                    
-                    // Update visual offset
-                    offset += diff
-                    accumulatedOffset = currentTranslation
-                    
-                    // Check threshold
-                    if offset > dragThreshold {
-                        // Dragging down -> Decrement
-                        while offset > dragThreshold {
-                            onScroll(-1)
-                            offset -= dragThreshold * 1.25 // Smooth snap back, slightly larger to avoid double triggers
-                        }
-                    } else if offset < -dragThreshold {
-                        // Dragging up -> Increment
-                        while offset < -dragThreshold {
-                            onScroll(1)
-                            offset += dragThreshold * 1.25
-                        }
+                    if !isInteracting {
+                        isInteracting = true
+                        dragStepIndex = 0
+                        feedback.prepare()
+                    }
+
+                    // Stable wheel-like step mapping: one discrete change per vertical step.
+                    // This avoids oscillation from small drag jitter around thresholds.
+                    let step = Int((-value.translation.height / stepHeight).rounded(.towardZero))
+                    let delta = step - dragStepIndex
+                    if delta != 0 {
+                        onScroll(delta)
+                        dragStepIndex = step
+                    }
+
+                    // Keep a subtle live offset for visual motion between step snaps.
+                    let snapped = CGFloat(step) * stepHeight
+                    withAnimation(.linear(duration: 0.06)) {
+                        offset = value.translation.height - snapped
                     }
                 }
                 .onEnded { _ in
@@ -498,7 +696,7 @@ struct UnitSelector: View {
                         isInteracting = false
                         offset = 0
                     }
-                    accumulatedOffset = 0
+                    dragStepIndex = 0
                 }
         )
     }
@@ -511,7 +709,7 @@ struct RollingEffect: ViewModifier {
     
     func body(content: Content) -> some View {
         content
-            .offset(y: offset)
-            .animation(.interactiveSpring(), value: offset)
+            // Ensure no offset applied but keep modifier for backward compatibility
+            .offset(y: 0)
     }
 }

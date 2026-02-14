@@ -36,7 +36,15 @@ struct ProPaywallFlowView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Color(red: 0.08, green: 0.12, blue: 0.45), Color(red: 0.08, green: 0.05, blue: 0.24)], startPoint: .top, endPoint: .bottom)
+            LinearGradient(
+                colors: [
+                    Color(red: 0.05, green: 0.12, blue: 0.24),
+                    Color(red: 0.03, green: 0.08, blue: 0.16),
+                    Color(red: 0.02, green: 0.04, blue: 0.10)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
                 .ignoresSafeArea()
 
             switch viewModel.step {
@@ -70,7 +78,7 @@ private struct PaywallHeader: View {
         HStack {
             HStack(spacing: 6) {
                 Image(systemName: "bolt.fill")
-                    .foregroundColor(Colors.accentRed)
+                    .foregroundColor(Colors.accentTeal)
                 Text("PRO")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.white)
@@ -120,7 +128,7 @@ private struct ProPaywallIntroView: View {
 
             Spacer()
 
-            PrimaryButton(title: "Try for $0") {
+            PrimaryButton(title: "Try for $0", style: .blueGlass) {
                 onNext()
             }
             .padding(.horizontal, Spacing.l)
@@ -144,7 +152,7 @@ private struct PaywallToggleRow: View {
                 .font(.system(size: 18, weight: .semibold))
             Spacer()
             Capsule()
-                .fill(isOn ? Colors.accentGreen : Color.white.opacity(0.2))
+                .fill(isOn ? Colors.accentTeal : Color.white.opacity(0.2))
                 .frame(width: 44, height: 24)
                 .overlay(
                     Circle()
@@ -171,7 +179,7 @@ private struct ProPaywallFeaturesView: View {
 
             HStack(spacing: 8) {
                 Image(systemName: "checkmark")
-                    .foregroundColor(Colors.accentGreen)
+                    .foregroundColor(Colors.accentTeal)
                 Text("100M+ wake up data analyzed")
                     .foregroundColor(.white.opacity(0.8))
                     .font(.system(size: 16, weight: .semibold))
@@ -183,7 +191,7 @@ private struct ProPaywallFeaturesView: View {
 
             Spacer()
 
-            PrimaryButton(title: "Start my free week") {
+            PrimaryButton(title: "Start my free week", style: .blueGlass) {
                 onNext()
             }
             .padding(.horizontal, Spacing.l)
@@ -207,8 +215,8 @@ private struct ProFeatureTable: View {
                     HStack {
                         VStack(alignment: .leading, spacing: Spacing.m) {
                             Text("Basic alarm").foregroundColor(.white)
-                            Text("Multiple mission  >").foregroundColor(Colors.accentGreen)
-                            Text("Wake up check  >").foregroundColor(Colors.accentGreen)
+                            Text("Multiple mission  >").foregroundColor(Colors.accentTeal)
+                            Text("Wake up check  >").foregroundColor(Colors.accentTeal)
                             Text("Louder alarm").foregroundColor(.white.opacity(0.6))
                             Text("Label reminder").foregroundColor(.white.opacity(0.6))
                         }
@@ -236,7 +244,7 @@ private struct ProFeatureTable: View {
                 )
 
             RoundedRectangle(cornerRadius: 18)
-                .fill(Color.blue.opacity(0.25))
+                .fill(Colors.accentBlue.opacity(0.25))
                 .frame(width: 110, height: 320)
                 .offset(x: -40)
                 .overlay(
@@ -282,7 +290,7 @@ private struct ProPaywallReminderView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, Spacing.m)
                             .padding(.vertical, Spacing.s)
-                            .background(Color.blue.opacity(0.4))
+                            .background(Colors.accentBlue.opacity(0.4))
                             .clipShape(Capsule())
 
                         RoundedRectangle(cornerRadius: 20)
@@ -295,7 +303,7 @@ private struct ProPaywallReminderView: View {
 
             Spacer()
 
-            PrimaryButton(title: "Start my free week") {
+            PrimaryButton(title: "Start my free week", style: .blueGlass) {
                 onNext()
             }
             .padding(.horizontal, Spacing.l)
@@ -355,7 +363,7 @@ private struct ProPaywallPlanSelectionView: View {
 
             Spacer()
 
-            PrimaryButton(title: "Start my free week") {
+            PrimaryButton(title: "Start my free week", style: .blueGlass) {
                 // Stub: implement purchase later
             }
             .padding(.horizontal, Spacing.l)
@@ -377,7 +385,7 @@ private struct ProPlanCard: View {
         Button(action: onTap) {
             HStack {
                 Circle()
-                    .fill(selected ? Colors.accentRed : Colors.textTertiary)
+                    .fill(selected ? Colors.accentTeal : Colors.textTertiary)
                     .frame(width: 26, height: 26)
                     .overlay(
                         Image(systemName: "checkmark")
@@ -392,10 +400,10 @@ private struct ProPlanCard: View {
                     if plan == .yearly {
                         Text("7-day free trial")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(Colors.pillGreen)
+                            .foregroundColor(Colors.accentTeal)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
-                            .background(Colors.pillGreen.opacity(0.2))
+                            .background(Colors.accentTeal.opacity(0.2))
                             .clipShape(Capsule())
                     } else if plan == .monthly {
                         Text("No free trial included")
@@ -431,7 +439,7 @@ private struct ProPlanCard: View {
             .background(Color.white.opacity(0.08))
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(selected ? Colors.accentRed : Colors.cardStroke, lineWidth: selected ? 2 : 1)
+                    .stroke(selected ? Colors.accentTeal : Colors.cardStroke, lineWidth: selected ? 2 : 1)
             )
             .cornerRadius(20)
         }

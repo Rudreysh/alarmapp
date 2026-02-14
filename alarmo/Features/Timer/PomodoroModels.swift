@@ -7,7 +7,8 @@ struct IntervalTimerConfig: Codable, Equatable {
     var sessionsPerCycle: Int = 4
     var shortBreakSeconds: Int = 5 * 60
     var longBreakSeconds: Int = 20 * 60
-    var autoStartNextSession: Bool = false
+    var autoStartNextSession: Bool = false // Used for Focus (legacy name)
+    var autoStartBreak: Bool = false       // Used for Break
     var autoStartNextCycle: Bool = false
     
     // Limits

@@ -11,7 +11,62 @@ enum PlanPalette {
 
 struct PlanGlassBackground: View {
     var body: some View {
-        TimerGlassBackground()
+        ZStack {
+            // 1. Deep Black Base
+            Color.black
+                .ignoresSafeArea()
+            
+            // 2. Warm Orange Glow (Bottom Left)
+            // Positioned to spill over from the bottom left corner
+            GeometryReader { proxy in
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color(red: 0.78, green: 0.49, blue: 0.26).opacity(0.5), // #C87D43
+                                Color(red: 0.78, green: 0.49, blue: 0.26).opacity(0.1),
+                                .clear
+                            ],
+                            center: .center,
+                            startRadius: 10,
+                            endRadius: proxy.size.width * 0.8 // Large spill
+                        )
+                    )
+                    .frame(width: proxy.size.width * 1.5, height: proxy.size.width * 1.5)
+                    .position(x: 0, y: proxy.size.height) // Bottom Left corner
+                    .blur(radius: 60)
+            }
+            .ignoresSafeArea()
+            
+            // 3. Teal/Blue-Grey Glow (Middle/Bottom Right)
+            GeometryReader { proxy in
+                Ellipse()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color(red: 0.37, green: 0.49, blue: 0.54).opacity(0.4), // #5F7D8B
+                                Color(red: 0.82, green: 0.82, blue: 0.82).opacity(0.2), // #D0D0D0 (Light Grey mix)
+                                .clear
+                            ],
+                            center: .center,
+                            startRadius: 20,
+                            endRadius: proxy.size.width * 0.7
+                        )
+                    )
+                    .frame(width: proxy.size.width * 1.2, height: proxy.size.height * 0.8)
+                    .position(x: proxy.size.width, y: proxy.size.height * 0.6) // Middle-Bottom Right
+                    .blur(radius: 50)
+            }
+            .ignoresSafeArea()
+            
+            // 4. Subtle Noise/Grain Overlay
+            // Using a high-opacity color mix or material to simulate texture if possible,
+            // otherwise just the gradient is the main "pattern".
+            Rectangle()
+                .fill(Color.white.opacity(0.02))
+                .blendMode(.overlay)
+                .ignoresSafeArea()
+        }
     }
 }
 

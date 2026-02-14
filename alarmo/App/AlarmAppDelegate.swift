@@ -5,6 +5,9 @@ final class AlarmAppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        // Initialize Accountability Shield and reconcile any previous session (e.g. force close)
+        // Replaced by call in AppRootView using correctly injected dependencies
+
         return true
     }
 }

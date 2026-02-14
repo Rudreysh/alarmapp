@@ -4,8 +4,8 @@ import Foundation
 final class PenaltyEngine {
     static let shared = PenaltyEngine()
 
-    private let creditsManager = PenaltyCreditsManager.shared
     private let settings = SettingsStore.shared
+    private let shieldEngine = AccountabilityShieldEngine.shared
 
     private init() {}
 
@@ -29,6 +29,26 @@ final class PenaltyEngine {
                 print("[PenaltyEngine] Skip: shutdown trigger disabled")
             }
             return rules.triggerShutdownAttemptEnabled
+        case .forceClose:
+            if !rules.triggerForceCloseEnabled {
+                print("[PenaltyEngine] Skip: force-close trigger disabled")
+            }
+            return rules.triggerForceCloseEnabled
+        case .forcedRestart:
+            if !rules.triggerForcedRestartEnabled {
+                print("[PenaltyEngine] Skip: forced-restart trigger disabled")
+            }
+            return rules.triggerForcedRestartEnabled
+        case .airplaneModeAbuse:
+            if !rules.triggerAirplaneModeAbuseEnabled {
+                print("[PenaltyEngine] Skip: airplane-abuse trigger disabled")
+            }
+            return rules.triggerAirplaneModeAbuseEnabled
+        case .severeBatteryDrain:
+            if !rules.triggerBatteryDrainEnabled {
+                print("[PenaltyEngine] Skip: battery-drain trigger disabled")
+            }
+            return rules.triggerBatteryDrainEnabled
         case .uninstallTamper:
             if !rules.triggerUninstallTamperEnabled {
                 print("[PenaltyEngine] Skip: uninstall/tamper trigger disabled")
@@ -39,9 +59,24 @@ final class PenaltyEngine {
                 print("[PenaltyEngine] Skip: snooze-threshold trigger disabled")
                 return false
             }
-            let threshold = max(1, rules.alarmSnoozeThreshold)
-            print("[PenaltyEngine] Snooze check: count=\(session.snoozeCount), threshold=\(threshold)")
-            return session.snoozeCount > threshold
+            let globalThreshold = max(1, rules.alarmSnoozeThreshold)
+            let alarmLimit = alarm.snoozeCount
+            
+            // Check global rule (>= threshold means penalty)
+            let crossedGlobal = session.snoozeCount >= globalThreshold
+            
+            // Check alarm specific limit (> count means penalty)
+            let crossedAlarm = session.snoozeCount > alarmLimit
+            
+            print("[PenaltyEngine] Snooze check: count=\(session.snoozeCount), globalThreshold=\(globalThreshold), alarmLimit=\(alarmLimit)")
+            return crossedGlobal || crossedAlarm
+        case .alarmMissionFailed:
+            guard rules.alarmMissionFailTriggersPenalty else {
+                print("[PenaltyEngine] Skip: alarm mission penalty disabled")
+                return false
+            }
+            return true
+        default: return false
         }
     }
 
@@ -52,42 +87,22 @@ final class PenaltyEngine {
         violation: AlarmViolationType,
         note: String
     ) -> Bool {
-        // For snooze-threshold, we allow recurring penalties on each snooze tap
-        // after threshold is exceeded. For shutdown/tamper, keep idempotent per session.
-        if violation != .snoozeThresholdExceeded,
-           let existing = session.violations.first(where: { $0.type == violation }) {
+        if let existing = session.violations.first(where: { $0.type == violation }) {
             print("[PenaltyEngine] Skip: already charged for \(violation.rawValue) in current session at \(existing.timestamp), amount=\(existing.chargedAmount)")
             return false
         }
         guard shouldChargePenalty(alarm: alarm, rules: settings.penaltyRules, session: session, violation: violation) else {
             return false
         }
-
-        let eventType: PenaltyEventType
-        switch violation {
-        case .shutdownAttempt:
-            eventType = .shutdownAttempt
-        case .uninstallTamper:
-            eventType = .uninstallTamper
-        case .snoozeThresholdExceeded:
-            eventType = .snoozeThresholdExceeded
-        }
-
-        let consumed = creditsManager.consumeCredits(
-            amountEuro: settings.penaltyAmountEuro,
-            eventType: eventType,
-            note: note,
-            sourceAlarmId: alarm.id
+        let queued = shieldEngine.reportViolation(
+            alarm: alarm,
+            session: &session,
+            type: violation,
+            note: note
         )
-        if consumed {
-            print("[PenaltyEngine] Charged \(settings.penaltyCurrency.symbol)\(settings.penaltyAmountEuro) for \(violation.rawValue)")
-            session.status = .failed
-            session.violations.append(
-                ViolationEvent(type: violation, chargedAmount: settings.penaltyAmountEuro)
-            )
-        } else {
-            print("[PenaltyEngine] Charge blocked: insufficient credits for \(violation.rawValue)")
+        if queued {
+            print("[PenaltyEngine] Violation queued with grace period for \(violation.rawValue)")
         }
-        return consumed
+        return queued
     }
 }

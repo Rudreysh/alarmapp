@@ -18,7 +18,7 @@ final class AlarmRingCoordinator: ObservableObject {
     private weak var foregroundScheduler: AlarmForegroundScheduler?
     private var modelContext: ModelContext?
     private let accountabilityManager = AccountabilityEnforcementManager.shared
-    private let penaltyEngine = PenaltyEngine.shared
+    private let shieldEngine = AccountabilityShieldEngine.shared
     private let settings = SettingsStore.shared
     private let tamperService = TamperDetectionService.shared
     private var activeSnoozeCount: Int = 0
@@ -79,6 +79,7 @@ final class AlarmRingCoordinator: ObservableObject {
         tamperService.begin(alarmId: alarm.id)
         
         accountabilityManager.beginAlarmEnforcement(alarm: alarm)
+        shieldEngine.sessionDidStart(alarm: alarm, session: activeSession)
         
         soundPlayer.playLooping(resourceName: alarm.soundName, volume: alarm.soundVolume, fadeDuration: TimeInterval(alarm.gentleWakeUpSeconds))
         if alarm.vibrateEnabled {
@@ -119,10 +120,10 @@ final class AlarmRingCoordinator: ObservableObject {
             // Mission-based alarms cannot be dismissed until mission completion.
             return
         }
-        stopRingingInternal(preserveSession: false)
+        stopRingingInternal(preserveSession: false, completed: true)
     }
 
-    private func stopRingingInternal(preserveSession: Bool) {
+    private func stopRingingInternal(preserveSession: Bool, completed: Bool = false) {
         missionTimeoutWorkItem?.cancel()
         missionTimeoutWorkItem = nil
         soundPlayer.stop()
@@ -169,6 +170,9 @@ final class AlarmRingCoordinator: ObservableObject {
         }
         isPreviewMode = false
         accountabilityManager.endAlarmEnforcement()
+        if !preserveSession {
+            shieldEngine.sessionDidEnd(alarm: activeAlarm, reason: "Stopped Ringing", completed: completed)
+        }
         foregroundScheduler?.scheduleNext()
     }
 
@@ -183,7 +187,7 @@ final class AlarmRingCoordinator: ObservableObject {
             session.isActive = false
             activeSession = session
         }
-        stopRingingInternal(preserveSession: false)
+        stopRingingInternal(preserveSession: false, completed: true)
     }
 
     func snooze() {
@@ -194,52 +198,59 @@ final class AlarmRingCoordinator: ObservableObject {
         guard let alarm = activeAlarm else { return }
         snoozeTransitionInFlight = true
         
+        // Fetch fresh alarm to ensure penalty settings are up-to-date
+        let currentAlarm = alarmStore?.alarm(by: alarm.id) ?? alarm
+        
         activeSnoozeCount += 1
-        print("[AlarmRingCoordinator] Snooze tapped. Count=\(activeSnoozeCount), Threshold=\(settings.snoozePenaltyThreshold), PenaltyEnabled=\(alarm.penaltyEnabled)")
+        print("[AlarmRingCoordinator] Snooze tapped. Count=\(activeSnoozeCount), Threshold=\(settings.snoozePenaltyThreshold), PenaltyEnabled=\(currentAlarm.penaltyEnabled)")
+        
         var consumedPenalty = false
         if var session = activeSession {
+            // Update session settings from fresh alarm
+            session.penaltyEnabled = currentAlarm.penaltyEnabled
             session.snoozeCount = activeSnoozeCount
             session.status = .snoozed
-            let consumed = penaltyEngine.chargeIfNeeded(
-                alarm: alarm,
+            
+            consumedPenalty = PenaltyEngine.shared.chargeIfNeeded(
+                alarm: currentAlarm,
                 session: &session,
                 violation: .snoozeThresholdExceeded,
-                note: "Snooze threshold exceeded"
+                note: "Snooze tapped \(activeSnoozeCount)x; threshold=\(settings.snoozePenaltyThreshold)"
             )
-            activeSession = session
-            alarmSessionSnapshots[alarm.id] = session
-            if consumed {
-                consumedPenalty = true
-                recordPenaltyEvent(on: alarm, type: .snoozeThresholdExceeded, consumed: true)
+            if consumedPenalty {
                 penaltyToastMessage = "Penalty charged: \(settings.penaltyCurrency.symbol)\(settings.penaltyAmountEuro)"
             }
+            activeSession = session
+            alarmSessionSnapshots[currentAlarm.id] = session
+            shieldEngine.syncSession(session)
         }
 
-        let configuredSeconds = max(0, alarm.snoozeSeconds)
-        let configuredMinutes = max(0, alarm.snoozeMinutes)
+        let configuredSeconds = max(0, currentAlarm.snoozeSeconds)
+        let configuredMinutes = max(0, currentAlarm.snoozeMinutes)
         let totalSeconds = configuredSeconds > 0 ? (configuredMinutes * 60 + configuredSeconds) : (configuredMinutes > 0 ? configuredMinutes * 60 : 300)
 
-        let performSnoozeTransition = { [weak self] in
+        // Using Task for MainActor isolation
+        let performSnoozeTransition = { @MainActor [weak self] in
             guard let self else { return }
             // Log Snoozed Event
             if !self.isPreviewMode {
                 let event = ActivityEvent(
                     domain: .alarm,
-                    entityId: alarm.id,
+                    entityId: currentAlarm.id,
                     status: .snoozed,
                     metadata: [
-                        "durationMinutes": "\(alarm.snoozeMinutes)",
-                        "durationSeconds": "\(alarm.snoozeSeconds)"
+                        "durationMinutes": "\(currentAlarm.snoozeMinutes)",
+                        "durationSeconds": "\(currentAlarm.snoozeSeconds)"
                     ]
                 )
                 self.modelContext?.insert(event)
                 try? self.modelContext?.save()
             }
 
-            self.stopRingingInternal(preserveSession: true)
-            self.scheduler.scheduleSnooze(alarm: alarm, totalSeconds: totalSeconds)
+            self.stopRingingInternal(preserveSession: true, completed: false)
+            self.scheduler.scheduleSnooze(alarm: currentAlarm, totalSeconds: totalSeconds)
             DispatchQueue.main.asyncAfter(deadline: .now() + TimeInterval(totalSeconds)) { [weak self] in
-                self?.startRinging(alarmId: alarm.id.uuidString, source: .foregroundTimer)
+                self?.startRinging(alarmId: currentAlarm.id.uuidString, source: .foregroundTimer)
             }
             self.foregroundScheduler?.scheduleNext()
             self.snoozeTransitionInFlight = false
@@ -247,9 +258,11 @@ final class AlarmRingCoordinator: ObservableObject {
 
         if consumedPenalty {
             // Let the user see penalty feedback briefly before the UI dismisses into snooze.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: performSnoozeTransition)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                Task { await performSnoozeTransition() }
+            }
         } else {
-            performSnoozeTransition()
+             Task { await performSnoozeTransition() }
         }
     }
 
@@ -262,10 +275,21 @@ final class AlarmRingCoordinator: ObservableObject {
         missionTimeoutWorkItem?.cancel()
         let timeout = max(30, settings.penaltyRules.alarmMissionTimeoutSeconds)
         let work = DispatchWorkItem { [weak self] in
-            guard let self, let active = self.activeAlarm else { return }
-            let consumed = self.accountabilityManager.handleAlarmMissionFailurePenalty(alarm: active)
-            self.recordPenaltyEvent(on: active, type: .alarmMissionFailed, consumed: consumed)
-            self.missionTimeoutTriggered = true
+            Task { @MainActor [weak self] in
+                guard let self, let active = self.activeAlarm else { return }
+                guard var session = self.settings.activeAlarmSession ?? self.activeSession else { return }
+                
+                // Use Shield Engine
+                self.shieldEngine.reportViolation(
+                    alarm: active,
+                    session: &session,
+                    type: .alarmMissionFailed,
+                    note: "Mission timeout (\(timeout)s)"
+                )
+                self.activeSession = session
+                
+                self.missionTimeoutTriggered = true
+            }
         }
         missionTimeoutWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + TimeInterval(timeout), execute: work)
@@ -282,36 +306,36 @@ final class AlarmRingCoordinator: ObservableObject {
                 activeSession = session
                 alarmSessionSnapshots.removeValue(forKey: session.alarmId)
             }
-            stopRingingInternal(preserveSession: false)
+            stopRingingInternal(preserveSession: false, completed: true)
             return
         }
 
-        if !success, let alarm = activeAlarm {
-            let consumed = accountabilityManager.handleAlarmMissionFailurePenalty(alarm: alarm)
-            recordPenaltyEvent(on: alarm, type: .alarmMissionFailed, consumed: consumed)
-            missionTimeoutTriggered = true
-        }
     }
 
     @discardableResult
     func handleViolation(_ violation: AlarmViolationType, note: String) -> Bool {
-        guard let alarm = activeAlarm, var session = activeSession else { return false }
-        let consumed = penaltyEngine.chargeIfNeeded(
+        // Triggered by Shutdown/Tamper service
+        guard let alarm = activeAlarm else { return false }
+        var session = settings.activeAlarmSession ?? activeSession ?? AlarmSession(
+            alarmId: alarm.id,
+            hasMissions: alarm.missions.contains(where: { $0.type != .off }),
+            missionStatus: alarm.missions.contains(where: { $0.type != .off }) ? .inProgress : .completed,
+            status: .ringing
+        )
+        
+        let result = shieldEngine.reportViolation(
             alarm: alarm,
             session: &session,
-            violation: violation,
+            type: violation,
             note: note
         )
         activeSession = session
-        if consumed {
-            recordPenaltyEvent(
-                on: alarm,
-                type: violation == .shutdownAttempt ? .shutdownAttempt : .uninstallTamper,
-                consumed: true
-            )
+        alarmSessionSnapshots[alarm.id] = session
+        shieldEngine.syncSession(session)
+        if result {
             penaltyToastMessage = "Penalty charged: \(settings.penaltyCurrency.symbol)\(settings.penaltyAmountEuro)"
         }
-        return consumed
+        return result
     }
 
     private func recordPenaltyEvent(on alarm: Alarm, type: PenaltyEventType, consumed: Bool) {

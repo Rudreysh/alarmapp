@@ -10,9 +10,12 @@ struct CelebrationOverlayView: View {
                 .ignoresSafeArea()
 
             LinearGradient(
-                colors: [Colors.sheetGradientTop.opacity(0.9), Colors.sheetGradientBottom.opacity(0.9)],
-                startPoint: .top,
-                endPoint: .bottom
+                colors: [
+                    Color(red: 0.06, green: 0.14, blue: 0.24).opacity(0.9),
+                    Color(red: 0.03, green: 0.08, blue: 0.16).opacity(0.9)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
 
@@ -22,7 +25,14 @@ struct CelebrationOverlayView: View {
                 ZStack {
                     Circle()
                         .fill(
-                            LinearGradient(colors: [Colors.saleBadgeStart, Colors.saleBadgeEnd], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            LinearGradient(
+                                colors: [
+                                    Colors.accentTeal.opacity(0.95),
+                                    Colors.accentBlue.opacity(0.9)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
                         .frame(width: 160, height: 160)
                         .overlay(

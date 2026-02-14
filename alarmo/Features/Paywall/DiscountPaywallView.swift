@@ -34,10 +34,10 @@ struct DiscountPaywallView: View {
 
                         Text("New user exclusive")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Colors.pillGreen)
+                            .foregroundColor(Colors.accentTeal)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 6)
-                            .background(Colors.pillGreen.opacity(0.2))
+                            .background(Colors.accentTeal.opacity(0.18))
                             .clipShape(Capsule())
                             .frame(maxWidth: .infinity)
 
@@ -54,7 +54,7 @@ struct DiscountPaywallView: View {
                         DiscountPlanCard()
                             .padding(.top, Spacing.m)
 
-                        PrimaryButton(title: "Use 50% off coupon") {
+                        PrimaryButton(title: "Use 50% off coupon", style: .blueGlass) {
                             Task { @MainActor in
                                 viewModel.onTapUseCoupon()
                             }
@@ -127,10 +127,19 @@ private struct DiscountPlanCard: View {
     var body: some View {
         ZStack(alignment: .leading) {
             RoundedRectangle(cornerRadius: Radii.card)
-                .fill(Color(red: 0.10, green: 0.13, blue: 0.36))
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.07, green: 0.16, blue: 0.30),
+                            Color(red: 0.04, green: 0.09, blue: 0.20)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .overlay(
                     RoundedRectangle(cornerRadius: Radii.card)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
                 )
 
             HStack(spacing: Spacing.m) {
@@ -138,7 +147,7 @@ private struct DiscountPlanCard: View {
                     Circle()
                         .fill(
                             LinearGradient(
-                                colors: [Colors.saleBadgeStart, Colors.saleBadgeEnd],
+                                colors: [Colors.accentTeal.opacity(0.95), Colors.accentBlue.opacity(0.9)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )

@@ -156,6 +156,8 @@ struct PlanView: View {
                                             let amount = viewModel.incrementHabit(item, value: nil, context: modelContext)
                                             addFloatingBubble(value: "+\(Int(amount))", at: position)
                                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                        } onAdjust: { delta in
+                                            viewModel.updateHabitValue(item, delta: delta, context: modelContext)
                                         }
                                         .listRowBackground(Color.clear)
                                         .listRowSeparator(.hidden)
@@ -206,6 +208,8 @@ struct PlanView: View {
                                             let amount = viewModel.incrementHabit(item, value: nil, context: modelContext)
                                             addFloatingBubble(value: "+\(Int(amount))", at: position)
                                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                        } onAdjust: { delta in
+                                            viewModel.updateHabitValue(item, delta: delta, context: modelContext)
                                         }
                                         .listRowBackground(Color.clear)
                                         .listRowSeparator(.hidden)
@@ -257,6 +261,8 @@ struct PlanView: View {
                                             let amount = viewModel.incrementHabit(item, value: nil, context: modelContext)
                                             addFloatingBubble(value: "+\(Int(amount))", at: position)
                                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                        } onAdjust: { delta in
+                                            viewModel.updateHabitValue(item, delta: delta, context: modelContext)
                                         }
                                         .listRowBackground(Color.clear)
                                         .listRowSeparator(.hidden)
@@ -853,8 +859,12 @@ struct PlanItemRow: View {
     let onToggle: () -> Void
     var onPlay: (() -> Void)? = nil
     var onQuickAdd: ((Double, CGPoint) -> Void)? = nil
+    var onAdjust: ((Double) -> Void)? = nil
     
     @State private var quickAddScale: CGFloat = 1.0
+    @State private var dragOffset: CGFloat = 0
+    @State private var isDragging: Bool = false
+    @State private var lastChangeTime: Date = Date()
     
     var body: some View {
         ZStack {
@@ -931,24 +941,32 @@ struct PlanItemRow: View {
                 
                 if item.type == .habit && !isCompleted {
                     GeometryReader { geo in
-                        Button(action: {
-                            let frame = geo.frame(in: .global)
-                            let center = CGPoint(x: frame.midX, y: frame.midY)
-                            onQuickAdd?(1, center)
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                                quickAddScale = 1.2
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 24))
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundColor(tintColor)
+                            .scaleEffect(quickAddScale)
+                            .onTapGesture {
+                                let frame = geo.frame(in: .global)
+                                let center = CGPoint(x: frame.midX, y: frame.midY)
+                                onQuickAdd?(1, center)
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                    quickAddScale = 1.2
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    quickAddScale = 1.0
+                                }
                             }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                quickAddScale = 1.0
-                            }
-                        }) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 24))
-                                .symbolRenderingMode(.hierarchical)
-                                .foregroundColor(tintColor)
-                        }
-                        .buttonStyle(.plain)
-                        .scaleEffect(quickAddScale)
+                            .gesture(
+                                DragGesture(minimumDistance: 5)
+                                    .onChanged { value in
+                                        handleDrag(value: value, width: UIScreen.main.bounds.width)
+                                    }
+                                    .onEnded { _ in
+                                        isDragging = false
+                                        dragOffset = 0
+                                    }
+                            )
                     }
                     .frame(width: 24, height: 24)
                     .padding(.trailing, 4)
@@ -974,9 +992,54 @@ struct PlanItemRow: View {
         }
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(isCompleted ? PlanPalette.accent.opacity(0.32) : Color.white.opacity(0.20), lineWidth: 1)
+                .stroke(isCompleted ? PlanPalette.accent.opacity(0.32) : (isDragging ? tintColor.opacity(0.5) : Color.white.opacity(0.20)), lineWidth: isDragging ? 2 : 1)
         )
-        .shadow(color: isCompleted ? PlanPalette.accent.opacity(0.20) : Color.black.opacity(0.16), radius: 10, x: 0, y: 4)
+        .shadow(color: isCompleted ? PlanPalette.accent.opacity(0.20) : (isDragging ? tintColor.opacity(0.3) : Color.black.opacity(0.16)), radius: isDragging ? 15 : 10, x: 0, y: isDragging ? 6 : 4)
+        .gesture(
+            item.type == .habit && !isCompleted ?
+            DragGesture(minimumDistance: 20)
+                .onChanged { value in
+                    // Only start if horizontal enough
+                    if !isDragging && abs(value.translation.width) > abs(value.translation.height) {
+                        isDragging = true
+                    }
+                    if isDragging {
+                         handleDrag(value: value, width: UIScreen.main.bounds.width - 32)
+                    }
+                }
+                .onEnded { _ in
+                    isDragging = false
+                    dragOffset = 0
+                }
+            : nil
+        )
+    }
+    
+    private func handleDrag(value: DragGesture.Value, width: CGFloat) {
+        let delta = value.translation.width - dragOffset
+        dragOffset = value.translation.width
+        
+        // Calculate amount
+        let sensitivity: Double = {
+            let unit = item.goalUnit.lowercased()
+            if unit == "m" || unit == "meters" { return 200.0 } // 200px = full goal roughly? No.
+            return 100.0 // 100px = 1 portion or 10%
+        }()
+        
+        let amount = (Double(delta) / sensitivity) * (item.goalValue / 5.0) // Swipe across 5 sensitivity steps = goal
+        
+        if abs(amount) > 0.01 {
+            // Throttle updates or just call
+            if Date().timeIntervalSince(lastChangeTime) > 0.05 {
+                onAdjust?(amount)
+                lastChangeTime = Date()
+                
+                // Haptic feedback
+                if abs(value.translation.width.truncatingRemainder(dividingBy: 20)) < 2 {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                }
+            }
+        }
     }
     
     @ViewBuilder
@@ -987,15 +1050,15 @@ struct PlanItemRow: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            (isWaterHabit ? Color.blue : tintColor).opacity(0.24),
-                            (isWaterHabit ? Color.cyan : tintColor).opacity(0.10)
+                            (isWaterHabit ? Color.blue : tintColor).opacity(isDragging ? 0.35 : 0.24),
+                            (isWaterHabit ? Color.cyan : tintColor).opacity(isDragging ? 0.20 : 0.10)
                         ],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
                 .frame(width: max(0, geo.size.width * p))
-                .animation(.spring(), value: p)
+                .animation(isDragging ? .none : .spring(), value: p)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
@@ -1051,7 +1114,9 @@ struct PlanItemRow: View {
             let current = item.currentValue(on: Date())
             let total = item.goalValue
             let unit = item.goalUnit
-            return "\(Int(current))/\(Int(total))\(unit)"
+            let currentStr = current.formatted(.number.precision(.fractionLength(0...2)))
+            let totalStr = total.formatted(.number.precision(.fractionLength(0...2)))
+            return "\(currentStr)/\(totalStr)\(unit)"
         }
         
         // Only return Duration (Timer)

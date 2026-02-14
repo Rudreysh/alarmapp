@@ -71,12 +71,17 @@ final class AccountabilityEnforcementManager: ObservableObject {
     }
 
     @discardableResult
-    func handleAlarmExcessSnoozePenalty(alarm: Alarm) -> Bool {
-        guard alarm.penaltyEnabled, alarm.penaltyRules.alarmSnoozeThreshold > 0 else { return true }
+    func handleAlarmExcessSnoozePenalty(alarm: Alarm, snoozeCount: Int = 0) -> Bool {
+        guard alarm.penaltyEnabled,
+              alarm.penaltyRules.triggerSnoozeThresholdEnabled,
+              alarm.penaltyRules.alarmSnoozeThreshold > 0,
+              snoozeCount >= alarm.penaltyRules.alarmSnoozeThreshold else {
+            return true
+        }
         return creditsManager.consumeCredits(
             amountEuro: alarm.penaltyAmountEuro,
             eventType: .alarmExcessSnooze,
-            note: "Snooze threshold reached",
+            note: "Snooze threshold reached (\(snoozeCount)/\(alarm.penaltyRules.alarmSnoozeThreshold))",
             sourceAlarmId: alarm.id
         )
     }

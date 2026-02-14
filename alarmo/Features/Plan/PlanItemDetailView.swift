@@ -170,7 +170,7 @@ struct MindfulHabitProgressView: View {
                         .font(.largeTitle)
                         .foregroundColor(itemColor)
                     
-                    Text("\(Int(min(currentValue, item.goalValue)))/\(Int(item.goalValue)) \(item.goalUnit)")
+                    Text("\(currentValue.formatted(.number.precision(.fractionLength(0...2))))/\(item.goalValue.formatted(.number.precision(.fractionLength(0...2)))) \(item.goalUnit)")
                         .font(.system(size: 24, weight: .bold))
                 }
                 
@@ -322,7 +322,7 @@ struct WaterProgressView: View {
                     .padding(40)
                 
                 VStack(spacing: 8) {
-                    Text("\(Int(currentValue))/\(Int(item.goalValue))\(item.goalUnit)")
+                    Text("\(currentValue.formatted(.number.precision(.fractionLength(0...2))))/\(item.goalValue.formatted(.number.precision(.fractionLength(0...2))))\(item.goalUnit)")
                         .font(.system(size: 32, weight: .bold))
                         .foregroundColor(Colors.textPrimary)
                     
@@ -368,7 +368,7 @@ struct GenericHabitProgressView: View {
                     .rotationEffect(.degrees(-90))
                 
                 VStack(spacing: 4) {
-                    Text("\(min(progressValue, item.goalValue).formatted())")
+                    Text("\(progressValue.formatted(.number.precision(.fractionLength(0...2))))")
                         .font(.system(size: 44, weight: .bold))
                         .foregroundColor(Colors.textPrimary)
                     
@@ -376,7 +376,7 @@ struct GenericHabitProgressView: View {
                         .font(.headline)
                         .foregroundColor(Colors.textSecondary)
                     
-                    Text("of \(item.goalValue.formatted()) goal")
+                    Text("of \(item.goalValue.formatted(.number.precision(.fractionLength(0...2)))) goal")
                         .font(.caption)
                         .foregroundColor(Colors.textSecondary)
                 }

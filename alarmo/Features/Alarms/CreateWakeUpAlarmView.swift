@@ -47,9 +47,9 @@ struct CreateWakeUpAlarmView: View {
                 Colors.bgPrimary.ignoresSafeArea()
                 
                 ScrollView {
-                    VStack(spacing: 24) {
+                    VStack(spacing: 16) {
                         // Top Spacer for Header
-                        Color.clear.frame(height: 12)
+                        Color.clear.frame(height: 4)
 
                         // 1. Digital Time Picker (Moved to Top)
                         DigitalTimeDisplay(
@@ -57,7 +57,7 @@ struct CreateWakeUpAlarmView: View {
                             minute: $viewModel.draft.minute,
                             second: $viewModel.draft.second
                         )
-                        .padding(.top, 20)
+                        .padding(.top, 0)
                         
                         // Interactive Location Badge
                         Button(action: { showTimeZonePicker = true }) {
@@ -93,8 +93,8 @@ struct CreateWakeUpAlarmView: View {
                                     .stroke(viewModel.draft.timeZoneMode == .custom ? Colors.accentTeal.opacity(0.2) : Colors.textSecondary.opacity(0.2), lineWidth: 1)
                             )
                         }
-                        .padding(.top, 18)
-                        .padding(.bottom, 10)
+                        .padding(.top, 2)
+                        .padding(.bottom, 4)
 
                         // 2. Name & Emoji (Moved Below Time)
                          HStack(spacing: Spacing.m) {
@@ -381,7 +381,7 @@ struct CreateWakeUpAlarmView: View {
             )
         }
         .sheet(isPresented: $showPenaltySettings) {
-            PreventPowerOffView()
+            AccountabilityShieldSettingsView()
         }
         // Mission Config Sheets (Existing Logic)
         .sheet(item: $selectedMissionForConfig) { mission in
@@ -525,6 +525,8 @@ private extension CreateWakeUpAlarmView {
             var alarmPenaltyRules = settingsStore.penaltyRules
             // Alarm penalty in this mode is snooze-threshold based.
             alarmPenaltyRules.alarmMissionFailTriggersPenalty = false
+            let penaltyEnabled = viewModel.draft.penaltyEnabled
+
             let alarm = Alarm(
                 id: alarmId,
                 name: alarmName,
@@ -554,15 +556,16 @@ private extension CreateWakeUpAlarmView {
                 wallpaperId: viewModel.draft.wallpaperId,
                 createdAt: Date(),
                 missions: viewModel.draft.missions,
-                enforcementMode: viewModel.draft.penaltyEnabled ? .penaltyOnly : .none,
+                enforcementMode: penaltyEnabled ? .penaltyOnly : .none,
                 blockAppsEnabled: false,
                 blockedSelectionData: settingsStore.blockedAppsSelectionData,
-                penaltyEnabled: viewModel.draft.penaltyEnabled,
+                penaltyEnabled: penaltyEnabled,
                 penaltyAmountEuro: settingsStore.penaltyAmountEuro,
                 penaltyStrategy: .credits,
                 penaltyRules: alarmPenaltyRules,
-                shutdownProtectionEnabled: viewModel.draft.penaltyEnabled
+                shutdownProtectionEnabled: penaltyEnabled
             )
+            
             if existingAlarm != nil {
                 alarmStore.update(alarm)
             } else {

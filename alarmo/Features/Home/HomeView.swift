@@ -49,7 +49,7 @@ struct HomeView: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "bolt.fill")
                                     .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(Colors.accentRed)
+                                    .foregroundColor(Colors.accentTeal)
                                 Text("PRO Free Trial")
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundColor(Colors.textPrimary)
@@ -58,7 +58,20 @@ struct HomeView: View {
                             .padding(.vertical, 8)
                             .background(
                                 RoundedRectangle(cornerRadius: 16)
-                                    .stroke(Colors.accentRed.opacity(0.7), lineWidth: 1)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Colors.accentTeal.opacity(0.12),
+                                                Colors.accentBlue.opacity(0.12)
+                                            ],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Colors.accentTeal.opacity(0.55), lineWidth: 1)
                             )
                         }
                         .buttonStyle(PressedScaleButtonStyle())
