@@ -5,6 +5,7 @@ struct AccountabilityShieldSettingsView: View {
     @Environment(\.dismiss) var dismiss
     
     @State private var showViolationCenter = false
+    @State private var showInfo = false
     
     var body: some View {
         NavigationStack {
@@ -12,55 +13,86 @@ struct AccountabilityShieldSettingsView: View {
                 SettingsGlassBackground()
                 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        
-                        // Header
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Accountability Shield")
-                                .font(.system(size: 34, weight: .bold))
-                                .foregroundColor(.white)
-                            Text("Global penalty rules")
-                                .font(.subheadline)
-                                .foregroundColor(Colors.textSecondary)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 20)
-                        
-                        // Penalty Amount
-                        SettingsCard {
-                            HStack {
-                                Text("Penalty Amount")
-                                    .foregroundColor(Colors.textPrimary)
-                                Spacer()
-                                Menu {
-                                    ForEach(1...10, id: \.self) { amount in
-                                        Button("€\(amount)") {
-                                            store.penaltyAmountEuro = amount
-                                        }
-                                    }
-                                } label: {
-                                    HStack {
-                                        Text("€\(store.penaltyAmountEuro)")
-                                            .fontWeight(.bold)
-                                        Image(systemName: "chevron.up.chevron.down")
-                                            .font(.caption)
-                                    }
-                                    .foregroundColor(SettingsPalette.accent)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(Color.white.opacity(0.1))
-                                    .cornerRadius(8)
-                                }
+                    VStack(spacing: 24) {
+                        // Header with Visual
+                        VStack(spacing: 16) {
+                            Image(systemName: "shield.checkered")
+                                .font(.system(size: 64))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [Colors.accentTeal, Colors.accentTeal.opacity(0.6)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .shadow(color: Colors.accentTeal.opacity(0.3), radius: 10, x: 0, y: 5)
+                            
+                            VStack(spacing: 4) {
+                                Text("Accountability Shield")
+                                    .font(.system(size: 28, weight: .bold))
+                                    .foregroundColor(.white)
+                                Text("Global Penalty Rules")
+                                    .font(.subheadline)
+                                    .foregroundColor(Colors.textSecondary)
                             }
-                            .padding(.vertical, 4)
                         }
+                        .padding(.top, 24)
                         
-                        // Triggers
-                        SettingsCard {
+                        // Penalty Amount Tile (Standalone)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("PENALTY STAKE")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(Colors.textSecondary)
+                                Text("Penalty Amount")
+                                    .font(.headline)
+                                    .foregroundColor(Colors.textPrimary)
+                            }
+                            
+                            Spacer()
+                            
+                            Menu {
+                                ForEach(1...10, id: \.self) { amount in
+                                    Button("€\(amount)") {
+                                        store.penaltyAmountEuro = amount
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Text("€\(store.penaltyAmountEuro)")
+                                        .font(.title3)
+                                        .fontWeight(.bold)
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.caption)
+                                }
+                                .foregroundColor(Colors.bgPrimary)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 10)
+                                .background(
+                                    Capsule()
+                                        .fill(Colors.accentTeal)
+                                )
+                            }
+                        }
+                        .padding(16)
+                        .background(Colors.cardSurface)
+                        .cornerRadius(16)
+                        
+                        // Triggers Section
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("TRIGGERS")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(Colors.textSecondary)
+                                .padding(.leading, 8)
+                            
                             // Shutdown
-                            SettingsToggleRow(
+                            ShieldTile(
+                                icon: "power.circle.fill",
+                                color: .red,
                                 title: "Phone Shutdown",
-                                subtitle: "Charge if shutdown attempted while ringing",
+                                subtitle: "Turning off phone while ringing",
                                 isOn: Binding(
                                     get: { store.triggerShutdownAttemptEnabled },
                                     set: { store.triggerShutdownAttemptEnabled = $0 }
@@ -68,110 +100,171 @@ struct AccountabilityShieldSettingsView: View {
                             )
                             
                             // Force Close
-                            SettingsToggleRow(
+                            ShieldTile(
+                                icon: "xmark.circle.fill",
+                                color: .orange,
                                 title: "Force Close App",
-                                subtitle: "Charge if app terminated while ringing",
+                                subtitle: "Killing the app from multitasking",
                                 isOn: Binding(
                                     get: { store.penaltyRules.triggerForceCloseEnabled },
                                     set: { store.penaltyRules.triggerForceCloseEnabled = $0 }
                                 )
                             )
                             
-                            // Tamper/Uninstall
-                            SettingsToggleRow(
+                            // Restart
+                            ShieldTile(
+                                icon: "arrow.triangle.2.circlepath.circle.fill",
+                                color: .yellow,
+                                title: "Forced Restart",
+                                subtitle: "Hard resetting device",
+                                isOn: Binding(
+                                    get: { store.penaltyRules.triggerForcedRestartEnabled },
+                                    set: { store.penaltyRules.triggerForcedRestartEnabled = $0 }
+                                )
+                            )
+                            
+                            // Tamper
+                            ShieldTile(
+                                icon: "trash.circle.fill",
+                                color: .purple,
                                 title: "Uninstall & Tamper",
-                                subtitle: "Best-effort detection on next reinstall",
+                                subtitle: "Deleting app during alarm",
                                 isOn: Binding(
                                     get: { store.triggerUninstallTamperEnabled },
                                     set: { store.triggerUninstallTamperEnabled = $0 }
                                 )
                             )
                             
-                            // Snooze Threshold
-                            SettingsToggleRow(
+                            // Snooze
+                            ShieldTile(
+                                icon: "zzz",
+                                color: .blue,
                                 title: "Excessive Snooze",
-                                subtitle: "Charge if snooze limit exceeded",
+                                subtitle: "Exceeding snooze limit",
                                 isOn: Binding(
                                     get: { store.triggerSnoozeThresholdEnabled },
                                     set: { store.triggerSnoozeThresholdEnabled = $0 }
-                                ),
-                                isLast: !store.triggerSnoozeThresholdEnabled
+                                )
                             )
                             
+                            // Nested Snooze Config
                             if store.triggerSnoozeThresholdEnabled {
                                 HStack {
-                                    Text("Snooze Limit")
+                                    Image(systemName: "number.circle.fill")
+                                        .font(.system(size: 24))
                                         .foregroundColor(Colors.textSecondary)
-                                    Spacer()
-                                    Stepper("", value: Binding(
-                                        get: { store.snoozePenaltyThreshold },
-                                        set: { store.snoozePenaltyThreshold = $0 }
-                                    ), in: 1...10)
-                                    .labelsHidden()
+                                        .frame(width: 32)
                                     
-                                    Text("\(store.snoozePenaltyThreshold)")
+                                    Text("Max Snoozes Allowed")
+                                        .font(.system(size: 16))
                                         .foregroundColor(Colors.textPrimary)
-                                        .frame(minWidth: 20)
+                                    
+                                    Spacer()
+                                    
+                                    HStack(spacing: 16) {
+                                        Button(action: {
+                                            if store.snoozePenaltyThreshold > 1 { store.snoozePenaltyThreshold -= 1 }
+                                        }) {
+                                            Image(systemName: "minus.circle.fill")
+                                                .font(.title2)
+                                                .foregroundColor(Colors.textSecondary)
+                                        }
+                                        
+                                        Text("\(store.snoozePenaltyThreshold)")
+                                            .font(.headline)
+                                            .foregroundColor(Colors.textPrimary)
+                                            .frame(width: 20)
+                                        
+                                        Button(action: {
+                                            if store.snoozePenaltyThreshold < 10 { store.snoozePenaltyThreshold += 1 }
+                                        }) {
+                                            Image(systemName: "plus.circle.fill")
+                                                .font(.title2)
+                                                .foregroundColor(Colors.accentTeal)
+                                        }
+                                    }
                                 }
-                                .padding(.vertical, 12)
+                                .padding(16)
+                                .background(Colors.cardSurface)
+                                .cornerRadius(16)
                             }
-                            
-                            // Restart
-                            SettingsToggleRow(
-                                title: "Forced Restart",
-                                subtitle: "Charge if device hard-reset detected",
-                                isOn: Binding(
-                                    get: { store.penaltyRules.triggerForcedRestartEnabled },
-                                    set: { store.penaltyRules.triggerForcedRestartEnabled = $0 }
-                                ),
-                                isLast: true
-                            )
-                            // Airplane Mode (Optional)
-                            // SettingsToggleRow(title: "Airplane Mode Abuse", ...)
                         }
                         
-                        // Violation Center Link
+                        // Violation History Tile
                         Button(action: { showViolationCenter = true }) {
-                            SettingsCard {
-                                HStack {
+                            HStack {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.orange.opacity(0.2))
+                                        .frame(width: 40, height: 40)
                                     Image(systemName: "exclamationmark.triangle.fill")
                                         .foregroundColor(.orange)
+                                        .font(.system(size: 20))
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 2) {
                                     Text("Violation History")
+                                        .font(.headline)
                                         .foregroundColor(Colors.textPrimary)
-                                    Spacer()
-                                    if !store.violations.filter({ $0.status == .pendingGracePeriod }).isEmpty {
-                                        Text("\(store.violations.filter({ $0.status == .pendingGracePeriod }).count) Pending")
-                                            .font(.caption)
-                                            .fontWeight(.bold)
-                                            .foregroundColor(.white)
-                                            .padding(.horizontal, 8)
-                                            .padding(.vertical, 4)
-                                            .background(Color.red)
-                                            .cornerRadius(12)
-                                    }
-                                    Image(systemName: "chevron.right")
+                                    Text("Check past charges")
+                                        .font(.caption)
                                         .foregroundColor(Colors.textSecondary)
                                 }
-                                .padding(.vertical, 4)
+                                
+                                Spacer()
+                                
+                                // Pending Badge
+                                let pendingCount = store.violations.filter({ $0.status == .pendingGracePeriod }).count
+                                if pendingCount > 0 {
+                                    Text("\(pendingCount) Pending")
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(Capsule().fill(Color.red))
+                                }
+                                
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(Colors.textSecondary)
+                                    .font(.system(size: 14, weight: .semibold))
                             }
+                            .padding(16)
+                            .background(Colors.cardSurface)
+                            .cornerRadius(16)
                         }
                         
-                        // How it works
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("HOW PENALTIES WORK")
-                                .font(.caption)
-                                .fontWeight(.bold)
+                        // Info Footer
+                        VStack(spacing: 16) {
+                            Button(action: { showInfo.toggle() }) {
+                                HStack {
+                                    Image(systemName: "info.circle")
+                                    Text("How Penalties Work")
+                                    Image(systemName: "chevron.down")
+                                        .rotationEffect(.degrees(showInfo ? 180 : 0))
+                                }
+                                .font(.subheadline)
                                 .foregroundColor(Colors.textSecondary)
+                            }
                             
-                            Text("• Penalties are evaluated active ONLY during an active alarm session.\n• All violations trigger a 24-hour grace period before charging.\n• You can request an exemption if the violation was due to a technical issue or emergency.\n• Detection is best-effort due to iOS limitations.")
-                                .font(.system(size: 14))
-                                .foregroundColor(Colors.textSecondary)
-                                .lineSpacing(4)
+                            if showInfo {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    InfoRow(text: "Penalties are only active during a ringing alarm session.")
+                                    InfoRow(text: "Violations trigger a 24-hour grace period before charging.")
+                                    InfoRow(text: "You can request an exemption for bugs or emergencies.")
+                                    InfoRow(text: "Detection is best-effort due to iOS limitations.")
+                                }
+                                .padding()
+                                .background(Colors.cardSurface)
+                                .cornerRadius(12)
+                                .transition(.opacity)
+                            }
                         }
                         .padding(.horizontal, 24)
                         
-                        Spacer(minLength: 50)
+                        Spacer(minLength: 40)
                     }
+                    .padding(.horizontal, 16)
                     .padding(.bottom, 20)
                 }
             }
@@ -181,7 +274,7 @@ struct AccountabilityShieldSettingsView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .tint(SettingsPalette.accent)
+                    .foregroundColor(Colors.accentTeal)
                 }
             }
             .sheet(isPresented: $showViolationCenter) {
@@ -191,32 +284,62 @@ struct AccountabilityShieldSettingsView: View {
     }
 }
 
-struct SettingsToggleRow: View {
+// MARK: - Subviews
+
+struct ShieldTile: View {
+    let icon: String
+    let color: Color
     let title: String
-    var subtitle: String? = nil
+    let subtitle: String
     @Binding var isOn: Bool
-    var isLast: Bool = false
     
     var body: some View {
-        VStack(spacing: 0) {
-            Toggle(isOn: $isOn) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .foregroundColor(Colors.textPrimary)
-                    if let subtitle = subtitle {
-                        Text(subtitle)
-                            .font(.caption)
-                            .foregroundColor(Colors.textSecondary)
-                    }
-                }
-            }
-            .toggleStyle(SwitchToggleStyle(tint: SettingsPalette.accent))
-            .padding(.vertical, 12)
+        HStack(spacing: 16) {
+            // Icon
+            Image(systemName: icon)
+                .font(.system(size: 24))
+                .foregroundColor(color)
+                .frame(width: 32)
             
-            if !isLast {
-                Divider()
-                    .background(Color.white.opacity(0.1))
+            // Text
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Colors.textPrimary)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundColor(Colors.textSecondary)
             }
+            
+            Spacer()
+            
+            Toggle("", isOn: $isOn)
+                .labelsHidden()
+                .toggleStyle(SwitchToggleStyle(tint: Colors.accentTeal))
+        }
+        .padding(16)
+        .background(Colors.cardSurface)
+        .cornerRadius(16)
+    }
+}
+
+struct InfoRow: View {
+    let text: String
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Circle()
+                .fill(Colors.textSecondary)
+                .frame(width: 4, height: 4)
+                .padding(.top, 6)
+            Text(text)
+                .font(.caption)
+                .foregroundColor(Colors.textSecondary)
+                .lineSpacing(4)
         }
     }
+}
+
+#Preview {
+    AccountabilityShieldSettingsView()
 }

@@ -754,40 +754,66 @@ struct YearlyStatusView: View {
             HStack(spacing: 0) {
                 ForEach(weekdaySymbols, id: \.self) { symbol in
                     Text(symbol)
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(Colors.textTertiary)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Colors.textPrimary)
                         .frame(maxWidth: .infinity)
                 }
             }
             
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 7), spacing: 8) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 7), spacing: 10) {
                 // Padding for first day
                 let weekday = calendar.component(.weekday, from: monthStart)
-                // Adjust for calendar.firstWeekday (typically 1 for Sunday or 2 for Monday)
                 let padding = (weekday - calendar.firstWeekday + 7) % 7
                 
                 ForEach(0..<padding, id: \.self) { _ in
-                    Color.clear.aspectRatio(1, contentMode: .fit)
+                    Color.clear.frame(width: 40, height: 40)
                 }
                 
                 ForEach(1...daysInMonth, id: \.self) { day in
                     if let d = calendar.date(byAdding: .day, value: day - 1, to: monthStart) {
                         let value = heatmap[calendar.startOfDay(for: d)] ?? 0
                         let isToday = calendar.isDateInToday(d)
+                        let isFuture = d > Date()
+                        let progress = min(value, 1.0)
                         
                         ZStack {
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(colorForValue(value))
-                                .aspectRatio(1, contentMode: .fit)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(isToday ? Colors.accentBlue : Colors.cardStroke.opacity(0.3), lineWidth: isToday ? 2 : 1)
+                            // Background circle
+                            Circle()
+                                .stroke(
+                                    isToday ? ReportPalette.accent.opacity(0.3) : Colors.textTertiary.opacity(0.15),
+                                    lineWidth: 2
                                 )
+                                .frame(width: 38, height: 38)
                             
+                            // Progress ring
+                            if progress > 0 && !isFuture {
+                                Circle()
+                                    .trim(from: 0, to: progress)
+                                    .stroke(
+                                        ReportPalette.accent,
+                                        style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
+                                    )
+                                    .frame(width: 38, height: 38)
+                                    .rotationEffect(.degrees(-90))
+                            }
+                            
+                            // Today highlight ring
+                            if isToday {
+                                Circle()
+                                    .stroke(ReportPalette.accent, lineWidth: 2)
+                                    .frame(width: 38, height: 38)
+                            }
+                            
+                            // Day number
                             Text("\(day)")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(value > 0.4 ? .white : (isToday ? Colors.accentBlue : Colors.textPrimary))
+                                .font(.system(size: 13, weight: isToday ? .bold : .medium))
+                                .foregroundColor(
+                                    isFuture ? Colors.textTertiary.opacity(0.5) :
+                                    isToday ? ReportPalette.accent :
+                                    Colors.textPrimary
+                                )
                         }
+                        .opacity(isFuture ? 0.5 : 1.0)
                     }
                 }
             }

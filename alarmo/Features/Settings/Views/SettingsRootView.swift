@@ -33,15 +33,16 @@ struct SettingsRootView: View {
                                 showSignIn = true
                             }
                             
-                            SettingsActionRow(
-                                title: "My points",
-                                trailingText: "\(store.points) P",
-                                icon: "p.circle.fill",
-                                iconColor: .orange,
-                                isLast: false
-                            ) {
-                                // Placeholder for points
+                            NavigationLink(destination: MyPointsView()) {
+                                SettingsActionRow(
+                                    title: "My points",
+                                    trailingText: "\(store.points) P",
+                                    icon: "p.circle.fill",
+                                    iconColor: .orange,
+                                    isLast: false
+                                ) { }
                             }
+                            .buttonStyle(.plain)
                             
                             SettingsActionRow(
                                 title: "Pro",
@@ -134,14 +135,22 @@ struct SettingsRootView: View {
                         }
                         .frame(height: 72)
                         .padding(.horizontal, 16)
+                        .onTapGesture {
+                            coordinator.navigate(to: .optimization)
+                        }
                         
                         // Info Group
                         VStack(alignment: .leading, spacing: 24) {
                             Group {
                                 Button("Notice") { }
-                                Button("FAQ") { }
-                                Button("Send feedback") { }
-                                Button("Copyright infringement report") { }
+                                Button("FAQ") { 
+                                    coordinator.navigate(to: .faq)
+                                }
+                                Button("Send feedback") { 
+                                    if let url = URL(string: "mailto:support@alarmo.app") {
+                                        UIApplication.shared.open(url)
+                                    }
+                                }
                             }
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(.white)
@@ -150,7 +159,7 @@ struct SettingsRootView: View {
                         .padding(.top, 10)
                         
                     }
-                    .padding(.bottom, 100)
+                    .padding(.bottom, AppConstants.tabBarHeight + Spacing.m)
                 }
             }
             .navigationDestination(for: SettingsRoute.self) { route in
@@ -165,6 +174,10 @@ struct SettingsRootView: View {
                     NotificationSettingsView()
                 case .system:
                     SystemConfigurationView()
+                case .faq:
+                    FAQView()
+                case .optimization:
+                    AppProtectionGuideView()
                 }
             }
         }

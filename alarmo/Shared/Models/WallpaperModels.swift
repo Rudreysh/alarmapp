@@ -18,12 +18,15 @@ struct WallpaperCategory: Identifiable, Equatable {
 enum WallpaperSource: Equatable {
     case bundle(url: URL)
     case userPhoto(url: URL)
+    case remote(url: URL)
 
     var url: URL {
         switch self {
         case .bundle(let url):
             return url
         case .userPhoto(let url):
+            return url
+        case .remote(let url):
             return url
         }
     }

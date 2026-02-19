@@ -47,8 +47,19 @@ struct MainTabContainerView: View {
         }
         .ignoresSafeArea(edges: .bottom)
         .onAppear {
+            // Daily login points check
+            PointsService.shared.checkDailyLogin()
+            
             pomodoroEngine.onSessionComplete = { taskId, segment, duration in
                 guard segment == .focus, let taskId = taskId else { return }
+                
+                // Award focus points regardless of task linkage
+                PointsService.shared.focusSessionEnded(
+                    taskId: taskId,
+                    taskName: nil,
+                    durationSeconds: duration,
+                    wasSkipped: false
+                )
                 
                 // Fetch the plan item and update progress
                 let descriptor = FetchDescriptor<PlanItem>(predicate: #Predicate<PlanItem> { item in
@@ -77,6 +88,7 @@ struct MainTabContainerView: View {
                     modelContext.insert(event)
                     try? modelContext.save()
                     
+                    // Update task name for focus points
                     print("✅ Updated progress for \(item.title): +\(duration)s")
                 }
             }

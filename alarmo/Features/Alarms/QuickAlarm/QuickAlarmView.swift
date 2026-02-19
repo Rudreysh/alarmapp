@@ -243,27 +243,10 @@ struct QuickAlarmView: View {
     }
     
     var resolvedWallpaperImage: Image? {
-        let id = viewModel.selectedWallpaperId
-        
-        for category in WallpaperConfig.categories {
-            if id.hasPrefix(category.id + "-") {
-                let filename = String(id.dropFirst(category.id.count + 1))
-                if category.imageNames.contains(filename) {
-                     let nameWithoutExt = (filename as NSString).deletingPathExtension
-                     if let path = Bundle.main.path(forResource: nameWithoutExt, ofType: (filename as NSString).pathExtension) {
-                         if let uiImage = UIImage(contentsOfFile: path) {
-                             return Image(uiImage: uiImage)
-                         }
-                     }
-                     if let path = Bundle.main.path(forResource: filename, ofType: nil, inDirectory: "BundledWallpapers/\(category.id)") {
-                         if let uiImage = UIImage(contentsOfFile: path) {
-                             return Image(uiImage: uiImage)
-                         }
-                     }
-                }
-            }
+        guard let uiImage = WallpaperImageResolver.resolveImage(for: viewModel.selectedWallpaperId) else {
+            return nil
         }
-        return nil
+        return Image(uiImage: uiImage)
     }
 }
 

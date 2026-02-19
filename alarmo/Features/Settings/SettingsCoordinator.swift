@@ -7,6 +7,8 @@ enum SettingsRoute: Hashable {
     case soundOutput
     case notification
     case system
+    case faq
+    case optimization
 }
 
 class SettingsCoordinator: ObservableObject {

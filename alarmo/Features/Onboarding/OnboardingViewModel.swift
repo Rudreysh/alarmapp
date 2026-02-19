@@ -52,7 +52,23 @@ final class OnboardingViewModel: ObservableObject {
         state.currentStep = step
     }
 
+    private var cancellables = Set<AnyCancellable>()
+
     func loadWallpapers() {
+        // Initial load (bundled)
+        reloadWallpaperList()
+        
+        // Listen for remote updates
+        AssetManager.shared.$remoteWallpapers
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.reloadWallpaperList() }
+            .store(in: &cancellables)
+            
+        // Trigger fetch if needed
+        Task { await AssetManager.shared.fetchCatalog() }
+    }
+    
+    private func reloadWallpaperList() {
         do {
             state.wallpaperCategories = try wallpaperLoader.loadCategories()
         } catch {
@@ -61,7 +77,41 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     func selectWallpaper(_ item: WallpaperItem) {
-        state.selectedWallpaper = WallpaperRef(id: item.id, title: item.title, source: item.source)
+        // If remote, ensure download first
+        if case .remote(let url) = item.source {
+            // Already cached?
+            // The item.url might already be local if loader found it.
+            if url.isFileURL {
+                state.selectedWallpaper = WallpaperRef(id: item.id, title: item.title, source: .userPhoto(url: url))
+            } else {
+                // Determine filename (e.g. from ID or URL path)
+                // We'll use ID + extension or just last path component of a known structure
+                // Ideally item.id or metadata has filename.
+                // But here item doesn't expose filename directly, only via ID hack.
+                // Let's rely on lastPathComponent of URL for simplicity, or make up a consistent name.
+                let filename = url.lastPathComponent 
+                
+                Task {
+                    do {
+                        let localURL = try await AssetManager.shared.downloadAsset(from: url, filename: filename)
+                        await MainActor.run {
+                            self.state.selectedWallpaper = WallpaperRef(
+                                id: item.id,
+                                title: item.title,
+                                source: .userPhoto(url: localURL)
+                            )
+                        }
+                    } catch {
+                        print("Failed to download wallpaper: \(error)")
+                    }
+                }
+                
+                // Set temporary remote ref so UI updates selection border immediately (AsyncImage handles display)
+                state.selectedWallpaper = WallpaperRef(id: item.id, title: item.title, source: item.source)
+            }
+        } else {
+            state.selectedWallpaper = WallpaperRef(id: item.id, title: item.title, source: item.source)
+        }
     }
 
     func setSelectedSound(_ sound: SoundAsset) {

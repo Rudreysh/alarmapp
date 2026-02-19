@@ -11,7 +11,6 @@ struct PlanView: View {
     
     // Sheets
     @State private var showingCreateSheet = false
-    @State private var showingNoteSheet = false
     @State private var showingAddMenu = false
     @State private var showingHabitSheet = false
     
@@ -47,8 +46,8 @@ struct PlanView: View {
             PlanGlassBackground()
             
             VStack(spacing: 0) {
-                // Top Bar
-                PlanHeaderView()
+                // Unified Header is now inside CalendarHeaderView
+                // PlanHeaderView() removed
                 
                 // Calendar Header
                 CalendarHeaderView(selectedDate: $viewModel.selectedDate, isListView: $viewModel.isListView)
@@ -65,7 +64,7 @@ struct PlanView: View {
                          if !anytimeItems.isEmpty {
                              Section(header: Text("All Day").font(.caption).foregroundColor(PlanPalette.textSecondary)) {
                                  ForEach(anytimeItems) { item in
-                                     PlanItemTimelineRow(item: item, timeString: "All Day", isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
+                                     PlanItemTimelineRow(item: item, timeString: "", isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
                                          viewModel.toggleComplete(item, context: modelContext)
                                      } onPlay: {
                                          startTimer(for: item)
@@ -115,7 +114,7 @@ struct PlanView: View {
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
-                    .padding(.bottom, 100)
+                    .padding(.bottom, AppConstants.tabBarHeight + Spacing.m)
                 } else {
                     // Standard Calendar Mode (Sections)
                     List {
@@ -286,7 +285,7 @@ struct PlanView: View {
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
-                    .padding(.bottom, 100)
+                    .padding(.bottom, AppConstants.tabBarHeight + Spacing.m)
                 }
             }
             
@@ -326,13 +325,6 @@ struct PlanView: View {
                                     showingCreateSheet = true
                                 }
                             },
-                            onSelectNote: {
-                                print("DEBUG: Note Selected")
-                                withAnimation { showingAddMenu = false }
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                    showingNoteSheet = true
-                                }
-                            },
                             onSelectHabit: {
                                 print("DEBUG: Habit Selected")
                                 withAnimation { showingAddMenu = false }
@@ -342,7 +334,7 @@ struct PlanView: View {
                             }
                         )
                         .padding(.trailing, 20)
-                        .padding(.bottom, 90) // Match FAB position + offset
+                        .padding(.bottom, 160) // Position above FAB (90 + 56 + 14)
                     }
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -383,12 +375,8 @@ struct PlanView: View {
         .sheet(isPresented: $showingCreateSheet) {
             CreatePlanItemView()
         }
-        .sheet(isPresented: $showingNoteSheet) {
-            CreateNoteView()
-                .presentationDetents([.height(140)]) // Small initial height
-                .presentationDragIndicator(.hidden)
-                .presentationBackground(.clear) // Visible background
-        }
+        // Notes quick-create from '+' menu is intentionally disabled for now.
+        // TODO: Re-enable this sheet when Notes is brought back to the add menu.
         .sheet(item: $editingItem) { item in
              CreatePlanItemView(editingItem: item)
         }
@@ -685,70 +673,112 @@ struct CalendarHeaderView: View {
     private var calendar: Calendar { Calendar.current }
     
     var body: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Button(action: { shiftDate(-1) }) {
-                    Image(systemName: "chevron.left")
-                        .foregroundColor(Colors.textSecondary)
-                }
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
-                        Text(isToday ? "Today" : formatDateTitle)
-                            .font(.title3)
-                            .fontWeight(.bold)
+
+        VStack(spacing: 16) {
+            // Unified Top Bar: Date Info + Actions
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(formatDateTitle)
+                            .font(.system(size: 28, weight: .bold))
                             .foregroundColor(Colors.textPrimary)
+                        
                         if isToday {
-                            Image(systemName: "chevron.down.circle.fill")
-                                .foregroundColor(.white)
-                                .font(.caption)
+                            Text("Today")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Colors.textSecondary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Colors.cardSurface)
+                                .cornerRadius(8)
                         }
                     }
+                    
                     Text(formatDateSubtitle)
-                        .font(.caption)
-                        .foregroundColor(Colors.textSecondary)
-                }
-                
-                Button(action: { shiftDate(1) }) {
-                    Image(systemName: "chevron.right")
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
                 }
                 
                 Spacer()
                 
-                // View Toggles (Only 2 Modes: List & Calendar)
-                HStack(spacing: 0) {
-                    // List Mode
-                    Button(action: { 
-                        withAnimation { isListView = true } 
-                    }) {
-                        Image(systemName: "list.bullet")
-                            .foregroundColor(isListView ? PlanPalette.textPrimary : PlanPalette.textMuted)
-                            .padding(8)
-                            .background(isListView ? Color.white.opacity(0.12) : Color.clear)
-                            .clipShape(Circle())
+                // Right Side: Badges + Toggle
+                VStack(alignment: .trailing, spacing: 12) {
+                    // Badges
+                    HStack(spacing: 8) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "shield.slash.fill")
+                                .font(.caption2)
+                                .foregroundColor(.gray)
+                            Text("Off")
+                                .font(.caption2)
+                                .foregroundColor(PlanPalette.textPrimary)
+                        }
+                        .padding(.vertical, 5)
+                        .padding(.horizontal, 8)
+                        .planGlassPanel(cornerRadius: 12, fillOpacity: 0.12)
+                        
+                        HStack(spacing: 4) {
+                            Image(systemName: "flame.fill")
+                                .font(.caption2)
+                                .foregroundColor(.orange)
+                            Text("1") 
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .foregroundColor(PlanPalette.textPrimary)
+                        }
+                        .padding(.vertical, 5)
+                        .padding(.horizontal, 8)
+                        .planGlassPanel(cornerRadius: 12, fillOpacity: 0.12)
                     }
                     
-                    // Calendar Mode
-                    Button(action: { 
-                        withAnimation { isListView = false } 
-                    }) {
-                        Image(systemName: "calendar")
-                            .foregroundColor(!isListView ? PlanPalette.textPrimary : PlanPalette.textMuted)
-                            .padding(8)
-                            .background(!isListView ? Color.white.opacity(0.12) : Color.clear)
-                            .clipShape(Circle())
+                    // View Toggle
+                    HStack(spacing: 0) {
+                        Button(action: { withAnimation { isListView = true } }) {
+                            Image(systemName: "list.bullet")
+                                .font(.system(size: 14))
+                                .foregroundColor(isListView ? Colors.textPrimary : Colors.textSecondary)
+                                .frame(width: 32, height: 32)
+                                .background(isListView ? Colors.cardSurface : Color.clear)
+                                .clipShape(Circle())
+                        }
+                        
+                        Button(action: { withAnimation { isListView = false } }) {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 14))
+                                .foregroundColor(!isListView ? Colors.textPrimary : Colors.textSecondary)
+                                .frame(width: 32, height: 32)
+                                .background(!isListView ? Colors.cardSurface : Color.clear)
+                                .clipShape(Circle())
+                        }
                     }
+                    .padding(2)
+                    .background(Colors.cardSurface.opacity(0.3))
+                    .clipShape(Capsule())
                 }
-                .padding(4)
-                .planGlassPanel(cornerRadius: 16, fillOpacity: 0.10)
             }
             .padding(.horizontal)
+            .padding(.top, 10)
             
-            // Week Row
-            WeekStripView(selectedDate: $selectedDate)
+            // Week Row with Navigation
+            HStack {
+                Button(action: { shiftDate(-1) }) {
+                    Image(systemName: "chevron.left")
+                        .foregroundColor(Colors.textSecondary)
+                        .frame(width: 24, height: 40)
+                }
+                
+                WeekStripView(selectedDate: $selectedDate)
+                
+                Button(action: { shiftDate(1) }) {
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(Colors.textSecondary)
+                        .frame(width: 24, height: 40)
+                }
+            }
+            .padding(.horizontal, 8)
         }
     }
+
     
     private var isToday: Bool { calendar.isDateInToday(selectedDate) }
     
@@ -760,7 +790,7 @@ struct CalendarHeaderView: View {
     
     private var formatDateSubtitle: String {
         let f = DateFormatter()
-        f.dateFormat = "E d MMM"
+        f.dateFormat = "EEEE, yyyy"
         return f.string(from: selectedDate)
     }
     

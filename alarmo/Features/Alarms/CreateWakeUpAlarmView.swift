@@ -243,20 +243,22 @@ struct CreateWakeUpAlarmView: View {
                             }
                             .padding()
 
-                            Divider().padding(.leading, 16).opacity(0.3)
-                            MenuRow(
-                                icon: "slider.horizontal.3",
-                                title: "Edit Penalty Rules",
-                                value: "Settings"
-                            ) {
-                                showPenaltySettings = true
-                            }
+                            if viewModel.draft.penaltyEnabled {
+                                Divider().padding(.leading, 16).opacity(0.3)
+                                MenuRow(
+                                    icon: "slider.horizontal.3",
+                                    title: "Edit Penalty Rules",
+                                    value: "Settings"
+                                ) {
+                                    showPenaltySettings = true
+                                }
 
-                            Text("Penalty rules are global and apply only while this alarm is active.")
-                                .font(.caption)
-                                .foregroundColor(Colors.textSecondary)
-                                .padding(.horizontal)
-                                .padding(.bottom, 8)
+                                Text("Penalty rules are global and apply only while this alarm is active.")
+                                    .font(.caption)
+                                    .foregroundColor(Colors.textSecondary)
+                                    .padding(.horizontal)
+                                    .padding(.bottom, 8)
+                            }
                         }
 
                         // Group F: Wallpaper
@@ -637,29 +639,9 @@ private extension CreateWakeUpAlarmView {
     }
 
     var resolvedWallpaperImage: Image? {
-        let id = viewModel.draft.wallpaperId
-        
-        // ID format: "category-filename"
-        for category in WallpaperConfig.categories {
-            if id.hasPrefix(category.id + "-") {
-                let filename = String(id.dropFirst(category.id.count + 1))
-                if category.imageNames.contains(filename) {
-                     let nameWithoutExt = (filename as NSString).deletingPathExtension
-                     // 1. Try Main Bundle
-                     if let path = Bundle.main.path(forResource: nameWithoutExt, ofType: (filename as NSString).pathExtension) {
-                         if let uiImage = UIImage(contentsOfFile: path) {
-                             return Image(uiImage: uiImage)
-                         }
-                     }
-                     // 2. Try BundledWallpapers dir
-                     if let path = Bundle.main.path(forResource: filename, ofType: nil, inDirectory: "BundledWallpapers/\(category.id)") {
-                         if let uiImage = UIImage(contentsOfFile: path) {
-                             return Image(uiImage: uiImage)
-                         }
-                     }
-                }
-            }
+        guard let uiImage = WallpaperImageResolver.resolveImage(for: viewModel.draft.wallpaperId) else {
+            return nil
         }
-        return nil
+        return Image(uiImage: uiImage)
     }
 }

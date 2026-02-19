@@ -99,7 +99,7 @@ struct ReportView: View {
                         }
                     }
                     .padding(20)
-                    .padding(.bottom, 100)
+                    .padding(.bottom, AppConstants.tabBarHeight + Spacing.m)
                 }
             }
         }
@@ -110,49 +110,69 @@ struct ReportView: View {
     
     private var reportHeader: some View {
         VStack(spacing: 16) {
-            // Domain Segment
+            // Domain Segment — Capsule style matching Timer tabs
             HStack(spacing: 0) {
                 ForEach(ReportDomain.allCases) { domain in
                     let isSelected = viewModel.selectedDomain == domain
                     Button {
-                        viewModel.selectedDomain = domain
-                        viewModel.selectedItemId = nil
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            viewModel.selectedDomain = domain
+                            viewModel.selectedItemId = nil
+                        }
                         Task { await viewModel.refresh() }
                     } label: {
-                        HStack(spacing: 8) {
+                        HStack(spacing: 6) {
                             Image(systemName: isSelected ? domain.icon + ".fill" : domain.icon)
-                                .font(.system(size: 14))
+                                .font(.system(size: 13, weight: .semibold))
                             Text(domain.rawValue)
-                                .font(.system(size: 14, weight: isSelected ? .bold : .medium))
+                                .font(.system(size: 14, weight: .bold))
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
-                        .frame(maxWidth: .infinity)
+                        .foregroundColor(isSelected ? Colors.textPrimary : Colors.textSecondary)
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 18)
                         .background(
-                            ZStack {
+                            Group {
                                 if isSelected {
-                                    RoundedRectangle(cornerRadius: 15)
-                                        .fill(ReportPalette.accentGradient)
+                                    Capsule()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color(red: 0.18, green: 0.21, blue: 0.28).opacity(0.95),
+                                                    Color(red: 0.12, green: 0.15, blue: 0.21).opacity(0.95)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
                                         .matchedGeometryEffect(id: "domain_bg", in: domainNamespace)
-                                        .shadow(color: ReportPalette.glow.opacity(0.28), radius: 10, x: 0, y: 4)
+                                } else {
+                                    Color.clear
                                 }
                             }
                         )
-                        .foregroundColor(isSelected ? .white : Colors.textSecondary)
+                        .clipShape(Capsule())
                     }
+                    .frame(maxWidth: .infinity)
                 }
             }
             .background(
-                RoundedRectangle(cornerRadius: 18)
+                Capsule()
                     .fill(
                         LinearGradient(
-                            colors: [ReportPalette.cardStart, ReportPalette.cardEnd],
+                            colors: [
+                                Color(red: 0.12, green: 0.15, blue: 0.20).opacity(0.92),
+                                Color(red: 0.09, green: 0.12, blue: 0.17).opacity(0.92)
+                            ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
             )
-            .cornerRadius(18)
+            .overlay(
+                Capsule()
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
+            .clipShape(Capsule())
             .padding(.horizontal)
             
             // Period Selection & Navigation

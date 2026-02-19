@@ -4,6 +4,7 @@ import SwiftUI
 import Combine
 
 class PlanViewModel: ObservableObject {
+    private let pointsService = PointsService.shared
     @Published var selectedDate: Date = Date()
     @Published var isListView: Bool = false
     @Published var showingCreateSheet: Bool = false
@@ -31,10 +32,13 @@ class PlanViewModel: ObservableObject {
     func items(from allItems: [PlanItem]) -> [PlanItem] {
         let calendar = Calendar.current
         let isToday = calendar.isDateInToday(selectedDate)
+        let subtaskIDs = Set(allItems.flatMap { $0.subtasks.map(\.id) })
         
         let result = allItems.filter { item in
-            // Filter out subtasks
+            // Filter out subtasks (primary relationship path)
             if item.parentTask != nil { return false }
+            // Filter out subtasks (fallback for legacy/misaligned linkage)
+            if subtaskIDs.contains(item.id) { return false }
             
             // 1. Repeats: High priority. If it repeats, recurrence rules strictly dictate visibility.
             // (Even if 'anytime' is true, it just means "no specific time" on the occurrence days)
@@ -59,7 +63,7 @@ class PlanViewModel: ObservableObject {
             
             return false
         }
-        print("[PlanFilter] selectedDate=\(selectedDate) input=\(allItems.count) output=\(result.count)")
+        print("[PlanFilter] selectedDate=\(selectedDate) input=\(allItems.count) subtasksDetected=\(subtaskIDs.count) output=\(result.count)")
         return result
     }
     
@@ -80,10 +84,6 @@ class PlanViewModel: ObservableObject {
         if let log = todayLog {
             // Toggle off
             context.delete(log)
-            // Log skip or fail? Toggled off usually means reverting success. 
-            // Better to remove previous event or log a new state.
-            // Requirement says: "When a habit is marked done / value entered -> write success"
-            // For now, let's just insert a "success" when toggled on.
         } else {
             // Toggle on
             let newLog = CompletionLog(date: selectedDate, completed: true)
@@ -96,6 +96,21 @@ class PlanViewModel: ObservableObject {
                 status: .success
             )
             context.insert(event)
+            
+            // Award points
+            if item.type == .habit {
+                let streak = calculateStreak(for: item)
+                pointsService.habitCompleted(
+                    habitId: item.id,
+                    habitName: item.title,
+                    streakDays: streak
+                )
+            } else {
+                pointsService.taskCompleted(
+                    taskId: item.id,
+                    taskName: item.title
+                )
+            }
         }
         
         item.updatedAt = Date()
@@ -163,6 +178,18 @@ class PlanViewModel: ObservableObject {
         )
         context.insert(event)
         
+        // Award points if goal is now met (first time today)
+        if item.isGoalMet() {
+            if item.type == .habit {
+                let streak = calculateStreak(for: item)
+                pointsService.habitCompleted(
+                    habitId: item.id,
+                    habitName: item.title,
+                    streakDays: streak
+                )
+            }
+        }
+        
         item.updatedAt = Date()
         try? context.save()
         return amount
@@ -192,6 +219,41 @@ class PlanViewModel: ObservableObject {
         
         item.updatedAt = Date()
         try? context.save()
+    }
+    
+    // MARK: - Streak Calculation
+    
+    /// Calculates the current consecutive-day streak for a habit.
+    /// Counts backwards from today, checking each day for a completed log.
+    func calculateStreak(for item: PlanItem) -> Int {
+        let calendar = Calendar.current
+        var streak = 0
+        var checkDate = Date()
+        
+        // Check up to 365 days back
+        for _ in 0..<365 {
+            let hasCompletion = item.completionLogs.contains { log in
+                calendar.isDate(log.date, inSameDayAs: checkDate) && log.completed
+            }
+            
+            if hasCompletion {
+                streak += 1
+            } else if streak > 0 {
+                // Streak broken
+                break
+            } else {
+                // No completion today yet (could be checking today before completion)
+                // Only break if we're past today
+                if !calendar.isDateInToday(checkDate) {
+                    break
+                }
+            }
+            
+            guard let prevDay = calendar.date(byAdding: .day, value: -1, to: checkDate) else { break }
+            checkDate = prevDay
+        }
+        
+        return streak
     }
     
     // Navigation

@@ -66,7 +66,41 @@ struct BundleWallpaperCatalogLoader: WallpaperCatalogLoader {
             }
         }
         
-        log("Loaded \(categories.count) categories.")
+        log("Loaded \(categories.count) bundled categories.")
+        
+        // Append Remote Categories
+        let remoteCategories = AssetManager.shared.remoteWallpapers.map { remoteCat -> WallpaperCategory in
+            let items = remoteCat.items.map { remoteItem -> WallpaperItem in
+                // Check if already downloaded
+                if let localURL = AssetManager.shared.localURL(for: remoteItem.filename) {
+                     return WallpaperItem(
+                        id: remoteItem.id,
+                        title: remoteItem.title,
+                        url: localURL,
+                        category: remoteCat.id,
+                        source: .remote(url: localURL) // Treat as remote logic (or .bundle if we want synchronous loading)
+                    )
+                } else {
+                    return WallpaperItem(
+                        id: remoteItem.id,
+                        title: remoteItem.title,
+                        url: remoteItem.url,
+                        category: remoteCat.id,
+                        source: .remote(url: remoteItem.url)
+                    )
+                }
+            }
+            
+            return WallpaperCategory(
+                id: remoteCat.id,
+                title: remoteCat.title,
+                items: items
+            )
+        }
+        
+        categories.append(contentsOf: remoteCategories)
+        log("Total categories including remote: \(categories.count)")
+        
         return categories
     }
 

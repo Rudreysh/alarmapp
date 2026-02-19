@@ -280,20 +280,22 @@ struct CreateHabitAlarmView: View {
                                     .foregroundColor(Colors.textPrimary)
                             }
                             .padding()
-                            Divider().padding(.leading, 16).opacity(0.3)
-                            MenuRow(
-                                icon: "slider.horizontal.3",
-                                title: "Edit Penalty Rules",
-                                value: "Settings"
-                            ) {
-                                showPenaltySettings = true
+                            if viewModel.penaltyEnabled {
+                                Divider().padding(.leading, 16).opacity(0.3)
+                                MenuRow(
+                                    icon: "slider.horizontal.3",
+                                    title: "Edit Penalty Rules",
+                                    value: "Settings"
+                                ) {
+                                    showPenaltySettings = true
+                                }
+                                
+                                Text("Penalty rules are global and apply only while this alarm is active.")
+                                    .font(.caption)
+                                    .foregroundColor(Colors.textSecondary)
+                                    .padding(.horizontal)
+                                    .padding(.bottom, 8)
                             }
-                            
-                            Text("Penalty rules are global and apply only while this alarm is active.")
-                                .font(.caption)
-                                .foregroundColor(Colors.textSecondary)
-                                .padding(.horizontal)
-                                .padding(.bottom, 8)
                         }
 
                         // Group G: Wallpaper
@@ -640,27 +642,10 @@ struct CreateHabitAlarmView: View {
     }
 
     var resolvedWallpaperImage: Image? {
-        let id = viewModel.wallpaperId
-        
-        for category in WallpaperConfig.categories {
-            if id.hasPrefix(category.id + "-") {
-                let filename = String(id.dropFirst(category.id.count + 1))
-                if category.imageNames.contains(filename) {
-                     let nameWithoutExt = (filename as NSString).deletingPathExtension
-                     if let path = Bundle.main.path(forResource: nameWithoutExt, ofType: (filename as NSString).pathExtension) {
-                         if let uiImage = UIImage(contentsOfFile: path) {
-                             return Image(uiImage: uiImage)
-                         }
-                     }
-                     if let path = Bundle.main.path(forResource: filename, ofType: nil, inDirectory: "BundledWallpapers/\(category.id)") {
-                         if let uiImage = UIImage(contentsOfFile: path) {
-                             return Image(uiImage: uiImage)
-                         }
-                     }
-                }
-            }
+        guard let uiImage = WallpaperImageResolver.resolveImage(for: viewModel.wallpaperId) else {
+            return nil
         }
-        return nil
+        return Image(uiImage: uiImage)
     }
 }
 

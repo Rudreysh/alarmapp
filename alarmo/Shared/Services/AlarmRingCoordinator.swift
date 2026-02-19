@@ -20,6 +20,7 @@ final class AlarmRingCoordinator: ObservableObject {
     private let accountabilityManager = AccountabilityEnforcementManager.shared
     private let shieldEngine = AccountabilityShieldEngine.shared
     private let settings = SettingsStore.shared
+    private let pointsService = PointsService.shared
     private let tamperService = TamperDetectionService.shared
     private var activeSnoozeCount: Int = 0
     private var alarmSessionSnapshots: [UUID: AlarmSession] = [:]
@@ -158,6 +159,17 @@ final class AlarmRingCoordinator: ObservableObject {
                 )
                 modelContext?.insert(event)
                 try? modelContext?.save()
+                
+                // Award points for alarm dismissal
+                if completed {
+                    let hadMission = alarm.missions.contains(where: { $0.type != .off })
+                    pointsService.alarmDismissed(
+                        alarmId: alarm.id,
+                        alarmName: alarm.name,
+                        snoozeCount: activeSnoozeCount,
+                        hadMission: hadMission
+                    )
+                }
             }
         }
         
@@ -245,6 +257,12 @@ final class AlarmRingCoordinator: ObservableObject {
                 )
                 self.modelContext?.insert(event)
                 try? self.modelContext?.save()
+                
+                // Deduct points for snoozing
+                self.pointsService.alarmSnoozed(
+                    alarmId: currentAlarm.id,
+                    alarmName: currentAlarm.name
+                )
             }
 
             self.stopRingingInternal(preserveSession: true, completed: false)

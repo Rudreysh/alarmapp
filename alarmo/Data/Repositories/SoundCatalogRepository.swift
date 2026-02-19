@@ -48,6 +48,7 @@ struct SoundCatalogRepository: SoundCatalogRepositoryProtocol {
     func loadAllSounds() -> [SoundAsset] {
         var allSounds = (try? loadBundledSounds()) ?? []
         allSounds.append(contentsOf: loadCustomSounds())
+        allSounds.append(contentsOf: loadRemoteSounds())
         allSounds.append(contentsOf: SpotifyService().loadSavedSpotifySounds())
         return allSounds
     }
@@ -99,12 +100,52 @@ struct SoundCatalogRepository: SoundCatalogRepositoryProtocol {
         
         return fileURLs.filter { $0.pathExtension == "m4a" || $0.pathExtension == "wav" }.map { url in
             let filename = url.lastPathComponent
-            let title = (filename as NSString).deletingPathExtension
+            let title = filename.replacingOccurrences(of: ".\(url.pathExtension)", with: "")
+            
             return SoundAsset(
-                id: url.path,
+                id: title, // Use title as ID for custom sounds
                 title: title,
                 fileURL: url,
                 category: .custom
+            )
+        }
+    }
+    
+    func loadRemoteSounds() -> [SoundAsset] {
+        let fileManager = FileManager.default
+        // Use the same directory structure as AssetManager
+        let urls = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        let assetDir = urls[0].appendingPathComponent("Assets", isDirectory: true)
+        
+        guard let fileURLs = try? fileManager.contentsOfDirectory(at: assetDir, includingPropertiesForKeys: nil) else {
+            return []
+        }
+        
+        // Filter for MP3s (standard for remote assets)
+        return fileURLs.filter { $0.pathExtension == "mp3" }.compactMap { url in
+            let filename = url.lastPathComponent
+            
+            // Try to match with RemoteSound metadata for better titles/categories
+            // This requires AssetManager to be initialized and have data
+            if let remoteSound = AssetManager.shared.remoteSounds.first(where: { $0.filename == filename }) {
+                return SoundAsset(
+                    id: remoteSound.id,
+                    title: remoteSound.title,
+                    fileURL: url,
+                    category: .trending // Or map string category to enum
+                )
+            }
+            
+            // Fallback for orphaned files
+            let title = filename.replacingOccurrences(of: ".\(url.pathExtension)", with: "")
+                .replacingOccurrences(of: "_", with: " ")
+                .capitalized
+            
+            return SoundAsset(
+                id: filename,
+                title: title,
+                fileURL: url,
+                category: .trending
             )
         }
     }

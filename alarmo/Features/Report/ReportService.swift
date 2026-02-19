@@ -12,9 +12,9 @@ enum ReportDomain: String, CaseIterable, Identifiable, Sendable {
     
     var icon: String {
         switch self {
-        case .habits: return "leaf"
-        case .tasks: return "checkmark.square"
-        case .alarms: return "alarm"
+        case .habits: return "flame"
+        case .tasks: return "checklist"
+        case .alarms: return "bell.badge"
         }
     }
 }

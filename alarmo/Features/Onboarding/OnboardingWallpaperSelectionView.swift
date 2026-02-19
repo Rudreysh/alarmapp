@@ -10,49 +10,86 @@ struct OnboardingWallpaperSelectionView: View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
 
-            VStack(spacing: Spacing.xl) {
+            VStack(spacing: 0) {
                 ProgressHeader(step: 3, total: AppConstants.onboardingTotalSteps)
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.l)
+                    .padding(.bottom, Spacing.m)
 
                 Text("Choose your\nalarm wallpaper")
                     .screenTitle()
                     .foregroundColor(Colors.textPrimary)
                     .multilineTextAlignment(.center)
-                    .accessibilityAddTraits(.isHeader)
-
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Spacing.xl) {
-                        if viewModel.state.wallpaperCategories.isEmpty {
-                            Text("No bundled wallpapers found. Ensure BundledWallpapers is added as a folder reference and target membership is enabled.")
-                                .bodyText()
-                                .foregroundColor(Colors.textSecondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.vertical, Spacing.l)
-                        } else {
-                            ForEach(viewModel.state.wallpaperCategories) { category in
-                                WallpaperCategorySection(category: category, selected: viewModel.state.selectedWallpaper) {
-                                    viewModel.selectWallpaper($0)
+                    .padding(.bottom, Spacing.m)
+                
+                // MAIN SCROLL READER
+                ScrollViewReader { proxy in
+                    
+                    // 1. Top Category Pills (Sticky-ish)
+                    if !viewModel.state.wallpaperCategories.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(viewModel.state.wallpaperCategories) { category in
+                                    Button(action: {
+                                        withAnimation {
+                                            proxy.scrollTo(category.id, anchor: .top)
+                                        }
+                                    }) {
+                                        Text(category.title)
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .padding(.vertical, 8)
+                                            .padding(.horizontal, 16)
+                                            .background(Colors.cardSurface)
+                                            .foregroundColor(Colors.textPrimary)
+                                            .cornerRadius(20)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 20)
+                                                    .stroke(Colors.cardStroke, lineWidth: 1)
+                                            )
+                                    }
                                 }
                             }
+                            .padding(.horizontal, Spacing.l)
                         }
-
-                        VStack(alignment: .leading, spacing: Spacing.m) {
-                            Text("My Photos")
-                                .cardTitle()
-                                .foregroundColor(Colors.textPrimary)
-
-                            HStack {
-                                Spacer()
-                                PhotosPicker(selection: $selectedItem, matching: .images) {
-                                    MyPhotosCard(isSelected: isUserPhotoSelected)
-                                }
-                                Spacer()
-                            }
-                        }
+                        .padding(.bottom, Spacing.m)
                     }
-                    .padding(.horizontal, Spacing.l)
-                    .padding(.bottom, Spacing.xl)
+
+                    // 2. Main Content
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: Spacing.xl) {
+                            if viewModel.state.wallpaperCategories.isEmpty {
+                                Text("No bundled wallpapers found. Ensure BundledWallpapers is added as a folder reference and target membership is enabled.")
+                                    .bodyText()
+                                    .foregroundColor(Colors.textSecondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.vertical, Spacing.l)
+                            } else {
+                                ForEach(viewModel.state.wallpaperCategories) { category in
+                                    WallpaperCategorySection(category: category, selected: viewModel.state.selectedWallpaper) {
+                                        viewModel.selectWallpaper($0)
+                                    }
+                                    .id(category.id) // Anchor for scrolling
+                                }
+                            }
+
+                            VStack(alignment: .leading, spacing: Spacing.m) {
+                                Text("My Photos")
+                                    .cardTitle()
+                                    .foregroundColor(Colors.textPrimary)
+
+                                HStack {
+                                    Spacer()
+                                    PhotosPicker(selection: $selectedItem, matching: .images) {
+                                        MyPhotosCard(isSelected: isUserPhotoSelected)
+                                    }
+                                    Spacer()
+                                }
+                            }
+                            .id("my_photos")
+                        }
+                        .padding(.horizontal, Spacing.l)
+                        .padding(.bottom, Spacing.xl)
+                    }
                 }
 
                 Spacer(minLength: 0)
@@ -116,18 +153,44 @@ private struct WallpaperCard: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            if let image = UIImage(contentsOfFile: item.url.path) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Colors.cardSurface
+            Group {
+                if case .remote = item.source {
+                    AsyncImage(url: item.url) { phase in
+                        switch phase {
+                        case .empty:
+                            ZStack {
+                                Colors.cardSurface
+                                ProgressView()
+                            }
+                        case .success(let image):
+                            image.resizable().scaledToFill()
+                        case .failure:
+                            Colors.cardSurface.overlay(
+                                Image(systemName: "exclamationmark.triangle")
+                                    .foregroundColor(Colors.textSecondary)
+                            )
+                        @unknown default:
+                            Colors.cardSurface
+                        }
+                    }
+                } else if let image = UIImage(contentsOfFile: item.url.path) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Colors.cardSurface
+                }
             }
+            .frame(width: 140, height: 200)
+            .clipped()
 
             Text(item.title)
                 .bodyText()
                 .foregroundColor(Colors.textPrimary)
                 .padding(Spacing.s)
+                .background(
+                    LinearGradient(colors: [.black.opacity(0.6), .clear], startPoint: .bottom, endPoint: .top)
+                )
         }
         .frame(width: 140, height: 200)
         .clipShape(RoundedRectangle(cornerRadius: Radii.card))

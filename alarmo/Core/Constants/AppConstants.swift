@@ -6,5 +6,5 @@ enum AppConstants {
     static let defaultMinute = 0
     static let defaultSecond = 0
     static let appName = "Alarmy"
-    static let tabBarHeight: CGFloat = 84
+    static let tabBarHeight: CGFloat = 96
 }

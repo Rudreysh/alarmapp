@@ -116,8 +116,9 @@ struct PlanItemTaskDetailView: View {
             
             // Subtasks Section (Image 2 style)
             VStack(alignment: .leading, spacing: 0) {
-                if !item.subtasks.isEmpty {
-                     ForEach(item.subtasks) { sub in
+                let orderedSubtasks = item.subtasks.sorted { $0.createdAt < $1.createdAt }
+                if !orderedSubtasks.isEmpty {
+                     ForEach(orderedSubtasks) { sub in
                          SwipeableSubtaskRow(sub: sub, isCompleted: isSubtaskCompleted(sub)) {
                              toggleSubtask(sub)
                          } onDelete: {
@@ -199,6 +200,11 @@ struct PlanItemTaskDetailView: View {
             // Complete
             let log = CompletionLog(date: Date(), completed: true)
             item.completionLogs.append(log)
+            
+            // Award points
+            if item.type == .task {
+                PointsService.shared.taskCompleted(taskId: item.id, taskName: item.title)
+            }
         }
         try? modelContext.save()
     }

@@ -237,7 +237,7 @@ struct CreatePlanItemView: View {
                             intervalTimerSection
                         }
                         
-                        missionsChipSection
+                        subtasksSection
                         
                         if let onStartFocus = onStartFocus {
                             Button(action: {
@@ -1303,22 +1303,20 @@ struct CreatePlanItemView: View {
         .padding(.horizontal, Spacing.m)
     }
 
-    // Concept B: Active Chips Cloud for Missions
     @ViewBuilder
-    private var missionsChipSection: some View {
+    private var subtasksSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header
             HStack(spacing: Spacing.m) {
                  ZStack {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(PlanPalette.accentSoft.opacity(0.1))
+                        .fill(PlanPalette.accent.opacity(0.1))
                         .frame(width: 32, height: 32)
-                    Image(systemName: "checklist")
+                    Image(systemName: "list.bullet.indent")
                         .font(.system(size: 16))
-                        .foregroundColor(PlanPalette.accentSoft)
+                        .foregroundColor(PlanPalette.accent)
                 }
                 
-                Text("Missions")
+                Text("Subtasks")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
                 
@@ -1337,76 +1335,6 @@ struct CreatePlanItemView: View {
             }
             .padding(Spacing.m)
             
-            // Chips Cloud
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    // Add Button
-                    Button(action: {
-                        targetParentForSubtask = nil
-                        showAddSubtask = true
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 14, weight: .bold))
-                            Text("Add")
-                                .font(.system(size: 14, weight: .semibold))
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(PlanPalette.accent.opacity(0.1))
-                        .foregroundColor(PlanPalette.accent)
-                        .clipShape(Capsule())
-                        .overlay(Capsule().stroke(PlanPalette.accent.opacity(0.3), lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                    
-                    // Chips
-                    let items = editingItem?.subtasks ?? tempSubtasks
-                    ForEach(items) { sub in
-                        MissionChip(item: sub)
-                    }
-                }
-                .padding(.horizontal, Spacing.m)
-                .padding(.bottom, Spacing.m)
-            }
-        }
-        .planGlassPanel(cornerRadius: 16)
-        .cornerRadius(20)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(Colors.cardStroke, lineWidth: 1))
-        .padding(.horizontal, Spacing.m)
-    }
-
-    @ViewBuilder
-    private var subtasksSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: Spacing.m) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(PlanPalette.accent.opacity(0.1))
-                        .frame(width: 32, height: 32)
-                    Image(systemName: "list.bullet.indent")
-                        .font(.system(size: 16))
-                        .foregroundColor(PlanPalette.accent)
-                }
-                
-                Text("Subtasks")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(Colors.textPrimary)
-                
-                Spacer()
-                
-                Button(action: {
-                    targetParentForSubtask = nil
-                    showAddSubtask = true
-                }) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 22))
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundColor(PlanPalette.accent)
-                }
-            }
-            .padding(Spacing.m)
-            
             VStack(alignment: .leading, spacing: 0) {
                 let items = editingItem?.subtasks ?? tempSubtasks
                 if !items.isEmpty {
@@ -1419,12 +1347,34 @@ struct CreatePlanItemView: View {
                         .padding(.horizontal, Spacing.m)
                     }
                 }
-                
-                Text(items.isEmpty ? "Add subtasks to break down your goal" : "Tap subtasks to manage detail hierarchy")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(Colors.textTertiary)
+
+                Button(action: {
+                    targetParentForSubtask = nil
+                    showAddSubtask = true
+                }) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 16, weight: .bold))
+                        Text("Add Subtask")
+                            .font(.system(size: 15, weight: .semibold))
+                        Spacer()
+                    }
                     .padding(.horizontal, Spacing.m)
-                    .padding(.vertical, Spacing.m)
+                    .padding(.vertical, 12)
+                    .foregroundColor(PlanPalette.accent)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(PlanPalette.accent.opacity(0.10))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(PlanPalette.accent.opacity(0.28), lineWidth: 1)
+                    )
+                    .padding(.horizontal, Spacing.m)
+                    .padding(.top, items.isEmpty ? 0 : Spacing.s)
+                    .padding(.bottom, Spacing.m)
+                }
+                .buttonStyle(.plain)
             }
         }
         .planGlassPanel(cornerRadius: 16)

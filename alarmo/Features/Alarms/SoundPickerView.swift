@@ -19,6 +19,7 @@ struct SoundPickerView: View {
     private let spotifyService = SpotifyService()
 
     private let repository = SoundCatalogRepository()
+    @ObservedObject private var assetManager = AssetManager.shared
 
     @ObservedObject var soundPlayer: SoundPreviewPlayer
     
@@ -104,27 +105,134 @@ struct SoundPickerView: View {
                         .padding(.horizontal)
                         
                         VStack(spacing: 0) {
-                            ForEach(filteredSounds) { sound in
-                                    SoundRow(
-                                    sound: sound,
-                                    isSelected: selectedSound == sound.title,
-                                    isPlaying: soundPlayer.isPlaying && soundPlayer.playingResourceName == sound.title,
-                                    isBuffering: soundPlayer.isBuffering && soundPlayer.playingResourceName == sound.title
-                                ) { action in
-                                    switch action {
-                                    case .select:
-                                        selectedSound = sound.title
-                                        togglePlay(sound: sound)
-                                    case .play:
-                                        togglePlay(sound: sound)
+                            if selectedTab == .cloud {
+                                // REMOTE SOUNDS LIST
+                                if assetManager.isLoadingCatalog {
+                                    ProgressView("Loading valid sounds...")
+                                        .padding()
+                                } else if assetManager.remoteSounds.isEmpty {
+                                    VStack(spacing: 12) {
+                                        Text("No downloadable sounds found.")
+                                            .foregroundColor(Colors.textSecondary)
+                                        Button("Refresh Catalog") {
+                                            Task { await assetManager.fetchCatalog() }
+                                        }
+                                        .font(.caption)
+                                        .foregroundColor(Colors.accentTeal)
                                     }
-                                }
-                                
-                                // Divider
-                                if sound != filteredSounds.last {
-                                    Divider()
-                                        .background(Colors.cardStroke)
-                                        .padding(.leading, 56)
+                                    .padding()
+                                    .onAppear {
+                                        if assetManager.remoteSounds.isEmpty {
+                                            Task { await assetManager.fetchCatalog() }
+                                        }
+                                    }
+                            } else {
+                                // REMOTE SOUNDS UI with SECTIONS & SCROLL ANCHOR
+                                ScrollViewReader { proxy in
+                                    // 1. Top Category Pills
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 12) {
+                                            ForEach(assetManager.remoteSoundsByCategory, id: \.category) { section in
+                                                Button(action: {
+                                                    withAnimation {
+                                                        proxy.scrollTo(section.category, anchor: .top)
+                                                    }
+                                                }) {
+                                                    Text(section.category)
+                                                        .font(.system(size: 14, weight: .semibold))
+                                                        .padding(.vertical, 8)
+                                                        .padding(.horizontal, 16)
+                                                        .background(Colors.cardSurface)
+                                                        .foregroundColor(Colors.textPrimary)
+                                                        .cornerRadius(20)
+                                                        .overlay(
+                                                            RoundedRectangle(cornerRadius: 20)
+                                                                .stroke(Colors.cardStroke, lineWidth: 1)
+                                                        )
+                                                }
+                                            }
+                                        }
+                                        .padding(.horizontal)
+                                        .padding(.bottom, 8)
+                                    }
+
+                                    // 2. Vertical Sections
+                                    ScrollView {
+                                        VStack(spacing: 24) {
+                                            ForEach(assetManager.remoteSoundsByCategory, id: \.category) { section in
+                                                VStack(alignment: .leading, spacing: 12) {
+                                                    // Section Header
+                                                    Text(section.category)
+                                                        .font(.headline)
+                                                        .foregroundColor(Colors.textPrimary)
+                                                        .padding(.horizontal)
+                                                        .id(section.category) // Anchor
+                                                    
+                                                    // Items
+                                                    ForEach(section.sounds) { remoteSound in
+                                                        RemoteSoundRow(
+                                                            remoteSound: remoteSound,
+                                                            isSelected: selectedSound == remoteSound.title,
+                                                            isPlaying: soundPlayer.isPlaying && soundPlayer.playingResourceName == remoteSound.title,
+                                                            onSelect: {
+                                                                if let url = assetManager.localURL(for: remoteSound.filename) {
+                                                                    selectedSound = remoteSound.title
+                                                                    togglePlay(sound: SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: url, category: .cloud))
+                                                                } else {
+                                                                    Task {
+                                                                        do {
+                                                                            let url = try await assetManager.downloadAsset(from: remoteSound.url, filename: remoteSound.filename)
+                                                                            await MainActor.run {
+                                                                                loadSounds()
+                                                                                selectedSound = remoteSound.title
+                                                                                togglePlay(sound: SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: url, category: .cloud))
+                                                                            }
+                                                                        } catch {
+                                                                            print("Failed to download: \(error)")
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        )
+                                                        
+                                                        Divider()
+                                                            .background(Colors.cardStroke)
+                                                            .padding(.leading, 16)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        .padding(.bottom, 100)
+                                    }
+                            }
+                        }
+                    } else {
+                                // LOCAL SOUNDS
+                                ForEach(filteredSounds) { sound in
+                                        SoundRow(
+                                        sound: sound,
+                                        isSelected: selectedSound == sound.title,
+                                        isPlaying: soundPlayer.isPlaying && soundPlayer.playingResourceName == sound.title,
+                                        isBuffering: soundPlayer.isBuffering && soundPlayer.playingResourceName == sound.title
+                                    ) { action in
+                                        switch action {
+                                        case .select:
+                                            selectedSound = sound.title
+                                            togglePlay(sound: sound)
+                                        case .play:
+                                            // Keep UI selection in sync with the currently previewing sound.
+                                            selectedSound = sound.title
+                                            print("[SoundPicker] Play tapped -> selectedSound set to \(sound.title)")
+                                            togglePlay(sound: sound)
+                                        }
+                                    }
+                                    
+                                    // Divider
+                                    if sound != filteredSounds.last {
+                                        Divider()
+                                            .background(Colors.cardStroke)
+                                            .padding(.leading, 56)
+                                    }
                                 }
                             }
                         }
@@ -261,8 +369,10 @@ struct SoundPickerView: View {
     
     private func togglePlay(sound: SoundAsset) {
         if soundPlayer.isPlaying && soundPlayer.playingResourceName == sound.title {
+            print("[SoundPicker] Stop preview: \(sound.title)")
             soundPlayer.stop()
         } else {
+            print("[SoundPicker] Start preview: \(sound.title)")
             soundPlayer.play(resourceName: sound.title, volume: 1.0)
         }
     }
@@ -308,6 +418,13 @@ struct SoundRow: View {
         case play
     }
     
+    private var isSpotifyTrack: Bool {
+        sound.category == .spotify && (
+            sound.fileURL.absoluteString.contains("open.spotify.com") ||
+            sound.fileURL.absoluteString.hasPrefix("spotify:")
+        )
+    }
+    
     var body: some View {
         Button(action: { onAction(.select) }) {
             HStack(spacing: 16) {
@@ -332,6 +449,10 @@ struct SoundRow: View {
                         Text("Loading...")
                             .font(.caption2)
                             .foregroundColor(Colors.accentTeal)
+                    } else if isSpotifyTrack {
+                        Text("Opens in Spotify")
+                            .font(.caption2)
+                            .foregroundColor(Color(red: 29/255, green: 185/255, blue: 84/255))
                     }
                 }
                 
@@ -346,6 +467,10 @@ struct SoundRow: View {
                     } else if isPlaying {
                         Image(systemName: "stop.fill")
                             .foregroundColor(Colors.textPrimary)
+                    } else if isSpotifyTrack {
+                        // Spotify-style play icon
+                        Image(systemName: "arrowshape.turn.up.right.fill")
+                            .foregroundColor(Color(red: 29/255, green: 185/255, blue: 84/255))
                     } else {
                         Image(systemName: "play.fill")
                             .foregroundColor(Colors.textSecondary)
@@ -432,5 +557,82 @@ struct AddSoundSheet: View {
                 Spacer()
             }
         }
+    }
+}
+
+struct RemoteSoundRow: View {
+    let remoteSound: RemoteSound
+    let isSelected: Bool
+    let isPlaying: Bool
+    let onSelect: () -> Void
+    
+    @State private var isDownloading = false
+    @State private var isDownloaded = false
+    
+    var body: some View {
+        Button(action: {
+            if !isDownloading {
+                // If not downloaded, trigger download
+                if !isDownloaded {
+                    isDownloading = true
+                }
+                onSelect()
+            }
+        }) {
+            HStack(spacing: 16) {
+                // Icon: Cloud or Check
+                ZStack {
+                    if isDownloading {
+                        ProgressView()
+                            .scaleEffect(0.6)
+                    } else if isDownloaded {
+                        Image(systemName: isSelected ? "checkmark.circle.fill" : "checkmark.circle")
+                            .foregroundColor(Colors.accentTeal)
+                            .font(.system(size: 22))
+                    } else {
+                        Image(systemName: "icloud.and.arrow.down")
+                            .foregroundColor(Colors.textSecondary)
+                            .font(.system(size: 22))
+                    }
+                }
+                .frame(width: 24, height: 24)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(remoteSound.title)
+                        .font(.body)
+                        .foregroundColor(Colors.textPrimary)
+                    
+                    Text(isDownloaded ? "Downloaded" : "Tap to download")
+                        .font(.caption2)
+                        .foregroundColor(Colors.textTertiary)
+                }
+                
+                Spacer()
+                
+                // Play Button (only if downloaded)
+                if isDownloaded {
+                    Image(systemName: isPlaying ? "stop.fill" : "play.fill")
+                        .foregroundColor(Colors.textSecondary)
+                        .font(.system(size: 20))
+                        .frame(width: 44, height: 44)
+                }
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal)
+        }
+        .onAppear {
+            checkStatus()
+        }
+        // Assuming parent view triggers redraw or we can observe asset manager
+        .onChange(of: AssetManager.shared.remoteSounds) { _ in
+            checkStatus() // Recheck if list reloads or cache updates
+        }
+        // Also need to check when download completes. 
+        // The parent view's onSelect updates the UI, but ideally we observe file existence.
+    }
+    
+    private func checkStatus() {
+        isDownloaded = AssetManager.shared.fileExists(filename: remoteSound.filename)
+        if isDownloaded { isDownloading = false }
     }
 }

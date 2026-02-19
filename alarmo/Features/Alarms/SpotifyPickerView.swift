@@ -6,6 +6,7 @@ struct SpotifyPickerView: View {
     
     @StateObject private var spotifyService = SpotifyService()
     @State private var isLoading = false
+    @State private var searchText = ""
     
     var body: some View {
         ZStack {
@@ -27,12 +28,20 @@ struct SpotifyPickerView: View {
                     
                     Spacer()
                     
-                    // Invisible spacer for balance
-                    Button("Cancel") {}.opacity(0)
+                    if spotifyService.isAuthenticated {
+                        Button("Logout") {
+                            spotifyService.logout()
+                        }
+                        .foregroundColor(.red)
+                        .font(.subheadline)
+                    } else {
+                        Button("Cancel") {}.opacity(0)
+                    }
                 }
                 .padding()
                 
                 if !spotifyService.isAuthenticated {
+                    // Login View
                     VStack(spacing: 24) {
                         Image(systemName: "music.note.house.fill")
                             .resizable()
@@ -66,7 +75,7 @@ struct SpotifyPickerView: View {
                             }
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color(red: 29/255, green: 185/255, blue: 84/255)) // Spotify Green
+                            .background(Color(red: 29/255, green: 185/255, blue: 84/255))
                             .foregroundColor(.black)
                             .cornerRadius(30)
                         }
@@ -75,6 +84,32 @@ struct SpotifyPickerView: View {
                     }
                     .padding(.top, 60)
                 } else {
+                    // Error Message
+                    if let error = spotifyService.errorMessage {
+                        Text(error)
+                            .foregroundColor(.red)
+                            .font(.subheadline)
+                            .multilineTextAlignment(.center)
+                            .padding()
+                    }
+                    
+                    // Search Bar
+                    if !spotifyService.tracks.isEmpty {
+                        HStack {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundColor(Colors.textTertiary)
+                            TextField("Search songs...", text: $searchText)
+                                .foregroundColor(Colors.textPrimary)
+                                .autocorrectionDisabled()
+                        }
+                        .padding(10)
+                        .background(Colors.cardSurface)
+                        .cornerRadius(10)
+                        .padding(.horizontal)
+                        .padding(.bottom, 8)
+                    }
+                    
+                    // Song List
                     List {
                         if !spotifyService.playlists.isEmpty {
                             Section(header: Text("Your Playlists").foregroundColor(Colors.textSecondary)) {
@@ -104,9 +139,10 @@ struct SpotifyPickerView: View {
                             }
                         }
 
-                        Section(header: Text("Your Liked Songs").foregroundColor(Colors.textSecondary)) {
-                            ForEach(spotifyService.tracks) { track in
+                        Section(header: Text("Your Liked Songs (\(filteredTracks.count))").foregroundColor(Colors.textSecondary)) {
+                            ForEach(filteredTracks) { track in
                                 Button(action: {
+                                    // Allow selecting ANY song
                                     onSelect(track)
                                     isPresented = false
                                 }) {
@@ -117,21 +153,38 @@ struct SpotifyPickerView: View {
                                             Image(systemName: "music.note")
                                                 .foregroundColor(Colors.textSecondary)
                                         }
-                                        .frame(width: 40, height: 40)
-                                        .cornerRadius(4)
+                                        .frame(width: 44, height: 44)
+                                        .cornerRadius(6)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .stroke(Colors.cardStroke, lineWidth: 1)
+                                        )
 
-                                        VStack(alignment: .leading) {
+                                        VStack(alignment: .leading, spacing: 2) {
                                             Text(track.name)
                                                 .font(.body)
                                                 .foregroundColor(Colors.textPrimary)
+                                                .lineLimit(1)
                                             Text(track.artist)
                                                 .font(.caption)
                                                 .foregroundColor(Colors.textSecondary)
+                                                .lineLimit(1)
                                         }
+                                        
                                         Spacer()
-                                        Image(systemName: "plus.circle")
+                                        
+                                        // Show preview badge if available
+                                        if track.previewUrl != nil && !track.previewUrl!.isEmpty {
+                                            Image(systemName: "waveform")
+                                                .font(.caption)
+                                                .foregroundColor(Color(red: 29/255, green: 185/255, blue: 84/255))
+                                        }
+                                        
+                                        Image(systemName: "plus.circle.fill")
                                             .foregroundColor(Colors.accentTeal)
+                                            .font(.title3)
                                     }
+                                    .contentShape(Rectangle())
                                 }
                                 .listRowBackground(Colors.cardSurface)
                             }
@@ -143,6 +196,22 @@ struct SpotifyPickerView: View {
                 
                 Spacer()
             }
+        }
+        .task {
+            if spotifyService.isAuthenticated {
+                await spotifyService.fetchUserTracks()
+                await spotifyService.fetchUserPlaylists()
+            }
+        }
+    }
+    
+    private var filteredTracks: [SpotifyTrack] {
+        if searchText.isEmpty {
+            return spotifyService.tracks
+        }
+        let query = searchText.lowercased()
+        return spotifyService.tracks.filter {
+            $0.name.lowercased().contains(query) || $0.artist.lowercased().contains(query)
         }
     }
 }

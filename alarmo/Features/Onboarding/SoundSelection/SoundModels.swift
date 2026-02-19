@@ -18,6 +18,7 @@ struct SoundCategory: Identifiable, Hashable, Equatable {
     static let classic = SoundCategory(id: "classic", title: "Classic", emoji: "🎻")
     static let custom = SoundCategory(id: "custom", title: "My Sounds", emoji: "🎤")
     static let spotify = SoundCategory(id: "spotify", title: "Spotify", emoji: "🎵")
+    static let cloud = SoundCategory(id: "cloud", title: "Downloadable", emoji: "☁️")
 
-    static let order: [SoundCategory] = [.trending, .loud, .alarmTone, .classic, .custom, .spotify]
+    static let order: [SoundCategory] = [.trending, .loud, .alarmTone, .classic, .custom, .spotify, .cloud]
 }

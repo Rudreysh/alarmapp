@@ -6,6 +6,7 @@
 - Before release: set `AppPreferences.debugDefaultOnboardingValue` to `false` (or remove the dev-only onboarding override) so onboarding only shows once.
 - Implement StoreKit purchase flow for “Get offer” in discount paywall (close paywall on success, update entitlement, add restore purchases and receipt validation).
 - Wire Pro paywall plan selection CTA to StoreKit purchase (yearly/monthly/lifetime) and persist subscription state.
+- Re-enable `Notes` in the Plan `+` menu (currently hidden by request); restore quick-create flow and related sheet wiring.
 
 ## Habit alarm TODOs
 

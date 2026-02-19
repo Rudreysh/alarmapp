@@ -33,6 +33,10 @@ struct AppRootView: View {
         }
         .preferredColorScheme(SettingsStore.shared.themeMode.colorScheme)
         .onAppear {
+            // Configure remote assets from GitHub
+            // Note: Change 'green-theme' to 'main' when merging to production branch.
+            AssetManager.shared.configure(catalogURL: "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/catalog.json")
+            
             updateViewState()
             if foregroundScheduler == nil {
                 let scheduler = AlarmForegroundScheduler(alarmStore: alarmStore, ringCoordinator: ringCoordinator)
