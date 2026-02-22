@@ -7,13 +7,13 @@ enum SoundConfig {
     }
     
     static let sounds: [SoundDefinition] = [
-        SoundDefinition(filename: "addams_family.mp3"),
-        SoundDefinition(filename: "alan_jackson_remix.mp3"),
-        SoundDefinition(filename: "batman_beyond.mp3"),
-        SoundDefinition(filename: "beverly_hillbillies.mp3"),
-        SoundDefinition(filename: "fantasmic_ending.mp3"),
-        SoundDefinition(filename: "om-devotional-15402.mp3"),
-        SoundDefinition(filename: "om-namah-shivay-mantra-tone-57609.mp3"),
-        SoundDefinition(filename: "on_me.mp3")
+        SoundDefinition(filename: "Addams Family.mp3"),
+        SoundDefinition(filename: "Alan Jackson Remix.mp3"),
+        SoundDefinition(filename: "Batman Beyond.mp3"),
+        SoundDefinition(filename: "Beverly Hillbillies.mp3"),
+        SoundDefinition(filename: "Fantasmic Ending.mp3"),
+        SoundDefinition(filename: "Om Devotional.mp3"),
+        SoundDefinition(filename: "Om Namah Shivay Mantra.mp3"),
+        SoundDefinition(filename: "On Me.mp3")
     ]
 }

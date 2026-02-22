@@ -34,6 +34,7 @@ struct Alarm: Identifiable, Codable, Equatable {
     var snoozeSeconds: Int = 0
     var snoozeCount: Int
     var wallpaperId: String
+    var dailyMotivationEnabled: Bool
     var createdAt: Date
     var isSkippedOnce: Bool
     var missions: [AlarmMission] = []
@@ -98,6 +99,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         snoozeSeconds = try container.decodeIfPresent(Int.self, forKey: .snoozeSeconds) ?? 0
         snoozeCount = try container.decode(Int.self, forKey: .snoozeCount)
         wallpaperId = try container.decode(String.self, forKey: .wallpaperId)
+        dailyMotivationEnabled = try container.decodeIfPresent(Bool.self, forKey: .dailyMotivationEnabled) ?? false
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         isSkippedOnce = try container.decodeIfPresent(Bool.self, forKey: .isSkippedOnce) ?? false
         missions = try container.decodeIfPresent([AlarmMission].self, forKey: .missions) ?? []
@@ -148,6 +150,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         snoozeSeconds: Int = 0,
         snoozeCount: Int, 
         wallpaperId: String, 
+        dailyMotivationEnabled: Bool = false,
         createdAt: Date,
         isSkippedOnce: Bool = false,
         missions: [AlarmMission] = [],
@@ -195,6 +198,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         self.snoozeSeconds = max(0, snoozeSeconds)
         self.snoozeCount = snoozeCount
         self.wallpaperId = wallpaperId
+        self.dailyMotivationEnabled = dailyMotivationEnabled
         self.createdAt = createdAt
         self.isSkippedOnce = isSkippedOnce
         self.missions = missions
@@ -245,6 +249,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         try container.encode(max(0, snoozeSeconds), forKey: .snoozeSeconds)
         try container.encode(snoozeCount, forKey: .snoozeCount)
         try container.encode(wallpaperId, forKey: .wallpaperId)
+        try container.encode(dailyMotivationEnabled, forKey: .dailyMotivationEnabled)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(isSkippedOnce, forKey: .isSkippedOnce)
         try container.encode(missions, forKey: .missions)
@@ -279,7 +284,7 @@ struct Alarm: Identifiable, Codable, Equatable {
         case wakeUpCheckEnabled, soundName, soundVolume, vibrateEnabled
         case gentleWakeUpSeconds, timeReminderEnabled, weatherReminderEnabled
         case labelReminderEnabled, extraLoudEnabled, bypassSilentMode, snoozeMinutes, snoozeSeconds, snoozeCount
-        case wallpaperId, createdAt, isSkippedOnce, missions
+        case wallpaperId, dailyMotivationEnabled, createdAt, isSkippedOnce, missions
         case enforcementMode, blockAppsEnabled, blockedSelectionData
         case penaltyEnabled, penaltyAmountEuro, penaltyStrategy, penaltyRules
         case lastPenaltyEventAt, penaltyEventLog

@@ -1,0 +1,111 @@
+import SwiftUI
+
+/// Search and add cities to the Overlap view.
+struct CitySearchSheet: View {
+    @ObservedObject var store: OverlapStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var searchText = ""
+    @FocusState private var isSearchFocused: Bool
+
+    private var filteredCities: [WorldCityDatabase.CityEntry] {
+        WorldCityDatabase.search(searchText)
+    }
+
+    /// Already-added city identifiers so we can mark them
+    private var addedIdentifiers: Set<String> {
+        Set(store.cities.map(\.timeZoneIdentifier))
+    }
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color.black.ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    // Search Bar
+                    HStack(spacing: 10) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(Colors.textSecondary)
+                        TextField("Search city...", text: $searchText)
+                            .foregroundColor(Colors.textPrimary)
+                            .focused($isSearchFocused)
+                            .autocorrectionDisabled()
+                    }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(red: 0.12, green: 0.14, blue: 0.18))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                    .padding(.bottom, 8)
+
+                    // Results
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            ForEach(filteredCities) { entry in
+                                let isAdded = addedIdentifiers.contains(entry.timeZoneIdentifier)
+
+                                Button {
+                                    if !isAdded {
+                                        addCity(entry)
+                                    }
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(entry.cityName)
+                                            .font(.system(size: 18, weight: .bold))
+                                            .foregroundColor(isAdded ? Colors.accentTeal : Colors.textPrimary)
+
+                                        HStack(spacing: 8) {
+                                            Text(entry.timeZoneIdentifier)
+                                                .font(.system(size: 13, weight: .medium))
+                                                .foregroundColor(Colors.textSecondary)
+
+                                            if let tz = TimeZone(identifier: entry.timeZoneIdentifier) {
+                                                Text(tz.abbreviation() ?? "")
+                                                    .font(.system(size: 12, weight: .bold))
+                                                    .foregroundColor(Colors.textTertiary)
+                                            }
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.vertical, 14)
+                                    .padding(.horizontal, 20)
+                                    .background(Color.clear)
+                                }
+                                .disabled(isAdded)
+
+                                if entry.id != filteredCities.last?.id {
+                                    Divider()
+                                        .background(Color.white.opacity(0.06))
+                                        .padding(.leading, 20)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationBarHidden(true)
+            .onAppear { isSearchFocused = true }
+        }
+        .presentationDragIndicator(.visible)
+    }
+
+    private func addCity(_ entry: WorldCityDatabase.CityEntry) {
+        let city = OverlapCity(
+            cityName: entry.cityName,
+            timeZoneIdentifier: entry.timeZoneIdentifier
+        )
+        store.addCity(city)
+
+        // Haptic feedback
+        let feedback = UINotificationFeedbackGenerator()
+        feedback.notificationOccurred(.success)
+
+        dismiss()
+    }
+}

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import urllib.parse
 import os
 import json
 import uuid
@@ -6,15 +7,17 @@ import uuid
 # Configuration
 REPO_USER = "Rudreysh"
 REPO_NAME = "alarmapp"
-BRANCH = "green-theme" # Change to 'main' when merging to production!
+BRANCH = "green-theme"  # Change to 'main' when merging to production!
 
 # Paths
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # Root of repo
+ROOT_DIR = os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))  # Root of repo
 ASSETS_DIR = os.path.join(ROOT_DIR, "HostedAssets")
 CATALOG_PATH = os.path.join(ASSETS_DIR, "catalog.json")
 
 # Base URL for raw content
 BASE_URL = f"https://raw.githubusercontent.com/{REPO_USER}/{REPO_NAME}/{BRANCH}/HostedAssets"
+
 
 def generate_catalog():
     if not os.path.exists(ASSETS_DIR):
@@ -32,11 +35,14 @@ def generate_catalog():
             if os.path.isdir(cat_path):
                 items = []
                 for filename in os.listdir(cat_path):
-                    if filename.startswith('.'): continue
-                    
+                    if filename.startswith('.'):
+                        continue
+
                     file_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, filename))
-                    url = f"{BASE_URL}/wallpapers/{category}/{filename}"
-                    
+                    # Encode filename to handle spaces and special chars
+                    safe_filename = urllib.parse.quote(filename)
+                    url = f"{BASE_URL}/wallpapers/{category}/{safe_filename}"
+
                     items.append({
                         "id": file_id,
                         "filename": filename,
@@ -44,7 +50,7 @@ def generate_catalog():
                         "url": url,
                         "thumbnail": None
                     })
-                
+
                 if items:
                     wallpapers.append({
                         "id": category.lower(),
@@ -59,11 +65,13 @@ def generate_catalog():
             cat_path = os.path.join(sound_dir, category)
             if os.path.isdir(cat_path):
                 for filename in os.listdir(cat_path):
-                    if filename.startswith('.'): continue
-                    
+                    if filename.startswith('.'):
+                        continue
+
                     file_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, filename))
-                    url = f"{BASE_URL}/sounds/{category}/{filename}"
-                    
+                    safe_filename = urllib.parse.quote(filename)
+                    url = f"{BASE_URL}/sounds/{category}/{safe_filename}"
+
                     sounds.append({
                         "id": file_id,
                         "filename": filename,
@@ -82,9 +90,11 @@ def generate_catalog():
 
     with open(CATALOG_PATH, "w") as f:
         json.dump(catalog, f, indent=2)
-    
+
     print(f"✅ Generated catalog.json at {CATALOG_PATH}")
-    print(f"📦 Found {len(wallpapers)} wallpaper categories and {len(sounds)} sounds.")
+    print(
+        f"📦 Found {len(wallpapers)} wallpaper categories and {len(sounds)} sounds.")
+
 
 if __name__ == "__main__":
     generate_catalog()

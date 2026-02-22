@@ -26,6 +26,7 @@ struct AlarmDraft: Equatable {
     var snoozeSeconds: Int = 0
     var snoozeCount: Int = 3
     var wallpaperId: String = "default"
+    var dailyMotivationEnabled: Bool = false
     var missions: [AlarmMission] = []
     
     // Accountability Shield

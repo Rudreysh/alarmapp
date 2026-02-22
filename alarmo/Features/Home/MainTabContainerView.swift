@@ -5,6 +5,7 @@ enum MainTab: String, CaseIterable {
     case alarm
     case timer
     case plan
+    case overlap
     case report
     case setting
 }
@@ -27,6 +28,8 @@ struct MainTabContainerView: View {
                     TimerRootView(preferences: preferences, onClose: { navStore.selectedTab = .alarm })
                 case .plan:
                     PlanView()
+                case .overlap:
+                    OverlapView()
                 case .report:
                     ReportView(modelContext: modelContext, alarmStore: alarmStore)
                 case .setting:
@@ -39,6 +42,7 @@ struct MainTabContainerView: View {
                     TabBarItem(id: MainTab.alarm, title: "Alarm", systemImage: "alarm"),
                     TabBarItem(id: MainTab.timer, title: "Timer", systemImage: "timer"),
                     TabBarItem(id: MainTab.plan, title: "Plan", systemImage: "calendar"),
+                    TabBarItem(id: MainTab.overlap, title: "Overlap", systemImage: "globe.americas"),
                     TabBarItem(id: MainTab.report, title: "Report", systemImage: "doc.text"),
                     TabBarItem(id: MainTab.setting, title: "Setting", systemImage: "gearshape")
                 ],

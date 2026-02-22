@@ -9,6 +9,8 @@ enum SettingsRoute: Hashable {
     case system
     case faq
     case optimization
+    case permissions
+    case notice
 }
 
 class SettingsCoordinator: ObservableObject {

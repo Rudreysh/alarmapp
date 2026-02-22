@@ -7,7 +7,7 @@ struct SoundPickerView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var sounds: [SoundAsset] = []
-    @State private var selectedTab: SoundCategory = .trending
+    @State private var selectedTab: SoundCategory = .alarmTone
     
     // Add Logic
     @State private var showMusicPicker = false
@@ -15,6 +15,11 @@ struct SoundPickerView: View {
     @State private var showAddSheet = false
     @State private var showRecorder = false
     @State private var showFileImporter = false
+    @State private var renameTargetSound: SoundAsset?
+    @State private var renameText: String = ""
+    @State private var showRenameAlert = false
+    @State private var deleteTargetSound: SoundAsset?
+    @State private var showDeleteConfirmation = false
     private let customSoundService = CustomSoundService()
     private let spotifyService = SpotifyService()
 
@@ -24,7 +29,7 @@ struct SoundPickerView: View {
     @ObservedObject var soundPlayer: SoundPreviewPlayer
     
     // Fallback init for previews if needed, but primarily intended to be injected
-    init(selectedSound: Binding<String>, soundPlayer: SoundPreviewPlayer = SoundPreviewPlayer()) {
+    init(selectedSound: Binding<String>, soundPlayer: SoundPreviewPlayer = SoundPreviewPlayer.shared) {
         _selectedSound = selectedSound
         self.soundPlayer = soundPlayer
     }
@@ -52,25 +57,6 @@ struct SoundPickerView: View {
                 }
                 .padding()
                 
-                // Search Stub (User image 2 shows "Request the sound I want")
-                // I won't implement full search request logic, just the visual stub
-                Button(action: {
-                    // Placeholder
-                }) {
-                    HStack {
-                        Text("🥁🎤🎹 Request the sound I want")
-                            .font(.subheadline)
-                            .foregroundColor(Colors.textSecondary)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(Colors.textSecondary)
-                    }
-                    .padding()
-                    .background(Colors.cardSurface)
-                    .cornerRadius(12)
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 16)
                 
                 // Categories (Tabs)
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -176,21 +162,9 @@ struct SoundPickerView: View {
                                                             isPlaying: soundPlayer.isPlaying && soundPlayer.playingResourceName == remoteSound.title,
                                                             onSelect: {
                                                                 if let url = assetManager.localURL(for: remoteSound.filename) {
+                                                                    loadSounds()
                                                                     selectedSound = remoteSound.title
                                                                     togglePlay(sound: SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: url, category: .cloud))
-                                                                } else {
-                                                                    Task {
-                                                                        do {
-                                                                            let url = try await assetManager.downloadAsset(from: remoteSound.url, filename: remoteSound.filename)
-                                                                            await MainActor.run {
-                                                                                loadSounds()
-                                                                                selectedSound = remoteSound.title
-                                                                                togglePlay(sound: SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: url, category: .cloud))
-                                                                            }
-                                                                        } catch {
-                                                                            print("Failed to download: \(error)")
-                                                                        }
-                                                                    }
                                                                 }
                                                             }
                                                         )
@@ -206,24 +180,69 @@ struct SoundPickerView: View {
                                     }
                             }
                         }
-                    } else {
+                            } else {
                                 // LOCAL SOUNDS
                                 ForEach(filteredSounds) { sound in
+                                    if sound.category == .custom {
+                                        SwipeableSoundRow(
+                                            onRename: { beginRename(sound) },
+                                            onDelete: { beginDelete(sound) }
+                                        ) {
+                                            SoundRow(
+                                                sound: sound,
+                                                isSelected: selectedSound == sound.title,
+                                                isPlaying: soundPlayer.isPlaying && soundPlayer.playingResourceName == sound.title,
+                                                isBuffering: soundPlayer.isBuffering && soundPlayer.playingResourceName == sound.title
+                                            ) { action in
+                                                switch action {
+                                                case .select:
+                                                    selectedSound = sound.title
+                                                    togglePlay(sound: sound)
+                                                case .play:
+                                                    selectedSound = sound.title
+                                                    print("[SoundPicker] Play tapped -> selectedSound set to \(sound.title)")
+                                                    togglePlay(sound: sound)
+                                                }
+                                            }
+                                            .background(
+                                                LinearGradient(
+                                                    colors: [Colors.cardSurface, Colors.bgPrimary],
+                                                    startPoint: .leading,
+                                                    endPoint: .trailing
+                                                )
+                                            )
+                                            .cornerRadius(12)
+                                        }
+                                        .contextMenu {
+                                            Button {
+                                                beginRename(sound)
+                                            } label: {
+                                                Label("Rename", systemImage: "pencil")
+                                            }
+                                            
+                                            Button(role: .destructive) {
+                                                beginDelete(sound)
+                                            } label: {
+                                                Label("Delete", systemImage: "trash")
+                                            }
+                                        }
+                                    } else {
                                         SoundRow(
-                                        sound: sound,
-                                        isSelected: selectedSound == sound.title,
-                                        isPlaying: soundPlayer.isPlaying && soundPlayer.playingResourceName == sound.title,
-                                        isBuffering: soundPlayer.isBuffering && soundPlayer.playingResourceName == sound.title
-                                    ) { action in
-                                        switch action {
-                                        case .select:
-                                            selectedSound = sound.title
-                                            togglePlay(sound: sound)
-                                        case .play:
-                                            // Keep UI selection in sync with the currently previewing sound.
-                                            selectedSound = sound.title
-                                            print("[SoundPicker] Play tapped -> selectedSound set to \(sound.title)")
-                                            togglePlay(sound: sound)
+                                            sound: sound,
+                                            isSelected: selectedSound == sound.title,
+                                            isPlaying: soundPlayer.isPlaying && soundPlayer.playingResourceName == sound.title,
+                                            isBuffering: soundPlayer.isBuffering && soundPlayer.playingResourceName == sound.title
+                                        ) { action in
+                                            switch action {
+                                            case .select:
+                                                selectedSound = sound.title
+                                                togglePlay(sound: sound)
+                                            case .play:
+                                                // Keep UI selection in sync with the currently previewing sound.
+                                                selectedSound = sound.title
+                                                print("[SoundPicker] Play tapped -> selectedSound set to \(sound.title)")
+                                                togglePlay(sound: sound)
+                                            }
                                         }
                                     }
                                     
@@ -249,26 +268,54 @@ struct SoundPickerView: View {
                     Button(action: {
                         showAddSheet = true
                     }) {
-                        Circle()
-                            .fill(Color.white)
-                            .frame(width: 56, height: 56)
-                            .shadow(color: Color.black.opacity(0.3), radius: 8, x: 0, y: 4)
-                            .overlay(
-                                ZStack {
-                                    Image(systemName: "music.note")
-                                        .font(.system(size: 24, weight: .regular))
-                                        .foregroundColor(.black)
-                                    
-                                    // Plus badge
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color(red: 0.11, green: 0.20, blue: 0.34).opacity(0.95),
+                                            Color(red: 0.06, green: 0.13, blue: 0.24).opacity(0.95)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .background(.ultraThinMaterial, in: Circle())
+                            
+                            Circle()
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [Colors.accentTeal.opacity(0.85), Color.white.opacity(0.22)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1.2
+                                )
+                            
+                            Image(systemName: "music.note")
+                                .font(.system(size: 23, weight: .semibold))
+                                .foregroundColor(Colors.accentTeal)
+                            
+                            // Plus badge
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Colors.accentTeal, Colors.accentBlue],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 18, height: 18)
+                                .overlay(
                                     Image(systemName: "plus")
-                                        .font(.system(size: 10, weight: .bold))
-                                        .foregroundColor(.black)
-                                        .padding(3)
-                                        .background(Color.white)
-                                        .clipShape(Circle())
-                                        .offset(x: 8, y: -8)
-                                }
-                            )
+                                        .font(.system(size: 9, weight: .bold))
+                                        .foregroundColor(.white)
+                                )
+                                .offset(x: 14, y: -14)
+                        }
+                        .frame(width: 56, height: 56)
+                        .shadow(color: Colors.accentBlue.opacity(0.24), radius: 10, x: 0, y: 5)
+                        .shadow(color: Color.black.opacity(0.28), radius: 8, x: 0, y: 4)
                     }
                     .padding(24)
                 }
@@ -276,6 +323,8 @@ struct SoundPickerView: View {
         }
         .onAppear {
             loadSounds()
+            // Stop any preview that might be playing from the previous screen
+            soundPlayer.stop()
         }
         .onDisappear {
             // Optional: stop when leaving picker? 
@@ -355,6 +404,28 @@ struct SoundPickerView: View {
                 selectedTab = .custom // Switch to custom to show it
             }
         }
+        .alert("Rename Sound", isPresented: $showRenameAlert) {
+            TextField("Sound Name", text: $renameText)
+            Button("Cancel", role: .cancel) {
+                renameTargetSound = nil
+                renameText = ""
+            }
+            Button("Save") {
+                commitRename()
+            }
+        } message: {
+            Text("Enter a new name for this recorded sound.")
+        }
+        .alert("Delete Sound?", isPresented: $showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {
+                deleteTargetSound = nil
+            }
+            Button("Delete", role: .destructive) {
+                commitDelete()
+            }
+        } message: {
+            Text("This sound will be removed permanently.")
+        }
         // Removed fileImporter since user specifically requested Apple Music
         // .fileImporter(...)
     }
@@ -376,6 +447,62 @@ struct SoundPickerView: View {
             soundPlayer.play(resourceName: sound.title, volume: 1.0)
         }
     }
+
+    private func beginRename(_ sound: SoundAsset) {
+        renameTargetSound = sound
+        renameText = sound.title
+        showRenameAlert = true
+    }
+
+    private func commitRename() {
+        defer {
+            renameTargetSound = nil
+            renameText = ""
+        }
+
+        guard let target = renameTargetSound else { return }
+        let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        guard trimmed != target.title else { return }
+
+        do {
+            _ = try customSoundService.renameCustomSound(from: target.fileURL, to: trimmed)
+            if soundPlayer.isPlaying && soundPlayer.playingResourceName == target.title {
+                soundPlayer.stop()
+            }
+            if selectedSound == target.title {
+                selectedSound = trimmed
+            }
+            loadSounds()
+            selectedTab = .custom
+        } catch {
+            print("Failed to rename sound: \(error)")
+        }
+    }
+
+    private func beginDelete(_ sound: SoundAsset) {
+        deleteTargetSound = sound
+        showDeleteConfirmation = true
+    }
+
+    private func commitDelete() {
+        defer { deleteTargetSound = nil }
+        guard let target = deleteTargetSound else { return }
+
+        do {
+            if soundPlayer.isPlaying && soundPlayer.playingResourceName == target.title {
+                soundPlayer.stop()
+            }
+            try customSoundService.deleteCustomSound(at: target.fileURL)
+            loadSounds()
+            selectedTab = .custom
+            if selectedSound == target.title {
+                selectedSound = sounds.first?.title ?? selectedSound
+            }
+        } catch {
+            print("Failed to delete sound: \(error)")
+        }
+    }
 }
 
 // Subviews
@@ -395,8 +522,8 @@ struct CategoryPill: View {
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 16)
-            .background(isSelected ? Color.white : Colors.cardSurface)
-            .foregroundColor(isSelected ? .black : Colors.textPrimary)
+            .background(isSelected ? Colors.accentTeal : Colors.cardSurface)
+            .foregroundColor(isSelected ? .white : Colors.textPrimary)
             .cornerRadius(20)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
@@ -426,9 +553,10 @@ struct SoundRow: View {
     }
     
     var body: some View {
-        Button(action: { onAction(.select) }) {
+        HStack(spacing: 0) {
+            // Main Selection Area
             HStack(spacing: 16) {
-                // Radio
+                // Radio icon
                 Circle()
                     .strokeBorder(isSelected ? Colors.accentTeal : Colors.textTertiary, lineWidth: 2)
                     .background(Circle().fill(isSelected ? Colors.accentTeal : Color.clear))
@@ -457,29 +585,41 @@ struct SoundRow: View {
                 }
                 
                 Spacer()
-                
-                // Play Button
-                Button(action: { onAction(.play) }) {
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                onAction(.select)
+            }
+            .padding(.vertical, 12)
+            .padding(.leading)
+            
+            // Play Button Area (dedicated hit area)
+            Button(action: {
+                onAction(.play)
+            }) {
+                ZStack {
                     if isBuffering {
                         ProgressView()
                             .tint(Colors.textPrimary)
                             .scaleEffect(0.8)
                     } else if isPlaying {
                         Image(systemName: "stop.fill")
+                            .font(.system(size: 20))
                             .foregroundColor(Colors.textPrimary)
                     } else if isSpotifyTrack {
-                        // Spotify-style play icon
                         Image(systemName: "arrowshape.turn.up.right.fill")
+                            .font(.system(size: 18))
                             .foregroundColor(Color(red: 29/255, green: 185/255, blue: 84/255))
                     } else {
                         Image(systemName: "play.fill")
+                            .font(.system(size: 20))
                             .foregroundColor(Colors.textSecondary)
                     }
                 }
-                .frame(width: 44, height: 44)
+                .frame(width: 56, height: 56)
+                .contentShape(Rectangle())
             }
-            .padding(.vertical, 12)
-            .padding(.horizontal)
+            .padding(.trailing, 4)
         }
     }
 }
@@ -504,7 +644,7 @@ struct AddSoundSheet: View {
                         HStack(spacing: 16) {
                             Image(systemName: "apple.logo") // Close enough for Apple Music
                                 .font(.system(size: 20))
-                            Text("Import from Apple Music") // Text per user image
+                            Text("Import from Apple Music")
                                 .font(.body.weight(.medium))
                             Spacer()
                             Image(systemName: "chevron.right")
@@ -546,7 +686,7 @@ struct AddSoundSheet: View {
                                 .font(.caption.bold())
                                 .foregroundColor(Colors.textTertiary)
                         }
-                        .foregroundColor(Colors.textPrimary) // Usually white
+                        .foregroundColor(Colors.textPrimary)
                         .padding()
                         .background(Colors.cardSurface)
                         .cornerRadius(12)
@@ -568,27 +708,38 @@ struct RemoteSoundRow: View {
     
     @State private var isDownloading = false
     @State private var isDownloaded = false
+    @State private var downloadProgress: Double = 0.0
     
     var body: some View {
-        Button(action: {
-            if !isDownloading {
-                // If not downloaded, trigger download
-                if !isDownloaded {
-                    isDownloading = true
-                }
-                onSelect()
-            }
-        }) {
+        HStack(spacing: 0) {
+            // Main Selection Area
             HStack(spacing: 16) {
-                // Icon: Cloud or Check
+                // Status Icon: Cloud, Progress, or Radio
                 ZStack {
                     if isDownloading {
-                        ProgressView()
-                            .scaleEffect(0.6)
+                        // Circular Progress
+                        ZStack {
+                            Circle()
+                                .stroke(Colors.textSecondary.opacity(0.2), lineWidth: 3)
+                            
+                            Circle()
+                                .trim(from: 0, to: downloadProgress)
+                                .stroke(Colors.accentTeal, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                                .rotationEffect(.degrees(-90))
+                                .animation(.linear(duration: 0.1), value: downloadProgress)
+                        }
+                        .frame(width: 24, height: 24)
                     } else if isDownloaded {
-                        Image(systemName: isSelected ? "checkmark.circle.fill" : "checkmark.circle")
-                            .foregroundColor(Colors.accentTeal)
-                            .font(.system(size: 22))
+                        Circle()
+                            .strokeBorder(isSelected ? Colors.accentTeal : Colors.textTertiary, lineWidth: 2)
+                            .background(Circle().fill(isSelected ? Colors.accentTeal : Color.clear))
+                            .frame(width: 24, height: 24)
+                            .overlay(
+                                Circle()
+                                    .fill(Color.white)
+                                    .frame(width: 8, height: 8)
+                                    .opacity(isSelected ? 1 : 0)
+                            )
                     } else {
                         Image(systemName: "icloud.and.arrow.down")
                             .foregroundColor(Colors.textSecondary)
@@ -602,37 +753,91 @@ struct RemoteSoundRow: View {
                         .font(.body)
                         .foregroundColor(Colors.textPrimary)
                     
-                    Text(isDownloaded ? "Downloaded" : "Tap to download")
-                        .font(.caption2)
-                        .foregroundColor(Colors.textTertiary)
+                    if isDownloading {
+                        Text("Downloading \(Int(downloadProgress * 100))%...")
+                            .font(.caption2)
+                            .foregroundColor(Colors.accentTeal)
+                    } else {
+                        Text(isDownloaded ? "Local Sound" : "Download to play")
+                            .font(.caption2)
+                            .foregroundColor(Colors.textTertiary)
+                    }
                 }
                 
                 Spacer()
-                
-                // Play Button (only if downloaded)
-                if isDownloaded {
-                    Image(systemName: isPlaying ? "stop.fill" : "play.fill")
-                        .foregroundColor(Colors.textSecondary)
-                        .font(.system(size: 20))
-                        .frame(width: 44, height: 44)
-                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                handleTap()
             }
             .padding(.vertical, 12)
-            .padding(.horizontal)
+            .padding(.leading)
+
+            // Play/Stop Button Area
+            if isDownloaded && !isDownloading {
+                Button(action: {
+                    onSelect()
+                }) {
+                    ZStack {
+                        Image(systemName: isPlaying ? "stop.fill" : "play.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(isPlaying ? Colors.textPrimary : Colors.textSecondary)
+                    }
+                    .frame(width: 56, height: 56)
+                    .contentShape(Rectangle())
+                }
+                .padding(.trailing, 4)
+            } else {
+                // Spacer to keep layout consistent
+                Color.clear.frame(width: 60, height: 56)
+            }
         }
         .onAppear {
             checkStatus()
         }
-        // Assuming parent view triggers redraw or we can observe asset manager
         .onChange(of: AssetManager.shared.remoteSounds) { _ in
-            checkStatus() // Recheck if list reloads or cache updates
+            checkStatus()
         }
-        // Also need to check when download completes. 
-        // The parent view's onSelect updates the UI, but ideally we observe file existence.
     }
     
     private func checkStatus() {
-        isDownloaded = AssetManager.shared.fileExists(filename: remoteSound.filename)
-        if isDownloaded { isDownloading = false }
+        // If already handling a download locally, don't override status until done
+        if !isDownloading {
+            isDownloaded = AssetManager.shared.fileExists(filename: remoteSound.filename)
+        }
+    }
+    
+    private func handleTap() {
+        if isDownloaded {
+            onSelect()
+            return
+        }
+        
+        guard !isDownloading else { return }
+        
+        isDownloading = true
+        downloadProgress = 0.0
+        
+        Task {
+            do {
+                _ = try await AssetManager.shared.downloadAsset(from: remoteSound.url, filename: remoteSound.filename) { progress in
+                    Task { @MainActor in
+                        self.downloadProgress = progress
+                    }
+                }
+                
+                await MainActor.run {
+                    self.isDownloading = false
+                    self.isDownloaded = true
+                    // Automatically play/select after download
+                    onSelect()
+                }
+            } catch {
+                print("Download failed: \(error)")
+                await MainActor.run {
+                    self.isDownloading = false
+                }
+            }
+        }
     }
 }

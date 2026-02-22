@@ -88,18 +88,11 @@ struct TimerRootView: View {
                     
                     Spacer()
                     
-                    HStack(spacing: 16) {
-                        Button(action: { print("History tapped") }) {
-                            Image(systemName: "clock.arrow.circlepath")
-                                .font(.system(size: 20))
-                                .foregroundColor(Colors.textPrimary)
-                        }
-                        
-                        Button(action: toggleQuickActionsMenu) {
-                            Image(systemName: "ellipsis")
-                                .font(.system(size: 20))
-                                .foregroundColor(Colors.textPrimary)
-                        }
+                    Button(action: toggleQuickActionsMenu) {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 20))
+                            .foregroundColor(Colors.textPrimary)
+                            .frame(width: 56, height: 24, alignment: .trailing)
                     }
                 }
                 .padding(.horizontal, Spacing.l)

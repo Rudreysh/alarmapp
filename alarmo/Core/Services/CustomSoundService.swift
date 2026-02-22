@@ -8,7 +8,9 @@ class CustomSoundService: NSObject, ObservableObject {
     private let fileManager = FileManager.default
     
     @Published var isRecording = false
+    @Published var isPaused = false
     @Published var recordingTime: TimeInterval = 0
+    @Published var inputLevel: Float = 0
     private var timer: Timer?
     
     override init() {
@@ -48,13 +50,11 @@ class CustomSoundService: NSObject, ObservableObject {
     }
     
     func startRecording(name: String) throws {
-        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let customSoundsDir = documents.appendingPathComponent("CustomSounds")
-        if !fileManager.fileExists(atPath: customSoundsDir.path) {
-            try fileManager.createDirectory(at: customSoundsDir, withIntermediateDirectories: true)
-        }
-        
+        let customSoundsDir = try customSoundsDirectoryURL()
         let fileURL = customSoundsDir.appendingPathComponent("\(name).m4a")
+        if fileManager.fileExists(atPath: fileURL.path) {
+            try fileManager.removeItem(at: fileURL)
+        }
         
         // Use standard settings for AAC recording
         let settings: [String: Any] = [
@@ -76,14 +76,35 @@ class CustomSoundService: NSObject, ObservableObject {
         // That is inside saveImportedFile.
         
         audioRecorder = try AVAudioRecorder(url: fileURL, settings: settings)
+        audioRecorder?.isMeteringEnabled = true
         audioRecorder?.record()
         
         DispatchQueue.main.async {
             self.isRecording = true
+            self.isPaused = false
             self.recordingTime = 0
-            self.timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-                self.recordingTime += 0.1
-            }
+            self.inputLevel = 0
+            self.startMeterTimer()
+        }
+    }
+
+    func pauseRecording() {
+        guard let recorder = audioRecorder, recorder.isRecording else { return }
+        recorder.pause()
+        DispatchQueue.main.async {
+            self.isRecording = false
+            self.isPaused = true
+            self.stopMeterTimer()
+        }
+    }
+
+    func resumeRecording() {
+        guard let recorder = audioRecorder, !recorder.isRecording else { return }
+        recorder.record()
+        DispatchQueue.main.async {
+            self.isRecording = true
+            self.isPaused = false
+            self.startMeterTimer()
         }
     }
     
@@ -93,20 +114,61 @@ class CustomSoundService: NSObject, ObservableObject {
         
         DispatchQueue.main.async {
             self.isRecording = false
-            self.timer?.invalidate()
-            self.timer = nil
+            self.isPaused = false
+            self.inputLevel = 0
+            self.stopMeterTimer()
         }
         
         try? AVAudioSession.sharedInstance().setActive(false)
     }
-    
+
+    func removeTemporaryRecording() {
+        let tempURL = temporaryRecordingURL()
+        if fileManager.fileExists(atPath: tempURL.path) {
+            try? fileManager.removeItem(at: tempURL)
+        }
+    }
+
+    func temporaryRecordingURL() -> URL {
+        (try? customSoundsDirectoryURL())?.appendingPathComponent("temp_recording.m4a")
+        ?? fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("CustomSounds/temp_recording.m4a")
+    }
+
+    func customSoundURL(named name: String) -> URL {
+        let dir = (try? customSoundsDirectoryURL()) ?? fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("CustomSounds")
+        return dir.appendingPathComponent("\(name).m4a")
+    }
+
+    private func customSoundsDirectoryURL() throws -> URL {
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let customSoundsDir = documents.appendingPathComponent("CustomSounds")
+        if !fileManager.fileExists(atPath: customSoundsDir.path) {
+            try fileManager.createDirectory(at: customSoundsDir, withIntermediateDirectories: true)
+        }
+        return customSoundsDir
+    }
+
+    private func startMeterTimer() {
+        stopMeterTimer()
+        timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            self.recordingTime += 0.05
+            self.audioRecorder?.updateMeters()
+            let avgPower = self.audioRecorder?.averagePower(forChannel: 0) ?? -160
+            let normalized = max(0, min(1, (avgPower + 60) / 60))
+            self.inputLevel = normalized
+        }
+    }
+
+    private func stopMeterTimer() {
+        timer?.invalidate()
+        timer = nil
+    }
+
     func saveImportedFile(from url: URL, name: String) async throws {
-         let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
-         let customSoundsDir = documents.appendingPathComponent("CustomSounds")
-         if !fileManager.fileExists(atPath: customSoundsDir.path) {
-             try fileManager.createDirectory(at: customSoundsDir, withIntermediateDirectories: true)
-         }
-         
+         let customSoundsDir = try customSoundsDirectoryURL()
          let destinationURL = customSoundsDir.appendingPathComponent("\(name).m4a")
          
          if fileManager.fileExists(atPath: destinationURL.path) {
@@ -141,5 +203,38 @@ class CustomSoundService: NSObject, ObservableObject {
                  try fileManager.copyItem(at: url, to: destinationURL)
              }
          }
+    }
+
+    func renameCustomSound(from sourceURL: URL, to newName: String) throws -> URL {
+        let sanitized = sanitizeFilename(newName)
+        guard !sanitized.isEmpty else {
+            throw NSError(domain: "CustomSoundService", code: 2, userInfo: [NSLocalizedDescriptionKey: "Invalid sound name"])
+        }
+
+        let destinationURL = sourceURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("\(sanitized).\(sourceURL.pathExtension)")
+
+        if sourceURL == destinationURL { return sourceURL }
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            throw NSError(domain: "CustomSoundService", code: 3, userInfo: [NSLocalizedDescriptionKey: "A sound with this name already exists"])
+        }
+
+        try fileManager.moveItem(at: sourceURL, to: destinationURL)
+        return destinationURL
+    }
+
+    func deleteCustomSound(at url: URL) throws {
+        guard fileManager.fileExists(atPath: url.path) else { return }
+        try fileManager.removeItem(at: url)
+    }
+
+    private func sanitizeFilename(_ raw: String) -> String {
+        let invalid = CharacterSet(charactersIn: "/\\?%*|\"<>:")
+        let cleaned = raw
+            .components(separatedBy: invalid)
+            .joined(separator: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned
     }
 }

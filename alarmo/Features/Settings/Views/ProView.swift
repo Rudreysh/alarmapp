@@ -140,8 +140,17 @@ struct ProView: View {
                                 .frame(width: 200)
                                 .padding(.vertical, 14)
                                 .background(Color.white.opacity(0.05))
-                                .cornerRadius(12)
                         }
+                        .padding(.top, 20)
+                        
+                        // Debug/Testing Toggle
+                        Toggle(isOn: $subManager.isPro) {
+                            Text("Simulate Pro Status (Testing)")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(Colors.textSecondary)
+                        }
+                        .tint(Colors.accentTeal)
+                        .padding(.horizontal, 40)
                         .padding(.top, 20)
                     }
                     .padding(.bottom, 40)

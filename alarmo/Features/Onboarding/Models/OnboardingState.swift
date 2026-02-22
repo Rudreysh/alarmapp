@@ -14,5 +14,6 @@ struct OnboardingState {
     var selectedVolume: Float = 0.95
     var gentleWakeUpEnabled = true
     var missionType: WakeUpMissionType = .off
+    var dailyMotivationEnabled: Bool = false
     var onboardingCompleted = false
 }

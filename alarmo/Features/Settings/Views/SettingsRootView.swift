@@ -8,158 +8,240 @@ struct SettingsRootView: View {
     @State private var showSignIn = false
     @State private var showPro = false
     @State private var showPenalty = false
+    @State private var showProUpsellFlow = false
+    
+    // For ambient background animation
+    @State private var animateItems = false
     
     var body: some View {
         NavigationStack(path: $coordinator.path) {
             ZStack {
-                SettingsGlassBackground()
+                // Modern Ambient Background
+                Colors.bgPrimary.ignoresSafeArea()
                 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        Text("Settings")
-                            .font(.system(size: 34, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 20)
-                            .padding(.top, 10)
+                GeometryReader { proxy in
+                    let size = proxy.size
+                    Circle()
+                        .fill(Colors.accentTeal.opacity(0.1))
+                        .frame(width: 250, height: 250)
+                        .blur(radius: 60)
+                        .offset(x: animateItems ? size.width - 150 : -50,
+                                y: animateItems ? -20 : size.height * 0.2)
+                    
+                    Circle()
+                        .fill(Colors.accentBlue.opacity(0.1))
+                        .frame(width: 200, height: 200)
+                        .blur(radius: 60)
+                        .offset(x: animateItems ? -50 : size.width - 100,
+                                y: animateItems ? size.height * 0.5 : 0)
+                }
+                .animation(.easeInOut(duration: 8).repeatForever(autoreverses: true), value: animateItems)
+                .ignoresSafeArea()
+                
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: Spacing.xl) {
                         
-                        // Account Section
-                        SettingsCard {
-                            SettingsActionRow(
-                                title: store.isSignedIn ? "User_62831" : "Sign in to your account",
-                                icon: "person.circle.fill",
-                                iconColor: Colors.textSecondary,
-                                isLast: false
-                            ) {
-                                showSignIn = true
+                        // Header
+                        Text("Workspace")
+                            .font(.system(size: 34, weight: .black, design: .rounded))
+                            .foregroundColor(Colors.textPrimary)
+                            .padding(.horizontal, Spacing.l)
+                            .padding(.top, Spacing.s)
+                        
+                        if !subManager.isPro {
+                            FreePlanSettingsBanner {
+                                showProUpsellFlow = true
                             }
-                            
-                            NavigationLink(destination: MyPointsView()) {
-                                SettingsActionRow(
-                                    title: "My points",
-                                    trailingText: "\(store.points) P",
-                                    icon: "p.circle.fill",
-                                    iconColor: .orange,
-                                    isLast: false
-                                ) { }
-                            }
-                            .buttonStyle(.plain)
-                            
-                            SettingsActionRow(
-                                title: "Pro",
-                                trailingText: subManager.isPro ? "Subscribed" : "Not subscribed",
-                                icon: "bolt.fill",
-                                iconColor: .red,
-                                isLast: false
-                            ) {
-                                showPro = true
-                            }
-                            
-                            SettingsActionRow(
-                                title: "Accountability Shield",
-                                trailingText: store.accountabilityEnabled ? "on" : "off",
-                                icon: "shield.fill",
-                                iconColor: .green,
-                                isLast: true
-                            ) {
-                                showPenalty = true
-                            }
+                            .padding(.horizontal, Spacing.l)
+                            .padding(.bottom, -Spacing.s)
                         }
                         
-                        // General Settings Group
-                        SettingsCard {
-                            SettingsActionRow(title: "Advanced alarm settings", isLast: false) {
-                                coordinator.navigate(to: .advanced)
+                        // User Hero Profile Card
+                        VStack(spacing: 0) {
+                            Button(action: { showSignIn = true }) {
+                                HStack(spacing: Spacing.m) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(Colors.bgSecondary)
+                                            .frame(width: 56, height: 56)
+                                        Image(systemName: "person.crop.circle.fill")
+                                            .font(.system(size: 32))
+                                            .foregroundColor(Colors.textSecondary)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(store.isSignedIn ? "User_62831" : "Sign in to profile")
+                                            .font(.system(size: 20, weight: .bold))
+                                            .foregroundColor(Colors.textPrimary)
+                                        Text("Manage account & sync")
+                                            .font(.system(size: 13, weight: .medium))
+                                            .foregroundColor(Colors.textSecondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(Colors.textTertiary)
+                                }
+                                .padding(Spacing.m)
                             }
+                            .buttonStyle(PressedScaleButtonStyle())
                             
-                            SettingsActionRow(title: "Theme", isLast: false) {
-                                coordinator.navigate(to: .theme)
-                            }
+                            Divider().background(Colors.cardStroke)
                             
-                            SettingsActionRow(title: "Sound output", trailingText: store.soundOutputMode.rawValue, isLast: false) {
-                                coordinator.navigate(to: .soundOutput)
+                            // Horizontal Premium Metric Dashboard
+                            HStack(spacing: 0) {
+                                // Points Metric
+                                NavigationLink(destination: MyPointsView()) {
+                                    VStack(alignment: .center, spacing: 6) {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "p.circle.fill")
+                                                .foregroundColor(.orange)
+                                            Text("Points")
+                                                .font(.system(size: 12, weight: .semibold))
+                                                .foregroundColor(Colors.textSecondary)
+                                        }
+                                        Text("\(store.points)")
+                                            .font(.system(size: 18, weight: .bold, design: .monospaced))
+                                            .foregroundColor(Colors.textPrimary)
+                                    }
+                                    .padding(.vertical, Spacing.m)
+                                    .frame(maxWidth: .infinity)
+                                }
+                                
+                                Divider().background(Colors.cardStroke)
+                                
+                                // Pro Status
+                                Button(action: { showPro = true }) {
+                                    VStack(alignment: .center, spacing: 6) {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "bolt.fill")
+                                                .foregroundColor(Colors.accentTeal)
+                                            Text("Status")
+                                                .font(.system(size: 12, weight: .semibold))
+                                                .foregroundColor(Colors.textSecondary)
+                                        }
+                                        Text(subManager.isPro ? "Pro" : "Free")
+                                            .font(.system(size: 18, weight: .bold))
+                                            .foregroundColor(subManager.isPro ? Colors.accentTeal : Colors.textPrimary)
+                                    }
+                                    .padding(.vertical, Spacing.m)
+                                    .frame(maxWidth: .infinity)
+                                }
+                                
+                                Divider().background(Colors.cardStroke)
+                                
+                                // Shield
+                                Button(action: { showPenalty = true }) {
+                                    VStack(alignment: .center, spacing: 6) {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "shield.fill")
+                                                .foregroundColor(.green)
+                                            Text("Shield")
+                                                .font(.system(size: 12, weight: .semibold))
+                                                .foregroundColor(Colors.textSecondary)
+                                        }
+                                        Text(store.accountabilityEnabled ? "ON" : "OFF")
+                                            .font(.system(size: 18, weight: .bold))
+                                            .foregroundColor(store.accountabilityEnabled ? .green : Colors.textTertiary)
+                                    }
+                                    .padding(.vertical, Spacing.m)
+                                    .frame(maxWidth: .infinity)
+                                }
                             }
+                            .buttonStyle(PressedScaleButtonStyle())
+                        }
+                        .background(Colors.cardSurface)
+                        .cornerRadius(24)
+                        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Colors.cardStroke, lineWidth: 1))
+                        .appShadow(Shadows.card)
+                        .padding(.horizontal, Spacing.l)
+                        
+                        // Essential Config Modules
+                        VStack(spacing: Spacing.m) {
+                            Text("Engine Behavior")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(Colors.textSecondary)
+                                .textCase(.uppercase)
+                                .padding(.horizontal, Spacing.l)
+                                .padding(.bottom, -8)
                             
-                            SettingsActionRow(
-                                title: "Notification setting",
-                                subtitle: "Service notification • Promotion & update",
-                                isLast: true
-                            ) {
-                                coordinator.navigate(to: .notification)
+                            VStack(spacing: 0) {
+                                ModularSettingsRow(title: "Advanced Alarm Options", icon: "slider.horizontal.3", isLast: false) {
+                                    coordinator.navigate(to: .advanced)
+                                }
+                                ModularSettingsRow(title: "Sound Output Matrix", icon: "hifispeaker.fill", trailing: store.soundOutputMode.rawValue, isLast: false) {
+                                    coordinator.navigate(to: .soundOutput)
+                                }
+                                ModularSettingsRow(title: "Appearance & Theme", icon: "paintpalette.fill", isLast: false) {
+                                    coordinator.navigate(to: .theme)
+                                }
+                                ModularSettingsRow(title: "System Notifications", icon: "bell.badge.fill", isLast: false) {
+                                    coordinator.navigate(to: .notification)
+                                }
+                                ModularSettingsRow(title: "App Configurations", icon: "gearshape.fill", isLast: true) {
+                                    coordinator.navigate(to: .system)
+                                }
                             }
+                            .background(Colors.cardSurface)
+                            .cornerRadius(24)
+                            .overlay(RoundedRectangle(cornerRadius: 24).stroke(Colors.cardStroke, lineWidth: 1))
+                            .appShadow(Shadows.card)
+                            .padding(.horizontal, Spacing.l)
                         }
                         
-                        // System Group
-                        SettingsCard {
-                            SettingsActionRow(
-                                title: "System configuration",
-                                subtitle: "App Language • Battery saving mode",
-                                isLast: true
-                            ) {
-                                coordinator.navigate(to: .system)
-                            }
-                        }
-                        
-                        // Banner Placeholder
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            SettingsPalette.accentDark.opacity(0.92),
-                                            SettingsPalette.accent.opacity(0.72),
-                                            SettingsPalette.accentDark.opacity(0.95)
-                                        ],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                            
-                            HStack {
-                                Image(systemName: "bell.badge.fill")
-                                    .foregroundColor(.white)
-                                    .font(.title2)
+                        // Premium Help Banner
+                        Button(action: { coordinator.navigate(to: .optimization) }) {
+                            HStack(spacing: Spacing.m) {
+                                ZStack {
+                                    Circle().fill(Colors.accentTeal.opacity(0.2)).frame(width: 44, height: 44)
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundColor(Colors.accentTeal)
+                                        .font(.system(size: 20))
+                                }
                                 
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Alarm didn't ring?")
-                                        .font(.system(size: 13))
-                                        .foregroundColor(.white.opacity(0.8))
-                                    Text("Alarm optimization")
-                                        .font(.system(size: 17, weight: .bold))
+                                    Text("Alarms didn't ring?")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(Colors.accentTeal)
+                                    Text("Run Alarm Optimizer")
+                                        .font(.system(size: 18, weight: .bold))
                                         .foregroundColor(.white)
                                 }
+                                
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .foregroundColor(.white.opacity(0.6))
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(Colors.textTertiary)
                             }
-                            .padding()
+                            .padding(Spacing.m)
+                            .background(
+                                RoundedRectangle(cornerRadius: 20)
+                                    .fill(LinearGradient(colors: [Colors.bgSecondary, Colors.cardSurface], startPoint: .topLeading, endPoint: .bottomTrailing))
+                            )
+                            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Colors.accentTeal.opacity(0.3), lineWidth: 1))
                         }
-                        .frame(height: 72)
-                        .padding(.horizontal, 16)
-                        .onTapGesture {
-                            coordinator.navigate(to: .optimization)
-                        }
+                        .appShadow(Shadows.card)
+                        .padding(.horizontal, Spacing.l)
                         
-                        // Info Group
-                        VStack(alignment: .leading, spacing: 24) {
-                            Group {
-                                Button("Notice") { }
-                                Button("FAQ") { 
-                                    coordinator.navigate(to: .faq)
-                                }
-                                Button("Send feedback") { 
-                                    if let url = URL(string: "mailto:support@alarmo.app") {
-                                        UIApplication.shared.open(url)
-                                    }
+                        // Footer Links
+                        HStack(spacing: 30) {
+                            Button("Notice") { coordinator.navigate(to: .notice) }
+                            Button("FAQ") { coordinator.navigate(to: .faq) }
+                            Button("Feedback") {
+                                if let url = URL(string: "mailto:support@alarmo.app") {
+                                    UIApplication.shared.open(url)
                                 }
                             }
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(.white)
                         }
-                        .padding(.horizontal, 24)
-                        .padding(.top, 10)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Colors.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, Spacing.m)
                         
                     }
-                    .padding(.bottom, AppConstants.tabBarHeight + Spacing.m)
+                    .padding(.bottom, AppConstants.tabBarHeight + 40)
                 }
             }
             .navigationDestination(for: SettingsRoute.self) { route in
@@ -178,6 +260,10 @@ struct SettingsRootView: View {
                     FAQView()
                 case .optimization:
                     AppProtectionGuideView()
+                case .permissions:
+                    PermissionsView()
+                case .notice:
+                    SimplePlaceholderView(title: "Notice")
                 }
             }
         }
@@ -190,6 +276,61 @@ struct SettingsRootView: View {
         .fullScreenCover(isPresented: $showPenalty) {
             AccountabilityShieldSettingsView()
         }
+        .fullScreenCover(isPresented: $showProUpsellFlow) {
+            ProUpsellFlowView()
+        }
+        .onAppear {
+            animateItems = true
+        }
+    }
+}
+
+private struct ModularSettingsRow: View {
+    let title: String
+    let icon: String
+    var trailing: String? = nil
+    let isLast: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Spacing.m) {
+                Image(systemName: icon)
+                    .font(.system(size: 18))
+                    .foregroundColor(Colors.textSecondary)
+                    .frame(width: 24)
+                
+                Text(title)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Colors.textPrimary)
+                
+                Spacer()
+                
+                if let trailing = trailing {
+                    Text(trailing)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(Colors.accentTeal)
+                }
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(Colors.textTertiary)
+            }
+            .padding(.vertical, 16)
+            .padding(.horizontal, Spacing.m)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressedScaleButtonStyle())
+        .overlay(
+            VStack {
+                if !isLast {
+                    Spacer()
+                    Divider()
+                        .background(Colors.cardStroke)
+                        .padding(.leading, 56) // align under text roughly
+                }
+            }
+        )
     }
 }
 
@@ -198,7 +339,7 @@ struct SimplePlaceholderView: View {
     
     var body: some View {
         ZStack {
-            SettingsGlassBackground()
+            Colors.bgPrimary.ignoresSafeArea()
             Text("\(title) coming soon")
                 .foregroundColor(Colors.textSecondary)
         }

@@ -5,7 +5,7 @@ import Combine
 class SubscriptionManager: ObservableObject {
     static let shared = SubscriptionManager()
     
-    @Published var isPro: Bool = true // Default to true for demo as requested in screenshot "Pro Subscribed"
+    @Published var isPro: Bool = false // Default to false to show Free Plan Banner
     @Published var renewalDate: Date = Calendar.current.date(byAdding: .year, value: 1, to: Date()) ?? Date()
     @Published var planName: String = "Yearly plan"
     

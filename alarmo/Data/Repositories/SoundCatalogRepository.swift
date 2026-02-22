@@ -49,8 +49,12 @@ struct SoundCatalogRepository: SoundCatalogRepositoryProtocol {
         var allSounds = (try? loadBundledSounds()) ?? []
         allSounds.append(contentsOf: loadCustomSounds())
         allSounds.append(contentsOf: loadRemoteSounds())
+        allSounds.append(contentsOf: loadRemoteSoundsFromCatalog()) // Add this
         allSounds.append(contentsOf: SpotifyService().loadSavedSpotifySounds())
-        return allSounds
+        
+        // Remove duplicates by ID (e.g. if a remote sound is already downloaded)
+        var seenIDs = Set<String>()
+        return allSounds.filter { seenIDs.insert($0.id).inserted }
     }
 
     func loadBundledSounds() throws -> [SoundAsset] {
@@ -75,7 +79,7 @@ struct SoundCatalogRepository: SoundCatalogRepositoryProtocol {
                 let category = SoundCatalogRepository.category(for: filename)
                 
                 sounds.append(SoundAsset(
-                    id: url.path,
+                    id: "bundled-\(filename)",
                     title: title,
                     fileURL: url,
                     category: category
@@ -103,7 +107,7 @@ struct SoundCatalogRepository: SoundCatalogRepositoryProtocol {
             let title = filename.replacingOccurrences(of: ".\(url.pathExtension)", with: "")
             
             return SoundAsset(
-                id: title, // Use title as ID for custom sounds
+                id: "custom-\(title)", // Use title as ID for custom sounds
                 title: title,
                 fileURL: url,
                 category: .custom
@@ -126,13 +130,12 @@ struct SoundCatalogRepository: SoundCatalogRepositoryProtocol {
             let filename = url.lastPathComponent
             
             // Try to match with RemoteSound metadata for better titles/categories
-            // This requires AssetManager to be initialized and have data
             if let remoteSound = AssetManager.shared.remoteSounds.first(where: { $0.filename == filename }) {
                 return SoundAsset(
                     id: remoteSound.id,
                     title: remoteSound.title,
                     fileURL: url,
-                    category: .trending // Or map string category to enum
+                    category: SoundCatalogRepository.category(from: remoteSound.category)
                 )
             }
             
@@ -145,8 +148,39 @@ struct SoundCatalogRepository: SoundCatalogRepositoryProtocol {
                 id: filename,
                 title: title,
                 fileURL: url,
-                category: .trending
+                category: .alarmTone
             )
+        }
+    }
+
+    /// Load metadata for all remote sounds from the AssetManager catalog
+    func loadRemoteSoundsFromCatalog() -> [SoundAsset] {
+        return AssetManager.shared.remoteSounds.map { remote in
+            // Use local URL if exists, otherwise use remote URL
+            let fileURL = AssetManager.shared.localURL(for: remote.filename) ?? remote.url
+            
+            return SoundAsset(
+                id: remote.id,
+                title: remote.title,
+                fileURL: fileURL,
+                category: SoundCatalogRepository.category(from: remote.category)
+            )
+        }
+    }
+
+    static func category(from string: String) -> SoundCategory {
+        let lower = string.lowercased()
+        switch lower {
+        case "trending", "default": return .alarmTone
+        case "loud": return .loud
+        case "alarm": return .alarmTone
+        case "classic": return .classic
+        case "nature": return SoundCategory(id: "nature", title: "Nature", emoji: nil)
+        case "sleep": return SoundCategory(id: "sleep", title: "Sleep", emoji: nil)
+        case "relaxing": return SoundCategory(id: "relaxing", title: "Relaxing", emoji: nil)
+        case "uplifting": return SoundCategory(id: "uplifting", title: "Uplifting", emoji: nil)
+        default:
+            return SoundCategory(id: lower, title: string.capitalized, emoji: nil)
         }
     }
 
@@ -155,7 +189,7 @@ struct SoundCatalogRepository: SoundCatalogRepositoryProtocol {
         
         // Memes / Trending logic based on known filenames
         if lower.contains("addams") || lower.contains("batman") || lower.contains("jackson") || lower.contains("beverly") || lower.contains("fantasmic") || lower.contains("on_me") {
-            return .trending
+            return .alarmTone
         }
         
         if lower.contains("classic") || lower.contains("vivaldi") || lower.contains("grieg") {
@@ -167,7 +201,7 @@ struct SoundCatalogRepository: SoundCatalogRepositoryProtocol {
         if lower.contains("alarm") || lower.contains("tone") {
             return .alarmTone
         }
-        return .trending // Default to trending for cool visuals if unknown
+        return .alarmTone // Default to alarms for unknown
     }
 
     private func log(_ message: String) {

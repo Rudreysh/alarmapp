@@ -77,29 +77,51 @@ final class AssetManager: ObservableObject {
     
     /// Download a remote file (sound or image) and save it locally
     /// Returns the local file URL on success
-    func downloadAsset(from url: URL, filename: String) async throws -> URL {
+    func downloadAsset(from url: URL, filename: String, progress: ((Double) -> Void)? = nil) async throws -> URL {
         let destination = assetDirectory.appendingPathComponent(filename)
         
         // Return existing if already there (simple caching)
         if fileManager.fileExists(atPath: destination.path) {
+            progress?(1.0)
             return destination
         }
         
         print("📥 AssetManager: Downloading \(filename)...")
-        let (data, response) = try await URLSession.shared.data(from: url)
+        
+        // Use async bytes to track progress
+        let (bytes, response) = try await URLSession.shared.bytes(from: url)
         
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            print("❌ AssetManager: Download failed for \(url.absoluteString) with status: \(status)")
             throw AssetError.invalidURL
         }
         
-        do {
-            try data.write(to: destination)
-            print("✅ AssetManager: Saved \(filename)")
-            saveCatalogCache() // Update cache since we have new files
-            return destination
-        } catch {
-            throw AssetError.diskWriteError(error)
+        let totalSize = httpResponse.expectedContentLength
+        var data = Data()
+        if totalSize > 0 {
+            data.reserveCapacity(Int(totalSize))
         }
+        
+        var downloadedBytes: Int64 = 0
+        
+        for try await byte in bytes {
+            data.append(byte)
+            downloadedBytes += 1
+            
+            if totalSize > 0 {
+                let p = Double(downloadedBytes) / Double(totalSize)
+                // Report progress periodically or on every byte (might be too frequent, but usually okay for small files)
+                if downloadedBytes % 1024 == 0 || downloadedBytes == totalSize {
+                    progress?(p)
+                }
+            }
+        }
+        
+        try data.write(to: destination)
+        print("✅ AssetManager: Saved \(filename)")
+        saveCatalogCache() // Update cache since we have new files
+        return destination
     }
 
     // MARK: - Catalog Fetching

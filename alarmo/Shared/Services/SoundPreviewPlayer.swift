@@ -12,7 +12,10 @@ protocol SoundPreviewPlayerProtocol {
 }
 
 final class SoundPreviewPlayer: ObservableObject, SoundPreviewPlayerProtocol {
+    static let shared = SoundPreviewPlayer()
+    
     private var player: AVPlayer?
+    private var localAudioPlayer: AVAudioPlayer?
     private let repository = SoundCatalogRepository()
     private var statusObserver: NSKeyValueObservation?
     private var timeControlObserver: NSKeyValueObservation?
@@ -77,7 +80,7 @@ final class SoundPreviewPlayer: ObservableObject, SoundPreviewPlayerProtocol {
         // Check for cached preview first
         if let cachedURL = cachedPreviewURL(for: resourceName) {
             print("[SoundPreviewPlayer] 🎵 Playing cached Spotify preview")
-            playLocalURL(cachedURL, volume: volume)
+            playURL(cachedURL, volume: volume)
             return
         }
         
@@ -94,15 +97,15 @@ final class SoundPreviewPlayer: ObservableObject, SoundPreviewPlayerProtocol {
             DispatchQueue.main.async { self.isBuffering = true }
         }
         
-        playLocalURL(asset.fileURL, volume: volume)
+        playURL(asset.fileURL, volume: volume)
     }
     
-    private func playLocalURL(_ url: URL, volume: Float) {
+    private func playURL(_ url: URL, volume: Float) {
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default, options: [.duckOthers])
             try session.setActive(true)
-            
+
             let playerItem = AVPlayerItem(url: url)
             player = AVPlayer(playerItem: playerItem)
             player?.volume = volume
@@ -110,8 +113,11 @@ final class SoundPreviewPlayer: ObservableObject, SoundPreviewPlayerProtocol {
 
             statusObserver = playerItem.observe(\.status, options: [.new]) { item, _ in
                 if item.status == .failed {
-                    print("[SoundPreviewPlayer] Item Failed: \(String(describing: item.error))")
-                    DispatchQueue.main.async { self.isBuffering = false }
+                    print("[SoundPreviewPlayer] Item failed: \(String(describing: item.error))")
+                    DispatchQueue.main.async {
+                        self.isBuffering = false
+                        self.isPlaying = false
+                    }
                 }
             }
 
@@ -119,18 +125,23 @@ final class SoundPreviewPlayer: ObservableObject, SoundPreviewPlayerProtocol {
                 DispatchQueue.main.async {
                     self.isBuffering = player.timeControlStatus == .waitingToPlayAtSpecifiedRate
                     self.isPlaying = player.timeControlStatus == .playing
-                    
+
                     if player.timeControlStatus == .playing, let requestedAt = self.playRequestedAt {
                         let latency = Date().timeIntervalSince(requestedAt)
-                        print("[SoundPreviewPlayer] 🔊 Sound started playing! Latency: \(String(format: "%.2f", latency)) seconds.")
+                        print("[SoundPreviewPlayer] 🔊 Preview started. Latency: \(String(format: "%.2f", latency))s")
                         self.playRequestedAt = nil
                     }
                 }
             }
+            
+            // Observe item end to reset UI state
+            NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: playerItem, queue: .main) { [weak self] _ in
+                self?.isPlaying = false
+            }
 
             player?.play()
         } catch {
-            print("[SoundPreviewPlayer] Player setup failed: \(error)")
+            print("[SoundPreviewPlayer] Preview setup failed: \(error)")
         }
     }
     
@@ -177,11 +188,11 @@ final class SoundPreviewPlayer: ObservableObject, SoundPreviewPlayerProtocol {
         if let urls = Bundle.main.urls(forResourcesWithExtension: "mp3", subdirectory: nil),
            let first = urls.first {
             print("[SoundPreviewPlayer] 🔊 Fallback preview: \(first.lastPathComponent)")
-            playLocalURL(first, volume: 0.7)
+            playURL(first, volume: 0.7)
         } else if let urls = Bundle.main.urls(forResourcesWithExtension: "mp3", subdirectory: "BundledSounds/ringtones"),
                   let first = urls.first {
             print("[SoundPreviewPlayer] 🔊 Fallback preview (subdir): \(first.lastPathComponent)")
-            playLocalURL(first, volume: 0.7)
+            playURL(first, volume: 0.7)
         } else {
             print("[SoundPreviewPlayer] ❌ No fallback sound available for preview")
             DispatchQueue.main.async {
@@ -198,6 +209,8 @@ final class SoundPreviewPlayer: ObservableObject, SoundPreviewPlayerProtocol {
         timeControlObserver = nil
         player?.pause()
         player = nil
+        localAudioPlayer?.stop()
+        localAudioPlayer = nil
         
         // Stop Spotify playback if active
         if isSpotifyPlaying {

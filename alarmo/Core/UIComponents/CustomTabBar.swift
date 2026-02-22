@@ -12,20 +12,19 @@ struct CustomTabBar<Tab: Hashable>: View {
 
             let totalWidth = UIScreen.main.bounds.width
             let itemWidth = totalWidth / CGFloat(tabs.count)
-            let _ = print("TabBar Layout (Fixed): TotalWidth=\(totalWidth), ItemWidth=\(itemWidth), Selected=\(selected)")
             
             HStack(spacing: 0) {
                 ForEach(tabs) { item in
                     Button(action: { selected = item.id }) {
                         VStack(spacing: 4) {
                             Image(systemName: item.systemImage)
-                                .font(.system(size: 20, weight: .semibold))
-                                .frame(width: 28, height: 28)
+                                .font(.system(size: 18, weight: .semibold))
+                                .frame(width: 24, height: 24)
                             Text(item.title)
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.system(size: 10, weight: .semibold))
                         }
                         .foregroundColor(selected == item.id ? Colors.textPrimary : Colors.tabBarInactive)
-                        .frame(width: itemWidth, height: AppConstants.tabBarHeight - 36) // Adjust for padding
+                        .frame(width: itemWidth, height: AppConstants.tabBarHeight - 36)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(Text(item.title))

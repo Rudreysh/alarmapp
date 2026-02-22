@@ -17,6 +17,13 @@ struct TaskSelectionSheet: View {
     @State private var renameText: String = ""
     @State private var showRenameAlert = false
     
+    private var selectablePlans: [PlanItem] {
+        activePlans.filter { plan in
+            plan.parentTask == nil &&
+            (plan.type == .task || plan.type == .habit)
+        }
+    }
+    
     var body: some View {
         NavigationView {
             ZStack {
@@ -50,7 +57,7 @@ struct TaskSelectionSheet: View {
                     
                     List {
                         Section {
-                            ForEach(activePlans) { plan in
+                            ForEach(selectablePlans) { plan in
                                 PlanTaskRowCard(
                                     item: plan,
                                     isSelected: engine.state.selectedTaskId == plan.id,
@@ -171,7 +178,7 @@ struct TaskSelectionSheet: View {
                     guard !trimmedName.isEmpty else { return }
 
                     if let planId = renamingPlanId,
-                       let plan = activePlans.first(where: { $0.id == planId }) {
+                       let plan = selectablePlans.first(where: { $0.id == planId }) {
                         plan.title = String(trimmedName.prefix(50))
                         plan.updatedAt = Date()
                         try? modelContext.save()

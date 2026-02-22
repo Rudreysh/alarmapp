@@ -84,6 +84,7 @@ struct SettingsActionRow: View {
             }
             .padding(.vertical, 14)
             .padding(.horizontal, 16)
+            .contentShape(Rectangle())
             .overlay(
                 VStack {
                     if !isLast {
@@ -95,6 +96,71 @@ struct SettingsActionRow: View {
                 }
             )
         }
+    }
+}
+
+struct SettingsNavigationRow<Destination: View>: View {
+    let title: String
+    var subtitle: String? = nil
+    var trailingText: String? = nil
+    var icon: String? = nil
+    var iconColor: Color? = nil
+    var isLast: Bool = false
+    let destination: Destination
+    
+    var body: some View {
+        NavigationLink(destination: destination) {
+            HStack(spacing: 16) {
+                if let icon = icon {
+                    ZStack {
+                        Circle()
+                            .fill(iconColor?.opacity(0.2) ?? Color.gray.opacity(0.2))
+                            .frame(width: 32, height: 32)
+                        Image(systemName: icon)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(iconColor ?? .white)
+                    }
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white)
+                    
+                    if let subtitle = subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 13))
+                            .foregroundColor(Colors.textSecondary)
+                    }
+                }
+                
+                Spacer()
+                
+                if let trailingText = trailingText {
+                    Text(trailingText)
+                        .font(.system(size: 17))
+                        .foregroundColor(trailingText == "Not subscribed" ? .red : (trailingText == "off" ? Colors.textTertiary : Colors.textSecondary))
+                }
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(Colors.textTertiary)
+            }
+            .padding(.vertical, 14)
+            .padding(.horizontal, 16)
+            .contentShape(Rectangle())
+            .overlay(
+                VStack {
+                    if !isLast {
+                        Spacer()
+                        Divider()
+                            .background(Color.white.opacity(0.1))
+                            .padding(.leading, icon != nil ? 64 : 16)
+                    }
+                }
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 

@@ -28,6 +28,15 @@ enum WallpaperConfig {
             imageNames: [
                 // Add your abstract image filenames here if you have them
             ]
+        ),
+        CategoryDefinition(
+            id: "motivation",
+            title: "Motivation",
+            imageNames: [
+                "pexels-egos68-1906658.jpg",
+                "pexels-rpnickson-2486168.jpg",
+                "pexels-philippedonn-1257860.jpg"
+            ]
         )
     ]
 }

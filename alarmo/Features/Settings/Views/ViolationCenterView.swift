@@ -154,34 +154,94 @@ struct ExemptionRequestView: View {
     let reasons = ["Technical Issue", "Emergency", "Accidental", "Other"]
     
     var body: some View {
-        Form {
-            Section(header: Text("Violation Details")) {
-                LabeledContent("Type", value: violation.type.rawValue)
-                LabeledContent("Amount", value: "€\(violation.chargedAmount)")
-                LabeledContent("Time", value: violation.timestamp.formatted())
-            }
+        ZStack {
+            SettingsGlassBackground()
             
-            Section(header: Text("Request Exemption")) {
-                Picker("Reason", selection: $selectedReason) {
-                    ForEach(reasons, id: \.self) { reason in
-                        Text(reason).tag(reason)
+            ScrollView {
+                VStack(spacing: 24) {
+                    SettingsCard {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Violation Details")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            HStack {
+                                Text("Type")
+                                    .foregroundColor(Colors.textSecondary)
+                                Spacer()
+                                Text(violationTitle)
+                                    .foregroundColor(.white)
+                            }
+                            HStack {
+                                Text("Amount")
+                                    .foregroundColor(Colors.textSecondary)
+                                Spacer()
+                                Text("€\(violation.chargedAmount)")
+                                    .foregroundColor(.white)
+                            }
+                            HStack {
+                                Text("Time")
+                                    .foregroundColor(Colors.textSecondary)
+                                Spacer()
+                                Text(violation.timestamp.formatted())
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        .padding(16)
+                    }
+                    
+                    SettingsCard {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Request Exemption")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            Menu {
+                                ForEach(reasons, id: \.self) { reason in
+                                    Button(reason) { selectedReason = reason }
+                                }
+                            } label: {
+                                HStack {
+                                    Text("Reason")
+                                        .foregroundColor(Colors.textSecondary)
+                                    Spacer()
+                                    Text(selectedReason)
+                                        .foregroundColor(.white)
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .foregroundColor(Colors.textTertiary)
+                                }
+                                .padding(16)
+                                .background(Color.white.opacity(0.05))
+                                .cornerRadius(8)
+                            }
+                            
+                            TextField("Additional Comments (Optional)", text: $comments, axis: .vertical)
+                                .lineLimit(3...6)
+                                .padding(12)
+                                .background(Color.white.opacity(0.05))
+                                .cornerRadius(8)
+                                .foregroundColor(.white)
+                        }
+                        .padding(16)
+                    }
+                    
+                    Button(action: {
+                        submitRequest()
+                    }) {
+                        Text("Submit Request")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(Colors.accentBlue)
+                            .cornerRadius(16)
                     }
                 }
-                
-                TextField("Additional Comments (Optional)", text: $comments, axis: .vertical)
-                    .lineLimit(3...6)
-            }
-            
-            Section {
-                Button("Submit Request") {
-                    submitRequest()
-                }
-                .frame(maxWidth: .infinity)
-                .foregroundColor(.white)
-                .listRowBackground(Color.blue)
+                .padding(20)
             }
         }
         .navigationTitle("Request Exemption")
+        .navigationBarTitleDisplayMode(.inline)
         .alert("Request Submitted", isPresented: $showSuccess) {
             Button("OK") {
                 dismiss()
@@ -198,5 +258,19 @@ struct ExemptionRequestView: View {
             reasonText: comments
         )
         showSuccess = true
+    }
+    
+    var violationTitle: String {
+        switch violation.type {
+        case .shutdownAttempt: return "Shutdown Detected"
+        case .uninstallTamper: return "Tamper/Uninstall"
+        case .snoozeThresholdExceeded: return "Excessive Snooze"
+        case .forceClose: return "Force Close"
+        case .airplaneModeAbuse: return "Airplane Mode"
+        case .forcedRestart: return "Forced Restart"
+        case .severeBatteryDrain: return "Battery Failure"
+        case .alarmMissionFailed: return "Mission Failed"
+        default: return "Violation"
+        }
     }
 }

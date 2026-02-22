@@ -70,9 +70,12 @@ struct BundleWallpaperCatalogLoader: WallpaperCatalogLoader {
         
         // Append Remote Categories
         let remoteCategories = AssetManager.shared.remoteWallpapers.map { remoteCat -> WallpaperCategory in
-            let items = remoteCat.items.map { remoteItem -> WallpaperItem in
+            let items = remoteCat.items.compactMap { remoteItem -> WallpaperItem? in
                 // Check if already downloaded
-                if let localURL = AssetManager.shared.localURL(for: remoteItem.filename) {
+                let normalizedFilename = remoteItem.filename.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !normalizedFilename.isEmpty else { return nil }
+                
+                if let localURL = AssetManager.shared.localURL(for: normalizedFilename) {
                      return WallpaperItem(
                         id: remoteItem.id,
                         title: remoteItem.title,
@@ -98,10 +101,66 @@ struct BundleWallpaperCatalogLoader: WallpaperCatalogLoader {
             )
         }
         
-        categories.append(contentsOf: remoteCategories)
-        log("Total categories including remote: \(categories.count)")
+        // Merge categories
+        var mergedCategories: [String: WallpaperCategory] = [:]
         
-        return categories
+        // 1. Add Bundled Categories
+        for category in categories {
+            mergedCategories[category.id] = category
+        }
+        
+        // 2. Merge Remote Categories
+        for remoteCat in remoteCategories {
+            if let existing = mergedCategories[remoteCat.id] {
+                // Merge items, avoiding duplicates
+                var existingItems = existing.items
+                var existingKeys = Set(existingItems.map { itemDedupeKey($0) })
+                
+                for item in remoteCat.items {
+                    let key = itemDedupeKey(item)
+                    if !existingKeys.contains(key) {
+                        existingItems.append(item)
+                        existingKeys.insert(key)
+                    }
+                }
+                
+                mergedCategories[remoteCat.id] = WallpaperCategory(
+                    id: existing.id,
+                    title: existing.title, // Keep local title preference? Or remote? Keeping local.
+                    items: existingItems
+                )
+            } else {
+                mergedCategories[remoteCat.id] = remoteCat
+            }
+        }
+        
+        let finalCategories = mergedCategories.values
+            .map { category in
+                let dedupedItems = dedupe(items: category.items)
+                return WallpaperCategory(id: category.id, title: category.title, items: dedupedItems)
+            }
+            .filter { !$0.items.isEmpty }
+            .sorted { $0.title < $1.title }
+        log("Total unique categories: \(finalCategories.count)")
+        
+        return finalCategories
+    }
+
+    private func dedupe(items: [WallpaperItem]) -> [WallpaperItem] {
+        var seen = Set<String>()
+        var out: [WallpaperItem] = []
+        for item in items {
+            let key = itemDedupeKey(item)
+            if seen.insert(key).inserted {
+                out.append(item)
+            }
+        }
+        return out
+    }
+
+    private func itemDedupeKey(_ item: WallpaperItem) -> String {
+        let filename = item.url.lastPathComponent.lowercased()
+        return "\(item.category.lowercased())|\(filename)"
     }
 
     private func log(_ message: String) {

@@ -10,19 +10,39 @@ final class OnboardingSoundSelectionViewModel: ObservableObject {
 
     private let repository: SoundCatalogRepositoryProtocol
     private let audioPlayer: AudioPreviewPlayerProtocol
+    private var cancellables = Set<AnyCancellable>()
 
     init(repository: SoundCatalogRepositoryProtocol = SoundCatalogRepository(),
-         audioPlayer: AudioPreviewPlayerProtocol = AudioPreviewPlayer()) {
+         audioPlayer: AudioPreviewPlayerProtocol = AudioPreviewPlayer.shared) {
         self.repository = repository
         self.audioPlayer = audioPlayer
         load()
+
+        // Listen for remote updates
+        AssetManager.shared.$remoteSounds
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.load() }
+            .store(in: &cancellables)
     }
 
     func load() {
         let sounds = repository.loadAllSounds()
-        let grouped = Dictionary(grouping: sounds, by: { $0.category })
+        var grouped = Dictionary(grouping: sounds, by: { $0.category })
+        
+        let remoteSounds = AssetManager.shared.remoteSounds.map { remote in
+            let fileURL = AssetManager.shared.localURL(for: remote.filename) ?? remote.url
+            return SoundAsset(id: remote.id, title: remote.title, fileURL: fileURL, category: .cloud)
+        }
+        
+        let remoteIDs = Set(remoteSounds.map { $0.id })
+        for (cat, catSounds) in grouped {
+            grouped[cat] = catSounds.filter { !remoteIDs.contains($0.id) }
+        }
+        
+        grouped[.cloud] = remoteSounds
+        
         soundsByCategory = grouped
-        categories = SoundCategory.order.filter { grouped[$0] != nil } + grouped.keys.filter { !SoundCategory.order.contains($0) }
+        categories = SoundCategory.order
         if let first = categories.first {
             selectedCategory = first
         }
@@ -41,6 +61,12 @@ final class OnboardingSoundSelectionViewModel: ObservableObject {
             nowPlayingSoundId = sound.id
         }
         selectedSoundId = sound.id
+    }
+
+    func selectSoundOnly(_ sound: SoundAsset) {
+        selectedSoundId = sound.id
+        audioPlayer.stop()
+        nowPlayingSoundId = nil
     }
 
     func setInitialSelection(_ sound: SoundAsset) {

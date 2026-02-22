@@ -62,7 +62,7 @@ struct PlanView: View {
                          // All Day / Anytime Section
                          let anytimeItems = filtered.filter { $0.anytime || $0.scheduledTime == nil }
                          if !anytimeItems.isEmpty {
-                             Section(header: Text("All Day").font(.caption).foregroundColor(PlanPalette.textSecondary)) {
+                             Section(header: timelineSectionHeader(title: "All Day", count: anytimeItems.count, icon: "sun.max.fill")) {
                                  ForEach(anytimeItems) { item in
                                      PlanItemTimelineRow(item: item, timeString: "", isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
                                          viewModel.toggleComplete(item, context: modelContext)
@@ -71,6 +71,7 @@ struct PlanView: View {
                                      }
                                      .listRowBackground(Color.clear)
                                      .listRowSeparator(.hidden)
+                                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                                      .contentShape(Rectangle())
                                      .onTapGesture {
                                          selectedItem = item
@@ -89,7 +90,7 @@ struct PlanView: View {
                              .sorted { ($0.scheduledTime ?? Date()) < ($1.scheduledTime ?? Date()) }
                              
                          if !scheduledItems.isEmpty {
-                             Section(header: Text("Scheduled").font(.caption).foregroundColor(PlanPalette.textSecondary)) {
+                             Section(header: timelineSectionHeader(title: "Scheduled", count: scheduledItems.count, icon: "clock.fill")) {
                                  ForEach(scheduledItems) { item in
                                      let timeStr = formatTime(item.scheduledTime)
                                      PlanItemTimelineRow(item: item, timeString: timeStr, isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
@@ -99,6 +100,7 @@ struct PlanView: View {
                                      }
                                      .listRowBackground(Color.clear)
                                      .listRowSeparator(.hidden)
+                                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                                      .contentShape(Rectangle())
                                      .onTapGesture {
                                          selectedItem = item
@@ -114,6 +116,7 @@ struct PlanView: View {
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
+                    .environment(\.defaultMinListHeaderHeight, 18)
                     .padding(.bottom, AppConstants.tabBarHeight + Spacing.m)
                 } else {
                     // Standard Calendar Mode (Sections)
@@ -479,6 +482,21 @@ struct PlanView: View {
         let f = DateFormatter()
         f.timeStyle = .short
         return f.string(from: date)
+    }
+
+    @ViewBuilder
+    private func timelineSectionHeader(title: String, count: Int, icon: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(PlanPalette.accent.opacity(0.9))
+            Text("\(title) (\(count))")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(PlanPalette.textSecondary)
+            Spacer()
+        }
+        .textCase(nil)
+        .padding(.horizontal, 16)
     }
 }
 

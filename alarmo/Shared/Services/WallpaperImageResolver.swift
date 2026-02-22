@@ -70,7 +70,7 @@ enum WallpaperImageResolver {
             return image
         }
 
-        return fallbackImage()
+        return nil
     }
 
     static func loadUserPhotoItems() -> [WallpaperItem] {
@@ -108,21 +108,5 @@ enum WallpaperImageResolver {
         let parts = id.split(separator: "-", maxSplits: 1, omittingEmptySubsequences: true)
         guard parts.count == 2 else { return nil }
         return (category: String(parts[0]), filename: String(parts[1]))
-    }
-
-    private static func fallbackImage() -> UIImage? {
-        guard let firstCategory = WallpaperConfig.categories.first,
-              let firstFilename = firstCategory.imageNames.first else { return nil }
-
-        if let url = Bundle.main.url(forResource: firstFilename, withExtension: nil, subdirectory: "BundledWallpapers/\(firstCategory.id)") {
-            return UIImage(contentsOfFile: url.path)
-        }
-
-        let nameWithoutExt = (firstFilename as NSString).deletingPathExtension
-        let ext = (firstFilename as NSString).pathExtension
-        if let url = Bundle.main.url(forResource: nameWithoutExt, withExtension: ext) {
-            return UIImage(contentsOfFile: url.path)
-        }
-        return nil
     }
 }

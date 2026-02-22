@@ -36,6 +36,9 @@ struct AppRootView: View {
             // Configure remote assets from GitHub
             // Note: Change 'green-theme' to 'main' when merging to production branch.
             AssetManager.shared.configure(catalogURL: "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/catalog.json")
+            Task {
+                await AssetManager.shared.fetchCatalog()
+            }
             
             updateViewState()
             if foregroundScheduler == nil {

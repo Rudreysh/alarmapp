@@ -27,6 +27,7 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
             defaultSoundVolume: alarm.soundVolume,
             defaultWallpaperId: alarm.wallpaperId
         )
+        draft.dailyMotivationEnabled = alarm.dailyMotivationEnabled
         draft.name = alarm.name
         draft.emoji = alarm.emoji
         draft.enabled = alarm.enabled
@@ -140,6 +141,7 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
             snoozeSeconds: draft.snoozeSeconds,
             snoozeCount: draft.snoozeCount,
             wallpaperId: draft.wallpaperId,
+            dailyMotivationEnabled: draft.dailyMotivationEnabled,
             createdAt: Date()
         )
         

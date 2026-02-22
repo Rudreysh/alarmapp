@@ -44,6 +44,7 @@ struct OnboardingFlowView: View {
                             snoozeMinutes: 5, // Added
                             snoozeCount: 3, // Added
                             wallpaperId: "default", // Added
+                            dailyMotivationEnabled: viewModel.state.dailyMotivationEnabled,
                             createdAt: Date()
                         )
                         alarmStore.add(newAlarm)
@@ -160,6 +161,7 @@ struct OnboardingFlowView: View {
                                 snoozeMinutes: 5,
                                 snoozeCount: 3,
                                 wallpaperId: viewModel.state.selectedWallpaper?.id ?? "default",
+                                dailyMotivationEnabled: viewModel.state.dailyMotivationEnabled,
                                 createdAt: Date()
                             )
                             if alarmStore.alarms.isEmpty {
@@ -205,6 +207,7 @@ struct OnboardingFlowView: View {
                                 snoozeMinutes: 5,
                                 snoozeCount: 3,
                                 wallpaperId: viewModel.state.selectedWallpaper?.id ?? "default",
+                                dailyMotivationEnabled: viewModel.state.dailyMotivationEnabled,
                                 createdAt: Date()
                             )
                             if alarmStore.alarms.isEmpty {

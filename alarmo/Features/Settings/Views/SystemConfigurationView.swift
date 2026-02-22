@@ -9,23 +9,12 @@ struct SystemConfigurationView: View {
             
             VStack(spacing: 24) {
                 SettingsCard {
-                    NavigationLink {
-                        AppLanguageView()
-                    } label: {
-                        HStack {
-                            Text("App Language")
-                                .font(.system(size: 17, weight: .bold))
-                                .foregroundColor(.white)
-                            Spacer()
-                            Text(currentLanguageName)
-                                .font(.system(size: 17))
-                                .foregroundColor(SettingsPalette.accent)
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(Colors.textTertiary)
-                        }
-                        .padding(16)
-                    }
+                    SettingsNavigationRow(
+                        title: "App Language",
+                        trailingText: currentLanguageName,
+                        isLast: true,
+                        destination: AppLanguageView()
+                    )
                 }
                 
                 SettingsCard {
@@ -33,7 +22,13 @@ struct SystemConfigurationView: View {
                         title: "Battery saving mode",
                         subtitle: "No sound in silent mode, ringtone set to default",
                         isOn: $store.batterySavingMode,
-                        isLast: true
+                        isLast: false
+                    )
+                    
+                    SettingsNavigationRow(
+                        title: "Permissions",
+                        isLast: true,
+                        destination: PermissionsView()
                     )
                 }
                 

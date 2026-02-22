@@ -234,8 +234,8 @@ struct CreateWakeUpAlarmView: View {
                             }
                         }
 
-                        // Group E: Accountability Shield
-                        SectionHeader(title: "Accountability Shield")
+                        // Group E: Commitment Pledge
+                        SectionHeader(title: "Commitment Pledge")
                         GroupedSettingsCard {
                             Toggle(isOn: $viewModel.draft.penaltyEnabled) {
                                 Text("Enable Penalty")
@@ -272,6 +272,26 @@ struct CreateWakeUpAlarmView: View {
                                 thumbnail: resolvedWallpaperImage
                             ) {
                                 showWallpaperPicker = true
+                            }
+                            
+                            Divider().padding(.leading, 16).opacity(0.3)
+                            
+                            Toggle(isOn: $viewModel.draft.dailyMotivationEnabled) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "quote.bubble.fill")
+                                        .foregroundColor(Colors.accentTeal)
+                                    Text("Daily Motivation")
+                                        .foregroundColor(Colors.textPrimary)
+                                }
+                            }
+                            .padding()
+
+                            if viewModel.draft.dailyMotivationEnabled {
+                                Text("Displays a new motivational quote each day when the alarm rings.")
+                                    .font(.caption)
+                                    .foregroundColor(Colors.textSecondary)
+                                    .padding(.horizontal)
+                                    .padding(.bottom, 8)
                             }
                         }
                         // This background simulates the grouping in the image (or just clean background)
@@ -556,6 +576,7 @@ private extension CreateWakeUpAlarmView {
                 snoozeSeconds: viewModel.draft.snoozeSeconds,
                 snoozeCount: viewModel.draft.snoozeCount,
                 wallpaperId: viewModel.draft.wallpaperId,
+                dailyMotivationEnabled: viewModel.draft.dailyMotivationEnabled,
                 createdAt: Date(),
                 missions: viewModel.draft.missions,
                 enforcementMode: penaltyEnabled ? .penaltyOnly : .none,

@@ -5,6 +5,7 @@ struct OnboardingWallpaperSelectionView: View {
     @ObservedObject var viewModel: OnboardingViewModel
     let onNext: () -> Void
     @State private var selectedItem: PhotosPickerItem?
+    @State private var selectedCategoryId: String?
 
     var body: some View {
         ZStack {
@@ -22,87 +23,127 @@ struct OnboardingWallpaperSelectionView: View {
                     .multilineTextAlignment(.center)
                     .padding(.bottom, Spacing.m)
                 
-                // MAIN SCROLL READER
-                ScrollViewReader { proxy in
-                    
-                    // 1. Top Category Pills (Sticky-ish)
-                    if !viewModel.state.wallpaperCategories.isEmpty {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 12) {
-                                ForEach(viewModel.state.wallpaperCategories) { category in
-                                    Button(action: {
-                                        withAnimation {
-                                            proxy.scrollTo(category.id, anchor: .top)
-                                        }
-                                    }) {
-                                        Text(category.title)
-                                            .font(.system(size: 14, weight: .semibold))
-                                            .padding(.vertical, 8)
-                                            .padding(.horizontal, 16)
-                                            .background(Colors.cardSurface)
-                                            .foregroundColor(Colors.textPrimary)
-                                            .cornerRadius(20)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 20)
-                                                    .stroke(Colors.cardStroke, lineWidth: 1)
-                                            )
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, Spacing.l)
-                        }
-                        .padding(.bottom, Spacing.m)
-                    }
-
-                    // 2. Main Content
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: Spacing.xl) {
-                            if viewModel.state.wallpaperCategories.isEmpty {
-                                Text("No bundled wallpapers found. Ensure BundledWallpapers is added as a folder reference and target membership is enabled.")
-                                    .bodyText()
-                                    .foregroundColor(Colors.textSecondary)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.vertical, Spacing.l)
-                            } else {
-                                ForEach(viewModel.state.wallpaperCategories) { category in
-                                    WallpaperCategorySection(category: category, selected: viewModel.state.selectedWallpaper) {
-                                        viewModel.selectWallpaper($0)
-                                    }
-                                    .id(category.id) // Anchor for scrolling
-                                }
-                            }
-
-                            VStack(alignment: .leading, spacing: Spacing.m) {
-                                Text("My Photos")
-                                    .cardTitle()
-                                    .foregroundColor(Colors.textPrimary)
-
-                                HStack {
-                                    Spacer()
-                                    PhotosPicker(selection: $selectedItem, matching: .images) {
-                                        MyPhotosCard(isSelected: isUserPhotoSelected)
-                                    }
-                                    Spacer()
-                                }
-                            }
-                            .id("my_photos")
-                        }
-                        .padding(.horizontal, Spacing.l)
-                        .padding(.bottom, Spacing.xl)
-                    }
+                Toggle(isOn: Binding(
+                    get: { viewModel.state.dailyMotivationEnabled },
+                    set: { viewModel.setDailyMotivation($0) }
+                )) {
+                    Text("Motivation Quotes")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Colors.textPrimary)
                 }
-
-                Spacer(minLength: 0)
-            }
-            .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "Next", style: .blueGlass) {
-                    onNext()
-                }
+                .toggleStyle(SwitchToggleStyle(tint: Colors.accentTeal))
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, Spacing.m)
-                .opacity(viewModel.canProceedWallpaper ? 1 : 0.5)
-                .disabled(!viewModel.canProceedWallpaper)
+                
+                // MAIN CONTENT
+                let activeCategoryId = selectedCategoryId ?? "All"
+                
+                // 1. Top Category Pills
+                if !viewModel.state.wallpaperCategories.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            // "All" Pill
+                            let isAllSelected = (activeCategoryId == "All")
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    selectedCategoryId = "All"
+                                }
+                            }) {
+                                Text("All")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 16)
+                                    .background(isAllSelected ? Colors.accentTeal : Colors.cardSurface)
+                                    .foregroundColor(isAllSelected ? .white : Colors.textPrimary)
+                                    .cornerRadius(20)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 20)
+                                            .stroke(Colors.cardStroke, lineWidth: isAllSelected ? 0 : 1)
+                                    )
+                            }
+                            
+                            ForEach(viewModel.state.wallpaperCategories) { category in
+                                let isSelected = (category.id == activeCategoryId)
+                                Button(action: {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        selectedCategoryId = category.id
+                                    }
+                                }) {
+                                    Text(category.title)
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 16)
+                                        .background(isSelected ? Colors.accentTeal : Colors.cardSurface)
+                                        .foregroundColor(isSelected ? .white : Colors.textPrimary)
+                                        .cornerRadius(20)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 20)
+                                                .stroke(Colors.cardStroke, lineWidth: isSelected ? 0 : 1)
+                                        )
+                                }
+                            }
+                        }
+                        .padding(.horizontal, Spacing.l)
+                    }
+                    .padding(.bottom, Spacing.m)
+                }
+
+                // 2. Main Content
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Spacing.xl) {
+                        if viewModel.state.wallpaperCategories.isEmpty {
+                            Text("No bundled wallpapers found. Ensure BundledWallpapers is added as a folder reference and target membership is enabled.")
+                                .bodyText()
+                                .foregroundColor(Colors.textSecondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.vertical, Spacing.l)
+                        } else if activeCategoryId == "All" {
+                            ForEach(viewModel.state.wallpaperCategories) { category in
+                                WallpaperCategorySection(category: category, selected: viewModel.state.selectedWallpaper) {
+                                    viewModel.selectWallpaper($0)
+                                }
+                                .padding(.bottom, Spacing.s)
+                            }
+                            .transition(.opacity)
+                        } else if let category = viewModel.state.wallpaperCategories.first(where: { $0.id == activeCategoryId }) {
+                            WallpaperCategorySection(category: category, selected: viewModel.state.selectedWallpaper) {
+                                viewModel.selectWallpaper($0)
+                            }
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        }
+
+                        VStack(alignment: .leading, spacing: Spacing.m) {
+                            Text("My Photos")
+                                .cardTitle()
+                                .foregroundColor(Colors.textPrimary)
+
+                            HStack {
+                                Spacer()
+                                PhotosPicker(selection: $selectedItem, matching: .images) {
+                                    MyPhotosCard(isSelected: isUserPhotoSelected)
+                                }
+                                Spacer()
+                            }
+                        }
+                    }
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.bottom, Spacing.xl)
+                }
+
+                Spacer(minLength: 80) // Add padding for scrolling under button
             }
+            .overlay(
+                VStack {
+                    Spacer()
+                    PrimaryButton(title: "Next", style: .blueGlass) {
+                        onNext()
+                    }
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.bottom, Spacing.l) // Add safe area-like padding
+                    .opacity(viewModel.canProceedWallpaper ? 1 : 0.5)
+                    .disabled(!viewModel.canProceedWallpaper)
+                }, alignment: .bottom
+            )
         }
         .onAppear {
             viewModel.loadWallpapers()

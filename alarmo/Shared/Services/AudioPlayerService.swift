@@ -10,6 +10,8 @@ protocol AudioPreviewPlayerProtocol {
 }
 
 final class AudioPreviewPlayer: ObservableObject, AudioPreviewPlayerProtocol {
+    static let shared = AudioPreviewPlayer()
+    
     private var player: AVPlayer?
     private var fadeTimer: Timer?
     private var playRequestedAt: Date?
@@ -18,6 +20,8 @@ final class AudioPreviewPlayer: ObservableObject, AudioPreviewPlayerProtocol {
     
     @Published var isPlaying: Bool = false
     @Published var isBuffering: Bool = false
+
+    init() {} // Keep public for now to avoid breaking other inits, but encourage shared use
 
     func play(url: URL, volume: Float, fadeIn: Bool) {
         stop()
@@ -70,6 +74,10 @@ final class AudioPreviewPlayer: ObservableObject, AudioPreviewPlayerProtocol {
         }
         
         player?.play()
+        
+        if fadeIn && !isRemote {
+            rampVolume(to: volume, duration: 30.0)
+        }
     }
 
     func stop() {

@@ -118,6 +118,25 @@ final class OnboardingViewModel: ObservableObject {
         state.selectedSoundId = sound.id
         state.selectedSoundURL = sound.fileURL
         state.selectedSoundName = sound.title
+        
+        // If remote, trigger download for offline reliability
+        if !sound.fileURL.isFileURL {
+            let filename = sound.fileURL.lastPathComponent
+            Task {
+                do {
+                    let localURL = try await AssetManager.shared.downloadAsset(from: sound.fileURL, filename: filename)
+                    await MainActor.run {
+                        // If this is still the selected sound, update to local URL
+                        if self.state.selectedSoundId == sound.id {
+                            self.state.selectedSoundURL = localURL
+                            print("✅ Sound downloaded and updated to local: \(filename)")
+                        }
+                    }
+                } catch {
+                    print("❌ Failed to download sound: \(error)")
+                }
+            }
+        }
     }
 
     func setVolume(_ volume: Float) {
@@ -130,6 +149,10 @@ final class OnboardingViewModel: ObservableObject {
 
     func setMission(_ mission: WakeUpMissionType) {
         state.missionType = mission
+    }
+
+    func setDailyMotivation(_ enabled: Bool) {
+        state.dailyMotivationEnabled = enabled
     }
 
     func completeOnboarding() {

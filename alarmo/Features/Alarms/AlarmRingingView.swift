@@ -1,9 +1,12 @@
 import SwiftUI
+import Combine
 
 struct AlarmRingingView: View {
     @ObservedObject var ringCoordinator: AlarmRingCoordinator
     @State private var lastLoggedAlarmId: UUID?
     @State private var currentMission: AlarmMission?
+    @State private var quoteIndex = 0
+    private let quoteTimer = Timer.publish(every: 10, on: .main, in: .common).autoconnect()
 
     var body: some View {
         ZStack {
@@ -25,6 +28,38 @@ struct AlarmRingingView: View {
                     Text(name)
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundColor(Colors.textPrimary)
+                }
+
+                if ringCoordinator.activeAlarm?.dailyMotivationEnabled == true {
+                    let quotes = MotivationQuotes.dailyQuotes()
+                    if !quotes.isEmpty {
+                        let quote = quotes[quoteIndex % quotes.count]
+                        VStack(spacing: 8) {
+                            Text("\"\(quote.text)\"")
+                                .font(.system(size: 24, weight: .medium, design: .serif))
+                                .italic()
+                                .multilineTextAlignment(.center)
+                                .foregroundColor(.white)
+                                .shadow(color: .black.opacity(0.8), radius: 4, x: 0, y: 2)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .id("text-\(quote.id)")
+                                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                            
+                            Text("- \(quote.author)")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.9))
+                                .shadow(color: .black.opacity(0.8), radius: 2, x: 0, y: 1)
+                                .id("author-\(quote.id)")
+                                .transition(.opacity)
+                        }
+                        .padding(.horizontal, 32)
+                        .padding(.vertical, 20)
+                        .onReceive(quoteTimer) { _ in
+                            withAnimation(.easeInOut(duration: 1.0)) {
+                                quoteIndex += 1
+                            }
+                        }
+                    }
                 }
 
                 Spacer()

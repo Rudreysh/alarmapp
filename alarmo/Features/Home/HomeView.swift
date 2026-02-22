@@ -30,18 +30,6 @@ struct HomeView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: Spacing.l) {
                     HStack {
-                        Spacer()
-                        Button(action: {}) {
-                            Image(systemName: "ellipsis")
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(Colors.textSecondary)
-                                .frame(width: 44, height: 44)
-                        }
-                        .accessibilityLabel(Text("More options"))
-                    }
-                    .padding(.top, Spacing.s)
-
-                    HStack {
                         Button(action: {
                             proPaywallStartStep = .intro
                             showProPaywall = true
@@ -77,14 +65,19 @@ struct HomeView: View {
                         .buttonStyle(PressedScaleButtonStyle())
 
                         Spacer()
+                        
+                        Button(action: {}) {
+                            Image(systemName: "ellipsis")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(Colors.textSecondary)
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel(Text("More options"))
                     }
+                    .padding(.top, Spacing.s)
 
 
-                    PromoCard(
-                        iconSystemName: "moon.zzz.fill",
-                        title: "Track your snoring",
-                        subtitle: "Half of people snored last night"
-                    ) {}
+                    DailyInsightCard()
 
                     if !alarmStore.alarms.isEmpty {
                         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -194,7 +187,7 @@ struct HomeView: View {
                             .font(.system(size: 26, weight: .bold))
                             .foregroundColor(Colors.textPrimary)
                             .frame(width: 62, height: 62)
-                            .background(Colors.accentRed)
+                            .background(Colors.accentTeal)
                             .clipShape(Circle())
                             .appShadow(Shadows.card)
                     }
@@ -509,24 +502,51 @@ private struct AlarmCardView: View {
         )
         .overlay(alignment: .topTrailing) {
             if showActionsMenu {
-                VStack(spacing: 0) {
-                    actionRow(icon: "doc.on.doc", title: "Duplicate") { onDuplicate() }
-                    Divider().background(Colors.cardStroke)
-                    actionRow(icon: "eye", title: "Preview") { onPreview() }
-                    Divider().background(Colors.cardStroke)
-                    actionRow(icon: "arrow.clockwise", title: alarm.isSkippedOnce ? "Undo skip" : "Skip once") { onSkipOnce() }
-                    Divider().background(Colors.cardStroke)
-                    actionRow(icon: "trash", title: "Delete", isDestructive: true) { onDelete() }
+                ZStack(alignment: .topTrailing) {
+                    // Dismissal Layer
+                    Color.black.opacity(0.001)
+                        .frame(width: 3000, height: 3000)
+                        .offset(x: 1000, y: -1000)
+                        .onTapGesture {
+                            withTransaction(Transaction(animation: nil)) {
+                                openActionsAlarmId = nil
+                            }
+                        }
+
+                    // Menu Actions
+                    VStack(spacing: 0) {
+                        actionRow(icon: "doc.on.doc", title: "Duplicate") {
+                            withTransaction(Transaction(animation: nil)) { openActionsAlarmId = nil }
+                            onDuplicate()
+                        }
+                        Divider().background(Colors.cardStroke)
+                        actionRow(icon: "play.fill", title: "Preview") {
+                            withTransaction(Transaction(animation: nil)) { openActionsAlarmId = nil }
+                            onPreview()
+                        }
+                        Divider().background(Colors.cardStroke)
+                        actionRow(icon: "arrow.uturn.forward", title: alarm.isSkippedOnce ? "Undo skip" : "Skip once") {
+                            withTransaction(Transaction(animation: nil)) { openActionsAlarmId = nil }
+                            onSkipOnce()
+                        }
+                        Divider().background(Colors.cardStroke)
+                        actionRow(icon: "trash", title: "Delete", isDestructive: true) {
+                            withTransaction(Transaction(animation: nil)) { openActionsAlarmId = nil }
+                            onDelete()
+                        }
+                    }
+                    .background(Colors.promoCardBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Colors.cardStroke.opacity(0.5), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.5), radius: 20, x: 0, y: 10)
+                    .frame(width: 220)
+                    .padding(.trailing, 8)
+                    .padding(.top, 54)
                 }
-                .background(Colors.cardSurface)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Colors.cardStroke, lineWidth: 1)
-                )
-                .frame(width: 210)
-                .padding(.trailing, 8)
-                .padding(.top, 54)
+                .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .topTrailing)))
             }
         }
         .zIndex(showActionsMenu ? 10 : 0)
