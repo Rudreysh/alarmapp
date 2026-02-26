@@ -1,62 +1,74 @@
 import SwiftUI
 
 struct TimerDurationPickerView: View {
-    let initialMinutes: Int
+    let initialTotalSeconds: Int
     let segmentTitle: String
     let onSave: (Int) -> Void
     
     @State private var selectedMinutes: Int
+    @State private var selectedSeconds: Int
     @Environment(\.dismiss) var dismiss
     
-    init(initialMinutes: Int, segmentTitle: String, onSave: @escaping (Int) -> Void) {
-        self.initialMinutes = initialMinutes
+    init(initialTotalSeconds: Int, segmentTitle: String, onSave: @escaping (Int) -> Void) {
+        self.initialTotalSeconds = initialTotalSeconds
         self.segmentTitle = segmentTitle
         self.onSave = onSave
-        self._selectedMinutes = State(initialValue: initialMinutes)
+        self._selectedMinutes = State(initialValue: initialTotalSeconds / 60)
+        self._selectedSeconds = State(initialValue: initialTotalSeconds % 60)
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 TimerGlassBackground()
                 
-                VStack(spacing: Spacing.xl) {
-                    Text("\(selectedMinutes) min")
-                        .font(.system(size: 44, weight: .bold))
-                        .foregroundColor(TimerPalette.accent)
-                    
-                    Picker(segmentTitle, selection: $selectedMinutes) {
-                        ForEach(1...120, id: \.self) { i in
-                            Text("\(i)").tag(i)
-                        }
+                VStack(spacing: 20) {
+                    // Time Display & Title Area
+                    VStack(spacing: 4) {
+                        Text(String(format: "%02d:%02d", selectedMinutes, selectedSeconds))
+                            .font(.system(size: 48, weight: .black, design: .monospaced))
+                            .foregroundColor(TimerPalette.accent)
+                        
+                        Text(segmentTitle.uppercased())
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(Colors.textTertiary)
+                            .kerning(1.5)
                     }
-                    .pickerStyle(.wheel)
-                    .frame(height: 200)
+                    .padding(.top, 24)
+                    
+                    HStack(spacing: 0) {
+                        Picker("Minutes", selection: $selectedMinutes) {
+                            ForEach(0...120, id: \.self) { i in
+                                Text("\(i) m").tag(i)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                        
+                        Picker("Seconds", selection: $selectedSeconds) {
+                            ForEach(0..<60, id: \.self) { i in
+                                Text("\(i) s").tag(i)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                    }
+                    .frame(height: 180)
                     
                     Spacer()
-                    
-                    PrimaryButton(title: "Done") {
-                        onSave(selectedMinutes)
-                    }
-                    .padding(.horizontal, Spacing.l)
-                    .padding(.bottom, Spacing.l)
                 }
-                .padding(.top, Spacing.xl)
             }
-            .navigationTitle(segmentTitle)
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { 
-                        dismiss()
-                    }
-                    .foregroundColor(Colors.textSecondary)
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(Colors.textSecondary)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { 
-                        onSave(selectedMinutes)
+                        let total = (selectedMinutes * 60) + selectedSeconds
+                        onSave(max(1, total)) 
+                        dismiss()
                     }
                     .foregroundColor(TimerPalette.accent)
+                    .fontWeight(.bold)
                 }
             }
         }

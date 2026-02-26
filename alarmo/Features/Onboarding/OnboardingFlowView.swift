@@ -4,6 +4,7 @@ struct OnboardingFlowView: View {
     @ObservedObject var viewModel: OnboardingViewModel
     @ObservedObject var appPreferences: AppPreferences
     @ObservedObject var alarmStore: AlarmStore
+    @EnvironmentObject private var navStore: NavigationStore
     @State private var path: [OnboardingStep] = []
 
     var body: some View {

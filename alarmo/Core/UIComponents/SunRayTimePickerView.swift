@@ -31,12 +31,6 @@ struct SunRayTimePickerView: View {
     // Ring glow pulse animation
     @State private var ringGlowPulse: CGFloat = 0.0
     
-    // Track if initial time has been set
-    @State private var hasSetInitialTime: Bool = false
-    
-    // Optional timezone for location-based default
-    var timeZoneIdentifier: String? = nil
-    
     private let size: CGFloat = 240
     private let feedback = UISelectionFeedbackGenerator()
     private let impactFeedback = UIImpactFeedbackGenerator(style: .light) // Stronger click
@@ -86,186 +80,194 @@ struct SunRayTimePickerView: View {
             .scaleEffect(is12HourFormat ? 1.05 : 1.0)
             .animation(.spring(), value: is12HourFormat)
             
-            ZStack {
-                // Background Ticks (Static & Dynamic Color)
+            VStack(spacing: 8) {
+                // Small preview at top (Matching attachment style)
+                let hStr = String(format: "%02d", displayHour)
+                let mStr = String(format: "%02d", minute)
+                let sStr = second != nil ? ":\(String(format: "%02d", second!.wrappedValue))" : ""
+                
+                Text("\(hStr):\(mStr)\(sStr)")
+                    .font(.system(size: second != nil ? 14 : 18, weight: .heavy, design: .monospaced))
+                    .foregroundColor(Colors.accentTeal.opacity(0.8))
+                    .offset(y: -4) // Slight adjustment to sit just above the ticks
+
                 ZStack {
-                    // Outer ambient glow circle (subtle)
-                    Circle()
-                        .stroke(Colors.accentTeal.opacity(0.06 + ringGlowPulse * 0.04), lineWidth: 8)
-                        .blur(radius: 6)
-                        .frame(width: size + 14, height: size + 14)
-                    
-                    Circle()
-                        .stroke(Color.white.opacity(0.05), lineWidth: 1)
-                        .frame(width: size, height: size)
-                    
-                    ForEach(0..<60) { i in
-                        // Determine if this tick is "active" based on current value
-                        let isActiveTick = isTickActive(index: i)
+                    // Background Ticks (Static & Dynamic Color)
+                    ZStack {
+                        // Outer ambient glow circle (subtle)
+                        Circle()
+                            .stroke(Colors.accentTeal.opacity(0.06 + ringGlowPulse * 0.04), lineWidth: 8)
+                            .blur(radius: 6)
+                            .frame(width: size + 14, height: size + 14)
                         
-                        Capsule()
-                            .fill(isActiveTick ? Colors.accentTeal : Color.white.opacity(i % 5 == 0 ? 0.3 : 0.1))
-                            .frame(width: i % 5 == 0 ? 2 : 1, height: i % 5 == 0 ? 10 : 6)
-                            .offset(y: -(size/2))
-                            .rotationEffect(.degrees(Double(i) * 6))
-                            .shadow(color: isActiveTick ? Colors.accentTeal.opacity(0.6) : .clear, radius: 4)
-                            .animation(.easeInOut(duration: 0.2), value: activeComponent) // Smooth transition
+                        Circle()
+                            .stroke(Color.white.opacity(0.05), lineWidth: 1)
+                            .frame(width: size, height: size)
+                        
+                        ForEach(0..<60) { i in
+                            // Determine if this tick is "active" based on current value
+                            let isActiveTick = isTickActive(index: i)
+                            
+                            Capsule()
+                                .fill(isActiveTick ? Colors.accentTeal : Color.white.opacity(i % 5 == 0 ? 0.3 : 0.1))
+                                .frame(width: i % 5 == 0 ? 2 : 1, height: i % 5 == 0 ? 10 : 6)
+                                .offset(y: -(size/2))
+                                .rotationEffect(.degrees(Double(i) * 6))
+                                .shadow(color: isActiveTick ? Colors.accentTeal.opacity(0.6) : .clear, radius: 4)
+                                .animation(.easeInOut(duration: 0.2), value: activeComponent) // Smooth transition
+                        }
+                        
+                        // Hour markers (visual aid when in hour mode)
+                        if activeComponent == .hour {
+                            ForEach(0..<12) { i in
+                                // Always show 1-12 clock face similar to standard analog clock
+                                let label = i == 0 ? 12 : i
+                                Text("\(label)")
+                                    .font(.system(size: 14, weight: .heavy, design: .monospaced))
+                                    .foregroundColor(isHourMatch(i) ? Colors.accentTeal : Colors.textSecondary)
+                                    .shadow(color: isHourMatch(i) ? Colors.accentTeal.opacity(0.5) : .clear, radius: 4)
+                                    .offset(y: -(size/2 - 25))
+                                    .rotationEffect(.degrees(Double(i) * 30))
+                            }
+                        }
                     }
+                    .frame(width: size, height: size)
                     
-                    // Hour markers (visual aid when in hour mode)
-                    if activeComponent == .hour {
-                        ForEach(0..<12) { i in
-                            // Always show 1-12 clock face similar to standard analog clock
-                            let label = i == 0 ? 12 : i
-                            Text("\(label)")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(isHourMatch(i) ? Colors.accentTeal : Colors.textSecondary)
-                                .shadow(color: isHourMatch(i) ? Colors.accentTeal.opacity(0.5) : .clear, radius: 4)
-                                .offset(y: -(size/2 - 25))
-                                .rotationEffect(.degrees(Double(i) * 30))
-                        }
+                    // Active Ring Segment — gradient stroke with glow
+                    Circle()
+                        .trim(from: 0.0, to: activeProgress())
+                        .stroke(
+                            AngularGradient(
+                                colors: [Colors.accentTeal.opacity(0.3), Colors.accentTeal, Colors.accentTeal],
+                                center: .center,
+                                startAngle: .degrees(0),
+                                endAngle: .degrees(360 * activeProgress())
+                            ),
+                            style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
+                        )
+                        .frame(width: size + 10, height: size + 10)
+                        .rotationEffect(.degrees(-90))
+                        .shadow(color: Colors.accentTeal.opacity(isInteracting ? 0.6 : Double(0.25 + ringGlowPulse * 0.15)), radius: isInteracting ? 10 : 5)
+                        .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.88), value: activeProgress())
+                    
+                    // User Interaction Layer (Transparent)
+                    ZStack {
+                        Color.white.opacity(0.001)
                     }
-                }
-                .frame(width: size, height: size)
-                
-                // Active Ring Segment — gradient stroke with glow
-                Circle()
-                    .trim(from: 0.0, to: activeProgress())
-                    .stroke(
-                        AngularGradient(
-                            colors: [Colors.accentTeal.opacity(0.3), Colors.accentTeal, Colors.accentTeal],
-                            center: .center,
-                            startAngle: .degrees(0),
-                            endAngle: .degrees(360 * activeProgress())
-                        ),
-                        style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
-                    )
-                    .frame(width: size + 10, height: size + 10)
-                    .rotationEffect(.degrees(-90))
-                    .shadow(color: Colors.accentTeal.opacity(isInteracting ? 0.6 : Double(0.25 + ringGlowPulse * 0.15)), radius: isInteracting ? 10 : 5)
-                    .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.88), value: activeProgress())
-                
-                // User Interaction Layer (Transparent)
-                ZStack {
-                    Color.white.opacity(0.001)
-                }
-                .frame(width: size + 30, height: size + 30)
-                .contentShape(Circle())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            if !isInteracting {
-                                isInteracting = true
-                                feedback.prepare()
+                    .frame(width: size + 30, height: size + 30)
+                    .contentShape(Circle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                if !isInteracting {
+                                    isInteracting = true
+                                    feedback.prepare()
+                                }
+                                updateTimeFromDrag(value)
                             }
-                            updateTimeFromDrag(value)
-                        }
-                        .onEnded { _ in
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                isInteracting = false
-                                dragAngle = nil // Snap back to nearest tick visually
+                            .onEnded { _ in
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    isInteracting = false
+                                    dragAngle = nil // Snap back to nearest tick visually
+                                }
                             }
-                        }
-                )
-                
-                // Digital Time Display (Center)
-                VStack(spacing: second != nil ? 6 : 14) {
-                    // Top Selector (Hour)
-                    UnitSelector(
-                        val: Binding(get: { displayHour }, set: { _ in }), // Read-only for display here, updated via drag/tap logic
-                        unit: is12HourFormat ? (isPM ? "PM" : "AM") : "", // Hide unit in 24h mode
-                        maxVal: topMax, // Not used strictly for display click
-                        offset: $hourOffset,
-                        isInteracting: $isInteracting,
-                        feedback: feedback,
-                        fontSize: second != nil ? 32 : 46,
-                        unitSize: second != nil ? 14 : 16,
-                        isActive: activeComponent == .hour,
-                        highlightColor: Colors.accentTeal,
-                        onTap: {
-                            activeComponent = .hour
-                        },
-                        onDoubleTap: {
-                            activeComponent = .hour
-                            showWheelPicker = true
-                        },
-                        onScroll: { delta in
-                            manualScroll(component: .hour, delta: delta)
-                        },
-                        onUnitTap: {
-                            if is12HourFormat {
-                                if isPM { setAM() } else { setPM() }
-                                triggerFeedback()
-                            }
-                        }
                     )
                     
-                    // Divider
-                    Rectangle()
-                        .fill(Color.white.opacity(0.12))
-                        .frame(width: 80, height: 1)
-                    
-                    // Middle Selector (Minute)
-                    UnitSelector(
-                        val: $minute,
-                        unit: bottomUnit,
-                        maxVal: bottomMax,
-                        offset: $minuteOffset,
-                        isInteracting: $isInteracting,
-                        feedback: feedback,
-                        fontSize: second != nil ? 32 : 46,
-                        unitSize: second != nil ? 14 : 16,
-                        isActive: activeComponent == .minute,
-                        highlightColor: Colors.accentTeal,
-                        onTap: {
-                            activeComponent = .minute
-                        },
-                        onDoubleTap: {
-                            activeComponent = .minute
-                            showWheelPicker = true
-                        },
-                        onScroll: { delta in
-                            manualScroll(component: .minute, delta: delta)
-                        }
-                    )
-                    
-                    if let secondBinding = second {
+                    // Digital Time Display (Center)
+                    VStack(spacing: second != nil ? 6 : 10) {
+                        // Top Selector (Hour)
+                        UnitSelector(
+                            val: Binding(get: { displayHour }, set: { _ in }), // Read-only for display here, updated via drag/tap logic
+                            unit: is12HourFormat ? (isPM ? "PM" : "AM") : "", // Hide unit in 24h mode
+                            maxVal: topMax, // Not used strictly for display click
+                            offset: $hourOffset,
+                            isInteracting: $isInteracting,
+                            feedback: feedback,
+                            fontSize: second != nil ? 32 : 46,
+                            unitSize: second != nil ? 14 : 16,
+                            isActive: activeComponent == .hour,
+                            highlightColor: Colors.accentTeal,
+                            onTap: {
+                                activeComponent = .hour
+                            },
+                            onDoubleTap: {
+                                activeComponent = .hour
+                                showWheelPicker = true
+                            },
+                            onScroll: { delta in
+                                manualScroll(component: .hour, delta: delta)
+                            },
+                            onUnitTap: {
+                                if is12HourFormat {
+                                    if isPM { setAM() } else { setPM() }
+                                    triggerFeedback()
+                                }
+                            }
+                        )
+                        
                         // Divider
                         Rectangle()
                             .fill(Color.white.opacity(0.12))
                             .frame(width: 80, height: 1)
                         
-                        // Bottom Selector (Second)
+                        // Middle Selector (Minute)
                         UnitSelector(
-                            val: secondBinding,
-                            unit: tertiaryUnit,
-                            maxVal: tertiaryMax,
-                            offset: $secondOffset,
+                            val: $minute,
+                            unit: bottomUnit,
+                            maxVal: bottomMax,
+                            offset: $minuteOffset,
                             isInteracting: $isInteracting,
                             feedback: feedback,
-                            fontSize: 32,
-                            unitSize: 14,
-                            isActive: activeComponent == .second,
+                            fontSize: second != nil ? 32 : 46,
+                            unitSize: second != nil ? 14 : 16,
+                            isActive: activeComponent == .minute,
                             highlightColor: Colors.accentTeal,
                             onTap: {
-                                activeComponent = .second
+                                activeComponent = .minute
                             },
                             onDoubleTap: {
-                                activeComponent = .second
+                                activeComponent = .minute
                                 showWheelPicker = true
                             },
                             onScroll: { delta in
-                                manualScroll(component: .second, delta: delta)
+                                manualScroll(component: .minute, delta: delta)
                             }
                         )
+                        
+                        if let secondBinding = second {
+                            // Divider
+                            Rectangle()
+                                .fill(Color.white.opacity(0.12))
+                                .frame(width: 80, height: 1)
+                            
+                            // Bottom Selector (Second)
+                            UnitSelector(
+                                val: secondBinding,
+                                unit: tertiaryUnit,
+                                maxVal: tertiaryMax,
+                                offset: $secondOffset,
+                                isInteracting: $isInteracting,
+                                feedback: feedback,
+                                fontSize: 32,
+                                unitSize: 14,
+                                isActive: activeComponent == .second,
+                                highlightColor: Colors.accentTeal,
+                                onTap: {
+                                    activeComponent = .second
+                                },
+                                onDoubleTap: {
+                                    activeComponent = .second
+                                    showWheelPicker = true
+                                },
+                                onScroll: { delta in
+                                    manualScroll(component: .second, delta: delta)
+                                }
+                            )
+                        }
                     }
-                    
-                    // 12/24 Mode Toggle (Small text button below)
-                    // This button is now removed as it's replaced by the side buttons.
                 }
-                .contentShape(Rectangle())
+                .frame(width: size + 30, height: size + 30)
             }
-            .frame(width: size + 30, height: size + 30) // Ensure layout containment
             
             // 24H Button (Right Side)
             Button(action: {
@@ -295,25 +297,6 @@ struct SunRayTimePickerView: View {
             // Start the breathing glow animation
             withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
                 ringGlowPulse = 1.0
-            }
-            
-            // Set initial time to current location time (only once)
-            if !hasSetInitialTime {
-                hasSetInitialTime = true
-                let tz: TimeZone
-                if let id = timeZoneIdentifier, let customTZ = TimeZone(identifier: id) {
-                    tz = customTZ
-                } else {
-                    tz = .current
-                }
-                var cal = Calendar.current
-                cal.timeZone = tz
-                let now = Date()
-                hour = cal.component(.hour, from: now)
-                minute = cal.component(.minute, from: now)
-                if let secondBinding = second {
-                    secondBinding.wrappedValue = cal.component(.second, from: now)
-                }
             }
         }
         .sheet(isPresented: $showWheelPicker) {
@@ -633,14 +616,14 @@ struct UnitSelector: View {
             
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(String(format: "%02d", val))
-                    .font(.system(size: fontSize, weight: .bold, design: .rounded))
+                    .font(.system(size: fontSize, weight: .black, design: .monospaced))
                     .foregroundColor(isActive ? Colors.textPrimary : Colors.textTertiary)
                     .scaleEffect(isActive ? 1.1 : 1.0)
                     .contentTransition(.numericText(countsDown: false))
                     .animation(.snappy(duration: 0.25), value: val)
                 
                 Text(unit)
-                    .font(.system(size: unitSize, weight: .medium))
+                    .font(.system(size: unitSize, weight: .bold, design: .monospaced))
                     .foregroundColor(isActive ? highlightColor : Colors.textTertiary.opacity(0.5))
                     .onTapGesture {
                         if let onUnitTap = onUnitTap {

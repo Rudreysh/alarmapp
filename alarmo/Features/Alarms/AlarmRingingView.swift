@@ -17,11 +17,11 @@ struct AlarmRingingView: View {
                 Spacer()
 
                 Text(currentDateText)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 18, weight: .bold, design: .monospaced))
                     .foregroundColor(Colors.textSecondary)
 
                 Text(currentTimeText)
-                    .font(.system(size: 64, weight: .bold))
+                    .font(.system(size: 64, weight: .heavy, design: .monospaced))
                     .foregroundColor(Colors.textPrimary)
 
                 if let name = ringCoordinator.activeAlarm?.name, !name.isEmpty {
@@ -152,6 +152,21 @@ struct AlarmRingingView: View {
                              }
                         )
                      )
+                } else if mission.type == .findColorTiles {
+                    FindColorTilesMissionView(
+                        viewModel: FindColorTilesViewModel(
+                            settings: FindColorTilesSettings(
+                                difficulty: MissionDifficulty(rawValue: mission.difficulty) ?? .normal,
+                                rounds: mission.rounds,
+                                soundEnabled: true
+                            ),
+                            isPreviewMode: false,
+                            onComplete: {
+                                ringCoordinator.completeMission(success: true)
+                                currentMission = nil
+                            }
+                        )
+                    )
                 } else {
                     // Generic fallback
                     VStack {

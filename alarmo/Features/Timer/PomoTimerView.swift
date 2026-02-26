@@ -55,34 +55,34 @@ struct PomoTimerView: View {
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    TimerPalette.accentSoft.opacity(0.24),
+                                    TimerPalette.accentSoft.opacity(0.12),
                                     .clear
                                 ],
                                 center: .center,
-                                startRadius: 20,
-                                endRadius: 320
+                                startRadius: 10,
+                                endRadius: 280
                             )
                         )
-                        .frame(width: availableWidth * 0.45, height: 340)
-                        .blur(radius: 26)
-                        .offset(y: -110)
+                        .frame(width: availableWidth * 0.35, height: 260)
+                        .blur(radius: 20)
+                        .offset(y: -100)
                 }
                 .overlay(alignment: .bottom) {
                     Ellipse()
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    TimerPalette.accent.opacity(0.20),
+                                    TimerPalette.accent.opacity(0.08),
                                     .clear
                                 ],
                                 center: .center,
-                                startRadius: 10,
-                                endRadius: 260
+                                startRadius: 8,
+                                endRadius: 220
                             )
                         )
-                        .frame(width: availableWidth * 0.78, height: 170)
-                        .blur(radius: 18)
-                        .offset(y: 80)
+                        .frame(width: availableWidth * 0.65, height: 140)
+                        .blur(radius: 12)
+                        .offset(y: 70)
                 }
                 .allowsHitTesting(false)
 
@@ -134,11 +134,46 @@ struct PomoTimerView: View {
                     .padding(.top, Spacing.m)
                     .frame(maxHeight: availableHeight * 0.2) // Increased slightly for progress text
                     
-                    // Interval Settings Shortcut (Optional, small gear near header or separate)
-                    Button(action: { showIntervalSettings = true }) {
-                        Text(engine.config.isEnabled ? "Interval Timer: On" : "Interval Timer: Off")
-                            .font(.caption)
-                            .foregroundColor(Colors.textTertiary)
+                    HStack(spacing: 16) {
+                        // Interval Settings Shortcut
+                        Button(action: { showIntervalSettings = true }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "timer")
+                                    .font(.system(size: 13, weight: .bold))
+                                Text(engine.config.isEnabled ? "Interval: On" : "Interval: Off")
+                                    .font(.system(size: 13, weight: .bold))
+                            }
+                            .foregroundColor(TimerPalette.accent)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 16)
+                            .background(TimerPalette.accent.opacity(0.22))
+                            .clipShape(Capsule())
+                        }
+                        
+                        // Ambient Sound Selection Shortcut
+                        Button(action: { viewModel.showSoundSelection = true }) {
+                            HStack(spacing: 6) {
+                                if viewModel.ambientSoundName.isEmpty {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.system(size: 13, weight: .bold))
+                                    Text("Add Music")
+                                        .font(.system(size: 13, weight: .bold))
+                                } else {
+                                    Image(systemName: "music.note")
+                                        .font(.system(size: 13, weight: .bold))
+                                    Text(viewModel.ambientSoundName)
+                                        .font(.system(size: 13, weight: .bold))
+                                        .lineLimit(1)
+                                        .truncationMode(.tail)
+                                        .frame(maxWidth: 100, alignment: .leading)
+                                }
+                            }
+                            .foregroundColor(TimerPalette.accent)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 16)
+                            .background(TimerPalette.accent.opacity(0.22))
+                            .clipShape(Capsule())
+                        }
                     }
                     .padding(.top, 4)
 
@@ -155,9 +190,16 @@ struct PomoTimerView: View {
                         .frame(width: diameter, height: diameter)
                         
                         VStack(spacing: 8) {
+                            // Sub-timer (Cyan, above main)
                             Text(timeString(from: engine.state.remainingSeconds))
-                                .font(.system(size: diameter * 0.22, weight: .bold))
-                                .monospacedDigit()
+                                .font(.system(size: diameter * 0.08, weight: .heavy, design: .monospaced))
+                                .kerning(1.5)
+                                .foregroundColor(TimerPalette.accent.opacity(0.8))
+                                .padding(.bottom, -4)
+
+                            Text(timeString(from: engine.state.remainingSeconds))
+                                .font(.system(size: diameter * 0.22, weight: .heavy, design: .monospaced))
+                                .kerning(2)
                                 .foregroundColor(Colors.textPrimary)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.5)
@@ -194,48 +236,9 @@ struct PomoTimerView: View {
                             idleControlRow
                                 .padding(.horizontal, Spacing.l)
                             
-                            Button {
+                            PrimaryButton(title: "Start Timer", style: .blueGlass) {
                                 engine.start(taskId: taskStore.selectedTaskId)
                             }
-                            label: {
-                                HStack(spacing: 10) {
-                                    Image(systemName: "play.fill")
-                                        .font(.system(size: 19, weight: .bold))
-                                    Text("Start Timer")
-                                        .font(.system(size: 22, weight: .semibold))
-                                }
-                                .foregroundColor(Color.white.opacity(0.95))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 18)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [
-                                                    TimerPalette.accentSoft.opacity(0.68),
-                                                    TimerPalette.accentStrong.opacity(0.72),
-                                                    TimerPalette.accent.opacity(0.70)
-                                                ],
-                                                startPoint: .leading,
-                                                endPoint: .trailing
-                                            )
-                                        )
-                                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                        .stroke(
-                                            LinearGradient(
-                                                colors: [Color.white.opacity(0.44), Color.white.opacity(0.14)],
-                                                startPoint: .top,
-                                                endPoint: .bottom
-                                            ),
-                                            lineWidth: 1
-                                        )
-                                )
-                                .shadow(color: TimerPalette.accent.opacity(0.10), radius: 7, x: 0, y: 4)
-                            }
-                            .buttonStyle(PressedScaleButtonStyle())
                             .padding(.horizontal, Spacing.l)
                         } else {
                             // Running / Paused Controls
@@ -243,13 +246,32 @@ struct PomoTimerView: View {
                             // perfectly stable and centered. The Break button appears to the left without
                             // shifting the others.
                             HStack(spacing: 30) {
-                                // Sound (using logic from viewModel for now)
-                                Button(action: { viewModel.showSoundSelection = true }) {
-                                    Image(systemName: "music.note")
-                                        .font(.system(size: 20))
-                                        .foregroundColor(Colors.textPrimary)
-                                        .frame(width: 50, height: 50)
-                                        .background(Circle().stroke(Colors.cardStroke, lineWidth: 1))
+                                // Ambient Sound Toggle/Select
+                                Button(action: {
+                                    if viewModel.ambientSoundName.isEmpty {
+                                        viewModel.showSoundSelection = true
+                                    } else {
+                                        viewModel.toggleAmbientSound()
+                                    }
+                                }) {
+                                    ZStack(alignment: .bottomTrailing) {
+                                        Image(systemName: "music.note")
+                                            .font(.system(size: 20))
+                                        
+                                        if !viewModel.ambientSoundName.isEmpty {
+                                            Image(systemName: viewModel.isAmbientPlaying ? "pause.fill" : "play.fill")
+                                                .font(.system(size: 10))
+                                                .foregroundColor(.white)
+                                                .background(Circle().fill(Color.red).frame(width: 14, height: 14))
+                                                .offset(x: 2, y: 2)
+                                        }
+                                    }
+                                    .foregroundColor(Colors.textPrimary)
+                                    .frame(width: 50, height: 50)
+                                    .background(Circle().stroke(Colors.cardStroke, lineWidth: 1))
+                                }
+                                .onLongPressGesture {
+                                    viewModel.showSoundSelection = true
                                 }
                                 
                                 // Play/Pause
@@ -337,16 +359,18 @@ struct PomoTimerView: View {
         }
         .sheet(isPresented: $viewModel.showSoundSelection) {
             SoundPickerView(selectedSound: Binding(
-                get: { viewModel.pomoEndingSoundName },
-                set: { viewModel.setPomoEndingSound($0) }
+                get: { viewModel.ambientSoundName },
+                set: { val in 
+                    viewModel.setAmbientSound(val)
+                }
             ))
         }
         .sheet(isPresented: $showTimerEditSheet) {
             TimerDurationPickerView(
-                initialMinutes: editingSeconds / 60,
+                initialTotalSeconds: editingSeconds,
                 segmentTitle: engine.state.currentSegment?.title ?? "Timer",
-                onSave: { minutes in
-                    applySelectedMinutes(minutes)
+                onSave: { seconds in
+                    applySelectedSeconds(seconds)
                     showTimerEditSheet = false
                 }
             )
@@ -361,6 +385,27 @@ struct PomoTimerView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             engine.refreshTimer()
+        }
+        .onChange(of: engine.isRunning) { _, running in
+            if !running && viewModel.isAmbientPlaying {
+                // Stop ambient music if the timer is paused or stopped
+                viewModel.toggleAmbientSound()
+            } else if running && !viewModel.isAmbientPlaying && !viewModel.ambientSoundName.isEmpty {
+                // Only auto-start music if the segment is Focus
+                if engine.state.currentSegment == .focus {
+                    viewModel.toggleAmbientSound()
+                }
+            }
+        }
+        .onChange(of: engine.state.currentSegment) { _, newSegment in
+            // Stop music immediately if transitioning to a break
+            if newSegment == .shortBreak || newSegment == .longBreak {
+                if viewModel.isAmbientPlaying {
+                    viewModel.toggleAmbientSound()
+                }
+            } else if newSegment == .focus && engine.isRunning && !viewModel.isAmbientPlaying && !viewModel.ambientSoundName.isEmpty {
+                 viewModel.toggleAmbientSound()
+            }
         }
     }
     
@@ -454,18 +499,17 @@ struct PomoTimerView: View {
         engine.updateConfig(updated)
     }
 
-    private func applySelectedMinutes(_ minutes: Int) {
-        let clampedMinutes = min(180, max(1, minutes))
-        let seconds = clampedMinutes * 60
+    private func applySelectedSeconds(_ seconds: Int) {
+        let clampedSeconds = max(1, seconds)
 
         if case .idle = engine.state.phase {
-            // Idle selection is a base duration change: keep config, picker pill and center timer in sync.
+            // Idle selection is a base duration change
             var updated = engine.config
-            updated.focusSeconds = seconds
+            updated.focusSeconds = clampedSeconds
             engine.updateConfig(updated)
         } else {
             // During active/paused sessions, user is editing only the current segment remaining time.
-            engine.adjustRemainingTime(to: seconds)
+            engine.adjustRemainingTime(to: clampedSeconds)
         }
     }
 
@@ -506,22 +550,8 @@ struct PomoTimerView: View {
                 .fontWeight(.bold)
                 .foregroundColor(Colors.textPrimary)
             
-            Button(action: {
+            PrimaryButton(title: "Start \(nextTitle)", style: .blueGlass) {
                 engine.continueAfterFinishedScreen()
-            }) {
-                HStack(spacing: 8) {
-                    if nextKind == .shortBreak || nextKind == .longBreak {
-                        Image(systemName: "cup.and.saucer.fill")
-                            .font(.system(size: 18))
-                    }
-                    Text("Start \(nextTitle)")
-                }
-                .font(.headline)
-                .foregroundColor(.white)
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(TimerPalette.accent)
-                .cornerRadius(12)
             }
             
             Button(action: {
@@ -555,16 +585,8 @@ struct PomoTimerView: View {
                 .foregroundColor(Colors.textSecondary)
                 .multilineTextAlignment(.center)
             
-            Button(action: {
-                engine.startNextCycle() // Starts configured auto behavior
-            }) {
-                Text("Start Next Cycle")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(TimerPalette.accent)
-                    .cornerRadius(12)
+            PrimaryButton(title: "Start Next Cycle", style: .blueGlass) {
+                engine.startNextCycle()
             }
             
             Button(action: {

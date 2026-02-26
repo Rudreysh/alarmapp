@@ -5,27 +5,41 @@ struct ProgressHeader: View {
     let total: Int
 
     var body: some View {
-        HStack(spacing: Spacing.s) {
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
+        HStack(spacing: 12) {
+            // Premium Segmented Progress
+            HStack(spacing: 8) {
+                ForEach(1...total, id: \.self) { index in
+                    let isCompletedOrCurrent = index <= step
+                    let isCurrent = index == step
+                    
                     Capsule()
-                        .fill(Colors.textTertiary.opacity(0.4))
-                        .frame(height: 3)
-                    Capsule()
-                        .fill(Colors.textPrimary)
-                        .frame(width: proxy.size.width * progress, height: 3)
+                        .fill(
+                            isCompletedOrCurrent ? 
+                                AnyShapeStyle(LinearGradient(colors: [Colors.accentTeal, Colors.accentBlue], startPoint: .leading, endPoint: .trailing)) :
+                                AnyShapeStyle(Color.white.opacity(0.15))
+                        )
+                        .frame(height: isCurrent ? 6 : 4)
+                        .frame(minWidth: 20, maxWidth: isCurrent ? .infinity : 20)
+                        .opacity(isCompletedOrCurrent ? 1.0 : 0.5)
+                        .shadow(color: isCurrent ? Colors.accentTeal.opacity(0.6) : .clear, radius: 6, x: 0, y: 0)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: step)
                 }
             }
-            .frame(height: 3)
-
-            Text("\(step)/\(total)")
-                .captionText()
+            .frame(maxWidth: .infinity)
+            
+            // Stylish Progress Badge
+            Text("\(step) of \(total)")
+                .font(.system(size: 13, weight: .bold, design: .rounded))
                 .foregroundColor(Colors.textSecondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color.white.opacity(0.08))
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                )
         }
-    }
-
-    private var progress: CGFloat {
-        guard total > 0 else { return 0 }
-        return CGFloat(step) / CGFloat(total)
+        .padding(.vertical, 8)
     }
 }

@@ -155,58 +155,65 @@ final class SoundPlayer {
     // MARK: - Sound Lookup
     
     private func findSoundURL(for name: String) -> URL? {
-        // Try strict name first (e.g. "forest.mp3")
-        if let url = Bundle.main.url(forResource: name, withExtension: nil) { return url }
+        let fileManager = FileManager.default
+        let bundleURL = Bundle.main.bundleURL
         
-        // Try cleaning name (e.g. "Addams Family" -> "addams_family")
-        let cleaned = name.replacingOccurrences(of: " ", with: "_").lowercased()
+        // Allowed extensions (we can expand this if needed)
+        let extensions = ["mp3", "wav", "m4a", "caf"]
         
-        // 1. Check root of bundle with extension (Xcode flattens resources here)
-        if let url = Bundle.main.url(forResource: cleaned, withExtension: "mp3") {
-            return url
+        let cleanedName = name.replacingOccurrences(of: " ", with: "_").lowercased()
+        let dashCleanedName = name.replacingOccurrences(of: " ", with: "-").lowercased()
+        
+        // 1. First, quickly check custom downloaded sounds in Documents
+        if let docsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let customDir = docsURL.appendingPathComponent("CustomSounds")
+            for ext in extensions {
+                let customFile = customDir.appendingPathComponent("\(name).\(ext)")
+                if fileManager.fileExists(atPath: customFile.path) { return customFile }
+            }
         }
         
-        // 2. Check known subfolder "BundledSounds/ringtones" (in case not flattened)
-        if let url = Bundle.main.url(forResource: cleaned, withExtension: "mp3", subdirectory: "BundledSounds/ringtones") {
-            return url
+        // 2. Perform a recursive deep search in the app bundle
+        if let enumerator = fileManager.enumerator(at: bundleURL, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
+            for case let fileURL as URL in enumerator {
+                let filename = fileURL.deletingPathExtension().lastPathComponent
+                let fileExt = fileURL.pathExtension.lowercased()
+                
+                if extensions.contains(fileExt) {
+                    // Try exact match, cleaned match, or dash-cleaned match
+                    if filename == name || 
+                       filename.lowercased() == name.lowercased() ||
+                       filename.lowercased() == cleanedName ||
+                       filename.lowercased() == dashCleanedName {
+                        return fileURL
+                    }
+                }
+            }
         }
         
-        // 3. Try with dashes instead of underscores
-        let dashCleaned = name.replacingOccurrences(of: " ", with: "-").lowercased()
-        if let url = Bundle.main.url(forResource: dashCleaned, withExtension: "mp3") {
-            return url
-        }
-        
-        // 4. Check custom sounds directory
-        if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-            let customDir = documentsURL.appendingPathComponent("CustomSounds")
-            let m4aFile = customDir.appendingPathComponent("\(name).m4a")
-            if FileManager.default.fileExists(atPath: m4aFile.path) { return m4aFile }
-            let wavFile = customDir.appendingPathComponent("\(name).wav")
-            if FileManager.default.fileExists(atPath: wavFile.path) { return wavFile }
-        }
-        
-        // 5. Fallback — any bundled ringtone
+        // 3. Fallback — any bundled ringtone
         return findFallbackSound()
     }
     
     /// Returns the first available bundled ringtone as a fallback
     private func findFallbackSound() -> URL? {
-        // Primary: Look for MP3 files at the bundle root (where Xcode places them)
-        if let urls = Bundle.main.urls(forResourcesWithExtension: "mp3", subdirectory: nil),
-           let first = urls.first {
-            print("[SoundPlayer] ⚠️ Using fallback ringtone: \(first.lastPathComponent)")
-            return first
+        let fileManager = FileManager.default
+        let bundleURL = Bundle.main.bundleURL
+        let extensions = ["mp3", "wav", "m4a", "caf"]
+        
+        if let enumerator = fileManager.enumerator(at: bundleURL, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
+            for case let fileURL as URL in enumerator {
+                if fileURL.isFileURL {
+                    let ext = fileURL.pathExtension.lowercased()
+                    if extensions.contains(ext) {
+                        print("[SoundPlayer] ⚠️ Using fallback ringtone: \(fileURL.lastPathComponent)")
+                        return fileURL
+                    }
+                }
+            }
         }
         
-        // Secondary: Check subdirectory (in case build preserves folder structure)
-        if let urls = Bundle.main.urls(forResourcesWithExtension: "mp3", subdirectory: "BundledSounds/ringtones"),
-           let first = urls.first {
-            print("[SoundPlayer] ⚠️ Using fallback ringtone (subdir): \(first.lastPathComponent)")
-            return first
-        }
-        
-        print("[SoundPlayer] ❌ CRITICAL: No MP3 files found anywhere in app bundle!")
+        print("[SoundPlayer] ❌ CRITICAL: No audio files found anywhere in app bundle!")
         return nil
     }
 }

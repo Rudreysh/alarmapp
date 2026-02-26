@@ -3,7 +3,6 @@ import Combine
 
 struct OverlapView: View {
     @StateObject private var store = OverlapStore.shared
-    @State private var showCitySearch = false
     @State private var showOverlapAnalysis = false
     @State private var editingCity: OverlapCity?
     @State private var showArrowHint = true
@@ -11,50 +10,44 @@ struct OverlapView: View {
     @State private var isDragging = false
     @State private var dragStartOffset: Int = 0
     @State private var swipingCityId: UUID? = nil
+    
+    @StateObject private var subManager = SubscriptionManager.shared
+    @State private var showUpsell = false
+
+    // Inline search
+    @State private var searchText = ""
+    @State private var isSearching = false
+    @FocusState private var searchFocused: Bool
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         ZStack {
             // Background
-            LinearGradient(
-                colors: [Color.black, Color(red: 0.02, green: 0.04, blue: 0.08)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            LinearGradient(colors: [Colors.bgSecondary, Colors.bgPrimary], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // Header
                 overlapHeader
 
-                // City List with global horizontal swipe
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 0) {
+                // Inline Search Bar
+                inlineSearchBar
+
+                // City list or search results
+                if isSearching {
+                    searchResultsList
+                } else {
+                    // City List with Drag & Drop Reordering
+                    List {
                         ForEach(store.sortedCities) { city in
-                            SwipeableCityRow(
-                                cityId: city.id,
-                                onDelete: {
-                                    withAnimation(.spring()) {
-                                        store.removeCity(id: city.id)
-                                        swipingCityId = nil
-                                    }
-                                },
-                                swipingId: $swipingCityId
-                            ) {
+                            Group {
                                 if city.isMinimized {
                                     minimizedCityRow(city)
-                                        .padding(.horizontal, 16)
-                                        .padding(.top, 8)
-                                        .transition(.opacity)
                                         .onTapGesture(count: 2) {
                                             withAnimation(.spring(response: 0.3)) {
                                                 store.toggleMinimized(id: city.id)
                                             }
-                                            #if os(iOS)
-                                            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                                            impactFeedback.impactOccurred()
-                                            #endif
                                         }
                                 } else {
                                     CityCardView(
@@ -65,29 +58,61 @@ struct OverlapView: View {
                                     .onTapGesture(count: 2) {
                                         editingCity = city
                                     }
-                                    .onLongPressGesture(minimumDuration: 0.6) {
-                                        withAnimation(.spring(response: 0.3)) {
-                                            store.toggleMinimized(id: city.id)
-                                        }
-                                        #if os(iOS)
-                                        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                                        impactFeedback.impactOccurred()
-                                        #endif
+                                }
+                            }
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            .contextMenu {
+                                Button {
+                                    let fmt = DateFormatter()
+                                    fmt.timeZone = city.timeZone
+                                    fmt.dateFormat = "HH:mm"
+                                    let timeStr = fmt.string(from: store.adjustedDate)
+                                    UIPasteboard.general.string = "\(city.displayName): \(timeStr)"
+                                } label: {
+                                    Label("Copy Time", systemImage: "doc.on.doc")
+                                }
+                                Button {
+                                    withAnimation(.spring(response: 0.3)) {
+                                        store.toggleMinimized(id: city.id)
                                     }
-                                    .transition(.asymmetric(
-                                        insertion: .move(edge: .trailing).combined(with: .opacity),
-                                        removal: .move(edge: .leading).combined(with: .opacity)
-                                    ))
-                                    .padding(.horizontal, 16)
-                                    .padding(.top, 8)
+                                } label: {
+                                    Label(city.isMinimized ? "Expand" : "Minimize", systemImage: city.isMinimized ? "rectangle.expand.vertical" : "rectangle.compress.vertical")
+                                }
+                                Button {
+                                    editingCity = city
+                                } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
+                                Button(role: .destructive) {
+                                    withAnimation(.spring()) {
+                                        store.removeCity(id: city.id)
+                                    }
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
                                 }
                             }
                         }
-
-                        Spacer(minLength: 200)
+                        .onMove { from, to in
+                            store.moveCity(fromOffsets: from, toOffset: to)
+                        }
+                        .onDelete { offsets in
+                            offsets.map { store.sortedCities[$0].id }.forEach { id in
+                                store.removeCity(id: id)
+                            }
+                        }
+                        
+                        // Bottom spacing
+                        Color.clear
+                            .frame(height: 200)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                     }
-                }
-                .simultaneousGesture(
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.clear)
+                    .simultaneousGesture(
                     DragGesture()
                         .onChanged { value in
                             if swipingCityId != nil { return } // Mutated to ignore when swiping a card
@@ -127,6 +152,7 @@ struct OverlapView: View {
 
                 // Bottom Toolbar
                 overlapToolbar
+                } // end else (not searching)
             }
             .padding(.bottom, AppConstants.tabBarHeight + 8)
         }
@@ -141,14 +167,14 @@ struct OverlapView: View {
                 withAnimation { showArrowHint = false }
             }
         }
-        .sheet(isPresented: $showCitySearch) {
-            CitySearchSheet(store: store)
-        }
         .sheet(item: $editingCity) { city in
             CityDetailSheet(city: city, store: store)
         }
         .sheet(isPresented: $showOverlapAnalysis) {
             OverlapAnalysisSheet(store: store)
+        }
+        .fullScreenCover(isPresented: $showUpsell) {
+            ProUpsellFlowView()
         }
     }
 
@@ -157,21 +183,210 @@ struct OverlapView: View {
     private var overlapHeader: some View {
         HStack {
             Text("Events")
-                .font(.system(size: 18, weight: .bold))
+                .font(.system(size: 24, weight: .bold))
                 .foregroundColor(Colors.textPrimary)
 
             Spacer()
 
-            Button(action: {}) {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(Colors.textSecondary)
-                    .frame(width: 32, height: 32)
-            }
+            EditButton()
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(Colors.accentTeal)
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .padding(.bottom, 4)
+    }
+
+    // MARK: - Inline Search Bar (iOS Weather style)
+
+    private var inlineSearchBar: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(Color.gray)
+
+                TextField("Search cities...", text: $searchText)
+                    .font(.system(size: 16))
+                    .foregroundColor(.white)
+                    .focused($searchFocused)
+                    .autocorrectionDisabled()
+                    .onChange(of: searchFocused) { _, focused in
+                        if focused {
+                            withAnimation(.spring(response: 0.3)) {
+                                isSearching = true
+                            }
+                        }
+                    }
+
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 15))
+                            .foregroundColor(Color.gray)
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Colors.cardSurface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(isSearching ? Colors.accentTeal.opacity(0.5) : Color.white.opacity(0.06), lineWidth: 1)
+            )
+
+            if isSearching {
+                Button {
+                    withAnimation(.spring(response: 0.3)) {
+                        isSearching = false
+                        searchText = ""
+                        searchFocused = false
+                    }
+                } label: {
+                    Text("Cancel")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(Color(red: 0.0, green: 0.7, blue: 0.5))
+                }
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+    }
+
+    // MARK: - Search Results
+
+    private var addedIdentifiers: Set<String> {
+        Set(store.cities.map(\.timeZoneIdentifier))
+    }
+
+    private var searchResultsList: some View {
+        ScrollView(showsIndicators: false) {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if searchText.isEmpty {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("SUGGESTED CITIES")
+                            .font(.system(size: 11, weight: .black, design: .monospaced))
+                            .kerning(1)
+                            .foregroundColor(Colors.textTertiary)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 16)
+                            .padding(.bottom, 12)
+
+                        ForEach(WorldCityDatabase.majorCities.prefix(30)) { entry in
+                            searchRow(for: entry)
+                        }
+                    }
+                } else {
+                    ForEach(WorldCityDatabase.search(searchText)) { entry in
+                        searchRow(for: entry)
+                    }
+                }
+            }
+        }
+    }
+
+    private func searchRow(for entry: WorldCityDatabase.CityEntry) -> some View {
+        let isAdded = addedIdentifiers.contains(entry.timeZoneIdentifier)
+        let flag = flagForTimezone(entry.timeZoneIdentifier)
+
+        return VStack(spacing: 0) {
+            Button {
+                addCityFromSearch(entry)
+            } label: {
+                HStack(spacing: 12) {
+                    Text(flag)
+                        .font(.system(size: 20))
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(entry.cityName)
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundColor(isAdded ? Colors.accentTeal : .white)
+
+                        HStack(spacing: 6) {
+                            Text(entry.country)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(Color.gray)
+
+                            if let tz = TimeZone(identifier: entry.timeZoneIdentifier) {
+                                Text(tz.abbreviation() ?? "")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(Color.gray.opacity(0.6))
+                            }
+                        }
+                    }
+
+                    Spacer()
+
+                    if isAdded {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(Color(red: 0.0, green: 0.7, blue: 0.5))
+                    } else {
+                        Image(systemName: "plus.circle")
+                            .font(.system(size: 18))
+                            .foregroundColor(Color.white.opacity(0.4))
+                    }
+                }
+                .padding(.vertical, 12)
+                .padding(.horizontal, 20)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(isAdded)
+
+            Divider()
+                .background(Color.white.opacity(0.06))
+                .padding(.leading, 56)
+        }
+    }
+
+    private func flagForTimezone(_ tz: String) -> String {
+        let map: [String: String] = [
+            "Asia/Kolkata": "🇮🇳", "Asia/Shanghai": "🇨🇳", "Asia/Tokyo": "🇯🇵",
+            "Asia/Seoul": "🇰🇷", "Asia/Dubai": "🇦🇪", "Asia/Singapore": "🇸🇬",
+            "Asia/Hong_Kong": "🇭🇰", "Asia/Bangkok": "🇹🇭", "Asia/Taipei": "🇹🇼",
+            "Asia/Manila": "🇵🇭", "Asia/Jakarta": "🇮🇩", "Asia/Ho_Chi_Minh": "🇻🇳",
+            "Asia/Kuala_Lumpur": "🇲🇾", "Asia/Qatar": "🇶🇦", "Asia/Riyadh": "🇸🇦",
+            "Europe/London": "🇬🇧", "Europe/Berlin": "🇩🇪", "Europe/Paris": "🇫🇷",
+            "Europe/Rome": "🇮🇹", "Europe/Madrid": "🇪🇸", "Europe/Amsterdam": "🇳🇱",
+            "Europe/Moscow": "🇷🇺", "Europe/Istanbul": "🇹🇷", "Europe/Dublin": "🇮🇪",
+            "Europe/Zurich": "🇨🇭", "Europe/Vienna": "🇦🇹", "Europe/Stockholm": "🇸🇪",
+            "Europe/Warsaw": "🇵🇱", "Europe/Prague": "🇨🇿", "Europe/Lisbon": "🇵🇹",
+            "America/New_York": "🇺🇸", "America/Chicago": "🇺🇸",
+            "America/Los_Angeles": "🇺🇸", "America/Denver": "🇺🇸",
+            "America/Toronto": "🇨🇦", "America/Vancouver": "🇨🇦",
+            "America/Sao_Paulo": "🇧🇷", "America/Argentina/Buenos_Aires": "🇦🇷",
+            "America/Mexico_City": "🇲🇽", "America/Bogota": "🇨🇴",
+            "Africa/Johannesburg": "🇿🇦", "Africa/Nairobi": "🇰🇪",
+            "Africa/Lagos": "🇳🇬", "Africa/Cairo": "🇪🇬",
+            "Australia/Sydney": "🇦🇺", "Australia/Melbourne": "🇦🇺",
+            "Pacific/Auckland": "🇳🇿",
+        ]
+        return map[tz] ?? "🌐"
+    }
+
+    private func addCityFromSearch(_ entry: WorldCityDatabase.CityEntry) {
+        let city = OverlapCity(
+            cityName: entry.cityName,
+            timeZoneIdentifier: entry.timeZoneIdentifier
+        )
+        store.addCity(city)
+
+        let feedback = UINotificationFeedbackGenerator()
+        feedback.notificationOccurred(.success)
+
+        withAnimation(.spring(response: 0.3)) {
+            searchText = ""
+            isSearching = false
+            searchFocused = false
+        }
     }
 
     // MARK: - Minimized City Row (e.g. London in user example)
@@ -182,11 +397,19 @@ struct OverlapView: View {
             at: store.adjustedDate
         )
         let isToday = Calendar.current.isDateInToday(store.adjustedDate)
+        let isDay = city.isDaytime(at: store.adjustedDate)
         
-        return HStack {
+        return HStack(spacing: 8) {
+            Text(city.flagEmoji)
+                .font(.system(size: 16))
+            
             Text(city.displayName)
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(Colors.textPrimary)
+
+            Image(systemName: isDay ? "sun.min.fill" : "moon.fill")
+                .font(.system(size: 10))
+                .foregroundColor(isDay ? Color.yellow : Color.purple.opacity(0.7))
 
             Spacer()
 
@@ -199,7 +422,7 @@ struct OverlapView: View {
             }
 
             Text(dateInZone.timeString)
-                .font(.system(size: 18, weight: .bold))
+                .font(.system(size: 18, weight: .black, design: .monospaced))
                 .foregroundColor(Colors.textPrimary)
                 .monospacedDigit()
         }
@@ -213,12 +436,23 @@ struct OverlapView: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(Color.white.opacity(0.04), lineWidth: 1)
         )
-        .onLongPressGesture(minimumDuration: 0.6) {
-            withAnimation(.spring(response: 0.3)) {
-                store.toggleMinimized(id: city.id)
+        .contextMenu {
+            Button {
+                let fmt = DateFormatter()
+                fmt.timeZone = city.timeZone
+                fmt.dateFormat = "HH:mm"
+                let timeStr = fmt.string(from: store.adjustedDate)
+                UIPasteboard.general.string = "\(city.displayName): \(timeStr)"
+            } label: {
+                Label("Copy Time", systemImage: "doc.on.doc")
             }
-            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-            impactFeedback.impactOccurred()
+            Button {
+                withAnimation(.spring(response: 0.3)) {
+                    store.toggleMinimized(id: city.id)
+                }
+            } label: {
+                Label("Expand", systemImage: "rectangle.expand.vertical")
+            }
         }
     }
 
@@ -290,6 +524,8 @@ struct OverlapView: View {
                     }()
 
                     HStack(spacing: 6) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.system(size: 12, weight: .bold))
                         Text(timeText)
                             .font(.system(size: 13, weight: .heavy))
                         Text(direction)
@@ -297,17 +533,14 @@ struct OverlapView: View {
                         Text("NOW")
                             .font(.system(size: 13, weight: .black))
                     }
-                    .foregroundColor(Colors.textPrimary)
+                    .foregroundColor(.white)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 8)
                     .background(
                         Capsule()
-                            .fill(Color(red: 0.15, green: 0.17, blue: 0.22))
+                            .fill(Color(red: 0.0, green: 0.55, blue: 0.4))
                     )
-                    .overlay(
-                        Capsule()
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                    )
+                    .shadow(color: Color(red: 0.0, green: 0.6, blue: 0.4).opacity(0.3), radius: 6, y: 3)
                 }
             }
         }
@@ -318,8 +551,15 @@ struct OverlapView: View {
 
     private var overlapToolbar: some View {
         HStack(spacing: 0) {
-            // Add City
-            Button { showCitySearch = true } label: {
+            // Add City (focuses search)
+            Button { 
+                withAnimation(.spring(response: 0.3)) {
+                    isSearching = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    searchFocused = true
+                }
+            } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 20, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
@@ -327,9 +567,11 @@ struct OverlapView: View {
             }
 
             // Overlap Analysis (sinusoidal icon)
-            Button { showOverlapAnalysis = true } label: {
+            Button { 
+                showOverlapAnalysis = true 
+            } label: {
                 Image(systemName: "waveform.path")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: 22, weight: .black))
                     .foregroundColor(Colors.textPrimary)
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
@@ -351,45 +593,30 @@ struct OverlapView: View {
     /// Generates text to share current city times
     private func generateShareText() -> String {
         let date = store.adjustedDate
-        var cities = store.sortedCities
-        guard let baseCity = cities.first else { return "" }
+        let cities = store.sortedCities
+        guard !cities.isEmpty else { return "" }
         
         let formatter = DateFormatter()
-        formatter.timeZone = baseCity.timeZone
         
-        formatter.dateFormat = "EEEE, d. MMMM yyyy"
-        let baseDateStr = formatter.string(from: date)
+        // Header with date
+        formatter.timeZone = cities.first!.timeZone
+        formatter.dateFormat = "EEEE, d MMMM yyyy"
+        let dateStr = formatter.string(from: date)
         
-        formatter.dateFormat = "HH:mm"
-        let baseTimeStr = formatter.string(from: date)
+        var text = "🌍 Times across cities — \(dateStr)\n\n"
         
-        formatter.dateFormat = "z"
-        let baseTzStr = formatter.string(from: date)
-        
-        var text = "How's \(baseDateStr) at \(baseTimeStr) (\(baseTzStr))?\n"
-        
-        if cities.count > 1 {
-            let otherCities = cities.dropFirst()
-            var otherTimes: [String] = []
+        for city in cities {
+            formatter.timeZone = city.timeZone
+            formatter.dateFormat = "HH:mm"
+            let timeStr = formatter.string(from: date)
             
-            for city in otherCities {
-                formatter.timeZone = city.timeZone
-                formatter.dateFormat = "HH:mm"
-                let timeStr = formatter.string(from: date)
-                otherTimes.append("\(timeStr) for \(city.displayName)")
-            }
+            formatter.dateFormat = "z"
+            let tzStr = formatter.string(from: date)
             
-            if otherTimes.count == 1 {
-                text += "That's \(otherTimes[0])."
-            } else if otherTimes.count == 2 {
-                text += "That's \(otherTimes[0]) and \(otherTimes[1])."
-            } else {
-                let last = otherTimes.removeLast()
-                let joined = otherTimes.joined(separator: ", ")
-                text += "That's \(joined), and \(last)."
-            }
+            text += "\(city.flagEmoji) \(city.displayName): \(timeStr) (\(tzStr))\n"
         }
         
+        text += "\nShared from Alarmo"
         return text
     }
 
@@ -477,46 +704,70 @@ struct CityCardView: View {
 
     var body: some View {
         let dateComps = formattedDateComponents(for: city.timeZone, at: adjustedDate)
+        let isDay = city.isDaytime(at: adjustedDate)
 
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(city.displayName)
-                    .font(.system(size: 20, weight: .bold)) // slightly smaller font
-                    .foregroundColor(.white)
+        HStack(spacing: 0) {
+            // LEFT: Info
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Text(city.flagEmoji)
+                        .font(.system(size: 16))
+                    Text(city.displayName)
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.white)
+                }
 
                 let offsetStr = city.offsetString(from: referenceTimeZone, at: adjustedDate)
                 Text(offsetStr == "+0" ? "HOME TZ" : "\(offsetStr) HRS")
-                    .font(.system(size: 11, weight: .semibold)) // slightly smaller font
-                    .foregroundColor(.white.opacity(0.8))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(Color.black.opacity(0.3))
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundColor(Colors.accentTeal)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Colors.accentTeal.opacity(0.12))
                     .cornerRadius(6)
             }
 
             Spacer()
 
+            // RIGHT: Time
             VStack(alignment: .trailing, spacing: 2) {
-                Text(dateComps.timeString)
-                    .font(.system(size: 36, weight: .bold, design: .rounded)) // smaller time
-                    .foregroundColor(.white)
-                    .monospacedDigit()
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(dateComps.timeString)
+                        .font(.system(size: 34, weight: .bold, design: .monospaced))
+                        .foregroundColor(.white)
+                        .monospacedDigit()
+                    
+                    Image(systemName: isDay ? "sun.max.fill" : "moon.stars.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(isDay ? Color.yellow : Colors.accentTeal)
+                }
 
                 Text(dateComps.dayOfWeek.uppercased())
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.white.opacity(0.7))
+                    .font(.system(size: 9, weight: .black, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.5))
                     .kerning(0.5)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14) // Reduced height padding roughly ~30% smaller
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(cardGradient)
+            ZStack {
+                cardGradient
+                
+                // Subtle teal glow for active/day cities
+                if isDay {
+                    LinearGradient(
+                        colors: [Colors.accentTeal.opacity(0.08), Color.clear],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                }
+            }
         )
+        .cornerRadius(24)
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(isDay ? Colors.accentTeal.opacity(0.2) : Color.white.opacity(0.08), lineWidth: 1)
         )
     }
 }

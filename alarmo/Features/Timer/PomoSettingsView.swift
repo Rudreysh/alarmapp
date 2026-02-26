@@ -5,6 +5,9 @@ struct PomoSettingsView: View {
     @ObservedObject private var settingsStore = SettingsStore.shared
     @Environment(\.dismiss) var dismiss
     
+    @StateObject private var subManager = SubscriptionManager.shared
+    @State private var showUpsell = false
+    
     @State private var showingPomoDuration = false
     @State private var showingShortBreak = false
     @State private var showingLongBreak = false
@@ -14,6 +17,30 @@ struct PomoSettingsView: View {
     @State private var showingPomoSound = false
     @State private var showingBreakSound = false
     @State private var showAccountabilityInfo = false
+    
+    private func proBinding<T>(_ binding: Binding<T>) -> Binding<T> {
+        Binding(
+            get: { binding.wrappedValue },
+            set: { newValue in
+                if subManager.isPro {
+                    binding.wrappedValue = newValue
+                } else {
+                    showUpsell = true
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                }
+            }
+        )
+    }
+    
+    // Helper to request view or upsell
+    private func reqPro(action: @escaping () -> Void) {
+        if subManager.isPro {
+            action()
+        } else {
+            showUpsell = true
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
+    }
     
     var body: some View {
         ZStack {
@@ -47,22 +74,22 @@ struct PomoSettingsView: View {
                 
                 ScrollView {
                     VStack(spacing: 24) {
-                        // Section 1: Timer Option
-                        FocusSettingsSection(title: "Timer Option") {
+                        // Section 1: Timer Option (PRO)
+                        FocusSettingsSection(title: "Timer Option (PRO)") {
                             FocusSettingsRow(title: "Pomodoro Duration", value: "\(preferences.pomoDurationMinutes) minutes") {
-                                showingPomoDuration = true
+                                reqPro { showingPomoDuration = true }
                             }
                             Divider().background(Colors.cardStroke)
                             FocusSettingsRow(title: "Short Break Duration", value: "\(preferences.shortBreakMinutes) minutes") {
-                                showingShortBreak = true
+                                reqPro { showingShortBreak = true }
                             }
                             Divider().background(Colors.cardStroke)
                             FocusSettingsRow(title: "Long Break Duration", value: "\(preferences.longBreakMinutes) minutes") {
-                                showingLongBreak = true
+                                reqPro { showingLongBreak = true }
                             }
                             Divider().background(Colors.cardStroke)
                             FocusSettingsRow(title: "Pomodoros per long break", value: "\(preferences.pomosPerLongBreak) Pomos") {
-                                showingPomosPerLongBreak = true
+                                reqPro { showingPomosPerLongBreak = true }
                             }
                         }
                         
@@ -88,20 +115,20 @@ struct PomoSettingsView: View {
                             }
                             Divider().background(Colors.cardStroke)
                             FocusSettingsRow(title: "Vibration Duration", value: "\(preferences.vibrationDurationSeconds)s") {
-                                showingVibration = true
+                                reqPro { showingVibration = true }
                             }
                         }
 
-                        // Section 4: Accountability Shield
-                        FocusSettingsSection(title: "Accountability Shield") {
+                        // Section 4: Accountability Shield (PRO)
+                        FocusSettingsSection(title: "Accountability Shield (PRO)") {
                             FocusSettingsToggleRow(
                                 title: "Enable for Pomodoro focus",
-                                isOn: $settingsStore.accountabilityEnabled
+                                isOn: proBinding($settingsStore.accountabilityEnabled)
                             )
                             Divider().background(Colors.cardStroke)
                             FocusSettingsToggleRow(
                                 title: "Lock phone while focus runs",
-                                isOn: $settingsStore.blockAppsEnabled
+                                isOn: proBinding($settingsStore.blockAppsEnabled)
                             )
                             if settingsStore.blockAppsEnabled {
                                 Divider().background(Colors.cardStroke)
@@ -111,7 +138,7 @@ struct PomoSettingsView: View {
                             Divider().background(Colors.cardStroke)
                             FocusSettingsToggleRow(
                                 title: "Use penalty credits",
-                                isOn: $settingsStore.penaltyEnabled
+                                isOn: proBinding($settingsStore.penaltyEnabled)
                             )
                             if settingsStore.penaltyEnabled {
                                 Divider().background(Colors.cardStroke)
@@ -194,6 +221,9 @@ struct PomoSettingsView: View {
         }
         .sheet(isPresented: $showAccountabilityInfo) {
             AccountabilityInfoView()
+        }
+        .fullScreenCover(isPresented: $showUpsell) {
+            ProUpsellFlowView()
         }
     }
 }

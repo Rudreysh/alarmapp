@@ -22,7 +22,7 @@ struct OverlapAnalysisSheet: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Color(red: 0.04, green: 0.06, blue: 0.10)
+                LinearGradient(colors: [Colors.bgSecondary, Colors.bgPrimary], startPoint: .top, endPoint: .bottom)
                     .ignoresSafeArea()
 
                 VStack(spacing: 20) {
@@ -134,7 +134,7 @@ struct OverlapAnalysisSheet: View {
         }
         .sheet(isPresented: $showOverlapTimePicker) {
             ZStack {
-                Color(red: 0.04, green: 0.05, blue: 0.08).ignoresSafeArea()
+                Colors.bgPrimary.ignoresSafeArea()
                 
                 VStack(spacing: 24) {
                     Text("Customize Meeting Time")

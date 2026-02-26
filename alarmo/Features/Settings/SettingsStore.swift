@@ -41,6 +41,8 @@ class SettingsStore: ObservableObject {
         static let exemptionRequests = "settings.exemptionRequests"
         static let penaltyTransactions = "settings.penaltyTransactions"
         static let penaltyPaymentToken = "settings.penaltyPaymentToken"
+        static let penaltyCardBrand = "settings.penaltyCardBrand"
+        static let penaltyCardLast4 = "settings.penaltyCardLast4"
         static let penaltyTermsAccepted = "settings.penaltyTermsAccepted"
     }
     
@@ -76,6 +78,8 @@ class SettingsStore: ObservableObject {
     @AppStorage(Keys.lastPenaltyEventAt) var lastPenaltyEventAt: Double = 0
     @AppStorage(Keys.penaltyCurrency) var penaltyCurrencyRaw: String = PenaltyCurrency.eur.rawValue
     @AppStorage(Keys.penaltyPaymentToken) var penaltyPaymentToken: String = ""
+    @AppStorage(Keys.penaltyCardBrand) var penaltyCardBrand: String = ""
+    @AppStorage(Keys.penaltyCardLast4) var penaltyCardLast4: String = ""
     @AppStorage(Keys.penaltyTermsAccepted) var penaltyTermsAccepted: Bool = false
     
     @Published var notificationPrefs: NotificationPrefs {

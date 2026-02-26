@@ -29,6 +29,7 @@ protocol AppPreferencesProtocol: AnyObject {
     var autoStartBreak: Bool { get set }
     var autoPomoCycle: Int { get set }
     var pomoEndingSoundName: String { get set }
+    var ambientSoundName: String { get set }
     var breakEndingSoundName: String { get set }
     var vibrationDurationSeconds: Int { get set }
     var stopwatchSoundName: String { get set }
@@ -74,6 +75,7 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
     @Published var autoStartBreak: Bool { didSet { defaults.set(autoStartBreak, forKey: Keys.autoStartBreak); log("set autoStartBreak=\(autoStartBreak)") } }
     @Published var autoPomoCycle: Int { didSet { defaults.set(autoPomoCycle, forKey: Keys.autoPomoCycle); log("set autoPomoCycle=\(autoPomoCycle)") } }
     @Published var pomoEndingSoundName: String { didSet { defaults.set(pomoEndingSoundName, forKey: Keys.pomoEndingSoundName); log("selected pomoEndingSoundName=\(pomoEndingSoundName)") } }
+    @Published var ambientSoundName: String { didSet { defaults.set(ambientSoundName, forKey: Keys.ambientSoundName); log("selected ambientSoundName=\(ambientSoundName)") } }
     @Published var breakEndingSoundName: String { didSet { defaults.set(breakEndingSoundName, forKey: Keys.breakEndingSoundName); log("selected breakEndingSoundName=\(breakEndingSoundName)") } }
     @Published var vibrationDurationSeconds: Int { didSet { defaults.set(vibrationDurationSeconds, forKey: Keys.vibrationDurationSeconds); log("set vibrationDurationSeconds=\(vibrationDurationSeconds)") } }
     @Published var stopwatchSoundName: String { didSet { defaults.set(stopwatchSoundName, forKey: Keys.stopwatchSoundName); log("selected stopwatchSoundName=\(stopwatchSoundName)") } }
@@ -143,6 +145,7 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
         self.autoStartBreak = defaults.bool(forKey: Keys.autoStartBreak)
         self.autoPomoCycle = defaults.object(forKey: Keys.autoPomoCycle) as? Int ?? 4
         self.pomoEndingSoundName = defaults.string(forKey: Keys.pomoEndingSoundName) ?? "Addams Family"
+        self.ambientSoundName = defaults.string(forKey: Keys.ambientSoundName) ?? "Rain Sound"
         self.breakEndingSoundName = defaults.string(forKey: Keys.breakEndingSoundName) ?? "Alan Jackson Remix"
         self.vibrationDurationSeconds = defaults.object(forKey: Keys.vibrationDurationSeconds) as? Int ?? 10
         self.stopwatchSoundName = defaults.string(forKey: Keys.stopwatchSoundName) ?? "Batman Beyond"
@@ -180,6 +183,7 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
         static let autoStartBreak = "alarmo.focus.autoStartBreak"
         static let autoPomoCycle = "alarmo.focus.autoPomoCycle"
         static let pomoEndingSoundName = "alarmo.focus.pomoEndingSoundName"
+        static let ambientSoundName = "alarmo.focus.ambientSoundName"
         static let breakEndingSoundName = "alarmo.focus.breakEndingSoundName"
         static let vibrationDurationSeconds = "alarmo.focus.vibrationDurationSeconds"
         static let stopwatchSoundName = "alarmo.focus.stopwatchSoundName"

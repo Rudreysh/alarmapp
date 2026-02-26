@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		0B7D96725198ABF6F85FD391 /* sounds in Resources */ = {isa = PBXBuildFile; fileRef = B8F140C13423E07460FCC520 /* sounds */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		967E8BFA2F13F49A0060F3D8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +31,7 @@
 		967E8BEA2F13F4990060F3D8 /* alarmo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = alarmo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		967E8BF92F13F49A0060F3D8 /* alarmoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = alarmoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		967E8C032F13F49A0060F3D8 /* alarmoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = alarmoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B8F140C13423E07460FCC520 /* sounds */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder; name = sounds; path = HostedAssets/sounds; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -79,6 +84,7 @@
 				967E8BFC2F13F49A0060F3D8 /* alarmoTests */,
 				967E8C062F13F49A0060F3D8 /* alarmoUITests */,
 				967E8BEB2F13F4990060F3D8 /* Products */,
+				B8F140C13423E07460FCC520 /* sounds */,
 			);
 			sourceTree = "<group>";
 		};
@@ -111,8 +117,6 @@
 				967E8BEC2F13F4990060F3D8 /* alarmo */,
 			);
 			name = alarmo;
-			packageProductDependencies = (
-			);
 			productName = alarmo;
 			productReference = 967E8BEA2F13F4990060F3D8 /* alarmo.app */;
 			productType = "com.apple.product-type.application";
@@ -134,8 +138,6 @@
 				967E8BFC2F13F49A0060F3D8 /* alarmoTests */,
 			);
 			name = alarmoTests;
-			packageProductDependencies = (
-			);
 			productName = alarmoTests;
 			productReference = 967E8BF92F13F49A0060F3D8 /* alarmoTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -157,8 +159,6 @@
 				967E8C062F13F49A0060F3D8 /* alarmoUITests */,
 			);
 			name = alarmoUITests;
-			packageProductDependencies = (
-			);
 			productName = alarmoUITests;
 			productReference = 967E8C032F13F49A0060F3D8 /* alarmoUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -212,6 +212,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0B7D96725198ABF6F85FD391 /* sounds in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

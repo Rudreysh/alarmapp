@@ -4,6 +4,8 @@ import Combine
 final class CreateWakeUpAlarmViewModel: ObservableObject {
     @Published var draft: AlarmDraft
     @Published var soundProgress: Double = 0.0
+    @Published var cycleToLocal: Bool = false
+    private var cycleTimer: AnyCancellable?
 
     init(defaultHour: Int, defaultMinute: Int, defaultSecond: Int = 0, defaultRepeatMask: Int, defaultSoundName: String, defaultSoundVolume: Float, defaultWallpaperId: String) {
         self.draft = AlarmDraft(
@@ -15,6 +17,9 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
             defaultSoundVolume: defaultSoundVolume,
             defaultWallpaperId: defaultWallpaperId
         )
+        if draft.timeZoneMode == .custom {
+            startCycling()
+        }
     }
 
     init(alarm: Alarm) {
@@ -55,6 +60,9 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
         draft.penaltyAmountEuro = alarm.penaltyAmountEuro
         draft.penaltyRules = alarm.penaltyRules
         self.draft = draft
+        if draft.timeZoneMode == .custom {
+            startCycling()
+        }
     }
     
     func addMission(_ mission: AlarmMission) {
@@ -151,5 +159,21 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
     func repeatMask() -> Int {
         if draft.isDaily { return RepeatMask.allDays }
         return RepeatMask.mask(from: Array(draft.selectedWeekdays))
+    }
+
+    func startCycling() {
+        cycleTimer?.cancel()
+        cycleTimer = Timer.publish(every: 3, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                // Use standard SwiftUI animation if possible or just toggle
+                self?.cycleToLocal.toggle()
+            }
+    }
+    
+    func stopCycling() {
+        cycleTimer?.cancel()
+        cycleTimer = nil
+        cycleToLocal = false
     }
 }

@@ -33,8 +33,8 @@ struct PomodoroMainView: View {
                     
                     // 2. Timer Digits (Large & Thin)
                     Text(viewModel.timeDisplay)
-                        .font(.system(size: min(width * 0.28, 120), weight: .thin, design: .rounded))
-                        .monospacedDigit()
+                        .font(.system(size: min(width * 0.28, 120), weight: .regular, design: .monospaced))
+                        .kerning(2)
                         .foregroundColor(theme.primaryText)
                         .transition(.scale.combined(with: .opacity))
                         .id("timer-\(viewModel.currentStage)") // Reset anim on stage change

@@ -5,7 +5,7 @@ struct SnoozePickerView: View {
     @Binding var seconds: Int
     @Binding var count: Int
 
-    private let minuteOptions = [0, 3, 5, 10, 15, 20, 25, 30, 45, 60]
+    private let minuteOptions = [0, 1, 3, 5, 10, 15, 20, 25, 30, 45, 60]
     private let secondOptions = [0, 5, 10, 15, 20, 30, 45]
     private let countOptions = Array(1...10)
 

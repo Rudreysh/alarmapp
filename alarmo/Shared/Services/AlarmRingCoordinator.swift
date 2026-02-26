@@ -199,6 +199,17 @@ final class AlarmRingCoordinator: ObservableObject {
             session.isActive = false
             activeSession = session
         }
+        
+        // Update wake-up streak: increment if no snooze was used
+        let streakKey = "qs_streak"
+        if activeSnoozeCount == 0 {
+            let current = UserDefaults.standard.integer(forKey: streakKey)
+            UserDefaults.standard.set(current + 1, forKey: streakKey)
+        } else {
+            // Snoozed at least once — reset streak
+            UserDefaults.standard.set(0, forKey: streakKey)
+        }
+        
         stopRingingInternal(preserveSession: false, completed: true)
     }
 

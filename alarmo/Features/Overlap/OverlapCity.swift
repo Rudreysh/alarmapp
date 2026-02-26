@@ -72,6 +72,45 @@ struct OverlapCity: Identifiable, Codable, Equatable {
         }
         return String(format: "%+.1f", hours)
     }
+
+    /// Whether it's daytime (6am–8pm) in this city at the given date.
+    func isDaytime(at date: Date) -> Bool {
+        let cal = Calendar.current
+        var calInTZ = cal
+        calInTZ.timeZone = timeZone
+        let hour = calInTZ.component(.hour, from: date)
+        return hour >= 6 && hour < 20
+    }
+
+    /// Country flag emoji derived from the timezone identifier.
+    var flagEmoji: String {
+        let tzToCountry: [String: String] = [
+            "Asia/Kolkata": "🇮🇳", "Asia/Shanghai": "🇨🇳", "Asia/Tokyo": "🇯🇵",
+            "Asia/Seoul": "🇰🇷", "Asia/Taipei": "🇹🇼", "Asia/Dubai": "🇦🇪",
+            "Asia/Qatar": "🇶🇦", "Asia/Riyadh": "🇸🇦", "Asia/Kuala_Lumpur": "🇲🇾",
+            "Asia/Jakarta": "🇮🇩", "Asia/Manila": "🇵🇭", "Asia/Ho_Chi_Minh": "🇻🇳",
+            "Asia/Singapore": "🇸🇬", "Asia/Hong_Kong": "🇭🇰", "Asia/Bangkok": "🇹🇭",
+            "Europe/London": "🇬🇧", "Europe/Berlin": "🇩🇪", "Europe/Paris": "🇫🇷",
+            "Europe/Rome": "🇮🇹", "Europe/Madrid": "🇪🇸", "Europe/Amsterdam": "🇳🇱",
+            "Europe/Brussels": "🇧🇪", "Europe/Zurich": "🇨🇭", "Europe/Vienna": "🇦🇹",
+            "Europe/Stockholm": "🇸🇪", "Europe/Oslo": "🇳🇴", "Europe/Copenhagen": "🇩🇰",
+            "Europe/Helsinki": "🇫🇮", "Europe/Warsaw": "🇵🇱", "Europe/Prague": "🇨🇿",
+            "Europe/Budapest": "🇭🇺", "Europe/Lisbon": "🇵🇹", "Europe/Athens": "🇬🇷",
+            "Europe/Dublin": "🇮🇪", "Europe/Moscow": "🇷🇺", "Europe/Istanbul": "🇹🇷",
+            "America/New_York": "🇺🇸", "America/Chicago": "🇺🇸",
+            "America/Los_Angeles": "🇺🇸", "America/Denver": "🇺🇸",
+            "America/Toronto": "🇨🇦", "America/Vancouver": "🇨🇦",
+            "America/Sao_Paulo": "🇧🇷", "America/Argentina/Buenos_Aires": "🇦🇷",
+            "America/Mexico_City": "🇲🇽", "America/Bogota": "🇨🇴",
+            "America/Lima": "🇵🇪", "America/Santiago": "🇨🇱",
+            "Africa/Johannesburg": "🇿🇦", "Africa/Nairobi": "🇰🇪",
+            "Africa/Lagos": "🇳🇬", "Africa/Cairo": "🇪🇬", "Africa/Casablanca": "🇲🇦",
+            "Australia/Sydney": "🇦🇺", "Australia/Melbourne": "🇦🇺",
+            "Australia/Brisbane": "🇦🇺", "Australia/Perth": "🇦🇺",
+            "Pacific/Auckland": "🇳🇿",
+        ]
+        return tzToCountry[timeZoneIdentifier] ?? "🌐"
+    }
 }
 
 /// Major world cities database for search, with aliases for common names.
@@ -97,18 +136,23 @@ struct WorldCityDatabase {
         ("Beijing", "Asia/Shanghai", "China", ["Peking"]),
         ("Shenzhen", "Asia/Shanghai", "China", []),
         ("Guangzhou", "Asia/Shanghai", "China", ["Canton"]),
-        ("San Francisco", "America/Los_Angeles", "US", ["SF", "Bay Area"]),
-        ("Silicon Valley", "America/Los_Angeles", "US", ["Cupertino", "Palo Alto"]),
-        ("Dallas", "America/Chicago", "US", ["DFW"]),
-        ("Houston", "America/Chicago", "US", []),
-        ("Austin", "America/Chicago", "US", []),
-        ("Miami", "America/New_York", "US", []),
-        ("Boston", "America/New_York", "US", []),
-        ("Washington DC", "America/New_York", "US", ["DC"]),
-        ("Philadelphia", "America/New_York", "US", ["Philly"]),
-        ("Atlanta", "America/New_York", "US", []),
-        ("Seattle", "America/Los_Angeles", "US", []),
-        ("Las Vegas", "America/Los_Angeles", "US", ["Vegas"]),
+        ("London", "Europe/London", "UK", []),
+        ("Paris", "Europe/Paris", "France", []),
+        ("Berlin", "Europe/Berlin", "Germany", []),
+        ("Tokyo", "Asia/Tokyo", "Japan", []),
+        ("New York", "America/New_York", "USA", ["NYC", "Manhattan"]),
+        ("San Francisco", "America/Los_Angeles", "USA", ["SF", "Bay Area"]),
+        ("Silicon Valley", "America/Los_Angeles", "USA", ["Cupertino", "Palo Alto"]),
+        ("Dallas", "America/Chicago", "USA", ["DFW"]),
+        ("Houston", "America/Chicago", "USA", []),
+        ("Austin", "America/Chicago", "USA", []),
+        ("Miami", "America/New_York", "USA", []),
+        ("Boston", "America/New_York", "USA", []),
+        ("Washington DC", "America/New_York", "USA", ["DC"]),
+        ("Philadelphia", "America/New_York", "USA", ["Philly"]),
+        ("Atlanta", "America/New_York", "USA", []),
+        ("Seattle", "America/Los_Angeles", "USA", []),
+        ("Las Vegas", "America/Los_Angeles", "USA", ["Vegas"]),
         ("Munich", "Europe/Berlin", "Germany", ["München"]),
         ("Frankfurt", "Europe/Berlin", "Germany", []),
         ("Hamburg", "Europe/Berlin", "Germany", []),
@@ -159,6 +203,17 @@ struct WorldCityDatabase {
         ("Hanoi", "Asia/Ho_Chi_Minh", "Vietnam", []),
         ("Texas", "America/Chicago", "US", ["TX"]),
     ]
+
+    static let majorCities: [CityEntry] = {
+        cityAliases.map { alias in
+            CityEntry(
+                cityName: alias.name,
+                timeZoneIdentifier: alias.tz,
+                country: alias.country,
+                aliases: alias.aliases
+            )
+        }
+    }()
 
     static let cities: [CityEntry] = {
         var entries: [CityEntry] = []

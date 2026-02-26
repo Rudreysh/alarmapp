@@ -1,5 +1,10 @@
 import SwiftUI
 
+/// Onboarding sound selection screen.
+///
+/// This view intentionally reuses all of the production components from
+/// `SoundPickerView` (CategoryPill, SoundRow, RemoteSoundRow, etc.) so that
+/// the behaviour, playback, categories and UI are 100% identical.
 struct OnboardingSoundSelectionView: View {
     @ObservedObject var onboardingViewModel: OnboardingViewModel
     @StateObject private var viewModel = OnboardingSoundSelectionViewModel()
@@ -10,324 +15,225 @@ struct OnboardingSoundSelectionView: View {
             LinearGradient(colors: [Colors.bgSecondary, Colors.bgPrimary], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
 
-            VStack(spacing: Spacing.l) {
+            VStack(spacing: 0) {
+                // ─── Progress header ──────────────────────────────────────
                 ProgressHeader(step: 3, total: AppConstants.onboardingTotalSteps)
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.l)
+                    .padding(.bottom, Spacing.s)
 
                 Text("Choose your alarm sound")
                     .screenTitle()
                     .foregroundColor(Colors.textPrimary)
                     .multilineTextAlignment(.center)
+                    .padding(.bottom, Spacing.s)
                     .accessibilityAddTraits(.isHeader)
 
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: Spacing.l) {
-                        if viewModel.categories.isEmpty {
-                            Text("No bundled sounds found. Ensure BundledSounds/ringtones is added to the app target.")
-                                .bodyText()
-                                .foregroundColor(Colors.textSecondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, Spacing.l)
-                        } else {
-                            CategoryPillsRow(categories: viewModel.categories, selected: viewModel.selectedCategory) { category in
-                                viewModel.selectCategory(category)
-                            }
-                            .padding(.horizontal, Spacing.l)
-                        }
-
-                        if !viewModel.categories.isEmpty {
-                            VStack(alignment: .leading, spacing: Spacing.m) {
-                                Text(viewModel.selectedCategory.title)
-                                    .cardTitle()
-                                    .foregroundColor(Colors.textPrimary)
-                                    .padding(.horizontal, Spacing.l)
-
-                                SoundListCard(
-                                    sounds: viewModel.soundsForSelectedCategory(),
-                                    selectedId: viewModel.selectedSoundId,
-                                    playingId: viewModel.nowPlayingSoundId,
-                                    onSelect: { sound in
-                                        viewModel.selectSoundOnly(sound)
-                                        onboardingViewModel.setSelectedSound(sound)
-                                    },
-                                    onPlay: { sound in
-                                        viewModel.tapSound(sound, volume: onboardingViewModel.state.selectedVolume)
-                                        onboardingViewModel.setSelectedSound(sound)
-                                    },
-                                    onReloadNeeded: {
-                                        viewModel.load()
-                                    }
-                                )
-                                .padding(.horizontal, Spacing.l)
+                // ─── Category pills ───────────────────────────────────────
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(viewModel.categories) { category in
+                            CategoryPill(
+                                category: category,
+                                isSelected: viewModel.selectedCategory == category
+                            ) {
+                                withAnimation(.spring(response: 0.3)) {
+                                    viewModel.selectCategory(category)
+                                }
                             }
                         }
                     }
-                    .padding(.bottom, Spacing.xl)
+                    .padding(.horizontal, Spacing.l)
                 }
-            }
-            .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "Next", style: .blueGlass) {
-                    onNext()
-                }
-                .padding(.horizontal, Spacing.l)
                 .padding(.bottom, Spacing.m)
+
+                // ─── Cloud sub-category pills ─────────────────────────────
+                if viewModel.selectedCategory == .cloud {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(viewModel.downloadableSections, id: \.category) { section in
+                                let isSel = (viewModel.selectedCloudCategory ?? viewModel.downloadableSections.first?.category) == section.category
+                                Button {
+                                    withAnimation(.spring(response: 0.3)) {
+                                        viewModel.selectedCloudCategory = section.category
+                                    }
+                                } label: {
+                                    Text(section.category)
+                                        .font(.system(size: 13, weight: .bold))
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 16)
+                                        .background(isSel ? Color(red: 0.1, green: 0.5, blue: 0.9) : Colors.cardSurface)
+                                        .foregroundColor(isSel ? .white : Colors.textPrimary)
+                                        .cornerRadius(20)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 20)
+                                                .stroke(Colors.cardStroke, lineWidth: isSel ? 0 : 1)
+                                        )
+                                }
+                            }
+                        }
+                        .padding(.horizontal, Spacing.l)
+                        .padding(.bottom, 12)
+                    }
+                }
+
+                // ─── Sound list ───────────────────────────────────────────
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        soundListBody
+                    }
+                    .background(Colors.cardSurface.opacity(0.3))
+                    .cornerRadius(16)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.bottom, 100)
+                }
             }
-        }
-        .onDisappear {
-            viewModel.stopPlayback()
+
+            // ─── Next button ───────────────────────────────────────────
+            VStack {
+                Spacer()
+                PrimaryButton(title: "Next", style: .blueGlass) { onNext() }
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.bottom, Spacing.l)
+            }
         }
         .onAppear {
+            if AssetManager.shared.remoteSounds.isEmpty {
+                Task { await AssetManager.shared.fetchCatalog() }
+            }
             if viewModel.selectedSoundId == nil,
                let first = viewModel.soundsForSelectedCategory().first {
                 viewModel.setInitialSelection(first)
                 onboardingViewModel.setSelectedSound(first)
             }
         }
-    }
-}
-
-private struct CategoryPillsRow: View {
-    let categories: [SoundCategory]
-    let selected: SoundCategory
-    let onSelect: (SoundCategory) -> Void
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(categories) { category in
-                    let isSelected = category == selected
-                    
-                    Button(action: { onSelect(category) }) {
-                        HStack(spacing: 6) {
-                            if let emoji = category.emoji {
-                                Text(emoji).font(.caption)
-                            }
-                            Text(category.title)
-                                .font(.system(size: 14, weight: .semibold))
-                        }
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 16)
-                        .background(isSelected ? Colors.accentTeal : Colors.cardSurface)
-                        .foregroundColor(isSelected ? .white : Colors.textPrimary)
-                        .cornerRadius(20)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(Colors.cardStroke, lineWidth: isSelected ? 0 : 1)
-                        )
-                    }
-                }
-            }
-        }
+        .onDisappear { viewModel.stopPlayback() }
     }
 
-    private func pillTitle(_ category: SoundCategory) -> String {
-        if let emoji = category.emoji {
-            return "\(emoji) \(category.title)"
-        }
-        return category.title
-    }
-}
+    // MARK: - Sound list body (mirrors SoundPickerView exactly)
 
-private struct SoundListCard: View {
-    let sounds: [SoundAsset]
-    let selectedId: SoundAsset.ID?
-    let playingId: SoundAsset.ID?
-    let onSelect: (SoundAsset) -> Void
-    let onPlay: (SoundAsset) -> Void
-    let onReloadNeeded: () -> Void
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ForEach(sounds) { sound in
-                if sound.category == .cloud {
-                    OnboardingRemoteSoundRow(
-                        sound: sound,
-                        isSelected: sound.id == selectedId,
-                        isPlaying: sound.id == playingId,
-                        onSelect: { onSelect(sound) },
-                        onPlay: { onPlay(sound) },
-                        onReloadNeeded: onReloadNeeded
-                    )
-                } else {
-                    OnboardingSoundRow(
-                        title: sound.title,
-                        isSelected: sound.id == selectedId,
-                        isPlaying: sound.id == playingId,
-                        onSelect: { onSelect(sound) },
-                        onPlay: { onPlay(sound) }
-                    )
-                }
-
-                if sound.id != sounds.last?.id {
-                    Divider().background(Colors.cardStroke)
-                }
-            }
-        }
-        .padding(.vertical, Spacing.s)
-        .background(Colors.cardSurface)
-        .cornerRadius(Radii.card)
-        .overlay(
-            RoundedRectangle(cornerRadius: Radii.card)
-                .stroke(Colors.cardStroke, lineWidth: 1)
-        )
-        .appShadow(Shadows.card)
-    }
-}
-
-private struct OnboardingSoundRow: View {
-    let title: String
-    let isSelected: Bool
-    let isPlaying: Bool
-    let onSelect: () -> Void
-    let onPlay: () -> Void
-
-    var body: some View {
-        HStack(spacing: 0) {
-            HStack(spacing: 16) {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(isSelected ? Colors.accentTeal : Colors.textTertiary)
-                    .font(.system(size: 22))
-
-                Text(title)
-                    .bodyText()
+    @ViewBuilder
+    private var soundListBody: some View {
+        if viewModel.selectedCategory == .cloud {
+            cloudSoundList
+        } else if viewModel.selectedCategory == .favorites && viewModel.soundsForSelectedCategory().isEmpty {
+            // Empty favorites placeholder
+            VStack(spacing: 16) {
+                Image(systemName: "star.slash")
+                    .font(.system(size: 40))
+                    .foregroundColor(Colors.textTertiary)
+                Text("No favorites yet")
+                    .font(.headline)
                     .foregroundColor(Colors.textPrimary)
-                    .lineLimit(1)
-
-                Spacer()
+                Text("Tap the star on any sound to add it to your favorites.")
+                    .font(.subheadline)
+                    .foregroundColor(Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
             }
-            .contentShape(Rectangle())
-            .onTapGesture { onSelect() }
-            .padding(.horizontal, Spacing.l)
-            .padding(.vertical, Spacing.m)
-
-            Button(action: onPlay) {
-                ZStack {
-                    if isPlaying {
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(Colors.textSecondary)
-                    } else {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(Colors.textSecondary)
-                    }
-                }
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-            }
-            .padding(.trailing, Spacing.l - 12)
+            .padding(.vertical, 60)
+        } else {
+            localSoundList
         }
     }
-}
 
-private struct OnboardingRemoteSoundRow: View {
-    let sound: SoundAsset
-    let isSelected: Bool
-    let isPlaying: Bool
-    let onSelect: () -> Void
-    let onPlay: () -> Void
-    let onReloadNeeded: () -> Void
-    
-    @State private var isDownloading = false
-    @State private var downloadProgress: Double = 0.0
-
-    var body: some View {
-        let isDownloaded = sound.fileURL.isFileURL
-        
-        HStack(spacing: 0) {
-            HStack(spacing: 16) {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(isSelected ? Colors.accentTeal : Colors.textTertiary)
-                    .font(.system(size: 22))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(sound.title)
-                        .bodyText()
-                        .foregroundColor(Colors.textPrimary)
-                        .lineLimit(1)
-                    
-                    if isDownloading {
-                        Text("Downloading \(Int(downloadProgress * 100))%...")
-                            .font(.caption2)
-                            .foregroundColor(Colors.accentTeal)
-                    } else if !isDownloaded {
-                        Text("Download to select")
-                            .font(.caption2)
-                            .foregroundColor(Colors.textTertiary)
-                    }
-                }
-                Spacer()
-            }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                if isDownloaded {
-                    onSelect()
-                } else {
-                    Task { await performDownload(playAfter: false) }
+    // ── Local / favourite sounds ──────────────────────────────────────────
+    @ViewBuilder
+    private var localSoundList: some View {
+        let sounds = viewModel.soundsForSelectedCategory()
+        ForEach(sounds) { sound in
+            SoundRow(
+                sound: sound,
+                isSelected: viewModel.selectedSoundId == sound.id,
+                isPlaying: viewModel.soundPlayer.isPlaying && viewModel.soundPlayer.playingResourceName == sound.title,
+                isBuffering: viewModel.soundPlayer.isBuffering && viewModel.soundPlayer.playingResourceName == sound.title
+            ) { action in
+                switch action {
+                case .select:
+                    viewModel.selectSoundOnly(sound)
+                    onboardingViewModel.setSelectedSound(sound)
+                case .play:
+                    viewModel.tapSound(sound, volume: onboardingViewModel.state.selectedVolume)
+                    onboardingViewModel.setSelectedSound(sound)
+                case .toggleStar:
+                    viewModel.toggleStar(sound)
                 }
             }
-            .padding(.horizontal, Spacing.l)
-            .padding(.vertical, Spacing.m)
 
-            Button(action: {
-                if isDownloaded {
-                    onPlay()
-                } else {
-                    Task { await performDownload(playAfter: true) }
-                }
-            }) {
-                ZStack {
-                    if isDownloading {
-                        ProgressView().tint(Colors.textSecondary)
-                    } else if !isDownloaded {
-                        Image(systemName: "icloud.and.arrow.down")
-                            .font(.system(size: 20))
-                            .foregroundColor(Colors.textSecondary)
-                    } else if isPlaying {
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(Colors.textSecondary)
-                    } else {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(Colors.textSecondary)
-                    }
-                }
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
+            if sound.id != sounds.last?.id {
+                Divider()
+                    .background(Colors.cardStroke)
+                    .padding(.leading, 56)
             }
-            .padding(.trailing, Spacing.l - 12)
         }
     }
-    
-    private func performDownload(playAfter: Bool) async {
-        guard !isDownloading, !sound.fileURL.isFileURL else { return }
-        
-        let assetManager = AssetManager.shared
-        guard let remote = assetManager.remoteSounds.first(where: { $0.id == sound.id }) else { return }
-        
-        await MainActor.run { isDownloading = true }
-        
-        do {
-            _ = try await assetManager.downloadAsset(from: remote.url, filename: remote.filename) { p in
-                DispatchQueue.main.async { self.downloadProgress = p }
-            }
-            await MainActor.run {
-                isDownloading = false
-                onReloadNeeded()
-                if playAfter {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        onPlay()
-                    }
-                } else {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        onSelect()
-                    }
+
+    // ── Cloud / downloadable sounds ───────────────────────────────────────
+    @ViewBuilder
+    private var cloudSoundList: some View {
+        if AssetManager.shared.isLoadingCatalog {
+            ProgressView("Loading sounds…").padding()
+        } else if viewModel.downloadableSections.isEmpty {
+            VStack(spacing: 12) {
+                Text("No downloadable sounds found.")
+                    .foregroundColor(Colors.textSecondary)
+                Button("Refresh Catalog") {
+                    Task { await AssetManager.shared.fetchCatalog() }
                 }
+                .font(.caption)
+                .foregroundColor(Colors.accentTeal)
             }
-        } catch {
-            await MainActor.run { isDownloading = false }
+            .padding()
+        } else {
+            cloudSectionRows
         }
+    }
+
+    /// Separate property to avoid Swift ViewBuilder type-inference bugs with
+    /// let-bindings + ForEach inside nested else{} blocks.
+    @ViewBuilder
+    private var cloudSectionRows: some View {
+        let cat = viewModel.selectedCloudCategory ?? viewModel.downloadableSections.first?.category ?? ""
+        if let section = viewModel.downloadableSections.first(where: { $0.category == cat }) {
+            ForEach(section.sounds) { remoteSound in
+                cloudSoundRowView(for: remoteSound)
+            }
+        }
+    }
+
+    /// Renders a single RemoteSoundRow + divider for a cloud sound.
+    @ViewBuilder
+    private func cloudSoundRowView(for remoteSound: RemoteSound) -> some View {
+        let isStarred = viewModel.soundsForSelectedCategory()
+            .first(where: { $0.id == remoteSound.id })?.isStarred ?? false
+        RemoteSoundRow(
+            remoteSound: remoteSound,
+            isSelected: viewModel.selectedSoundId == remoteSound.id,
+            isPlaying: viewModel.soundPlayer.isPlaying && viewModel.soundPlayer.playingResourceName == remoteSound.title,
+            isBuffering: viewModel.soundPlayer.isBuffering && viewModel.soundPlayer.playingResourceName == remoteSound.title,
+            isStarred: isStarred,
+            onSelect: {
+                if let url = AssetManager.shared.localURL(for: remoteSound.filename) {
+                    let asset = SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: url, category: .cloud)
+                    viewModel.selectSoundOnly(asset)
+                    onboardingViewModel.setSelectedSound(asset)
+                }
+            },
+            onPreview: {
+                if viewModel.soundPlayer.isPlaying && viewModel.soundPlayer.playingResourceName == remoteSound.title {
+                    viewModel.soundPlayer.stop()
+                } else {
+                    viewModel.soundPlayer.playStreamURL(remoteSound.url, resourceName: remoteSound.title, volume: onboardingViewModel.state.selectedVolume)
+                }
+            },
+            onToggleStar: {
+                let asset = SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: remoteSound.url, category: .cloud, isStarred: isStarred)
+                viewModel.toggleStar(asset)
+            }
+        )
+
+        Divider()
+            .background(Colors.cardStroke)
+            .padding(.leading, 16)
     }
 }

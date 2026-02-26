@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct CreateHabitAlarmView: View {
     @ObservedObject var alarmStore: AlarmStore
@@ -20,6 +21,7 @@ struct CreateHabitAlarmView: View {
     @State private var selectedMissionForConfig: AlarmMission?
     @State private var editingMissionIndex: Int?
     @State private var showPenaltySettings = false
+    @State private var showingLocalTimePreview = true // Default to floating mode if custom TZ
     
     // Reminder Pickers
     @State private var showFrequencyPicker = false
@@ -60,48 +62,75 @@ struct CreateHabitAlarmView: View {
                         // Top Spacer for Header
                         Color.clear.frame(height: 12)
 
-                        // 1. Digital Time Picker
+                        // 1. Digital Time Picker (Floating between TZ if enabled)
                         DigitalTimeDisplay(
-                            hour: $viewModel.hour,
-                            minute: $viewModel.minute,
-                            second: $viewModel.second
+                            hour: bindingForPicker.0,
+                            minute: bindingForPicker.1,
+                            second: bindingForPicker.2
                         )
                         .padding(.top, 20)
                         
                         // Interactive Location Badge
-                        Button(action: { showTimeZonePicker = true }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: viewModel.timeZoneMode == .custom ? "globe.americas.fill" : "location.fill")
+                        Menu {
+                            Button(action: { 
+                                showTimeZonePicker = true 
+                            }) {
+                                Label("Change City", systemImage: "map")
+                            }
+                            
+                            if viewModel.timeZoneMode == .custom {
+                                Button(action: {
+                                    withAnimation {
+                                        viewModel.timeZoneMode = .local
+                                        showingLocalTimePreview = false
+                                        viewModel.stopCycling()
+                                        triggerFeedback()
+                                    }
+                                }) {
+                                    Label("Reset to Local Time", systemImage: "location.fill")
+                                }
+                                
+                                Button(action: {
+                                    toggleFloatingPreview()
+                                }) {
+                                    Label(showingLocalTimePreview ? "Stop Live Preview" : "Start Live Preview", 
+                                          systemImage: showingLocalTimePreview ? "stop.fill" : "play.fill")
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: viewModel.timeZoneMode == .custom ? (isShowingLocalInFloat ? "location.fill" : "globe.americas.fill") : "location.fill")
                                     .font(.system(size: 10, weight: .semibold))
                                 
-                                let cityName: String = {
-                                    if viewModel.timeZoneMode == .custom, let id = viewModel.timeZoneIdentifier {
-                                        return viewModel.timeZoneCity ?? id.components(separatedBy: "/").last?.replacingOccurrences(of: "_", with: " ") ?? id
-                                    }
-                                    return "CURRENT LOCATION"
-                                }()
-                                
-                                Text(cityName)
-                                    .font(.system(size: 11, weight: .bold))
-                                    .textCase(.uppercase)
+                                Text(badgeDisplayText)
+                                    .font(.system(size: 10, weight: .black, design: .monospaced))
                                     .kerning(1.0)
+                                    .id("badge_text_\(isShowingLocalInFloat)") // Force update on toggle
                                 
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 8, weight: .bold))
-                                    .opacity(0.5)
+                                if viewModel.timeZoneMode == .custom {
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.system(size: 8, weight: .bold))
+                                        .opacity(0.3)
+                                }
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
                             .background(
                                 Capsule()
-                                    .fill(viewModel.timeZoneMode == .custom ? Colors.accentTeal.opacity(0.12) : Colors.textSecondary.opacity(0.1))
+                                    .fill(Colors.cardSurface.opacity(0.6))
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(isShowingLocalInFloat ? Colors.accentTeal.opacity(0.6) : Color.white.opacity(0.1), lineWidth: 1)
+                                    )
                             )
-                            .foregroundColor(viewModel.timeZoneMode == .custom ? Colors.accentTeal : Colors.textPrimary)
-                            .overlay(
-                                Capsule()
-                                    .stroke(viewModel.timeZoneMode == .custom ? Colors.accentTeal.opacity(0.2) : Colors.textSecondary.opacity(0.2), lineWidth: 1)
-                            )
+                            .foregroundColor(isShowingLocalInFloat ? Colors.accentTeal : Colors.textPrimary)
+                            .animation(.easeInOut(duration: 0.3), value: isShowingLocalInFloat)
+                        } primaryAction: {
+                            // TAP now opens the picker, making it easy to change locations
+                            showTimeZonePicker = true
                         }
+                        .padding(.top, 10)
+                        .padding(.bottom, 6)
                         .padding(.top, 18)
                         .padding(.bottom, 10)
 
@@ -480,16 +509,31 @@ struct CreateHabitAlarmView: View {
             viewModel.updateRingInText()
         }
         .onChange(of: viewModel.timeZoneIdentifier) { _, _ in
+            showingLocalTimePreview = true
+            syncTimeToSelectedTimeZone()
+            viewModel.startCycling()
+        }
+        .onChange(of: viewModel.timeZoneMode) { old, new in
+            if new == .custom {
+                showingLocalTimePreview = true
+                viewModel.startCycling()
+            } else {
+                showingLocalTimePreview = false
+                viewModel.stopCycling()
+            }
             syncTimeToSelectedTimeZone()
         }
-        .onChange(of: viewModel.timeZoneMode) { _, _ in
-            syncTimeToSelectedTimeZone()
+        .onAppear {
+            if viewModel.timeZoneMode == .custom {
+                showingLocalTimePreview = true
+                viewModel.startCycling()
+            }
         }
     }
     
     private func syncTimeToSelectedTimeZone() {
         let timezone: TimeZone
-        if viewModel.timeZoneMode == .custom, let id = viewModel.timeZoneIdentifier {
+        if !showingLocalTimePreview, viewModel.timeZoneMode == .custom, let id = viewModel.timeZoneIdentifier {
             timezone = TimeZone(identifier: id) ?? .current
         } else {
             timezone = .current
@@ -501,7 +545,133 @@ struct CreateHabitAlarmView: View {
         let now = Date()
         viewModel.hour = calendar.component(.hour, from: now)
         viewModel.minute = calendar.component(.minute, from: now)
-        viewModel.updateRingInText()
+        viewModel.second = calendar.component(.second, from: now)
+    }
+
+    // MARK: - Time Projection
+    private var projectedHour: Binding<Int> {
+        Binding(
+            get: {
+                if showingLocalTimePreview, let id = viewModel.timeZoneIdentifier, let tz = TimeZone(identifier: id) {
+                    return timeProjector(h: viewModel.hour, m: viewModel.minute, s: viewModel.second, from: tz, to: .current).h
+                }
+                return viewModel.hour
+            },
+            set: { newValue in
+                if showingLocalTimePreview, let id = viewModel.timeZoneIdentifier, let tz = TimeZone(identifier: id) {
+                    let res = timeProjector(h: newValue, m: viewModel.minute, s: viewModel.second, from: .current, to: tz)
+                    viewModel.hour = res.h
+                    viewModel.minute = res.m
+                    viewModel.second = res.s
+                } else {
+                    viewModel.hour = newValue
+                }
+            }
+        )
+    }
+
+    private var projectedMinute: Binding<Int> {
+        Binding(
+            get: {
+                if showingLocalTimePreview, let id = viewModel.timeZoneIdentifier, let tz = TimeZone(identifier: id) {
+                    return timeProjector(h: viewModel.hour, m: viewModel.minute, s: viewModel.second, from: tz, to: .current).m
+                }
+                return viewModel.minute
+            },
+            set: { newValue in
+                if showingLocalTimePreview, let id = viewModel.timeZoneIdentifier, let tz = TimeZone(identifier: id) {
+                    let res = timeProjector(h: viewModel.hour, m: newValue, s: viewModel.second, from: .current, to: tz)
+                    viewModel.hour = res.h
+                    viewModel.minute = res.m
+                    viewModel.second = res.s
+                } else {
+                    viewModel.minute = newValue
+                }
+            }
+        )
+    }
+
+    private var projectedSecond: Binding<Int> {
+        Binding(
+            get: {
+                if showingLocalTimePreview, let id = viewModel.timeZoneIdentifier, let tz = TimeZone(identifier: id) {
+                    return timeProjector(h: viewModel.hour, m: viewModel.minute, s: viewModel.second, from: tz, to: .current).s
+                }
+                return viewModel.second
+            },
+            set: { newValue in
+                if showingLocalTimePreview, let id = viewModel.timeZoneIdentifier, let tz = TimeZone(identifier: id) {
+                    let res = timeProjector(h: viewModel.hour, m: viewModel.minute, s: newValue, from: .current, to: tz)
+                    viewModel.hour = res.h
+                    viewModel.minute = res.m
+                    viewModel.second = res.s
+                } else {
+                    viewModel.second = newValue
+                }
+            }
+        )
+    }
+
+    private func timeProjector(h: Int, m: Int, s: Int, from: TimeZone, to: TimeZone) -> (h: Int, m: Int, s: Int) {
+        var cal = Calendar.current
+        cal.timeZone = from
+        
+        let now = Date()
+        var comps = cal.dateComponents([.year, .month, .day], from: now)
+        comps.hour = h
+        comps.minute = m
+        comps.second = s
+        
+        let sourceDate = cal.date(from: comps) ?? now
+        
+        cal.timeZone = to
+        return (
+            h: cal.component(.hour, from: sourceDate),
+            m: cal.component(.minute, from: sourceDate),
+            s: cal.component(.second, from: sourceDate)
+        )
+    }
+
+    private func triggerFeedback() {
+        let generator = UISelectionFeedbackGenerator()
+        generator.selectionChanged()
+    }
+
+    // MARK: - Floating Logic Helpers
+    private func toggleFloatingPreview() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            showingLocalTimePreview.toggle()
+            if showingLocalTimePreview {
+                viewModel.startCycling()
+            } else {
+                viewModel.stopCycling()
+            }
+        }
+        triggerFeedback()
+    }
+
+    private var isShowingLocalInFloat: Bool {
+        showingLocalTimePreview && viewModel.timeZoneMode == .custom && viewModel.cycleToLocal
+    }
+
+    private var badgeDisplayText: String {
+        if viewModel.timeZoneMode == .local {
+            return "LOCAL TIME"
+        }
+        
+        if showingLocalTimePreview {
+            return isShowingLocalInFloat ? "LOCAL TIME" : (viewModel.timeZoneCity?.uppercased() ?? "TARGET TIME")
+        } else {
+            return viewModel.timeZoneCity?.uppercased() ?? "CUSTOM LOCATION"
+        }
+    }
+
+    private var bindingForPicker: (Binding<Int>, Binding<Int>, Binding<Int>) {
+        if isShowingLocalInFloat {
+            return (projectedHour, projectedMinute, projectedSecond)
+        } else {
+            return ($viewModel.hour, $viewModel.minute, $viewModel.second)
+        }
     }
     
     private func updateMission(_ mission: AlarmMission) {

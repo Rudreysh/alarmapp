@@ -7,28 +7,36 @@ struct PrimaryButton: View {
     }
 
     let title: String
+    var iconName: String? = nil
     var style: Style = .alarmDefault
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(Colors.textPrimary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.m)
-                .background(backgroundView)
-                .clipShape(RoundedRectangle(cornerRadius: Radii.button, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Radii.button, style: .continuous)
-                        .stroke(Color.white.opacity(style == .blueGlass ? 0.16 : 0), lineWidth: 1)
-                )
-                .shadow(
-                    color: (style == .blueGlass ? Colors.accentTeal.opacity(0.18) : Colors.shadow),
-                    radius: style == .blueGlass ? 14 : 10,
-                    x: 0,
-                    y: style == .blueGlass ? 8 : 6
-                )
+            HStack(spacing: 8) {
+                if let iconName = iconName {
+                    Image(systemName: iconName)
+                        .font(.system(size: 18, weight: .bold))
+                }
+                
+                Text(title)
+                    .font(.system(size: 18, weight: .bold))
+            }
+            .foregroundColor(style == .blueGlass ? Color.black : Colors.textPrimary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Spacing.m)
+            .background(backgroundView)
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(Color.white.opacity(style == .blueGlass ? 0.25 : 0), lineWidth: 1)
+            )
+            .shadow(
+                color: (style == .blueGlass ? Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3) : Colors.shadow),
+                radius: style == .blueGlass ? 15 : 10,
+                x: 0,
+                y: style == .blueGlass ? 10 : 6
+            )
         }
         .buttonStyle(PressedScaleButtonStyle())
         .accessibilityLabel(Text(title))
@@ -42,8 +50,8 @@ struct PrimaryButton: View {
         case .blueGlass:
             LinearGradient(
                 colors: [
-                    Colors.accentTeal.opacity(0.95),
-                    Colors.accentBlue.opacity(0.92)
+                    Color(red: 0.55, green: 0.88, blue: 1.0), // Light vibrant cyan
+                    Color(red: 0.0, green: 0.65, blue: 0.95)   // Deep vibrant blue
                 ],
                 startPoint: .leading,
                 endPoint: .trailing

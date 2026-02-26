@@ -59,40 +59,27 @@ struct FocusSelectionView: View {
                 
                 if mode == "timer" {
                     VStack(spacing: 20) {
-                        Text("\(durationMinutes) min")
-                            .font(.system(size: 64, weight: .thin))
+                        Text("\(durationMinutes)m")
+                            .font(.system(size: 64, weight: .bold, design: .monospaced))
                             .foregroundColor(Colors.textPrimary)
                         
                         Stepper("", value: $durationMinutes, in: 1...180, step: 5)
                             .labelsHidden()
                             .transformEffect(.init(scaleX: 1.5, y: 1.5))
                         
-                        Button(action: startTimer) {
-                            Text("Start Focus")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(TimerPalette.accent)
-                                .cornerRadius(16)
+                        PrimaryButton(title: "Start Focus", style: .blueGlass) {
+                            startTimer()
                         }
                         .padding(.horizontal, 40)
                     }
                 } else {
                     VStack(spacing: 20) {
                         Text("00:00:00")
-                            .font(.system(size: 64, weight: .thin))
+                            .font(.system(size: 64, weight: .bold, design: .monospaced))
                             .foregroundColor(Colors.textPrimary)
-                            .monospacedDigit()
                         
-                        Button(action: startStopwatch) {
-                            Text("Start Stopwatch")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(TimerPalette.accent)
-                                .cornerRadius(16)
+                        PrimaryButton(title: "Start Stopwatch", style: .blueGlass) {
+                            startStopwatch()
                         }
                         .padding(.horizontal, 40)
                     }

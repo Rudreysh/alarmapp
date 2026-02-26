@@ -38,6 +38,10 @@ class TimerViewModel: ObservableObject {
     
     @Published var currentStage: PomoStage = .focus
     
+    // Ambient Sound
+    @Published var isAmbientPlaying: Bool = false
+    let ambientSoundPlayer = SoundPlayer()
+    
     private let preferences: AppPreferences
     private var cancellables = Set<AnyCancellable>()
     private var timerPublisher: AnyCancellable?
@@ -90,6 +94,11 @@ class TimerViewModel: ObservableObject {
             currentStage = .focus
         } else {
             stopwatchElapsedSeconds = 0
+        }
+        
+        // Ensure ambient sound stops when timer stops
+        if isAmbientPlaying {
+            toggleAmbientSound()
         }
     }
     
@@ -149,6 +158,32 @@ class TimerViewModel: ObservableObject {
     
     func setPomoEndingSound(_ soundName: String) {
         preferences.pomoEndingSoundName = soundName
+    }
+    
+    var ambientSoundName: String {
+        preferences.ambientSoundName
+    }
+    
+    func setAmbientSound(_ soundName: String) {
+        preferences.ambientSoundName = soundName
+        if isAmbientPlaying {
+            ambientSoundPlayer.playLooping(resourceName: soundName, volume: 1.0, fadeDuration: 1.0)
+        }
+    }
+    
+    func toggleAmbientSound() {
+        if isAmbientPlaying {
+            ambientSoundPlayer.stop()
+            isAmbientPlaying = false
+        } else {
+            let sound = preferences.ambientSoundName
+            if !sound.isEmpty {
+                ambientSoundPlayer.playLooping(resourceName: sound, volume: 1.0, fadeDuration: 1.0)
+                isAmbientPlaying = true
+            } else {
+                showSoundSelection = true
+            }
+        }
     }
     
     func setPomoDuration(_ seconds: TimeInterval) {

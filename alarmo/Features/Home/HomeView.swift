@@ -4,6 +4,7 @@ struct HomeView: View {
     @EnvironmentObject var ringCoordinator: AlarmRingCoordinator
     @StateObject private var viewModel: HomeViewModel
     @ObservedObject var alarmStore: AlarmStore
+    @EnvironmentObject private var navStore: NavigationStore
     @State private var showProPaywall = false
     @State private var proPaywallStartStep: ProPaywallStep = .intro
     @State private var showAddMenu = false
@@ -14,6 +15,8 @@ struct HomeView: View {
     @State private var selectedAlarm: Alarm?
     @State private var selectedHabitAlarm: Alarm?
     @State private var openAlarmActionsId: UUID? = nil
+    @State private var showQuickSettings = false
+    @AppStorage("qs_sortOrder") private var sortOrder = 0
     private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
 
     init(viewModel: HomeViewModel, alarmStore: AlarmStore) {
@@ -66,13 +69,13 @@ struct HomeView: View {
 
                         Spacer()
                         
-                        Button(action: {}) {
+                        Button(action: { showQuickSettings = true }) {
                             Image(systemName: "ellipsis")
                                 .font(.system(size: 20, weight: .semibold))
                                 .foregroundColor(Colors.textSecondary)
                                 .frame(width: 44, height: 44)
                         }
-                        .accessibilityLabel(Text("More options"))
+                        .accessibilityLabel(Text("Quick Settings"))
                     }
                     .padding(.top, Spacing.s)
 
@@ -87,7 +90,7 @@ struct HomeView: View {
                         }
 
                         LazyVStack(spacing: Spacing.m) {
-                            ForEach(alarmStore.alarms) { alarm in
+                            ForEach(alarmStore.sortedAlarms(by: sortOrder)) { alarm in
                                 SwipeableAlarmRow(
                                     onDelete: {
                                         scheduler.cancel(alarmId: alarm.id)
@@ -257,7 +260,9 @@ struct HomeView: View {
                 .transition(.move(edge: .bottom))
             }
         }
-        .onAppear { viewModel.onAppear() }
+        .onAppear { 
+            viewModel.onAppear() 
+        }
         .onReceive(alarmStore.$alarms) { alarms in
             viewModel.preferences.hasAnyAlarm = !alarms.isEmpty
         }
@@ -296,6 +301,9 @@ struct HomeView: View {
         }
         .fullScreenCover(isPresented: $showTimer) {
             TimerRootView(onClose: { showTimer = false })
+        }
+        .sheet(isPresented: $showQuickSettings) {
+            QuickSettingsPanel(alarmStore: alarmStore)
         }
     }
 
@@ -385,7 +393,7 @@ private struct AlarmCardView: View {
             // LEFT: Time & Relative Status
             VStack(alignment: .leading, spacing: 0) {
                 Text(alarm.timeString)
-                    .font(.system(size: 38, weight: .black, design: .rounded))
+                    .font(.system(size: 38, weight: .black, design: .monospaced))
                     .foregroundColor(alarm.enabled ? Colors.textPrimary : Colors.textTertiary)
                     .fixedSize(horizontal: true, vertical: false)
                 
@@ -396,7 +404,7 @@ private struct AlarmCardView: View {
                                 Image(systemName: "timer")
                                     .font(.system(size: 10, weight: .bold))
                                 Text(compactCountdown(to: nextDate, now: now))
-                                    .font(.system(size: 12, weight: .heavy, design: .rounded))
+                                    .font(.system(size: 12, weight: .black, design: .monospaced))
                                     .monospacedDigit()
                             }
                             .foregroundColor(Colors.accentTeal)
@@ -404,7 +412,7 @@ private struct AlarmCardView: View {
                         }
                     } else {
                         Text(ringsInRelativeText(now: now))
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: 11, weight: .black, design: .monospaced))
                             .monospacedDigit()
                             .foregroundColor(Colors.accentTeal)
                             .padding(.top, -2)

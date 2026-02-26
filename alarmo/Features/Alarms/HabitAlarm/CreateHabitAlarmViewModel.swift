@@ -46,6 +46,8 @@ class CreateHabitAlarmViewModel: ObservableObject {
     @Published var reminderEndTime: Date = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: Date()) ?? Date()
     
     @Published var ringInText: String = ""
+    @Published var cycleToLocal: Bool = false
+    private var cycleTimer: AnyCancellable?
     
     let defaultSoundName: String
     
@@ -64,6 +66,26 @@ class CreateHabitAlarmViewModel: ObservableObject {
         self.penaltyAmountEuro = settings.penaltyAmountEuro
         
         updateRingInText()
+        if timeZoneMode == .custom {
+            startCycling()
+        }
+    }
+
+    func startCycling() {
+        cycleTimer?.cancel()
+        cycleTimer = Timer.publish(every: 3, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                withAnimation(.easeInOut(duration: 0.8)) {
+                    self?.cycleToLocal.toggle()
+                }
+            }
+    }
+    
+    func stopCycling() {
+        cycleTimer?.cancel()
+        cycleTimer = nil
+        cycleToLocal = false
     }
 
     convenience init(alarm: Alarm) {

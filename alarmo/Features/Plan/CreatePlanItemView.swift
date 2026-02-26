@@ -240,25 +240,11 @@ struct CreatePlanItemView: View {
                         subtasksSection
                         
                         if let onStartFocus = onStartFocus {
-                            Button(action: {
+                            PrimaryButton(title: "Start Focus", iconName: "play.fill", style: .blueGlass) {
                                 initiateSave(shouldDismiss: false, onComplete: onStartFocus)
-                            }) {
-                                HStack {
-                                    Image(systemName: "play.fill")
-                                        .font(.title3)
-                                    Text("Start Focus")
-                                        .font(.title3)
-                                        .fontWeight(.bold)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 18)
-                                .background(PlanPalette.accent)
-                                .foregroundColor(.white)
-                                .cornerRadius(16)
                             }
                             .padding(.horizontal, 16)
                             .padding(.top, 20)
-                            .shadow(color: PlanPalette.accent.opacity(0.3), radius: 10, x: 0, y: 5)
                         }
                     }
                     .padding(.bottom, 40)

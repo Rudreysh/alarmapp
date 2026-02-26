@@ -2,6 +2,8 @@ import SwiftUI
 
 struct MissionSelectionView: View {
     @Environment(\.dismiss) var dismiss
+    @StateObject private var subManager = SubscriptionManager.shared
+    @State private var showUpsell = false
     let onSelect: (AlarmMission) -> Void
     
     var body: some View {
@@ -52,7 +54,7 @@ struct MissionSelectionView: View {
                             missionRow(title: "Tic Tac Toe", icon: "xmark.square.fill", iconBg: Color.cyan.opacity(0.3), type: .ticTacToe)
                             missionRow(title: "Typing", icon: "keyboard.fill", iconBg: Color.cyan.opacity(0.3), type: .typing)
                             missionRow(title: "Math", icon: "plus.forwardslash.minus", iconBg: Color.cyan.opacity(0.3), type: .math)
-                            missionRow(title: "Missing Symbol", subtitle: "PRO", icon: "square.grid.3x3.fill", iconBg: Color.cyan.opacity(0.3), type: .off)
+                            missionRow(title: "Missing Symbol", subtitle: "Coming Soon", icon: "square.grid.3x3.fill", iconBg: Color.cyan.opacity(0.3), type: .off)
                         }
                         
                         missionSection(title: "Wake your body") {
@@ -60,13 +62,16 @@ struct MissionSelectionView: View {
                             missionRow(title: "QR/Barcode", icon: "barcode.viewfinder", iconBg: Color.purple.opacity(0.3), type: .qrBarcode)
                             missionRow(title: "Shake", icon: "iphone.radiowaves.left.and.right", iconBg: Color.purple.opacity(0.3), type: .shake)
                             missionRow(title: "Photo", icon: "camera.fill", iconBg: Color.purple.opacity(0.3), type: .off)
-                            missionRow(title: "Squat", subtitle: "PRO", icon: "figure.strengthtraining.traditional", iconBg: Color.purple.opacity(0.3), type: .off)
+                            missionRow(title: "Squat", subtitle: "Coming Soon", icon: "figure.strengthtraining.traditional", iconBg: Color.purple.opacity(0.3), type: .off)
                         }
                     }
                     .padding(.bottom, 100) // Increased padding to ensure bottom items are easily accessible
                 }
                 .scrollIndicators(.visible) // Force scroll indicators to be visible
             }
+        }
+        .fullScreenCover(isPresented: $showUpsell) {
+            ProUpsellFlowView()
         }
     }
     
@@ -86,7 +91,12 @@ struct MissionSelectionView: View {
     private func missionRow(title: String, subtitle: String? = nil, icon: String, iconBg: Color, type: WakeUpMissionType) -> some View {
         Button(action: {
             if type != .off {
-                onSelect(AlarmMission(type: type))
+                if type.isProFeature && !subManager.isPro {
+                    showUpsell = true
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                } else {
+                    onSelect(AlarmMission(type: type))
+                }
             }
         }) {
             HStack(spacing: 16) {
@@ -108,8 +118,16 @@ struct MissionSelectionView: View {
                         .font(.system(size: 10, weight: .bold))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(subtitle == "AI" ? Color.orange.opacity(0.3) : (subtitle == "PRO" ? Color.blue.opacity(0.3) : Color.orange.opacity(0.3)))
-                        .foregroundColor(subtitle == "AI" ? .orange : (subtitle == "PRO" ? .blue : .orange))
+                        .background(subtitle == "AI" ? Color.orange.opacity(0.3) : (subtitle == "Coming Soon" ? Color.blue.opacity(0.3) : Color.orange.opacity(0.3)))
+                        .foregroundColor(subtitle == "AI" ? .orange : (subtitle == "Coming Soon" ? .blue : .orange))
+                        .cornerRadius(4)
+                } else if type.isProFeature {
+                    Text("PRO")
+                        .font(.system(size: 10, weight: .bold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Colors.accentTeal.opacity(0.3))
+                        .foregroundColor(Colors.accentTeal)
                         .cornerRadius(4)
                 }
                 

@@ -7,51 +7,48 @@ enum AssetError: Error {
     case invalidURL
     case diskWriteError(Error)
     case notFound
+    case cancelled
 }
 
 final class AssetManager: ObservableObject {
     static let shared = AssetManager()
-    
-    // Replace with your actual GitHub Raw URL
-    // Example: "https://raw.githubusercontent.com/username/repo/main/catalog.json"
+
     private var catalogURL: URL?
-    
+
     @Published var remoteSounds: [RemoteSound] = []
     @Published var remoteWallpapers: [RemoteWallpaperCategory] = []
     @Published var isLoadingCatalog: Bool = false
-    
-    /// Helper to get sounds grouped by category for sectioned UI
+
+    /// Active download tasks keyed by filename for cancellation
+    @Published private(set) var activeDownloads: Set<String> = []
+    private var downloadTasks: [String: Task<URL, Error>] = [:]
+
     var remoteSoundsByCategory: [(category: String, sounds: [RemoteSound])] {
         let grouped = Dictionary(grouping: remoteSounds, by: { $0.category })
         return grouped.map { ($0.key, $0.value) }.sorted { $0.0 < $1.0 }
     }
-    
+
     private let fileManager = FileManager.default
     private lazy var assetDirectory: URL = {
         let urls = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-        let appSupport = urls[0]
-        let assetDir = appSupport.appendingPathComponent("Assets", isDirectory: true)
-        
-        // Ensure directory exists
+        let assetDir = urls[0].appendingPathComponent("Assets", isDirectory: true)
         try? fileManager.createDirectory(at: assetDir, withIntermediateDirectories: true)
         return assetDir
     }()
-    
+
     // MARK: - Persistence
-    
+
     private var catalogCacheURL: URL {
         assetDirectory.appendingPathComponent("catalog.json")
     }
-    
-    /// Save current catalog to disk for offline access
+
     private func saveCatalogCache() {
         let catalog = AssetCatalogRequest(version: 1, wallpapers: remoteWallpapers, sounds: remoteSounds)
         if let data = try? JSONEncoder().encode(catalog) {
             try? data.write(to: catalogCacheURL)
         }
     }
-    
-    /// Load cached catalog from disk
+
     func loadCachedCatalog() {
         if let data = try? Data(contentsOf: catalogCacheURL),
            let catalog = try? JSONDecoder().decode(AssetCatalogRequest.self, from: data) {
@@ -60,87 +57,123 @@ final class AssetManager: ObservableObject {
             print("📦 AssetManager: Loaded cached catalog with \(remoteSounds.count) sounds.")
         }
     }
-    
-    // MARK: - Asset Management (Sounds & Wallpapers)
-    
-    /// Check if a remote asset is already downloaded locally
+
+    // MARK: - Asset Management
+
     func fileExists(filename: String) -> Bool {
-        let localURL = assetDirectory.appendingPathComponent(filename)
-        return fileManager.fileExists(atPath: localURL.path)
+        fileManager.fileExists(atPath: assetDirectory.appendingPathComponent(filename).path)
     }
-    
-    /// Returns the local URL if downloaded, otherwise returns nil
+
     func localURL(for filename: String) -> URL? {
         let url = assetDirectory.appendingPathComponent(filename)
         return fileManager.fileExists(atPath: url.path) ? url : nil
     }
-    
-    /// Download a remote file (sound or image) and save it locally
-    /// Returns the local file URL on success
+
+    func isDownloading(filename: String) -> Bool {
+        activeDownloads.contains(filename)
+    }
+
+    /// Delete a locally-downloaded file (for cancel-and-remove scenarios)
+    func deleteLocalFile(filename: String) {
+        let url = assetDirectory.appendingPathComponent(filename)
+        try? fileManager.removeItem(at: url)
+    }
+
+    /// Cancel an in-progress download and remove any partial file
+    @MainActor
+    func cancelDownload(filename: String) {
+        downloadTasks[filename]?.cancel()
+        downloadTasks.removeValue(forKey: filename)
+        activeDownloads.remove(filename)
+        deleteLocalFile(filename: filename)
+        print("🚫 AssetManager: Cancelled download and removed \(filename)")
+    }
+
+    /// Download a remote file and save it locally.
+    /// Returns the local file URL on success.
+    /// Call `cancelDownload(filename:)` to abort.
     func downloadAsset(from url: URL, filename: String, progress: ((Double) -> Void)? = nil) async throws -> URL {
         let destination = assetDirectory.appendingPathComponent(filename)
-        
-        // Return existing if already there (simple caching)
+
+        // Already downloaded
         if fileManager.fileExists(atPath: destination.path) {
             progress?(1.0)
             return destination
         }
-        
-        print("📥 AssetManager: Downloading \(filename)...")
-        
-        // Use async bytes to track progress
-        let (bytes, response) = try await URLSession.shared.bytes(from: url)
-        
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-            print("❌ AssetManager: Download failed for \(url.absoluteString) with status: \(status)")
-            throw AssetError.invalidURL
+
+        // If there's already a task for this file, await it
+        if let existing = downloadTasks[filename] {
+            return try await existing.value
         }
-        
-        let totalSize = httpResponse.expectedContentLength
-        var data = Data()
-        if totalSize > 0 {
-            data.reserveCapacity(Int(totalSize))
-        }
-        
-        var downloadedBytes: Int64 = 0
-        
-        for try await byte in bytes {
-            data.append(byte)
-            downloadedBytes += 1
-            
-            if totalSize > 0 {
-                let p = Double(downloadedBytes) / Double(totalSize)
-                // Report progress periodically or on every byte (might be too frequent, but usually okay for small files)
-                if downloadedBytes % 1024 == 0 || downloadedBytes == totalSize {
+
+        await MainActor.run { activeDownloads.insert(filename) }
+
+        let task = Task<URL, Error> {
+            defer {
+                Task { @MainActor in
+                    self.activeDownloads.remove(filename)
+                    self.downloadTasks.removeValue(forKey: filename)
+                }
+            }
+
+            print("📥 AssetManager: Downloading \(filename)...")
+
+            let (bytes, response) = try await URLSession.shared.bytes(from: url)
+
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+                print("❌ AssetManager: Download failed for \(url.absoluteString) with status: \(status)")
+                throw AssetError.invalidURL
+            }
+
+            let totalSize = httpResponse.expectedContentLength
+            var data = Data()
+            if totalSize > 0 { data.reserveCapacity(Int(totalSize)) }
+            var downloadedBytes: Int64 = 0
+
+            for try await byte in bytes {
+                try Task.checkCancellation()
+                data.append(byte)
+                downloadedBytes += 1
+                if totalSize > 0 && (downloadedBytes % 8192 == 0 || downloadedBytes == totalSize) {
+                    let p = Double(downloadedBytes) / Double(totalSize)
                     progress?(p)
                 }
             }
+
+            try Task.checkCancellation()
+            try data.write(to: destination)
+            print("✅ AssetManager: Saved \(filename)")
+            self.saveCatalogCache()
+            return destination
         }
-        
-        try data.write(to: destination)
-        print("✅ AssetManager: Saved \(filename)")
-        saveCatalogCache() // Update cache since we have new files
-        return destination
+
+        downloadTasks[filename] = task
+
+        do {
+            return try await task.value
+        } catch is CancellationError {
+            // Ensure partial file is removed
+            try? fileManager.removeItem(at: destination)
+            throw AssetError.cancelled
+        }
     }
 
     // MARK: - Catalog Fetching
-    
+
     func fetchCatalog() async {
-        // Load cache first for immediate UI
         loadCachedCatalog()
-        
-        guard let url = catalogURL else { 
+
+        guard let url = catalogURL else {
             print("❌ AssetManager: No Catalog URL set.")
-            return 
+            return
         }
-        
+
         await MainActor.run { self.isLoadingCatalog = true }
-        
+
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             let catalog = try JSONDecoder().decode(AssetCatalogRequest.self, from: data)
-            
             await MainActor.run {
                 self.remoteSounds = catalog.sounds
                 self.remoteWallpapers = catalog.wallpapers
@@ -153,8 +186,7 @@ final class AssetManager: ObservableObject {
             await MainActor.run { self.isLoadingCatalog = false }
         }
     }
-    
-    // Configuration
+
     func configure(catalogURL: String) {
         self.catalogURL = URL(string: catalogURL)
     }

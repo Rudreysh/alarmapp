@@ -133,7 +133,13 @@ struct SettingsRootView: View {
                                 Divider().background(Colors.cardStroke)
                                 
                                 // Shield
-                                Button(action: { showPenalty = true }) {
+                                Button(action: { 
+                                    if subManager.isPro {
+                                        showPenalty = true 
+                                    } else {
+                                        showProUpsellFlow = true
+                                    }
+                                }) {
                                     VStack(alignment: .center, spacing: 6) {
                                         HStack(spacing: 4) {
                                             Image(systemName: "shield.fill")
@@ -239,6 +245,30 @@ struct SettingsRootView: View {
                         .foregroundColor(Colors.textSecondary)
                         .frame(maxWidth: .infinity)
                         .padding(.top, Spacing.m)
+                        
+                        // Developer Tools
+                        #if DEBUG
+                        VStack(spacing: 8) {
+                            Text("Developer Tools")
+                                .font(.caption)
+                                .foregroundColor(Colors.textTertiary)
+                            
+                            Button(action: {
+                                subManager.isPro.toggle()
+                                UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                            }) {
+                                Text(subManager.isPro ? "Force Free Version" : "Force Pro Version")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 24)
+                                    .padding(.vertical, 12)
+                                    .background(subManager.isPro ? Color.red.opacity(0.8) : Colors.accentTeal)
+                                    .cornerRadius(12)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.top, Spacing.xl)
+                        #endif
                         
                     }
                     .padding(.bottom, AppConstants.tabBarHeight + 40)

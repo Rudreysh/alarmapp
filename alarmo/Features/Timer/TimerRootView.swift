@@ -195,6 +195,9 @@ struct TimerRootView: View {
         .onAppear {
             handleNavigationRequest()
         }
+        .onDisappear {
+            viewModel.stopTimer()
+        }
         .onReceive(navStore.$requestedTimerMode) { _ in
             handleNavigationRequest()
         }

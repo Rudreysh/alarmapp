@@ -50,30 +50,16 @@ struct PlanItemDetailView: View {
                 Spacer()
                 
                 // Bottom Actions
-                VStack(spacing: 16) {
+                VStack(spacing: 12) {
                     if let duration = item.defaultDurationSeconds, duration > 0 {
-                        Button(action: startFocus) {
-                            HStack {
-                                Image(systemName: "play.fill")
-                                Text("Start Focus")
-                            }
-                            .font(.system(size: 18, weight: .bold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .planPrimaryCTA(cornerRadius: 30)
+                        PrimaryButton(title: "Start Focus", iconName: "play.fill", style: .blueGlass) {
+                            startFocus()
                         }
                         .padding(.horizontal, 24)
                     }
 
-                    Button(action: { showingAddProgress = true }) {
-                        HStack {
-                            Image(systemName: "plus")
-                            Text("Add Progress")
-                        }
-                        .font(.system(size: 18, weight: .bold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .planPrimaryCTA(cornerRadius: 30)
+                    PrimaryButton(title: "Add Progress", iconName: "plus", style: .blueGlass) {
+                        showingAddProgress = true
                     }
                     .padding(.horizontal, 24)
                     
@@ -85,7 +71,7 @@ struct PlanItemDetailView: View {
                             .padding(.vertical, 14)
                             .background(
                                 Capsule()
-                                    .stroke(Colors.textSecondary.opacity(0.3), lineWidth: 1)
+                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
                             )
                     }
                     .padding(.horizontal, 40)
@@ -171,7 +157,8 @@ struct MindfulHabitProgressView: View {
                         .foregroundColor(itemColor)
                     
                     Text("\(currentValue.formatted(.number.precision(.fractionLength(0...2))))/\(item.goalValue.formatted(.number.precision(.fractionLength(0...2)))) \(item.goalUnit)")
-                        .font(.system(size: 24, weight: .bold))
+                        .font(.system(size: 24, weight: .regular, design: .monospaced))
+                        .kerning(1.2)
                 }
                 
                 // Plus and Minus buttons inside the circle
@@ -180,20 +167,22 @@ struct MindfulHabitProgressView: View {
                     HStack(spacing: 80) {
                         // Minus Button
                         Button(action: decrementProgress) {
-                            Image(systemName: "minus.circle.fill")
-                                .font(.system(size: 36))
-                                .foregroundColor(itemColor.opacity(0.8))
-                                .background(Circle().fill(Colors.bgPrimary).frame(width: 32, height: 32))
+                            Image(systemName: "minus")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(Colors.textPrimary)
+                                .frame(width: 38, height: 38)
+                                .background(Circle().fill(Color.white.opacity(0.12)))
                         }
                         .disabled(currentValue <= 0)
                         .opacity(currentValue <= 0 ? 0.3 : 1.0)
                         
                         // Plus Button
                         Button(action: incrementProgress) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 36))
-                                .foregroundColor(itemColor)
-                                .background(Circle().fill(Colors.bgPrimary).frame(width: 32, height: 32))
+                            Image(systemName: "plus")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.black)
+                                .frame(width: 38, height: 38)
+                                .background(Circle().fill(itemColor))
                         }
                     }
                     .padding(.bottom, 20)
@@ -323,7 +312,8 @@ struct WaterProgressView: View {
                 
                 VStack(spacing: 8) {
                     Text("\(currentValue.formatted(.number.precision(.fractionLength(0...2))))/\(item.goalValue.formatted(.number.precision(.fractionLength(0...2))))\(item.goalUnit)")
-                        .font(.system(size: 32, weight: .bold))
+                        .font(.system(size: 32, weight: .regular, design: .monospaced))
+                        .kerning(1.5)
                         .foregroundColor(Colors.textPrimary)
                     
                     Text("Water intake & your goal")
@@ -369,7 +359,8 @@ struct GenericHabitProgressView: View {
                 
                 VStack(spacing: 4) {
                     Text("\(progressValue.formatted(.number.precision(.fractionLength(0...2))))")
-                        .font(.system(size: 44, weight: .bold))
+                        .font(.system(size: 44, weight: .regular, design: .monospaced))
+                        .kerning(2)
                         .foregroundColor(Colors.textPrimary)
                     
                     Text("\(item.goalUnit)")
@@ -387,20 +378,22 @@ struct GenericHabitProgressView: View {
                     HStack(spacing: 80) {
                         // Minus Button
                         Button(action: decrementProgress) {
-                            Image(systemName: "minus.circle.fill")
-                                .font(.system(size: 36))
-                                .foregroundColor(itemColor.opacity(0.8))
-                                .background(Circle().fill(Colors.bgPrimary).frame(width: 32, height: 32))
+                            Image(systemName: "minus")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(Colors.textPrimary)
+                                .frame(width: 38, height: 38)
+                                .background(Circle().fill(Color.white.opacity(0.12)))
                         }
                         .disabled(progressValue <= 0)
                         .opacity(progressValue <= 0 ? 0.3 : 1.0)
                         
                         // Plus Button
                         Button(action: incrementProgress) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 36))
-                                .foregroundColor(itemColor)
-                                .background(Circle().fill(Colors.bgPrimary).frame(width: 32, height: 32))
+                            Image(systemName: "plus")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.black)
+                                .frame(width: 38, height: 38)
+                                .background(Circle().fill(itemColor))
                         }
                     }
                     .padding(.bottom, 20)

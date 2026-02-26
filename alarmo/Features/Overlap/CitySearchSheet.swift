@@ -8,7 +8,10 @@ struct CitySearchSheet: View {
     @FocusState private var isSearchFocused: Bool
 
     private var filteredCities: [WorldCityDatabase.CityEntry] {
-        WorldCityDatabase.search(searchText)
+        if searchText.isEmpty {
+            return WorldCityDatabase.majorCities
+        }
+        return WorldCityDatabase.search(searchText)
     }
 
     /// Already-added city identifiers so we can mark them

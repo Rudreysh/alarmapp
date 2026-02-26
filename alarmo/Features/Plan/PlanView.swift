@@ -13,6 +13,10 @@ struct PlanView: View {
     @State private var showingCreateSheet = false
     @State private var showingAddMenu = false
     @State private var showingHabitSheet = false
+    @State private var showUpsell = false
+    @State private var showShieldSettings = false
+    
+    @StateObject private var subManager = SubscriptionManager.shared
     
     // Section Expansion State
     
@@ -50,7 +54,18 @@ struct PlanView: View {
                 // PlanHeaderView() removed
                 
                 // Calendar Header
-                CalendarHeaderView(selectedDate: $viewModel.selectedDate, isListView: $viewModel.isListView)
+                CalendarHeaderView(
+                    selectedDate: $viewModel.selectedDate,
+                    isListView: $viewModel.isListView,
+                    isShieldOn: SettingsStore.shared.accountabilityEnabled,
+                    onShieldTap: {
+                        if subManager.isPro {
+                            showShieldSettings = true
+                        } else {
+                            showUpsell = true
+                        }
+                    }
+                )
                 
                 // Content
                 if viewModel.isListView {
@@ -329,10 +344,16 @@ struct PlanView: View {
                                 }
                             },
                             onSelectHabit: {
+                                let habitCount = allItems.filter { $0.type == .habit }.count
                                 print("DEBUG: Habit Selected")
                                 withAnimation { showingAddMenu = false }
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                    showingHabitSheet = true
+                                    if !subManager.isPro && habitCount >= 2 {
+                                        showUpsell = true
+                                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                    } else {
+                                        showingHabitSheet = true
+                                    }
                                 }
                             }
                         )
@@ -399,6 +420,12 @@ struct PlanView: View {
         }
         .sheet(isPresented: $showingHabitSheet) {
             CreateHabitGalleryView()
+        }
+        .fullScreenCover(isPresented: $showUpsell) {
+            ProUpsellFlowView()
+        }
+        .sheet(isPresented: $showShieldSettings) {
+            AccountabilityShieldSettingsView()
         }
     }
     
@@ -687,6 +714,8 @@ struct PlanHeaderView: View {
 struct CalendarHeaderView: View {
     @Binding var selectedDate: Date
     @Binding var isListView: Bool
+    var isShieldOn: Bool = false
+    var onShieldTap: (() -> Void)? = nil
     
     private var calendar: Calendar { Calendar.current }
     
@@ -723,17 +752,26 @@ struct CalendarHeaderView: View {
                 VStack(alignment: .trailing, spacing: 12) {
                     // Badges
                     HStack(spacing: 8) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "shield.slash.fill")
-                                .font(.caption2)
-                                .foregroundColor(.gray)
-                            Text("Off")
-                                .font(.caption2)
-                                .foregroundColor(PlanPalette.textPrimary)
+                        Button(action: { onShieldTap?() }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: isShieldOn ? "shield.checkered" : "shield.slash.fill")
+                                    .font(.caption2)
+                                    .foregroundColor(isShieldOn ? Colors.accentTeal : .gray)
+                                Text(isShieldOn ? "On" : "Off")
+                                    .font(.caption2)
+                                    .foregroundColor(PlanPalette.textPrimary)
+                            }
+                            .padding(.vertical, 5)
+                            .padding(.horizontal, 8)
+                            .planGlassPanel(cornerRadius: 12, fillOpacity: isShieldOn ? 0.18 : 0.12)
+                            .overlay(
+                                isShieldOn
+                                    ? RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Colors.accentTeal.opacity(0.3), lineWidth: 1)
+                                    : nil
+                            )
                         }
-                        .padding(.vertical, 5)
-                        .padding(.horizontal, 8)
-                        .planGlassPanel(cornerRadius: 12, fillOpacity: 0.12)
+                        .buttonStyle(.plain)
                         
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")

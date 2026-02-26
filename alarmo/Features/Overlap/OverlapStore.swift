@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import SwiftUI
 
 /// Manages persistence and state for Overlap cities.
 class OverlapStore: ObservableObject {
@@ -27,6 +28,19 @@ class OverlapStore: ObservableObject {
 
     func removeCity(id: UUID) {
         cities.removeAll { $0.id == id }
+        save()
+    }
+
+    func moveCity(fromOffsets: IndexSet, toOffset: Int) {
+        var sorted = sortedCities
+        sorted.move(fromOffsets: fromOffsets, toOffset: toOffset)
+        
+        // Re-assign sort orders
+        for (index, _) in sorted.enumerated() {
+            if let cityIndex = cities.firstIndex(where: { $0.id == sorted[index].id }) {
+                cities[cityIndex].sortOrder = index
+            }
+        }
         save()
     }
 

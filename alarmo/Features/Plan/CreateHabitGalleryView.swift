@@ -51,16 +51,8 @@ struct CreateHabitGalleryView: View {
                 // Bottom Button
                 VStack {
                     Spacer()
-                    Button(action: {
-                        // Create custom habit action - for now just print or empty
+                    PrimaryButton(title: "Create a new habit", style: .blueGlass) {
                         createCustomHabit()
-                    }) {
-                        Text("Create a new habit")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(Color.white.opacity(0.95))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .planPrimaryCTA(cornerRadius: 16)
                     }
                     .padding()
                 }

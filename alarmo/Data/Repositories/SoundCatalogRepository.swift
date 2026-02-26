@@ -3,6 +3,7 @@ import Foundation
 protocol SoundCatalogRepositoryProtocol {
     func loadBundledSounds() throws -> [SoundAsset]
     func loadAllSounds() -> [SoundAsset]
+    func toggleStar(soundID: String)
 }
 
 struct SoundCatalogRepository: SoundCatalogRepositoryProtocol {
@@ -45,16 +46,37 @@ struct SoundCatalogRepository: SoundCatalogRepositoryProtocol {
         self.bundleLookup = { _, _ in nil } // Will fail lookups for default sounds if this is used strictly
     }
 
+    private let starredSoundsKey = "StarredSoundIDs"
+
+    func getStarredIDs() -> Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey: starredSoundsKey) ?? [])
+    }
+
+    func toggleStar(soundID: String) {
+        var starred = getStarredIDs()
+        if starred.contains(soundID) { starred.remove(soundID) } else { starred.insert(soundID) }
+        UserDefaults.standard.set(Array(starred), forKey: starredSoundsKey)
+    }
+
     func loadAllSounds() -> [SoundAsset] {
         var allSounds = (try? loadBundledSounds()) ?? []
         allSounds.append(contentsOf: loadCustomSounds())
         allSounds.append(contentsOf: loadRemoteSounds())
-        allSounds.append(contentsOf: loadRemoteSoundsFromCatalog()) // Add this
+        allSounds.append(contentsOf: loadRemoteSoundsFromCatalog())
         allSounds.append(contentsOf: SpotifyService().loadSavedSpotifySounds())
-        
-        // Remove duplicates by ID (e.g. if a remote sound is already downloaded)
+
+        let starredIDs = getStarredIDs()
+
+        // Remove duplicates by ID; apply starred flag
         var seenIDs = Set<String>()
-        return allSounds.filter { seenIDs.insert($0.id).inserted }
+        var finalSounds: [SoundAsset] = []
+        for var sound in allSounds {
+            if seenIDs.insert(sound.id).inserted {
+                sound.isStarred = starredIDs.contains(sound.id)
+                finalSounds.append(sound)
+            }
+        }
+        return finalSounds
     }
 
     func loadBundledSounds() throws -> [SoundAsset] {
