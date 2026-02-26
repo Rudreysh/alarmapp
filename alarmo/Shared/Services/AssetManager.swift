@@ -14,6 +14,12 @@ final class AssetManager: ObservableObject {
     static let shared = AssetManager()
 
     private var catalogURL: URL?
+    private let catalogSession: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.urlCache = nil
+        return URLSession(configuration: config)
+    }()
 
     @Published var remoteSounds: [RemoteSound] = []
     @Published var remoteWallpapers: [RemoteWallpaperCategory] = []
@@ -49,12 +55,38 @@ final class AssetManager: ObservableObject {
         }
     }
 
+    private func prefetchDefaultAlarmSoundsIfNeeded() {
+        let alarmSounds = remoteSounds.filter { $0.category.caseInsensitiveCompare("Alarm") == .orderedSame }
+        guard !alarmSounds.isEmpty else { return }
+
+        Task(priority: .utility) { [weak self] in
+            guard let self else { return }
+            let missing = alarmSounds.filter { !self.fileExists(filename: $0.filename) }
+            guard !missing.isEmpty else {
+                print("🎵 AssetManager: All default alarm sounds already downloaded (\(alarmSounds.count)).")
+                return
+            }
+
+            print("🎵 AssetManager: Prefetching \(missing.count)/\(alarmSounds.count) default alarm sounds...")
+            for sound in missing {
+                do {
+                    _ = try await self.downloadAsset(from: sound.url, filename: sound.filename)
+                } catch AssetError.cancelled {
+                    print("⚠️ AssetManager: Alarm prefetch cancelled for \(sound.filename)")
+                } catch {
+                    print("⚠️ AssetManager: Alarm prefetch failed for \(sound.filename): \(error)")
+                }
+            }
+        }
+    }
+
     func loadCachedCatalog() {
         if let data = try? Data(contentsOf: catalogCacheURL),
            let catalog = try? JSONDecoder().decode(AssetCatalogRequest.self, from: data) {
             self.remoteSounds = catalog.sounds
             self.remoteWallpapers = catalog.wallpapers
             print("📦 AssetManager: Loaded cached catalog with \(remoteSounds.count) sounds.")
+            prefetchDefaultAlarmSoundsIfNeeded()
         }
     }
 
@@ -161,18 +193,48 @@ final class AssetManager: ObservableObject {
 
     // MARK: - Catalog Fetching
 
+    private func cacheBustedCatalogURL(from url: URL) -> URL {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return url
+        }
+        var items = components.queryItems ?? []
+        items.removeAll { $0.name == "_cb" }
+        items.append(URLQueryItem(name: "_cb", value: String(Int(Date().timeIntervalSince1970))))
+        components.queryItems = items
+        return components.url ?? url
+    }
+
     func fetchCatalog() async {
-        loadCachedCatalog()
+        if remoteSounds.isEmpty && remoteWallpapers.isEmpty {
+            loadCachedCatalog()
+        }
 
         guard let url = catalogURL else {
             print("❌ AssetManager: No Catalog URL set.")
             return
         }
 
-        await MainActor.run { self.isLoadingCatalog = true }
+        let started = await MainActor.run { () -> Bool in
+            if self.isLoadingCatalog { return false }
+            self.isLoadingCatalog = true
+            return true
+        }
+        guard started else { return }
 
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
+            let fetchURL = cacheBustedCatalogURL(from: url)
+            var request = URLRequest(url: fetchURL)
+            request.cachePolicy = .reloadIgnoringLocalCacheData
+            request.timeoutInterval = 20
+            request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+            request.setValue("no-cache", forHTTPHeaderField: "Pragma")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+            let (data, response) = try await catalogSession.data(for: request)
+            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+                throw URLError(.badServerResponse)
+            }
+
             let catalog = try JSONDecoder().decode(AssetCatalogRequest.self, from: data)
             await MainActor.run {
                 self.remoteSounds = catalog.sounds
@@ -180,7 +242,9 @@ final class AssetManager: ObservableObject {
                 self.isLoadingCatalog = false
             }
             saveCatalogCache()
-            print("✅ AssetManager: Updated catalog with \(catalog.sounds.count) sounds and \(catalog.wallpapers.count) wallpaper categories.")
+            let categories = Set(catalog.sounds.map(\.category)).sorted()
+            print("✅ AssetManager: Updated catalog with \(catalog.sounds.count) sounds and \(catalog.wallpapers.count) wallpaper categories. Sound categories: \(categories)")
+            prefetchDefaultAlarmSoundsIfNeeded()
         } catch {
             print("❌ AssetManager: Failed to fetch catalog. \(error)")
             await MainActor.run { self.isLoadingCatalog = false }

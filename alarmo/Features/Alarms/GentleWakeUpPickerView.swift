@@ -1,6 +1,11 @@
 import SwiftUI
 
 struct GentleWakeUpPickerView: View {
+    private enum PreviewMode {
+        case gentleWake
+        case volumeTest
+    }
+
     @Binding var selectedSeconds: Int
     @Binding var maxVolume: Float
     let soundName: String
@@ -8,6 +13,7 @@ struct GentleWakeUpPickerView: View {
     
     @State private var isFadeEnabled: Bool = false
     @State private var duration: Double = 60
+    @State private var activePreviewMode: PreviewMode? = nil
     @Environment(\.dismiss) var dismiss
 
     init(selectedSeconds: Binding<Int>, maxVolume: Binding<Float>, soundName: String, soundPlayer: SoundPreviewPlayer) {
@@ -43,10 +49,10 @@ struct GentleWakeUpPickerView: View {
                 .padding(.horizontal)
                 .padding(.top)
 
-                // Fade In Toggle
+                // Gentle Wake Up Toggle + Preview
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("Fade in")
+                        Text("Gentle wake up")
                             .font(.system(size: 18, weight: .medium))
                             .foregroundColor(Colors.textPrimary)
                         Spacer()
@@ -58,6 +64,26 @@ struct GentleWakeUpPickerView: View {
                     
                     Text("Increase the alarm volume gradually up to the maximum level below.")
                         .font(.caption)
+                        .foregroundColor(Colors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Button(action: toggleGentleWakeUpPreview) {
+                        HStack(spacing: 8) {
+                            Image(systemName: isGentleWakePreviewPlaying ? "stop.circle.fill" : "play.circle.fill")
+                            Text(isGentleWakePreviewPlaying ? "Stop preview" : "Preview gentle wake up")
+                        }
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Colors.textPrimary)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 14)
+                        .background(Colors.bgPrimary)
+                        .cornerRadius(18)
+                    }
+
+                    Text(isFadeEnabled
+                         ? "Preview uses a shortened ramp based on your selected duration."
+                         : "Preview plays at the selected maximum volume when Gentle wake up is off.")
+                        .font(.caption2)
                         .foregroundColor(Colors.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -82,17 +108,10 @@ struct GentleWakeUpPickerView: View {
                     
                     HStack {
                         // Test Button
-                        Button(action: {
-                            if soundPlayer.isPlaying {
-                                soundPlayer.stop()
-                            } else {
-                                // Use 7.0 seconds for a more perceptible ramp in preview
-                                soundPlayer.playWithFade(resourceName: soundName, duration: isFadeEnabled ? 7.0 : 0, maxVolume: maxVolume)
-                            }
-                        }) {
+                        Button(action: toggleVolumeTestPreview) {
                             HStack {
-                                Image(systemName: soundPlayer.isPlaying ? "stop.circle.fill" : "play.circle.fill")
-                                Text(soundPlayer.isPlaying ? "Stop" : "Test")
+                                Image(systemName: isVolumeTestPreviewPlaying ? "stop.circle.fill" : "play.circle.fill")
+                                Text(isVolumeTestPreviewPlaying ? "Stop" : "Test")
                             }
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(Colors.textPrimary)
@@ -115,7 +134,7 @@ struct GentleWakeUpPickerView: View {
                 // Duration Picker (Only if Fade Enabled)
                 if isFadeEnabled {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Duration: \(Int(duration)) sec")
+                        Text("Gentle wake up duration: \(Int(duration)) sec")
                             .font(.subheadline)
                             .foregroundColor(Colors.textSecondary)
                             
@@ -143,6 +162,12 @@ struct GentleWakeUpPickerView: View {
         .onDisappear {
             updateSeconds()
             soundPlayer.stop()
+            activePreviewMode = nil
+        }
+        .onChange(of: soundPlayer.isPlaying) { isPlaying in
+            if !isPlaying {
+                activePreviewMode = nil
+            }
         }
     }
     
@@ -152,5 +177,47 @@ struct GentleWakeUpPickerView: View {
         } else {
             selectedSeconds = 0
         }
+    }
+
+    private var gentleWakePreviewDuration: TimeInterval {
+        guard isFadeEnabled else { return 0 }
+        // Keep the preview short while still demonstrating the ramp shape.
+        return max(3, min(10, duration * 0.2))
+    }
+
+    private var isGentleWakePreviewPlaying: Bool {
+        activePreviewMode == .gentleWake && soundPlayer.isPlaying
+    }
+
+    private var isVolumeTestPreviewPlaying: Bool {
+        activePreviewMode == .volumeTest && soundPlayer.isPlaying
+    }
+
+    private func toggleGentleWakeUpPreview() {
+        if isGentleWakePreviewPlaying {
+            soundPlayer.stop()
+            activePreviewMode = nil
+            return
+        }
+        activePreviewMode = .gentleWake
+        soundPlayer.playWithFade(
+            resourceName: soundName,
+            duration: gentleWakePreviewDuration,
+            maxVolume: maxVolume
+        )
+    }
+
+    private func toggleVolumeTestPreview() {
+        if isVolumeTestPreviewPlaying {
+            soundPlayer.stop()
+            activePreviewMode = nil
+            return
+        }
+        activePreviewMode = .volumeTest
+        soundPlayer.playWithFade(
+            resourceName: soundName,
+            duration: 0,
+            maxVolume: maxVolume
+        )
     }
 }

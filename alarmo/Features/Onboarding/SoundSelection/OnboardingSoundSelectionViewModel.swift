@@ -10,7 +10,10 @@ final class OnboardingSoundSelectionViewModel: ObservableObject {
     @Published var selectedCloudCategory: String? = nil
 
     var downloadableSections: [(category: String, sounds: [RemoteSound])] {
-        AssetManager.shared.remoteSoundsByCategory.filter { $0.category.lowercased() != "alarm" }
+        AssetManager.shared.remoteSoundsByCategory.filter { 
+            let cat = $0.category.lowercased()
+            return cat != "alarm" && cat != "focus"
+        }
     }
 
     private let repository: SoundCatalogRepositoryProtocol
@@ -28,7 +31,10 @@ final class OnboardingSoundSelectionViewModel: ObservableObject {
         // Reload when remote catalog arrives
         AssetManager.shared.$remoteSounds
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.load() }
+            .sink { [weak self] sounds in 
+                print("[OnboardingVM] 📦 Catalog updated with \(sounds.count) sounds. Reloading...")
+                self?.load() 
+            }
             .store(in: &cancellables)
     }
 
@@ -41,6 +47,11 @@ final class OnboardingSoundSelectionViewModel: ObservableObject {
         soundsByCategory = grouped
         categories = SoundCategory.order
 
+        // Diagnostic Logging
+        let focusCount = sounds.filter { $0.category == .focus }.count
+        let alarmToneCount = sounds.filter { $0.category == .alarmTone || $0.category == .classic || $0.category == .loud }.count
+        print("[OnboardingVM] 📊 Loaded \(sounds.count) sounds. Focus: \(focusCount), Alarm Tone (+others): \(alarmToneCount)")
+
         // Only reset category to first when there is truly no valid selection
         if !categories.contains(selectedCategory) {
             selectedCategory = categories.first ?? .alarmTone
@@ -52,24 +63,33 @@ final class OnboardingSoundSelectionViewModel: ObservableObject {
     }
 
     func soundsForSelectedCategory() -> [SoundAsset] {
+        let allSounds = repository.loadAllSounds()
+        
         if selectedCategory == .cloud {
             let cat = selectedCloudCategory ?? downloadableSections.first?.category ?? ""
             if let section = downloadableSections.first(where: { $0.category == cat }) {
                 return section.sounds.map { remote in
                     let url = AssetManager.shared.localURL(for: remote.filename) ?? remote.url
-                    let isStarred = repository.loadAllSounds().first(where: { $0.id == remote.id })?.isStarred ?? false
+                    let isStarred = allSounds.first(where: { $0.id == remote.id })?.isStarred ?? false
                     return SoundAsset(id: remote.id, title: remote.title, fileURL: url, category: .cloud, isStarred: isStarred)
                 }
             }
         }
+        
         if selectedCategory == .favorites {
-            return repository.loadAllSounds().filter { $0.isStarred }
+            return allSounds.filter { $0.isStarred }
         }
+        
         if selectedCategory == .alarmTone {
-            return repository.loadAllSounds().filter {
+            return allSounds.filter {
                 $0.category == .alarmTone || $0.category == .loud || $0.category == .classic
             }
         }
+        
+        if selectedCategory == .focus {
+            return allSounds.filter { $0.category == .focus }
+        }
+        
         return soundsByCategory[selectedCategory] ?? []
     }
 

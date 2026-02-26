@@ -56,11 +56,14 @@ struct SoundPickerView: View {
     @ObservedObject var soundPlayer: SoundPreviewPlayer
     
     private var downloadableSections: [(category: String, sounds: [RemoteSound])] {
-        assetManager.remoteSoundsByCategory.filter { $0.category.lowercased() != "alarm" }
+        assetManager.remoteSoundsByCategory.filter { 
+            let cat = $0.category.lowercased()
+            return cat != "alarm" && cat != "focus"
+        }
     }
 
     private var topTabs: [TopTab] {
-        var tabs: [TopTab] = [.category(.favorites), .category(.alarmTone)]
+        var tabs: [TopTab] = [.category(.favorites), .category(.alarmTone), .category(.focus)]
         tabs += downloadableSections.map { .downloadable($0.category) }
         tabs += [.category(.custom), .category(.spotify)]
         return tabs
@@ -374,6 +377,10 @@ struct SoundPickerView: View {
             loadSounds()
             // Stop any preview that might be playing from the previous screen
             soundPlayer.stop()
+            Task { await assetManager.fetchCatalog() }
+        }
+        .onReceive(assetManager.$remoteSounds) { _ in
+            loadSounds()
         }
         .onDisappear {
             // Optional: stop when leaving picker? 
@@ -933,12 +940,20 @@ struct RemoteSoundRow: View {
             // ── Download button (only if NOT downloaded and NOT downloading) ──
             if !isDownloaded && !isDownloading {
                 Button(action: { startDownload() }) {
-                    Image(systemName: "arrow.down.circle")
-                        .font(.system(size: 22))
-                        .foregroundColor(oceanBlue)
-                        .frame(width: 40, height: 56)
-                        .contentShape(Rectangle())
+                    HStack(spacing: 4) {
+                        Text("Get")
+                            .font(.system(size: 12, weight: .bold))
+                            .textCase(.uppercase)
+                        Image(systemName: "arrow.down.circle")
+                            .font(.system(size: 18, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(oceanBlue)
+                    .cornerRadius(12)
                 }
+                .padding(.trailing, 8)
             }
 
             // ── Cancel button (only while downloading) ────────────────────
@@ -957,31 +972,39 @@ struct RemoteSoundRow: View {
             // ── Preview / Play / Stop button ──────────────────────────────
             Button(action: {
                 if isDownloaded {
-                    // Treat play as selection + play
                     onSelect()
                 } else if !isDownloading {
-                    // Stream a preview
                     onPreview()
                 }
-                // While downloading, the play button is hidden (cancel shows instead)
             }) {
-                ZStack {
-                    if isBuffering {
-                        ProgressView().tint(oceanBlue).scaleEffect(0.8)
-                    } else if isPlaying {
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(isDownloaded ? Colors.textPrimary : oceanBlue)
-                    } else if !isDownloading {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(isDownloaded ? Colors.textSecondary : oceanBlue.opacity(0.85))
-                    } else {
-                        // While downloading, show nothing (cancel button is there instead)
-                        Color.clear
+                HStack(spacing: 6) {
+                    if !isDownloaded && !isDownloading && !isPlaying && !isBuffering {
+                        Text("Preview")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(oceanBlue)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(oceanBlue.opacity(0.1))
+                            .cornerRadius(10)
+                    }
+                    
+                    ZStack {
+                        if isBuffering {
+                            ProgressView().tint(oceanBlue).scaleEffect(0.8)
+                        } else if isPlaying {
+                            Image(systemName: "stop.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(isDownloaded ? Colors.textPrimary : oceanBlue)
+                        } else if !isDownloading {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(isDownloaded ? Colors.textSecondary : oceanBlue.opacity(0.85))
+                        } else {
+                            Color.clear
+                        }
                     }
                 }
-                .frame(width: 48, height: 56)
+                .frame(minWidth: 48, minHeight: 56)
                 .contentShape(Rectangle())
             }
             .padding(.trailing, 4)

@@ -196,11 +196,12 @@ struct SoundCatalogRepository: SoundCatalogRepositoryProtocol {
         case "trending", "default": return .alarmTone
         case "loud": return .loud
         case "alarm": return .alarmTone
+        case "focus": return .focus
         case "classic": return .classic
-        case "nature": return SoundCategory(id: "nature", title: "Nature", emoji: nil)
-        case "sleep": return SoundCategory(id: "sleep", title: "Sleep", emoji: nil)
-        case "relaxing": return SoundCategory(id: "relaxing", title: "Relaxing", emoji: nil)
-        case "uplifting": return SoundCategory(id: "uplifting", title: "Uplifting", emoji: nil)
+        case "nature": return SoundCategory(id: "nature", title: "Nature", emoji: "🌿")
+        case "sleep": return SoundCategory(id: "sleep", title: "Sleep", emoji: "🛌")
+        case "relaxing": return SoundCategory(id: "relaxing", title: "Relaxing", emoji: "🕊️")
+        case "uplifting": return SoundCategory(id: "uplifting", title: "Uplifting", emoji: "✨")
         default:
             return SoundCategory(id: lower, title: string.capitalized, emoji: nil)
         }

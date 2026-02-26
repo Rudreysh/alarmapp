@@ -14,13 +14,14 @@ struct SoundCategory: Identifiable, Hashable, Equatable {
     let emoji: String?
 
     static let favorites = SoundCategory(id: "favorites", title: "Favorites", emoji: "⭐")
-    static let alarmTone = SoundCategory(id: "alarm_tone", title: "Alarm tone", emoji: nil)
-    static let loud      = SoundCategory(id: "loud",       title: "Loud",       emoji: nil)
-    static let classic   = SoundCategory(id: "classic",    title: "Classic",    emoji: nil)
-    static let custom    = SoundCategory(id: "custom",     title: "My Sounds",  emoji: nil)
-    static let spotify   = SoundCategory(id: "spotify",    title: "Spotify",    emoji: nil)
-    static let cloud     = SoundCategory(id: "cloud",      title: "Downloadable", emoji: nil)
+    static let alarmTone = SoundCategory(id: "alarm_tone", title: "Alarm tone", emoji: "🔔")
+    static let focus     = SoundCategory(id: "focus",      title: "Focus",      emoji: "🧘")
+    static let loud      = SoundCategory(id: "loud",       title: "Loud",       emoji: "🔊")
+    static let classic   = SoundCategory(id: "classic",    title: "Classic",    emoji: "📻")
+    static let custom    = SoundCategory(id: "custom",     title: "My Sounds",  emoji: "🎙️")
+    static let spotify   = SoundCategory(id: "spotify",    title: "Spotify",    emoji: "🎵")
+    static let cloud     = SoundCategory(id: "cloud",      title: "Downloadable", emoji: "☁️")
 
     /// Downloadable is intentionally 2nd (after Alarm tone).
-    static let order: [SoundCategory] = [.favorites, .alarmTone, .cloud, .loud, .classic, .custom, .spotify]
+    static let order: [SoundCategory] = [.favorites, .alarmTone, .focus, .cloud, .loud, .classic, .custom, .spotify]
 }

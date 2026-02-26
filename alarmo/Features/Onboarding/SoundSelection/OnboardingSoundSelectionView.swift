@@ -41,7 +41,7 @@ struct OnboardingSoundSelectionView: View {
     }
 
     private var topTabs: [TopTab] {
-        var tabs: [TopTab] = [.category(.favorites), .category(.alarmTone)]
+        var tabs: [TopTab] = [.category(.favorites), .category(.alarmTone), .category(.focus)]
         tabs += downloadableSections.map { .downloadable($0.category) }
         return tabs
     }
@@ -132,9 +132,7 @@ struct OnboardingSoundSelectionView: View {
             }
         }
         .onAppear {
-            if AssetManager.shared.remoteSounds.isEmpty {
-                Task { await AssetManager.shared.fetchCatalog() }
-            }
+            Task { await AssetManager.shared.fetchCatalog() }
             if viewModel.selectedSoundId == nil,
                let first = viewModel.soundsForSelectedCategory().first {
                 viewModel.setInitialSelection(first)
@@ -175,29 +173,82 @@ struct OnboardingSoundSelectionView: View {
     @ViewBuilder
     private var localSoundList: some View {
         let sounds = viewModel.soundsForSelectedCategory()
-        ForEach(sounds) { sound in
-            SoundRow(
-                sound: sound,
-                isSelected: viewModel.selectedSoundId == sound.id,
-                isPlaying: viewModel.soundPlayer.isPlaying && viewModel.soundPlayer.playingResourceName == sound.title,
-                isBuffering: viewModel.soundPlayer.isBuffering && viewModel.soundPlayer.playingResourceName == sound.title
-            ) { action in
-                switch action {
-                case .select:
-                    viewModel.selectSoundOnly(sound)
-                    onboardingViewModel.setSelectedSound(sound)
-                case .play:
-                    viewModel.tapSound(sound, volume: onboardingViewModel.state.selectedVolume)
-                    onboardingViewModel.setSelectedSound(sound)
-                case .toggleStar:
-                    viewModel.toggleStar(sound)
+        if sounds.isEmpty && viewModel.selectedCategory != .favorites {
+             VStack(spacing: 20) {
+                 Text("No sounds found for this category.")
+                     .foregroundColor(Colors.textSecondary)
+                 Button("Refresh Catalog") {
+                     Task { await AssetManager.shared.fetchCatalog() }
+                 }
+                 .font(.caption)
+                 .foregroundColor(Colors.accentTeal)
+             }
+             .padding(.vertical, 40)
+        } else {
+            ForEach(sounds) { sound in
+                // Determine if this is a remote asset not yet downloaded
+                let isRemote = !sound.fileURL.isFileURL
+                
+                if isRemote {
+                    // Render using RemoteSoundRow logic but adapted for SoundAsset
+                    let remoteSound = RemoteSound(
+                        id: sound.id,
+                        filename: sound.fileURL.lastPathComponent,
+                        title: sound.title,
+                        category: viewModel.selectedCategory.title,
+                        url: sound.fileURL,
+                        isPremium: false
+                    )
+                    
+                    RemoteSoundRow(
+                        remoteSound: remoteSound,
+                        isSelected: viewModel.selectedSoundId == sound.id,
+                        isPlaying: viewModel.soundPlayer.isPlaying && viewModel.soundPlayer.playingResourceName == sound.title,
+                        isBuffering: viewModel.soundPlayer.isBuffering && viewModel.soundPlayer.playingResourceName == sound.title,
+                        isStarred: sound.isStarred,
+                        onSelect: {
+                            if let url = AssetManager.shared.localURL(for: sound.fileURL.lastPathComponent) {
+                                let asset = SoundAsset(id: sound.id, title: sound.title, fileURL: url, category: sound.category)
+                                viewModel.selectSoundOnly(asset)
+                                onboardingViewModel.setSelectedSound(asset)
+                            }
+                        },
+                        onPreview: {
+                            if viewModel.soundPlayer.isPlaying && viewModel.soundPlayer.playingResourceName == sound.title {
+                                viewModel.soundPlayer.stop()
+                            } else {
+                                viewModel.soundPlayer.playStreamURL(sound.fileURL, resourceName: sound.title, volume: onboardingViewModel.state.selectedVolume)
+                            }
+                        },
+                        onToggleStar: {
+                            viewModel.toggleStar(sound)
+                        }
+                    )
+                } else {
+                    SoundRow(
+                        sound: sound,
+                        isSelected: viewModel.selectedSoundId == sound.id,
+                        isPlaying: viewModel.soundPlayer.isPlaying && viewModel.soundPlayer.playingResourceName == sound.title,
+                        isBuffering: viewModel.soundPlayer.isBuffering && viewModel.soundPlayer.playingResourceName == sound.title
+                    ) { action in
+                        switch action {
+                        case .select:
+                            viewModel.selectSoundOnly(sound)
+                            onboardingViewModel.setSelectedSound(sound)
+                        case .play:
+                            viewModel.tapSound(sound, volume: onboardingViewModel.state.selectedVolume)
+                            onboardingViewModel.setSelectedSound(sound)
+                        case .toggleStar:
+                            viewModel.toggleStar(sound)
+                        }
+                    }
                 }
-            }
 
-            if sound.id != sounds.last?.id {
-                Divider()
-                    .background(Colors.cardStroke)
-                    .padding(.leading, 56)
+                if sound.id != sounds.last?.id {
+                    Divider()
+                        .background(Colors.cardStroke)
+                        .padding(.leading, 56)
+                }
             }
         }
     }
