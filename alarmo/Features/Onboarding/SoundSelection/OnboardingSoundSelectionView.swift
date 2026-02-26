@@ -6,9 +6,72 @@ import SwiftUI
 /// `SoundPickerView` (CategoryPill, SoundRow, RemoteSoundRow, etc.) so that
 /// the behaviour, playback, categories and UI are 100% identical.
 struct OnboardingSoundSelectionView: View {
+    private enum TopTab: Hashable, Identifiable {
+        case category(SoundCategory)
+        case downloadable(String)
+
+        var id: String {
+            switch self {
+            case .category(let category): return "cat:\(category.id)"
+            case .downloadable(let name): return "cloud:\(name.lowercased())"
+            }
+        }
+
+        var title: String {
+            switch self {
+            case .category(let category): return category.title
+            case .downloadable(let name): return name
+            }
+        }
+
+        var emoji: String? {
+            switch self {
+            case .category(let category): return category.emoji
+            case .downloadable: return nil
+            }
+        }
+    }
+
     @ObservedObject var onboardingViewModel: OnboardingViewModel
     @StateObject private var viewModel = OnboardingSoundSelectionViewModel()
     let onNext: () -> Void
+
+    private var downloadableSections: [(category: String, sounds: [RemoteSound])] {
+        viewModel.downloadableSections
+    }
+
+    private var topTabs: [TopTab] {
+        var tabs: [TopTab] = [.category(.favorites), .category(.alarmTone)]
+        tabs += downloadableSections.map { .downloadable($0.category) }
+        return tabs
+    }
+
+    private var currentCloudCategory: String {
+        if let selected = viewModel.selectedCloudCategory,
+           downloadableSections.contains(where: { $0.category == selected }) {
+            return selected
+        }
+        return downloadableSections.first?.category ?? ""
+    }
+
+    private func isTopTabSelected(_ tab: TopTab) -> Bool {
+        switch tab {
+        case .category(let category):
+            return viewModel.selectedCategory == category
+        case .downloadable(let name):
+            return viewModel.selectedCategory == .cloud && currentCloudCategory == name
+        }
+    }
+
+    private func selectTopTab(_ tab: TopTab) {
+        switch tab {
+        case .category(let category):
+            viewModel.selectCategory(category)
+        case .downloadable(let name):
+            viewModel.selectCategory(.cloud)
+            viewModel.selectedCloudCategory = name
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -32,13 +95,14 @@ struct OnboardingSoundSelectionView: View {
                 // ─── Category pills ───────────────────────────────────────
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
-                        ForEach(viewModel.categories) { category in
-                            CategoryPill(
-                                category: category,
-                                isSelected: viewModel.selectedCategory == category
+                        ForEach(topTabs) { tab in
+                            OnboardingTopTabPill(
+                                title: tab.title,
+                                emoji: tab.emoji,
+                                isSelected: isTopTabSelected(tab)
                             ) {
                                 withAnimation(.spring(response: 0.3)) {
-                                    viewModel.selectCategory(category)
+                                    selectTopTab(tab)
                                 }
                             }
                         }
@@ -46,36 +110,6 @@ struct OnboardingSoundSelectionView: View {
                     .padding(.horizontal, Spacing.l)
                 }
                 .padding(.bottom, Spacing.m)
-
-                // ─── Cloud sub-category pills ─────────────────────────────
-                if viewModel.selectedCategory == .cloud {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(viewModel.downloadableSections, id: \.category) { section in
-                                let isSel = (viewModel.selectedCloudCategory ?? viewModel.downloadableSections.first?.category) == section.category
-                                Button {
-                                    withAnimation(.spring(response: 0.3)) {
-                                        viewModel.selectedCloudCategory = section.category
-                                    }
-                                } label: {
-                                    Text(section.category)
-                                        .font(.system(size: 13, weight: .bold))
-                                        .padding(.vertical, 8)
-                                        .padding(.horizontal, 16)
-                                        .background(isSel ? Color(red: 0.1, green: 0.5, blue: 0.9) : Colors.cardSurface)
-                                        .foregroundColor(isSel ? .white : Colors.textPrimary)
-                                        .cornerRadius(20)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 20)
-                                                .stroke(Colors.cardStroke, lineWidth: isSel ? 0 : 1)
-                                        )
-                                }
-                            }
-                        }
-                        .padding(.horizontal, Spacing.l)
-                        .padding(.bottom, 12)
-                    }
-                }
 
                 // ─── Sound list ───────────────────────────────────────────
                 ScrollView(showsIndicators: false) {
@@ -193,8 +227,7 @@ struct OnboardingSoundSelectionView: View {
     /// let-bindings + ForEach inside nested else{} blocks.
     @ViewBuilder
     private var cloudSectionRows: some View {
-        let cat = viewModel.selectedCloudCategory ?? viewModel.downloadableSections.first?.category ?? ""
-        if let section = viewModel.downloadableSections.first(where: { $0.category == cat }) {
+        if let section = downloadableSections.first(where: { $0.category == currentCloudCategory }) {
             ForEach(section.sounds) { remoteSound in
                 cloudSoundRowView(for: remoteSound)
             }
@@ -235,5 +268,33 @@ struct OnboardingSoundSelectionView: View {
         Divider()
             .background(Colors.cardStroke)
             .padding(.leading, 16)
+    }
+}
+
+private struct OnboardingTopTabPill: View {
+    let title: String
+    let emoji: String?
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if let emoji {
+                    Text(emoji).font(.caption)
+                }
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 16)
+            .background(isSelected ? Colors.accentTeal : Colors.cardSurface)
+            .foregroundColor(isSelected ? .white : Colors.textPrimary)
+            .cornerRadius(20)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Colors.cardStroke, lineWidth: isSelected ? 0 : 1)
+            )
+        }
     }
 }

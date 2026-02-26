@@ -65,6 +65,11 @@ final class OnboardingSoundSelectionViewModel: ObservableObject {
         if selectedCategory == .favorites {
             return repository.loadAllSounds().filter { $0.isStarred }
         }
+        if selectedCategory == .alarmTone {
+            return repository.loadAllSounds().filter {
+                $0.category == .alarmTone || $0.category == .loud || $0.category == .classic
+            }
+        }
         return soundsByCategory[selectedCategory] ?? []
     }
 
