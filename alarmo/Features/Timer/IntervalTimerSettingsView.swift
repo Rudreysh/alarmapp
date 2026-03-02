@@ -127,6 +127,58 @@ struct IntervalTimerSettingsView: View {
                             .padding()
                             .background(Colors.cardSurface)
                             .cornerRadius(16)
+                            
+                            // Section: Focus Difficulty
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Session Difficulty")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(Colors.textPrimary)
+                                    .padding(.horizontal, 4)
+                                
+                                ForEach(FocusDifficultyMode.allCases, id: \.self) { mode in
+                                    Button(action: {
+                                        var c = engine.config
+                                        c.difficultyMode = mode
+                                        engine.updateConfig(c)
+                                    }) {
+                                        HStack(spacing: 14) {
+                                            Image(systemName: mode.icon)
+                                                .font(.system(size: 20))
+                                                .foregroundColor(mode == .deepFocus ? .red : TimerPalette.accent)
+                                                .frame(width: 30)
+                                            
+                                            VStack(alignment: .leading, spacing: 3) {
+                                                Text(mode.title)
+                                                    .font(.system(size: 16, weight: .semibold))
+                                                    .foregroundColor(Colors.textPrimary)
+                                                Text(mode.description)
+                                                    .font(.system(size: 13))
+                                                    .foregroundColor(Colors.textSecondary)
+                                            }
+                                            
+                                            Spacer()
+                                            
+                                            if engine.config.difficultyMode == mode {
+                                                Image(systemName: "checkmark.circle.fill")
+                                                    .foregroundColor(mode == .deepFocus ? .red : TimerPalette.accent)
+                                            }
+                                        }
+                                        .padding(.vertical, 12)
+                                        .padding(.horizontal, 16)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                .fill(engine.config.difficultyMode == mode
+                                                    ? (mode == .deepFocus ? Color.red.opacity(0.12) : TimerPalette.accent.opacity(0.12))
+                                                    : Colors.cardSurface
+                                                )
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding()
+                            .background(Colors.cardSurface)
+                            .cornerRadius(16)
                         }
                     }
                     .padding()

@@ -67,7 +67,7 @@
 
 /* Begin PBXFileReference section */
 		20D7177C4FC827DAC89EE2FD /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		28604BEF8FDC258EC7E2805A /* AlarmoWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = AlarmoWidget.appex; path = .appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		28604BEF8FDC258EC7E2805A /* AlarmoWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AlarmoWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		5059170D9E621FEA6171BC41 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		5C33C98169BCAA6D6D23BFA4 /* ShieldConfigurationExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShieldConfigurationExtension.swift; sourceTree = "<group>"; };
 		8EBEB69AEACD5DE69BB5C300 /* PomoAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PomoAttributes.swift; sourceTree = "<group>"; };
@@ -84,22 +84,16 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		967E8BEC2F13F4990060F3D8 /* alarmo */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = alarmo;
 			sourceTree = "<group>";
 		};
 		967E8BFC2F13F49A0060F3D8 /* alarmoTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = alarmoTests;
 			sourceTree = "<group>";
 		};
 		967E8C062F13F49A0060F3D8 /* alarmoUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = alarmoUITests;
 			sourceTree = "<group>";
 		};

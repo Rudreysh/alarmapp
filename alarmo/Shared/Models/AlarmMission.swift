@@ -19,6 +19,7 @@ struct AlarmMission: Codable, Identifiable, Equatable {
         case .step: return "Step"
         case .qrBarcode: return "QR/Barcode"
         case .squat: return "Squat"
+        case .breathing: return "Breathing"
         case .off: return "Off"
         }
     }
@@ -34,6 +35,7 @@ struct AlarmMission: Codable, Identifiable, Equatable {
         case .step: return "figure.walk"
         case .qrBarcode: return "barcode.viewfinder"
         case .squat: return "figure.strengthtraining.traditional"
+        case .breathing: return "wind"
         case .off: return "xmark.circle"
         }
     }

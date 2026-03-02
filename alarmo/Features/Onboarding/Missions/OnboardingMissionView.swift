@@ -153,6 +153,7 @@ private struct MissionPreviewSheet: View {
         case .step: return "Take a certain number of steps to dismiss the alarm."
         case .qrBarcode: return "Scan a specific QR or Barcode to turn the alarm off."
         case .squat: return "Do a set of squats to dismiss the alarm and energize your body."
+        case .breathing: return "Take deep breaths to center your mind and wake up peacefully."
         case .off: return "Turn off the alarm normally."
         }
     }
@@ -332,6 +333,18 @@ private struct MissionAnimationView: View {
                 .frame(width: 140, height: 60)
                 .background(Colors.cardSurface)
                 .cornerRadius(12)
+            case .breathing:
+                HStack {
+                    Image(systemName: "wind")
+                        .foregroundColor(Colors.accentTeal)
+                        .scaleEffect(animate ? 1.2 : 0.8)
+                    Text("3/3")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Colors.accentTeal)
+                }
+                .frame(width: 140, height: 60)
+                .background(Colors.cardSurface)
+                .cornerRadius(12)
             case .off:
                 EmptyView()
             }
@@ -457,6 +470,17 @@ private struct MissionAnimationView: View {
                     Image(systemName: "figure.cooldown")
                         .foregroundColor(Colors.textSecondary)
                     Text("2/10")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Colors.accentRed)
+                }
+                .frame(width: 140, height: 60)
+                .background(Colors.cardSurface)
+                .cornerRadius(12)
+            case .breathing:
+                HStack {
+                    Image(systemName: "wind")
+                        .foregroundColor(Colors.textSecondary)
+                    Text("0/3")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(Colors.accentRed)
                 }

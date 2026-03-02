@@ -71,6 +71,7 @@ struct AlarmRingingView: View {
                                 .font(.system(size: 18, weight: .bold))
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
+                                .padding(.vertical, Spacing.m)
                                 .background(
                                     LinearGradient(
                                         colors: [
@@ -106,6 +107,7 @@ struct AlarmRingingView: View {
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundColor(Colors.textPrimary)
                                 .frame(maxWidth: .infinity)
+                                .padding(.vertical, Spacing.m)
                                 .background(
                                     LinearGradient(
                                         colors: [

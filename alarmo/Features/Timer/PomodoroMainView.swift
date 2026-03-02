@@ -53,36 +53,57 @@ struct PomodoroMainView: View {
                     Spacer()
                     
                     // 5. Main Controls
-                    VStack(spacing: 30) {
-                        PrimaryPlayPauseButton(
-                            isRunning: viewModel.timerState == .running,
-                            theme: theme
-                        ) {
+                    HStack(spacing: 44) {
+                        // Skip / Break
+                        Button {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            if viewModel.currentStage == .focus {
+                                viewModel.pomoRemainingSeconds = 0 // Simulates ending focus
+                            } else {
+                                viewModel.stopTimer()
+                            }
+                        } label: {
+                            Image(systemName: "forward.end.fill")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(viewModel.timerState == .idle ? Colors.textSecondary : TimerPalette.accentSoft)
+                                .frame(width: 56, height: 56)
+                                .background(Circle().fill(Color(red: 0.13, green: 0.15, blue: 0.20)))
+                                .overlay(Circle().stroke(Color.white.opacity(0.10), lineWidth: 1))
+                        }
+                        .disabled(viewModel.timerState == .idle)
+                        .opacity(viewModel.timerState == .idle ? 0.35 : 1)
+                        
+                        // Play / Pause
+                        Button {
                             viewModel.toggleTimer()
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(TimerPalette.accent) // Matches stopwatch exactly
+                                    .frame(width: 72, height: 72)
+                                Image(systemName: viewModel.timerState == .running ? "pause.fill" : "play.fill")
+                                    .font(.system(size: 26, weight: .bold))
+                                    .foregroundColor(.black)
+                            }
+                            .shadow(color: TimerPalette.accent.opacity(0.5), radius: 16, y: 6)
                         }
                         
-                        // 6. Secondary Buttons (Break/Done)
-                        if viewModel.timerState != .idle {
-                            SecondaryActionButtonsRow(
-                                theme: theme,
-                                showBreak: viewModel.currentStage == .focus,
-                                onBreak: {
-                                    // Logic to jump to break
-                                    // Using internal currentStage toggle if supported by VM
-                                    // For now, mapping to existing VM logic if possible
-                                    // VM has startBreak(), but it's private. handlePomoEnd calls it.
-                                    // We can simulate end of focus.
-                                    viewModel.pomoRemainingSeconds = 0
-                                },
-                                onDone: {
-                                    showCompletion = true
-                                    viewModel.stopTimer()
-                                }
-                            )
-                        } else {
-                            // Empty space to maintain layout when idle
-                            Spacer().frame(height: 80)
+                        // Stop
+                        Button {
+                            showCompletion = true
+                            viewModel.stopTimer()
+                            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+                        } label: {
+                            Image(systemName: "square.fill")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(viewModel.timerState == .idle ? Colors.textSecondary : Color(red: 0.9, green: 0.25, blue: 0.25))
+                                .frame(width: 56, height: 56)
+                                .background(Circle().fill(Color(red: 0.13, green: 0.15, blue: 0.20)))
+                                .overlay(Circle().stroke(Color.white.opacity(0.10), lineWidth: 1))
                         }
+                        .disabled(viewModel.timerState == .idle)
+                        .opacity(viewModel.timerState == .idle ? 0.35 : 1)
                     }
                     .padding(.bottom, geo.safeAreaInsets.bottom > 0 ? 40 : 60)
                 }

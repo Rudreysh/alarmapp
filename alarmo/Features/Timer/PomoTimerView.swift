@@ -15,6 +15,10 @@ struct PomoTimerView: View {
     @State private var showTimerEditSheet = false
     @State private var editingSeconds: Int = 0
     @State private var showAppLists = false
+    @State private var showDeepFocusConfirm = false
+    
+    @Query(sort: \AppList.updatedAt, order: .reverse)
+    private var allAppLists: [AppList]
     
     var habitProgressText: String? {
         guard let taskId = engine.state.selectedTaskId else { return nil }
@@ -176,9 +180,13 @@ struct PomoTimerView: View {
                         }
                     }
                     .padding(.top, 4)
-
-
                     
+                    // ---- Blocking Status Row ----
+                    if engine.isBlockingActive || !engine.config.selectedBlockListId.isEmpty {
+                        blockingStatusPill
+                            .padding(.top, 4)
+                    }
+
                     Spacer()
                     
                     // Timer Circle
@@ -291,19 +299,27 @@ struct PomoTimerView: View {
                                         .appShadow(Shadows.button)
                                 }
                                 
-                                // Stop
-                                Button(action: { engine.stop(userInitiated: true) }) {
-                                    Image(systemName: "stop.fill")
+                            // Stop — hidden in Deep Focus during active focus run
+                                if engine.canStopSession {
+                                    Button(action: { engine.requestStop() }) {
+                                        Image(systemName: "stop.fill")
+                                            .font(.system(size: 20))
+                                            .foregroundColor(Colors.textPrimary)
+                                            .frame(width: 50, height: 50)
+                                            .background(Circle().stroke(Colors.cardStroke, lineWidth: 1))
+                                    }
+                                } else {
+                                    // Placeholder to keep layout stable
+                                    Image(systemName: "lock.fill")
                                         .font(.system(size: 20))
-                                        .foregroundColor(Colors.textPrimary)
+                                        .foregroundColor(Color.red.opacity(0.7))
                                         .frame(width: 50, height: 50)
-                                        .background(Circle().stroke(Colors.cardStroke, lineWidth: 1))
+                                        .background(Circle().stroke(Color.red.opacity(0.3), lineWidth: 1))
                                 }
                             }
                             .overlay(alignment: .leading) {
                                 // Manual Break (Coffee) - Appears to the left
-                                // We use opacity to keep the layout rigid, preventing any shifts.
-                                Button(action: { engine.startBreak() }) {
+                                Button(action: { engine.requestBreak() }) {
                                     Image(systemName: "cup.and.saucer.fill")
                                         .font(.system(size: 20))
                                         .foregroundColor(Colors.textPrimary)
@@ -314,6 +330,22 @@ struct PomoTimerView: View {
                                 .opacity(engine.isRunning ? 0 : 1)
                                 .disabled(engine.isRunning)
                                 .animation(.easeInOut(duration: 0.2), value: engine.isRunning)
+                            }
+                            
+                            // ---- Deep Focus Lock Banner ----
+                            if engine.isDeepFocusActive, case .running(.focus) = engine.state.phase {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "lock.fill")
+                                        .font(.system(size: 12))
+                                    Text("Deep Focus — session locked until complete")
+                                        .font(.system(size: 12, weight: .semibold))
+                                }
+                                .foregroundColor(.white.opacity(0.7))
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(Color.red.opacity(0.15))
+                                .clipShape(Capsule())
+                                .padding(.top, 4)
                             }
                             
                             // Skip Button
@@ -377,14 +409,52 @@ struct PomoTimerView: View {
             .presentationDetents([.fraction(0.4)])
         }
         .sheet(isPresented: $showAppLists) {
-            AppListsView()
+            AppListsView(engine: engine)
+                .onDisappear {
+                    // Sync selected block list back into the engine
+                    if let selected = allAppLists.first(where: {
+                        $0.id.uuidString == engine.config.selectedBlockListId
+                    }) ?? allAppLists.first(where: { $0.type == .block }) {
+                        if engine.config.blockAppsEnabled {
+                            engine.setActiveBlockList(selected)
+                        }
+                    }
+                }
+        }
+        // MARK: - Intervention Sheet
+        .fullScreenCover(isPresented: $engine.showingIntervention) {
+            SessionInterventionView(
+                breakMode: engine.config.breakMode,
+                enabledChallenges: engine.config.enabledChallenges,
+                onStopConfirmed: {
+                    engine.forceStop()
+                },
+                onTakeBreak: {
+                    engine.takeBreakAfterChallenge()
+                },
+                onDismiss: {
+                    engine.showingIntervention = false
+                }
+            )
+            .ignoresSafeArea()
         }
         .onAppear {
             // Check background foreground refresh
-             engine.refreshTimer()
+            engine.refreshTimer()
+            // Restore the saved block list reference into the engine on first launch
+            syncBlockListToEngine()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             engine.refreshTimer()
+            // Restore the saved block list reference into the engine on launch
+            if engine.activeBlockList == nil && !engine.config.selectedBlockListId.isEmpty {
+                if let saved = allAppLists.first(where: {
+                    $0.id.uuidString == engine.config.selectedBlockListId
+                }) {
+                    engine.activeBlockList = saved
+                    print("🔗 [PomoTimerView] Restored activeBlockList → '\(saved.name)'")
+                }
+            }
         }
         .onChange(of: engine.isRunning) { _, running in
             if !running && viewModel.isAmbientPlaying {
@@ -410,6 +480,19 @@ struct PomoTimerView: View {
     }
     
     // MARK: - Helpers
+    
+    /// Restore the persisted block list reference back into the engine (e.g. after cold start).
+    /// Does NOT change blockAppsEnabled — just makes sure activeBlockList is set.
+    private func syncBlockListToEngine() {
+        guard engine.activeBlockList == nil,
+              !engine.config.selectedBlockListId.isEmpty,
+              let saved = allAppLists.first(where: {
+                  $0.id.uuidString == engine.config.selectedBlockListId
+              }) else { return }
+        // Use the internal setter; preserve existing blockAppsEnabled flag
+        engine.activeBlockList = saved
+        print("🔗 [PomoTimerView] syncBlockListToEngine → '\(saved.name)'")
+    }
     
     private var idleControlRow: some View {
         HStack(spacing: 10) {
@@ -446,24 +529,30 @@ struct PomoTimerView: View {
             Button {
                 showAppLists = true
             } label: {
+                let listName = allAppLists.first(where: {
+                    $0.id.uuidString == engine.config.selectedBlockListId
+                })?.name
+                let blockEnabled = engine.config.blockAppsEnabled && listName != nil
+                
                 HStack(spacing: 6) {
-                    Text("Block Apps")
-                        .font(.system(size: 15, weight: .semibold))
-                    Image(systemName: "lock.fill")
+                    Image(systemName: blockEnabled ? "lock.fill" : "lock.open.fill")
                         .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(blockEnabled ? .red : Colors.textSecondary)
+                    Text(listName ?? "Block Apps")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(blockEnabled ? Colors.textPrimary : Colors.textSecondary)
                 }
-                .foregroundColor(Colors.textPrimary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 14)
                 .frame(maxWidth: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(Color.white.opacity(0.12))
+                        .fill(blockEnabled ? Color.red.opacity(0.12) : Color.white.opacity(0.12))
                         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                        .stroke(blockEnabled ? Color.red.opacity(0.3) : Color.white.opacity(0.22), lineWidth: 1)
                 )
                 .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 5)
             }
@@ -527,6 +616,68 @@ struct PomoTimerView: View {
         case .longBreak: return TimerPalette.accent
         }
     }
+    
+    // MARK: - Blocking Status Pill
+    
+    private var blockingStatusPill: some View {
+        let listName = allAppLists.first(where: {
+            $0.id.uuidString == engine.config.selectedBlockListId
+        })?.name ?? "Blocklist"
+        
+        let appCount: Int = {
+            #if canImport(FamilyControls)
+            return allAppLists.first(where: {
+                $0.id.uuidString == engine.config.selectedBlockListId
+            })?.selectedApplicationsCount ?? 0
+            #else
+            return allAppLists.first(where: {
+                $0.id.uuidString == engine.config.selectedBlockListId
+            })?.mockAppIDs.count ?? 0
+            #endif
+        }()
+        
+        let isRunningFocus = engine.isBlockingActive
+        
+        return Button(action: { showAppLists = true }) {
+            HStack(spacing: 8) {
+                Image(systemName: isRunningFocus ? "lock.fill" : "lock.open.fill")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(isRunningFocus ? .red : Colors.textSecondary)
+                
+                Text(listName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(isRunningFocus ? Colors.textPrimary : Colors.textSecondary)
+                
+                if appCount > 0 {
+                    Text("\(appCount) apps")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(Colors.textTertiary)
+                }
+                
+                if engine.config.difficultyMode == .deepFocus {
+                    Text("DEEP")
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.red)
+                        .clipShape(Capsule())
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(isRunningFocus ? Color.red.opacity(0.15) : Color.white.opacity(0.08))
+            )
+            .overlay(
+                Capsule()
+                    .stroke(isRunningFocus ? Color.red.opacity(0.3) : Color.white.opacity(0.15), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+    
     
     var currentSegmentLabel: String {
         engine.state.currentSegment?.title.uppercased() ?? "FOCUS"

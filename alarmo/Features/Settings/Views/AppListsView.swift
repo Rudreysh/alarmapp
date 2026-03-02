@@ -10,6 +10,10 @@ struct AppListsView: View {
 
     @StateObject private var viewModel = AppListsViewModel()
 
+    /// Optional engine — passed in from PomoTimerView to enable the blocking toggles.
+    /// When nil (e.g. from Settings), the session toggles are hidden.
+    var engine: PomodoroEngine? = nil
+
     @Query(sort: \AppList.updatedAt, order: .reverse)
     private var appLists: [AppList]
 
@@ -18,6 +22,9 @@ struct AppListsView: View {
 
     private var blockLists: [AppList] { appLists.filter { $0.type == .block } }
     private var allowLists: [AppList] { appLists.filter { $0.type == .allow } }
+    
+    // Access to the currently selected list ID to show active state
+    private let settings = SettingsStore.shared
 
     var body: some View {
         NavigationStack {
@@ -25,6 +32,46 @@ struct AppListsView: View {
                 SettingsGlassBackground()
 
                 List {
+                    // ---- Focus Session Blocking ----
+                    if !blockLists.isEmpty {
+                        Section {
+                            let activeId = settings.selectedBlockListId
+                            let activeName = blockLists.first(where: { $0.id.uuidString == activeId })?.name
+                            
+                            // Active list status row
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.red.opacity(0.15))
+                                        .frame(width: 38, height: 38)
+                                    Image(systemName: activeName != nil ? "lock.fill" : "lock.open.fill")
+                                        .font(.system(size: 16))
+                                        .foregroundColor(activeName != nil ? .red : Colors.textTertiary)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Active Block List")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(Colors.textPrimary)
+                                    Text(activeName ?? "Tap a list below to activate")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(activeName != nil ? Colors.accentRed : Colors.textTertiary)
+                                }
+                                
+                                Spacer()
+                            }
+                            .padding(.vertical, 4)
+                            
+                            // ---- Engine Settings (Toggles) ----
+                            if let engine {
+                                EngineSettingsSection(engine: engine)
+                            }
+                        } header: {
+                            Text("FOR FOCUS SESSIONS")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(Colors.textSecondary)
+                        }
+                        .listRowBackground(Color.white.opacity(0.08))
                     Section {
                         ForEach(blockLists) { list in
                             listRow(list: list)
@@ -87,9 +134,10 @@ struct AppListsView: View {
                     }
                     .listRowBackground(Color.white.opacity(0.08))
                 }
-                .listStyle(.insetGrouped)
-                .scrollContentBackground(.hidden)
             }
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+        }
             .navigationTitle(viewModel.isEditingSelection ? "Select List" : "App Lists")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -136,13 +184,25 @@ struct AppListsView: View {
     @ViewBuilder
     private func listRow(list: AppList) -> some View {
         let isSelected = viewModel.selectedListID == list.id
+        let isActiveForFocus = settings.selectedBlockListId == list.id.uuidString
         let summary = listSelectionSummary(for: list)
 
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(list.name)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(Colors.textPrimary)
+                HStack(spacing: 6) {
+                    Text(list.name)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(Colors.textPrimary)
+                    if isActiveForFocus && list.type == .block {
+                        Text("ACTIVE")
+                            .font(.system(size: 10, weight: .black))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.red)
+                            .clipShape(Capsule())
+                    }
+                }
                 Text(summary)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(Colors.textSecondary)
@@ -398,5 +458,156 @@ struct BlockListDetailView: View {
         pickerUnavailableMessage = "Family Controls is not available in this build."
         showPickerUnavailableAlert = true
         #endif
+    }
+}
+
+struct EngineSettingsSection: View {
+    @ObservedObject var engine: PomodoroEngine
+    
+    var body: some View {
+        Group {
+            Divider().background(Colors.cardStroke)
+            
+            Toggle(isOn: Binding(
+                get: { engine.config.blockAppsEnabled },
+                set: {
+                    var c = engine.config
+                    c.blockAppsEnabled = $0
+                    engine.updateConfig(c)
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Block During Focus")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Colors.textPrimary)
+                    Text("Apps are shielded when the timer runs")
+                        .font(.system(size: 13))
+                        .foregroundColor(Colors.textSecondary)
+                }
+            }
+            .tint(Colors.accentRed)
+            
+            if engine.config.blockAppsEnabled {
+                Divider().background(Colors.cardStroke)
+                
+                Toggle(isOn: Binding(
+                    get: { engine.config.blockDuringBreaks },
+                    set: {
+                        var c = engine.config
+                        c.blockDuringBreaks = $0
+                        engine.updateConfig(c)
+                    }
+                )) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Keep Blocked During Breaks")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Colors.textPrimary)
+                        Text("Apps stay shielded during short and long breaks")
+                            .font(.system(size: 13))
+                            .foregroundColor(Colors.textSecondary)
+                    }
+                }
+                .tint(Colors.accentBlue)
+                
+                // ---- Session Difficulty (Break Mode) ----
+                Section {
+                    ForEach(SessionBreakMode.allCases, id: \.self) { mode in
+                        let isSelected = engine.config.breakMode == mode
+                        HStack(spacing: 14) {
+                            Image(systemName: mode.icon)
+                                .font(.system(size: 18))
+                                .foregroundColor(mode == .hardcore ? .red : Colors.accentBlue)
+                                .frame(width: 28)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(mode.title)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(Colors.textPrimary)
+                                Text(mode.subtitle)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(Colors.textSecondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Toggle("", isOn: Binding(
+                                get: { isSelected },
+                                set: { newValue in
+                                    // Only allow turning ON (radio-style selection)
+                                    if newValue {
+                                        var c = engine.config
+                                        c.breakMode = mode
+                                        engine.updateConfig(c)
+                                    }
+                                }
+                            ))
+                            .labelsHidden()
+                            .tint(mode == .hardcore ? .red : Colors.accentBlue)
+                        }
+                        .padding(.vertical, 6)
+                    }
+                } header: {
+                    Text("SESSION DIFFICULTY")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Colors.textSecondary)
+                        .padding(.top, 10)
+                }
+                .listRowBackground(Color.white.opacity(0.08))
+                
+                // ---- Unlock Challenges ----
+                Section {
+                    ForEach(UnblockChallenge.allCases.filter { $0 != .off }) { challenge in
+                        let isEnabled = engine.config.enabledChallenges.contains(challenge)
+
+                        HStack(spacing: 14) {
+                            Image(systemName: challenge.iconForFocus)
+                                .font(.system(size: 18))
+                                .foregroundColor(isEnabled ? Colors.accentBlue : Colors.textTertiary)
+                                .frame(width: 28)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(challenge.titleForFocus)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(Colors.textPrimary)
+                                Text(challenge.subtitleForFocus)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(Colors.textSecondary)
+                            }
+
+                            
+                            Spacer()
+                            
+                            Toggle("", isOn: Binding(
+                                get: { isEnabled },
+                                set: { newValue in
+                                    var c = engine.config
+                                    if newValue {
+                                        if !c.enabledChallenges.contains(challenge) {
+                                            c.enabledChallenges.append(challenge)
+                                        }
+                                    } else {
+                                        c.enabledChallenges.removeAll { $0 == challenge }
+                                    }
+                                    engine.updateConfig(c)
+                                }
+                            ))
+                            .labelsHidden()
+                            .tint(Colors.accentBlue)
+                        }
+                        .padding(.vertical, 6)
+                    }
+                } header: {
+                    Text("UNLOCK CHALLENGES")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Colors.textSecondary)
+                        .padding(.top, 10)
+                } footer: {
+                    Text("Users must complete the selected challenge to stop or take a break during a locked session.")
+                        .font(.system(size: 12))
+                        .foregroundColor(Colors.textTertiary)
+                }
+                .listRowBackground(Color.white.opacity(0.08))
+            }
+        }
     }
 }

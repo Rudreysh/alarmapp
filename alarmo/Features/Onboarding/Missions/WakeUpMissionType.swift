@@ -1,6 +1,8 @@
 import Foundation
 
-enum WakeUpMissionType: String, CaseIterable, Codable, Equatable {
+enum WakeUpMissionType: String, CaseIterable, Codable, Equatable, Identifiable {
+    var id: String { rawValue }
+
     case math
     case typing
     case findColorTiles
@@ -10,6 +12,7 @@ enum WakeUpMissionType: String, CaseIterable, Codable, Equatable {
     case step
     case qrBarcode
     case squat
+    case breathing
     case off
     
     var isProFeature: Bool {

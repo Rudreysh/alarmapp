@@ -7,13 +7,16 @@ class PomodoroEngine: ObservableObject {
     @Published var config: IntervalTimerConfig
     @Published var state: PomodoroRuntimeState
     
+    /// Set to true by PomoTimerView when stop is tapped during a blocked session
+    @Published var showingIntervention: Bool = false
+    
     private let configStore: IntervalTimerConfigStore
     private var eventStore: PomodoroEventStore
     private var timer: AnyCancellable?
     private var entitlementProvider: EntitlementProvider
     private let accountabilityManager = AccountabilityEnforcementManager.shared
     
-    /// Callback for when a segment (like Focus) is completed. 
+    /// Callback for when a segment (like Focus) is completed.
     /// Parameters:TaskId, SegmentKind, DurationSeconds
     var onSessionComplete: ((UUID?, SegmentKind, Int) -> Void)?
     
@@ -153,23 +156,95 @@ class PomodoroEngine: ObservableObject {
         )
     }
     
+    /// Called when the user taps Stop. If blocking is active during a focus session,
+    /// this shows the intervention sheet instead of stopping immediately.
+    func requestStop() {
+        guard isRunning || state.phase.isPaused else { return }
+        
+        let isBlockedFocusSession = config.blockAppsEnabled &&
+            !config.selectedBlockListId.isEmpty &&
+            state.currentSegment == .focus
+        
+        if isBlockedFocusSession && config.breakMode != .hardcore {
+            // Show intervention — apps stay blocked until challenge is completed
+            showingIntervention = true
+        } else if config.breakMode == .hardcore && isBlockedFocusSession {
+            // Hardcore: cannot stop at all
+            return
+        } else {
+            // No blocking active — stop normally
+            stop(userInitiated: true)
+        }
+    }
+    
+    /// Request a break — respects breakMode (harder requires challenge first, handled by UI)
+    func requestBreak() {
+        let isBlockedFocusSession = config.blockAppsEnabled &&
+            !config.selectedBlockListId.isEmpty &&
+            state.currentSegment == .focus
+        
+        if isBlockedFocusSession {
+            showingIntervention = true
+        } else {
+            startBreak()
+        }
+    }
+    
+    /// Called ONLY after a challenge is completed. Actually stops and unblocks.
+    func forceStop() {
+        let shouldApplyEarlyPenalty =
+            (state.currentSegment == .focus) &&
+            (state.remainingSeconds > 0) &&
+            (isRunning || state.phase.isPaused)
+        
+        if shouldApplyEarlyPenalty {
+            _ = accountabilityManager.handleFocusEarlyStopPenalty()
+        }
+        
+        // NOW we clear blocking — only after challenge is complete
+        BlockingManager.shared.clearBlocking()
+        
+        showingIntervention = false
+        LiveActivityManager.shared.end()
+        timer?.cancel()
+        accountabilityManager.endFocusSession()
+        state = PomodoroRuntimeState()
+        state.remainingSeconds = config.focusSeconds
+    }
+    
+    /// Called after challenge completed for a break (unblocks temporarily if blockDuringBreaks is false)
+    func takeBreakAfterChallenge() {
+        showingIntervention = false
+        startBreak()
+    }
+    
     func stop(reset: Bool = true, userInitiated: Bool = false) {
+        // Deep Focus guard: prevent stopping during an active focus run
+        if userInitiated && !canStopSession {
+            return
+        }
+        
         let shouldApplyEarlyPenalty =
             userInitiated &&
             (state.currentSegment == .focus) &&
             (state.remainingSeconds > 0) &&
-            (isRunning || (state.phase.isPaused))
+            (isRunning || state.phase.isPaused)
         
         if shouldApplyEarlyPenalty {
             _ = accountabilityManager.handleFocusEarlyStopPenalty()
+        }
+        
+        // Only clear blocking if NOT user-initiated on a blocked session
+        // (blocked sessions go through requestStop → intervention → forceStop)
+        if !userInitiated || !config.blockAppsEnabled || state.currentSegment != .focus {
+            BlockingManager.shared.clearBlocking()
         }
         
         LiveActivityManager.shared.end()
         timer?.cancel()
         accountabilityManager.endFocusSession()
         if reset {
-            state = PomodoroRuntimeState() // Full reset
-            // If simple mode, reset duration
+            state = PomodoroRuntimeState()
             state.remainingSeconds = config.focusSeconds
         } else {
             state.phase = .idle
@@ -194,6 +269,9 @@ class PomodoroEngine: ObservableObject {
             accountabilityManager.endFocusSession()
         }
         
+        // App Blocking
+        applyBlockingForSegment(kind)
+        
         // Set duration
         let duration = totalDuration(for: kind)
         state.remainingSeconds = duration
@@ -205,6 +283,57 @@ class PomodoroEngine: ObservableObject {
         let focusName = state.overriddenTaskName ?? "Focus"
         let stateString = kind == .focus ? "Focus Hard" : "Break Time"
         LiveActivityManager.shared.start(focusName: focusName, startTime: Date(), endTime: endDate, stateString: stateString)
+    }
+    
+    // MARK: - App Blocking Bridge
+    
+    /// Whether the current focus session has app blocking enabled
+    var isBlockingActive: Bool {
+        config.blockAppsEnabled && !config.selectedBlockListId.isEmpty
+    }
+    
+    /// Whether Deep Focus mode is active (can't stop early during focus)
+    var isDeepFocusActive: Bool {
+        config.difficultyMode == .deepFocus
+    }
+    
+    /// Returns true if stop is currently allowed (blocked in deep focus during running focus)
+    var canStopSession: Bool {
+        guard case .running(let segment) = state.phase, segment == .focus else { return true }
+        return config.difficultyMode != .deepFocus
+    }
+    
+    /// Fetch the currently selected AppList from SwiftData (called by engine when needed)
+    var activeBlockList: AppList? = nil
+    
+    func setActiveBlockList(_ list: AppList?) {
+        activeBlockList = list
+        if let id = list?.id.uuidString {
+            var c = config
+            c.selectedBlockListId = id
+            c.blockAppsEnabled = true
+            updateConfig(c)
+        } else {
+            var c = config
+            c.blockAppsEnabled = false
+            c.selectedBlockListId = ""
+            updateConfig(c)
+            BlockingManager.shared.clearBlocking()
+        }
+    }
+    
+    private func applyBlockingForSegment(_ kind: SegmentKind) {
+        guard config.blockAppsEnabled, let list = activeBlockList else { return }
+        switch kind {
+        case .focus:
+            BlockingManager.shared.applyBlocking(blockList: list)
+        case .shortBreak, .longBreak:
+            if !config.blockDuringBreaks {
+                BlockingManager.shared.clearBlocking()
+            } else {
+                BlockingManager.shared.applyBlocking(blockList: list)
+            }
+        }
     }
     
     private func startTicker() {
