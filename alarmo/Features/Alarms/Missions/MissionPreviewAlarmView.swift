@@ -40,8 +40,18 @@ struct MissionPreviewAlarmView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 20)
-                        .background(Colors.accentRed)
+                        .background(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.08, green: 0.78, blue: 0.92),
+                                    Color(red: 0.05, green: 0.66, blue: 0.84)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                         .cornerRadius(32)
+                        .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3), radius: 15, x: 0, y: 10)
                     }
 
                     Button(action: { dismiss() }) {

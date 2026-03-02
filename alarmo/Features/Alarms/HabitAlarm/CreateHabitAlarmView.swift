@@ -120,10 +120,10 @@ struct CreateHabitAlarmView: View {
                                     .fill(Colors.cardSurface.opacity(0.6))
                                     .overlay(
                                         Capsule()
-                                            .stroke(isShowingLocalInFloat ? Colors.accentTeal.opacity(0.6) : Color.white.opacity(0.1), lineWidth: 1)
+                                            .stroke(!isShowingLocalInFloat ? Colors.accentTeal.opacity(0.6) : Color.white.opacity(0.1), lineWidth: 1)
                                     )
                             )
-                            .foregroundColor(isShowingLocalInFloat ? Colors.accentTeal : Colors.textPrimary)
+                            .foregroundColor(!isShowingLocalInFloat ? Colors.accentTeal : Colors.textPrimary)
                             .animation(.easeInOut(duration: 0.3), value: isShowingLocalInFloat)
                         } primaryAction: {
                             // TAP now opens the picker, making it easy to change locations
@@ -471,7 +471,19 @@ struct CreateHabitAlarmView: View {
                     var updatedMission = AlarmMission(
                         type: .step
                     )
-                    updatedMission.config = ["steps": steps]
+                    updatedMission.config = ["stepCount": steps]
+                    updateMission(updatedMission)
+                }
+            } else if mission.type == .shake {
+                ShakeMissionSettingsView { shakeCount in
+                    var updatedMission = AlarmMission(type: .shake)
+                    updatedMission.config = ["shakeCount": shakeCount]
+                    updateMission(updatedMission)
+                }
+            } else if mission.type == .squat {
+                SquatMissionSettingsView { squatCount in
+                    var updatedMission = AlarmMission(type: .squat)
+                    updatedMission.config = ["squatCount": squatCount]
                     updateMission(updatedMission)
                 }
             } else {
@@ -533,7 +545,7 @@ struct CreateHabitAlarmView: View {
     
     private func syncTimeToSelectedTimeZone() {
         let timezone: TimeZone
-        if !showingLocalTimePreview, viewModel.timeZoneMode == .custom, let id = viewModel.timeZoneIdentifier {
+        if viewModel.timeZoneMode == .custom, let id = viewModel.timeZoneIdentifier {
             timezone = TimeZone(identifier: id) ?? .current
         } else {
             timezone = .current

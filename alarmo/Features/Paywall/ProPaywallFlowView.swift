@@ -77,10 +77,17 @@ private struct PaywallHeader: View {
     var body: some View {
         HStack {
             HStack(spacing: 6) {
-                Image(systemName: "bolt.fill")
-                    .foregroundColor(Colors.accentTeal)
+                Image(systemName: "alarm.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Colors.accentTeal, Colors.accentBlue],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                 Text("PRO")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 16, weight: .black))
                     .foregroundColor(.white)
             }
             Spacer()
@@ -103,28 +110,45 @@ private struct ProPaywallIntroView: View {
         VStack(spacing: Spacing.l) {
             PaywallHeader(onClose: onClose)
 
-            Text("One alarm is enough\nwith Alarmy Pro")
-                .font(.system(size: 30, weight: .bold))
+            Text("One alarm is enough\nwith Alarmo PRO")
+                .font(.system(size: 34, weight: .heavy, design: .rounded))
                 .foregroundColor(.white)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, Spacing.l)
+                .shadow(color: Colors.accentTeal.opacity(0.3), radius: 10, x: 0, y: 4)
 
             Spacer()
 
-            RoundedRectangle(cornerRadius: 24)
-                .fill(Color.white.opacity(0.08))
-                .frame(height: 260)
-                .overlay(
-                    VStack(spacing: Spacing.m) {
-                        PaywallToggleRow(text: "am 6:55")
-                        PaywallToggleRow(text: "am 7:10")
-                        PaywallToggleRow(text: "am 7:20")
-                        PaywallToggleRow(text: "am 7:30", isOn: true)
-                    }
-                    .padding()
-                )
-                .padding(.horizontal, Spacing.l)
+            ZStack {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.04, green: 0.08, blue: 0.12).opacity(0.92),
+                                Color(red: 0.06, green: 0.11, blue: 0.17).opacity(0.86),
+                                Color(red: 0.03, green: 0.05, blue: 0.09).opacity(0.92)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                
+                VStack(spacing: Spacing.l) {
+                    PaywallToggleRow(text: "06:55")
+                    PaywallToggleRow(text: "07:10")
+                    PaywallToggleRow(text: "07:20")
+                    PaywallToggleRow(text: "07:30", isOn: true)
+                }
+                .padding(24)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.2), radius: 20, x: 0, y: 10)
+            .padding(.horizontal, Spacing.l)
 
             Spacer()
 
@@ -146,20 +170,23 @@ private struct PaywallToggleRow: View {
     var isOn: Bool = false
 
     var body: some View {
-        HStack {
+        HStack(spacing: 8) {
+            Text("AM")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(isOn ? Colors.accentTeal : .white.opacity(0.4))
+                
             Text(text)
-                .foregroundColor(.white.opacity(0.7))
-                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(isOn ? .white : .white.opacity(0.7))
+                .font(.system(size: 24, weight: .black, design: .monospaced))
+                .kerning(1.0)
+            
             Spacer()
-            Capsule()
-                .fill(isOn ? Colors.accentTeal : Color.white.opacity(0.2))
-                .frame(width: 44, height: 24)
-                .overlay(
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: 18, height: 18)
-                        .offset(x: isOn ? 10 : -10)
-                )
+            
+            Toggle("", isOn: .constant(isOn))
+                .labelsHidden()
+                .toggleStyle(SwitchToggleStyle(tint: Colors.accentTeal))
+                .scaleEffect(1.1)
+                .disabled(true)
         }
     }
 }
@@ -320,6 +347,10 @@ private struct ProPaywallReminderView: View {
 private struct ProPaywallPlanSelectionView: View {
     let onClose: () -> Void
     @Binding var selectedPlan: ProPlanOption
+    
+    @StateObject private var subManager = SubscriptionManager.shared
+    @State private var showStudentAlert = false
+    @State private var isProcessing = false
 
     var body: some View {
         VStack(spacing: Spacing.l) {
@@ -346,12 +377,22 @@ private struct ProPaywallPlanSelectionView: View {
                 selectedPlan = .lifetime
             }
 
-            HStack {
-                Text("🎓 Are you a student?")
-                    .foregroundColor(.white.opacity(0.8))
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .foregroundColor(.white.opacity(0.6))
+            Button(action: {
+                showStudentAlert = true
+            }) {
+                HStack {
+                    Text("🎓 Are you a student?")
+                        .foregroundColor(.white.opacity(0.8))
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(.white.opacity(0.6))
+                }
+                .padding(.horizontal, Spacing.l)
+            }
+            .alert("Student Plan", isPresented: $showStudentAlert) {
+                Button("Got it", role: .cancel) { }
+            } message: {
+                Text("Student verification is coming soon in the next update. Stay tuned for up to 50% off!")
             }
             .padding(.horizontal, Spacing.l)
 
@@ -363,12 +404,24 @@ private struct ProPaywallPlanSelectionView: View {
 
             Spacer()
 
-            PrimaryButton(title: "Start my free week", style: .blueGlass) {
-                // Stub: implement purchase later
+            PrimaryButton(title: isProcessing ? "Processing..." : (selectedPlan == .yearly ? "Start my free week" : "Unlock Pro Now"), style: .blueGlass) {
+                isProcessing = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    isProcessing = false
+                    // Mock unlocking
+                    subManager.isPro = true
+                    switch selectedPlan {
+                    case .yearly: subManager.planName = "Yearly Plan"
+                    case .monthly: subManager.planName = "Monthly Plan"
+                    case .lifetime: subManager.planName = "Lifetime Plan"
+                    }
+                    onClose()
+                }
             }
+            .disabled(isProcessing)
             .padding(.horizontal, Spacing.l)
 
-            Text("Automatic payment after free trial ends (in 7 days)")
+            Text(selectedPlan == .yearly ? "Automatic payment after free trial ends (in 7 days)" : "Billed immediately. Cancel anytime.")
                 .captionText()
                 .foregroundColor(Colors.textSecondary)
                 .padding(.bottom, Spacing.l)

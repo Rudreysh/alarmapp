@@ -22,14 +22,14 @@ struct PrimaryButton: View {
                 Text(title)
                     .font(.system(size: 18, weight: .bold))
             }
-            .foregroundColor(style == .blueGlass ? Color.black : Colors.textPrimary)
+            .foregroundColor(Colors.textPrimary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, Spacing.m)
             .background(backgroundView)
             .clipShape(Capsule())
             .overlay(
                 Capsule()
-                    .stroke(Color.white.opacity(style == .blueGlass ? 0.25 : 0), lineWidth: 1)
+                    .stroke(Color.white.opacity(style == .blueGlass ? 0.35 : 0), lineWidth: 1)
             )
             .shadow(
                 color: (style == .blueGlass ? Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3) : Colors.shadow),
@@ -50,12 +50,13 @@ struct PrimaryButton: View {
         case .blueGlass:
             LinearGradient(
                 colors: [
-                    Color(red: 0.55, green: 0.88, blue: 1.0), // Light vibrant cyan
-                    Color(red: 0.0, green: 0.65, blue: 0.95)   // Deep vibrant blue
+                    Color(red: 0.08, green: 0.78, blue: 0.92).opacity(0.85),
+                    Color(red: 0.05, green: 0.66, blue: 0.84).opacity(0.70)
                 ],
-                startPoint: .leading,
-                endPoint: .trailing
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
+            .background(.ultraThinMaterial, in: Capsule())
         }
     }
 }

@@ -111,10 +111,10 @@ struct CreateWakeUpAlarmView: View {
                                     .fill(Colors.cardSurface.opacity(0.6))
                                     .overlay(
                                         Capsule()
-                                            .stroke(isShowingLocalInFloat ? Colors.accentTeal.opacity(0.6) : Color.white.opacity(0.1), lineWidth: 1)
+                                            .stroke(!isShowingLocalInFloat ? Colors.accentTeal.opacity(0.6) : Color.white.opacity(0.1), lineWidth: 1)
                                     )
                             )
-                            .foregroundColor(isShowingLocalInFloat ? Colors.accentTeal : Colors.textPrimary)
+                            .foregroundColor(!isShowingLocalInFloat ? Colors.accentTeal : Colors.textPrimary)
                             .animation(.easeInOut(duration: 0.3), value: isShowingLocalInFloat)
                         } primaryAction: {
                             // TAP now opens the picker
@@ -502,7 +502,7 @@ struct CreateWakeUpAlarmView: View {
                     var updatedMission = AlarmMission(
                         type: .step
                     )
-                    updatedMission.config = ["steps": steps]
+                    updatedMission.config = ["stepCount": steps]
                     updateMission(updatedMission)
                 }
             } else if mission.type == .qrBarcode {
@@ -514,6 +514,18 @@ struct CreateWakeUpAlarmView: View {
                     if let raw = config.selectedRawValueFallback {
                         updatedMission.customData["barcodeVal"] = raw
                     }
+                    updateMission(updatedMission)
+                }
+            } else if mission.type == .shake {
+                ShakeMissionSettingsView { shakeCount in
+                    var updatedMission = AlarmMission(type: .shake)
+                    updatedMission.config = ["shakeCount": shakeCount]
+                    updateMission(updatedMission)
+                }
+            } else if mission.type == .squat {
+                SquatMissionSettingsView { squatCount in
+                    var updatedMission = AlarmMission(type: .squat)
+                    updatedMission.config = ["squatCount": squatCount]
                     updateMission(updatedMission)
                 }
             } else {
@@ -645,7 +657,7 @@ private extension CreateWakeUpAlarmView {
     
     func syncTimeToSelectedTimeZone() {
         let timezone: TimeZone
-        if !showingLocalTimePreview, viewModel.draft.timeZoneMode == .custom, let id = viewModel.draft.timeZoneIdentifier {
+        if viewModel.draft.timeZoneMode == .custom, let id = viewModel.draft.timeZoneIdentifier {
             timezone = TimeZone(identifier: id) ?? .current
         } else {
             timezone = .current

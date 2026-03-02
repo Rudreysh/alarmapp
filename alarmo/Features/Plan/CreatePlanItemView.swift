@@ -47,20 +47,21 @@ struct CreatePlanItemView: View {
     
     @State private var showFocusPicker: Bool = false
     @State private var showMetricPicker: Bool = false
+    @State private var showPeriodPicker: Bool = false
     @State private var showSaveErrorAlert: Bool = false
     @State private var saveErrorMessage: String = ""
     
     // Preset Colors
     let presetColors: [(Color, String)] = [
-        (PlanPalette.accent, "blue"),
-        (PlanPalette.accentStrong, "red"),
-        (PlanPalette.accent, "green"),
-        (PlanPalette.accentSoft, "orange"),
+        (Color.blue, "blue"),
+        (Color.red, "red"),
+        (Color.green, "green"),
+        (Color.orange, "orange"),
         (Color.purple, "purple"),
         (Color.cyan, "cyan"),
         (Color.pink, "pink"),
         (Color.yellow, "yellow"),
-        (Color.gray, "gray")
+        (Color.mint, "mint")
     ]
     
     // Preset Icons (SF Symbols)
@@ -161,6 +162,10 @@ struct CreatePlanItemView: View {
         .sheet(isPresented: $showMetricPicker) {
              MetricSelectionSheet(metricKind: $metricKind, unit: $goalUnit)
                 .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showPeriodPicker) {
+            PeriodSelectionSheet(selectedPeriod: $goalPeriod)
+                .presentationDetents([.medium])
         }
         .alert("Connect Apple Health?", isPresented: $showHealthAlert) {
             Button("Connect") {
@@ -1015,7 +1020,9 @@ struct CreatePlanItemView: View {
                 
                 Divider().padding(.horizontal, Spacing.m)
                 
-                PlanSettingsRow(icon: "calendar.badge.clock", title: "Target Period", value: "Daily") { }
+                PlanSettingsRow(icon: "calendar.badge.clock", title: "Target Period", value: goalPeriod.title) {
+                    showPeriodPicker = true
+                }
                 
                 Divider().padding(.leading, 56)
                 
@@ -1076,7 +1083,7 @@ struct CreatePlanItemView: View {
     private var quantityGoalInput: some View {
         VStack(spacing: Spacing.m) {
             HStack {
-                Text(habitIntent == .build ? "Daily Target" : "Daily Limit")
+                Text(habitIntent == .build ? "\(goalPeriod.title) Target" : "\(goalPeriod.title) Limit")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(Colors.textPrimary)
                 Spacer()
@@ -1111,9 +1118,17 @@ struct CreatePlanItemView: View {
                                     .font(.system(size: 14, weight: .semibold))
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 8)
-                                    .background(goalValue == val ? possibleColor(for: tintKey) : Colors.bgSecondary.opacity(0.5))
+                                    .background(
+                                        Group {
+                                            if goalValue == val {
+                                                Color.clear.timerNeonFill(cornerRadius: 10)
+                                            } else {
+                                                RoundedRectangle(cornerRadius: 10)
+                                                    .fill(Colors.bgSecondary.opacity(0.5))
+                                            }
+                                        }
+                                    )
                                     .foregroundColor(goalValue == val ? .white : Colors.textPrimary)
-                                    .cornerRadius(10)
                             }
                         }
                     }
@@ -1876,5 +1891,74 @@ struct MissionChip: View {
                 ))
         )
         .shadow(color: PlanPalette.accent.opacity(0.3), radius: 4, x: 0, y: 2)
+    }
+}
+
+struct PeriodSelectionSheet: View {
+    @Environment(\.dismiss) var dismiss
+    @Binding var selectedPeriod: GoalPeriod
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                PlanGlassBackground()
+                
+                VStack(spacing: 24) {
+                    Text("Target Period")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(Colors.textPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal)
+                        .padding(.top, 24)
+                    
+                    VStack(spacing: 16) {
+                        ForEach(GoalPeriod.allCases, id: \.self) { period in
+                            Button(action: {
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                withAnimation {
+                                    selectedPeriod = period
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                    dismiss()
+                                }
+                            }) {
+                                HStack {
+                                    Text(period.title)
+                                        .font(.system(size: 18, weight: .semibold))
+                                        .foregroundColor(selectedPeriod == period ? .white : Colors.textPrimary)
+                                    Spacer()
+                                    if selectedPeriod == period {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 16, weight: .bold))
+                                            .foregroundColor(.white)
+                                    }
+                                }
+                                .padding()
+                                .background(
+                                    Group {
+                                        if selectedPeriod == period {
+                                            Color.clear.timerNeonFill(cornerRadius: 16)
+                                        } else {
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .fill(Colors.bgSecondary.opacity(0.5))
+                                        }
+                                    }
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(selectedPeriod == period ? Color.white.opacity(0.2) : Colors.cardStroke, lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal)
+                    
+                    Spacer()
+                }
+            }
+            .navigationBarHidden(true)
+        }
     }
 }

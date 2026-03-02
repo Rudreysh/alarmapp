@@ -4,6 +4,8 @@ struct QRBarcodeSettingsView: View {
     @StateObject private var viewModel = QRBarcodeMissionViewModel()
     @State private var previewTargetCode: PreviewItem?
     @State private var showNoCodeAlert = false 
+    @State private var showAlarmPreview = false
+    @State private var showGamePreview = false
     var onSave: (QRBarcodeMissionConfig) -> Void
     @Environment(\.dismiss) var dismiss
     
@@ -105,45 +107,60 @@ struct QRBarcodeSettingsView: View {
                 // Bottom Buttons
                 HStack(spacing: 16) {
                     Button(action: {
-                        if let selected = viewModel.missionConfig.selectedRawValueFallback {
-                            print("PREVIEW tapped. Selected: \(selected)")
-                            previewTargetCode = PreviewItem(code: selected)
-                        } else {
-                            print("PREVIEW tapped but no code selected.")
-                            showNoCodeAlert = true
-                            let generator = UINotificationFeedbackGenerator()
-                            generator.notificationOccurred(.error)
-                        }
+                        let selected = viewModel.missionConfig.selectedRawValueFallback ?? "PREVIEW_DUMMY_MODE"
+                        previewTargetCode = PreviewItem(code: selected)
+                        showAlarmPreview = true
                     }) {
                         Text("Preview")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(Colors.textPrimary) // Always highlighted
-                            .padding(.vertical, Spacing.m)
-                            .padding(.horizontal, 24)
-                            .background(Colors.cardSurface)
-                            .cornerRadius(Radii.button)
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 18)
+                            .background(Color.white.opacity(0.12))
+                            .cornerRadius(32)
                     }
                     
-                    PrimaryButton(title: "Done") {
+                    Button(action: {
                         onSave(viewModel.missionConfig)
                         dismiss()
+                    }) {
+                        Text("Done")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 18)
+                            .background(
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 0.08, green: 0.78, blue: 0.92),
+                                        Color(red: 0.05, green: 0.66, blue: 0.84)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .cornerRadius(32)
+                            .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3), radius: 15, x: 0, y: 10)
                     }
                 }
-                .padding()
+                .padding(.horizontal, 20)
+                .padding(.bottom, 24)
                 .background(Colors.bgPrimary)
                 .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 0) } 
             }
         }
-        .alert(isPresented: $showNoCodeAlert) {
-            Alert(
-                title: Text("No Barcode Selected"),
-                message: Text("Please scan and select a barcode first to preview the mission."),
-                dismissButton: .default(Text("OK"))
-            )
+        .fullScreenCover(isPresented: $showAlarmPreview) {
+            MissionPreviewAlarmView(
+                missionTitle: "QR/Barcode",
+                missionIcon: "barcode.viewfinder"
+            ) {
+                showAlarmPreview = false
+                showGamePreview = true
+            }
         }
-        .fullScreenCover(item: $previewTargetCode) { item in
-             QRBarcodeMissionView(targetCode: item.code, onSuccess: {
-                 previewTargetCode = nil
+        .fullScreenCover(isPresented: $showGamePreview) {
+             QRBarcodeMissionView(targetCode: previewTargetCode?.code ?? "", onSuccess: {
+                 showGamePreview = false
              })
         }
         .fullScreenCover(isPresented: $viewModel.isScanning) {

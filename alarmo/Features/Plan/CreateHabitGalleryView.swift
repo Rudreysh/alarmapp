@@ -11,7 +11,7 @@ struct CreateHabitGalleryView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                PlanGlassBackground()
+                TimerGlassBackground()
                 
                 VStack(spacing: 0) {
                     // Category Tabs
@@ -27,7 +27,17 @@ struct CreateHabitGalleryView: View {
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 8)
-                        .planGlassPanel(cornerRadius: 24, fillOpacity: 0.10)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(Color.black.opacity(0.15))
+                                .background(.ultraThinMaterial, in: Capsule())
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        )
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                     }
@@ -35,7 +45,7 @@ struct CreateHabitGalleryView: View {
                     
                     // Habits List
                     ScrollView {
-                        LazyVStack(spacing: 16) {
+                        LazyVStack(spacing: 12) {
                             let habits = habitsForCategory(selectedCategory)
                             ForEach(habits) { habit in
                                 HabitCard(habit: habit) {
@@ -43,7 +53,8 @@ struct CreateHabitGalleryView: View {
                                 }
                             }
                         }
-                        .padding()
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
                         .padding(.bottom, 80) // Space for bottom button
                     }
                 }
@@ -156,8 +167,8 @@ struct CategoryTabButton: View {
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        Color(red: 0.15, green: 0.71, blue: 0.93).opacity(0.42),
-                                        Color(red: 0.12, green: 0.56, blue: 0.86).opacity(0.30)
+                                        Color(red: 0.15, green: 0.71, blue: 0.93).opacity(0.25),
+                                        Color(red: 0.12, green: 0.56, blue: 0.86).opacity(0.15)
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -166,7 +177,7 @@ struct CategoryTabButton: View {
                             .background(.ultraThinMaterial, in: Capsule())
                             .overlay(
                                 Capsule()
-                                    .stroke(Color.white.opacity(0.28), lineWidth: 1)
+                                    .stroke(Color.white.opacity(0.4), lineWidth: 1)
                             )
                     } else {
                         Capsule()
@@ -184,36 +195,79 @@ struct HabitCard: View {
     
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 16) {
-                // Icon Circle
-                ZStack {
-                    Circle()
-                        .fill(habit.color.opacity(0.2))
-                        .frame(width: 48, height: 48)
-                    Image(systemName: habit.icon)
-                        .font(.system(size: 24))
+            ZStack {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.04, green: 0.08, blue: 0.12).opacity(0.92),
+                                Color(red: 0.06, green: 0.11, blue: 0.17).opacity(0.86),
+                                Color(red: 0.03, green: 0.05, blue: 0.09).opacity(0.92)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                
+                HStack(spacing: 0) {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    habit.color.opacity(0.38),
+                                    habit.color.opacity(0.18),
+                                    Color.black.opacity(0.02)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 86)
+                        .padding(.leading, 6)
+                        .padding(.vertical, 6)
+                    
+                    Spacer(minLength: 0)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(habit.color.opacity(0.2))
+                            .frame(width: 48, height: 48)
+                        Image(systemName: habit.icon)
+                            .font(.system(size: 24))
+                            .foregroundColor(habit.color)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(habit.title)
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(PlanPalette.textPrimary)
+                        Text(habit.subtitle)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(PlanPalette.textSecondary)
+                            .lineLimit(1)
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .bold))
                         .foregroundColor(habit.color)
+                        .frame(width: 28, height: 28)
+                        .background(habit.color.opacity(0.2))
+                        .clipShape(Circle())
                 }
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(habit.title)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Colors.textPrimary)
-                    Text(habit.subtitle)
-                        .font(.caption)
-                        .foregroundColor(Colors.textSecondary)
-                        .lineLimit(1)
-                }
-                
-                Spacer()
-                
-                Image(systemName: "plus")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(Colors.textSecondary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
             }
-            .padding(16)
-            .planGlassPanel(cornerRadius: 16)
-            .cornerRadius(20)
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color.white.opacity(0.20), lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.16), radius: 10, x: 0, y: 4)
         }
         .buttonStyle(.plain)
     }
@@ -323,4 +377,40 @@ struct HabitTemplate: Identifiable {
         HabitTemplate(title: "Less Social App", subtitle: "Digital detox", icon: "bubble.left.and.bubble.right.fill", color: .green, colorKey: "green", category: .quit, defaultDurationSeconds: nil, metricKind: .time, goalValue: 60, goalUnit: "min", habitIntent: .quit),
         HabitTemplate(title: "Spend Less", subtitle: "Save money", icon: "dollarsign.circle.fill", color: .green, colorKey: "green", category: .quit, defaultDurationSeconds: nil, metricKind: .count, goalValue: 50, goalUnit: "$", habitIntent: .quit),
     ]
+}
+
+// MARK: - Blue Gradient Card Style
+extension View {
+    func habitBlueCard(cornerRadius: CGFloat = 16) -> some View {
+        self
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.10, green: 0.20, blue: 0.30).opacity(0.85),
+                                Color(red: 0.05, green: 0.12, blue: 0.20).opacity(0.95)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                TimerPalette.accent.opacity(0.4),
+                                Color.white.opacity(0.05)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
+    }
 }

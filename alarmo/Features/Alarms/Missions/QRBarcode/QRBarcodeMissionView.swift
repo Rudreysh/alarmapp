@@ -65,10 +65,10 @@ struct QRBarcodeMissionView: View {
                         .frame(width: 80, height: 80)
                         .foregroundColor(Colors.textPrimary)
                     
-                    Text(targetCode)
+                    Text(targetCode == "PREVIEW_DUMMY_MODE" ? "Preview (Scan anything)" : targetCode)
                         .font(.system(size: 32, weight: .bold)) // Large text
                         .foregroundColor(Colors.textPrimary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                         .minimumScaleFactor(0.5)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)

@@ -3,6 +3,7 @@ import HealthKit
 import AVFoundation
 import CoreMotion
 import UserNotifications
+import FamilyControls
 
 struct PermissionsView: View {
     @State private var showAboutPermissions = false
@@ -11,6 +12,9 @@ struct PermissionsView: View {
     @State private var micAuthStatus: Bool = false
     @State private var motionAuthStatus: Bool = false
     @State private var notificationAuthStatus: Bool = false
+    @State private var screenTimeAuthStatus: Bool = false
+    
+    @State private var showScreenTimePrePrompt = false
     
     // CoreMotion doesn't have a simple synchronous auth status check, so we query it async
     let motionManager = CMMotionActivityManager()
@@ -81,11 +85,75 @@ struct PermissionsView: View {
                             iconName: "bell.badge.fill",
                             iconBgColor: Colors.accentBlue,
                             isOn: $notificationAuthStatus,
-                            isLast: true,
+                            isLast: false,
                             action: { requestNotifications() }
+                        )
+                        
+                        // Screen Time
+                        PermissionRow(
+                            title: "Screen Time",
+                            subtitle: "To turn on, go to iPhone Settings > Screen Time > Alarmo",
+                            iconName: "hourglass.circle.fill",
+                            iconBgColor: .purple,
+                            isOn: $screenTimeAuthStatus,
+                            isLast: true,
+                            action: { handleScreenTimeToggle() }
                         )
                     }
                 }
+            }
+            
+            // Custom Pre-Prompt Overlay
+            if showScreenTimePrePrompt {
+                Color.black.opacity(0.6).ignoresSafeArea()
+                    .onTapGesture {
+                        withAnimation { showScreenTimePrePrompt = false }
+                    }
+                
+                VStack(spacing: 20) {
+                    Text("\"Alarmo\" Would Like to Access Screen Time")
+                        .font(.headline)
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.white)
+                    
+                    Text("Providing \"Alarmo\" access to Screen Time may allow it to see your activity data, restrict content, and limit the usage of apps and websites.")
+                        .font(.subheadline)
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(Colors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
+                    HStack(spacing: 12) {
+                        Button("Don't Allow") {
+                            withAnimation { showScreenTimePrePrompt = false }
+                        }
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(height: 48)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.white.opacity(0.1))
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                        
+                        Button("Continue") {
+                            withAnimation { showScreenTimePrePrompt = false }
+                            requestScreenTime() // Trigger the real Apple prompt
+                        }
+                        .font(.system(size: 16, weight: .bold))
+                        .frame(height: 48)
+                        .frame(maxWidth: .infinity)
+                        .background(Colors.accentBlue)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                    }
+                    .padding(.top, 8)
+                }
+                .padding(24)
+                .background(Colors.cardSurface)
+                .cornerRadius(20)
+                .padding(.horizontal, 40)
+                // Add appShadow
+                .appShadow(Shadows.card)
+                .transition(.scale.combined(with: .opacity))
+                .zIndex(100)
             }
         }
         .navigationTitle("Permissions")
@@ -122,6 +190,11 @@ struct PermissionsView: View {
             DispatchQueue.main.async {
                 self.notificationAuthStatus = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
             }
+        }
+        
+        // Screen Time
+        if #available(iOS 15.0, *) {
+            screenTimeAuthStatus = AuthorizationCenter.shared.authorizationStatus == .approved
         }
     }
     
@@ -194,6 +267,43 @@ struct PermissionsView: View {
                     self.openSettings()
                 }
             }
+        }
+    }
+    
+    private func handleScreenTimeToggle() {
+        if #available(iOS 15.0, *) {
+            if AuthorizationCenter.shared.authorizationStatus == .notDetermined {
+                withAnimation {
+                    showScreenTimePrePrompt = true
+                }
+            } else if AuthorizationCenter.shared.authorizationStatus == .denied {
+                 // Already denied, so open settings
+                 openSettings()
+            } else {
+                 requestScreenTime()
+            }
+        } else {
+            openSettings()
+        }
+    }
+    
+    private func requestScreenTime() {
+        if #available(iOS 15.0, *) {
+            Task {
+                do {
+                    try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+                    DispatchQueue.main.async {
+                        self.checkStatuses()
+                    }
+                } catch {
+                    DispatchQueue.main.async {
+                        print("Screen Time Permission Error: \(error.localizedDescription)")
+                        self.openSettings()
+                    }
+                }
+            }
+        } else {
+             openSettings()
         }
     }
 }
@@ -314,6 +424,16 @@ struct AboutPermissionsView: View {
                             All the notifications above can be enabled or disabled individually from Alarmo's settings.
 
                             Lastly, Alarmo can send you a notification when you receive a response from our support staff if you have contacted support.
+                            """
+                        )
+                        
+                        // Screen Time
+                        PermissionInfoSection(
+                            title: "Screen Time",
+                            text: """
+                            Alarmo can utilize Apple's Screen Time and Family Controls APIs to securely track your device usage data. 
+
+                            This allows the app to limit access to distracting apps and help you build better digital habits directly from within Alarmo.
                             """
                         )
                     }

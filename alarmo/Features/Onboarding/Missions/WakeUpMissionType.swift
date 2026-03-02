@@ -9,11 +9,12 @@ enum WakeUpMissionType: String, CaseIterable, Codable, Equatable {
     case shake
     case step
     case qrBarcode
+    case squat
     case off
     
     var isProFeature: Bool {
         switch self {
-        case .typing, .findColorTiles, .step, .qrBarcode:
+        case .typing, .findColorTiles, .step, .qrBarcode, .squat:
             return true
         default:
             return false

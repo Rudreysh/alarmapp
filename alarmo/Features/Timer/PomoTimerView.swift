@@ -412,7 +412,7 @@ struct PomoTimerView: View {
     // MARK: - Helpers
     
     private var idleControlRow: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             roundStepButton(symbol: "minus") {
                 adjustFocusDuration(byMinutes: -5)
             }
@@ -422,17 +422,17 @@ struct PomoTimerView: View {
                 showTimerEditSheet = true
             } label: {
                 Text("\(max(1, engine.config.focusSeconds / 60))m")
-                    .font(.system(size: 19, weight: .bold))
+                    .font(.system(size: 17, weight: .bold))
                     .foregroundColor(Color.black.opacity(0.88))
-                    .frame(minWidth: 92)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
+                    .frame(minWidth: 72)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 12)
                     .background(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .fill(Color.white.opacity(0.96))
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .stroke(Color.white.opacity(0.7), lineWidth: 0.6)
                     )
                     .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 4)
@@ -446,14 +446,14 @@ struct PomoTimerView: View {
             Button {
                 showAppLists = true
             } label: {
-                HStack(spacing: 10) {
-                    Text("Block")
-                        .font(.system(size: 17, weight: .semibold))
+                HStack(spacing: 6) {
+                    Text("Block Apps")
+                        .font(.system(size: 15, weight: .semibold))
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                 }
                 .foregroundColor(Colors.textPrimary)
-                .padding(.horizontal, 18)
+                .padding(.horizontal, 12)
                 .padding(.vertical, 14)
                 .frame(maxWidth: .infinity)
                 .background(
@@ -474,9 +474,9 @@ struct PomoTimerView: View {
     private func roundStepButton(symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 18, weight: .bold))
                 .foregroundColor(Colors.textPrimary)
-                .frame(width: 56, height: 56)
+                .frame(width: 48, height: 48)
                 .background(
                     Circle()
                         .fill(Color.white.opacity(0.12))

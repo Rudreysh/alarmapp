@@ -38,9 +38,15 @@ struct HomeView: View {
                             showProPaywall = true
                         }) {
                             HStack(spacing: 6) {
-                                Image(systemName: "bolt.fill")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(Colors.accentTeal)
+                                Image(systemName: "alarm.fill")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(
+                                        LinearGradient(
+                                            colors: [Colors.accentTeal, Colors.accentBlue],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
                                 Text("PRO Free Trial")
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundColor(Colors.textPrimary)
@@ -253,12 +259,7 @@ struct HomeView: View {
                 )
             }
 
-            if showProPaywall {
-                ProPaywallFlowView(startStep: proPaywallStartStep) {
-                    showProPaywall = false
-                }
-                .transition(.move(edge: .bottom))
-            }
+
         }
         .onAppear { 
             viewModel.onAppear() 
@@ -304,6 +305,11 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showQuickSettings) {
             QuickSettingsPanel(alarmStore: alarmStore)
+        }
+        .fullScreenCover(isPresented: $showProPaywall) {
+            ProPaywallFlowView(startStep: proPaywallStartStep) {
+                showProPaywall = false
+            }
         }
     }
 

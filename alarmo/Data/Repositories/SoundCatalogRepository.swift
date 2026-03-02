@@ -181,9 +181,15 @@ struct SoundCatalogRepository: SoundCatalogRepositoryProtocol {
             // Use local URL if exists, otherwise use remote URL
             let fileURL = AssetManager.shared.localURL(for: remote.filename) ?? remote.url
             
+            // Make sure any remote title we get is nicely formatted just in case the backend hasn't updated
+            let cleanTitle = remote.title
+                .replacingOccurrences(of: "_", with: " ")
+                .replacingOccurrences(of: "-", with: " ")
+                .capitalized
+
             return SoundAsset(
                 id: remote.id,
-                title: remote.title,
+                title: cleanTitle,
                 fileURL: fileURL,
                 category: SoundCatalogRepository.category(from: remote.category)
             )

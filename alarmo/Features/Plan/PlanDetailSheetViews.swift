@@ -224,11 +224,12 @@ struct ReminderSelectionSheet: View {
                 VStack(spacing: 32) {
                     // Title
                     Text("Remind me at \(timeString)")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
+                        .font(.system(size: 44, weight: .bold, design: .rounded))
                         .foregroundColor(Colors.textPrimary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                        .padding(.horizontal, 96)
                         .padding(.top, 20)
                     
                     // Toggle
@@ -239,7 +240,8 @@ struct ReminderSelectionSheet: View {
                                 Text("Reminder").font(.title3).fontWeight(.semibold)
                             }
                             Text("Set a specific time to remind me")
-                                .font(.subheadline).foregroundColor(Colors.textSecondary)
+                                .font(.subheadline)
+                                .foregroundColor(Colors.textPrimary.opacity(0.80))
                         }
                         Spacer()
                         Toggle("", isOn: $tempIsEnabled)
@@ -253,6 +255,12 @@ struct ReminderSelectionSheet: View {
                         DatePicker("", selection: $tempTime, displayedComponents: .hourAndMinute)
                             .datePickerStyle(.wheel)
                             .labelsHidden()
+                            .colorScheme(.dark)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .fill(Color.white.opacity(0.04))
+                            )
                             .padding(.horizontal)
                         
                         // Chips
@@ -272,12 +280,30 @@ struct ReminderSelectionSheet: View {
                                         Text(item.title)
                                             .font(.subheadline)
                                             .fontWeight(.medium)
-                                            .foregroundColor(tempOffset == item.val ? Colors.bgPrimary : Colors.textPrimary)
+                                            .foregroundColor(tempOffset == item.val ? Colors.textPrimary : Colors.textSecondary)
                                             .padding(.horizontal, 16)
                                             .padding(.vertical, 10)
-                                            .background(tempOffset == item.val ? Colors.pillGreen : Colors.cardSurface)
+                                            .background(
+                                                tempOffset == item.val
+                                                ? AnyShapeStyle(
+                                                    LinearGradient(
+                                                        colors: [PlanPalette.accentSoft, PlanPalette.accentStrong],
+                                                        startPoint: .topLeading,
+                                                        endPoint: .bottomTrailing
+                                                    )
+                                                )
+                                                : AnyShapeStyle(Colors.cardSurface)
+                                            )
                                             .cornerRadius(20)
-                                            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Colors.cardStroke, lineWidth: 1))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 20)
+                                                    .stroke(
+                                                        tempOffset == item.val
+                                                        ? PlanPalette.accent.opacity(0.55)
+                                                        : Colors.cardStroke,
+                                                        lineWidth: 1
+                                                    )
+                                            )
                                     }
                                 }
                             }
@@ -653,9 +679,26 @@ struct TagSelectionSheet: View {
     @Environment(\.dismiss) var dismiss
     
     @State private var tempTag: String? = nil
+    @AppStorage("customUserTagsList") private var customTagsString: String = ""
+    @State private var showAddAlert = false
+    @State private var newTagName = ""
     
     // Mock tags
-    let tags = ["Morning Routine", "Workout", "Clean Room", "Healthy Lifestyle", "Sleep Better", "Relationship"]
+    let defaultTags = ["Morning Routine", "Workout", "Clean Room", "Healthy Lifestyle", "Sleep Better", "Relationship"]
+    
+    var allTags: [String] {
+        let custom = customTagsString.components(separatedBy: "|").filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        var combined = defaultTags
+        for c in custom {
+            if !combined.contains(c) {
+                combined.append(c)
+            }
+        }
+        if let sel = tempTag, !combined.contains(sel) {
+            combined.append(sel)
+        }
+        return combined
+    }
     
     var body: some View {
         ZStack {
@@ -687,7 +730,7 @@ struct TagSelectionSheet: View {
                     }
                     .listRowBackground(tempTag == nil ? PlanPalette.accent.opacity(0.3) : Colors.bgSecondary)
                     
-                    ForEach(tags, id: \.self) { tag in
+                    ForEach(allTags, id: \.self) { tag in
                         Button { tempTag = tag } label: {
                             HStack {
                                 Text(tag).foregroundColor(Colors.textPrimary)
@@ -703,16 +746,37 @@ struct TagSelectionSheet: View {
                 }
                 .scrollContentBackground(.hidden)
                 
-                Button(action: { /* Add new tag */ }) {
+                Button(action: { showAddAlert = true }) {
                     Text("Add New")
                         .font(.headline)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Colors.bgSecondary) // or black as image
+                        .background(Colors.bgSecondary)
                         .cornerRadius(30)
                 }
                 .padding()
+                .alert("New Tag", isPresented: $showAddAlert) {
+                    TextField("Tag name", text: $newTagName)
+                    Button("Cancel", role: .cancel) {
+                        newTagName = ""
+                    }
+                    Button("Add") {
+                        let trimmed = newTagName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !trimmed.isEmpty {
+                            if !allTags.contains(trimmed) {
+                                var currentCustom = customTagsString.components(separatedBy: "|").filter { !$0.isEmpty }
+                                currentCustom.append(trimmed)
+                                customTagsString = currentCustom.joined(separator: "|")
+                            }
+                            // Auto-select the newly added tag
+                            tempTag = trimmed
+                        }
+                        newTagName = ""
+                    }
+                } message: {
+                    Text("Enter a name for your new tag.")
+                }
             }
         }
         .onAppear {

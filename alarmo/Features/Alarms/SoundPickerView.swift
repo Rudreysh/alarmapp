@@ -908,7 +908,7 @@ struct RemoteSoundRow: View {
                         }
                         .foregroundColor(Colors.textTertiary)
                     } else {
-                        Text("Tap ▶ to preview  ·  ↓ to download")
+                        Text("Tap ▶ to preview  ·\n↓ to download")
                             .foregroundColor(Colors.textTertiary)
                     }
                 }
@@ -918,95 +918,93 @@ struct RemoteSoundRow: View {
             .contentShape(Rectangle())
             .onTapGesture {
                 if isDownloaded { onSelect() }
-                // Tapping a non-downloaded row does nothing — user must use the play/download buttons
             }
             .padding(.vertical, 12)
             .padding(.leading, 12)
 
-            // ── Star ──────────────────────────────────────────────────────
-            Button(action: {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.5)) {
-                    onToggleStar()
-                }
-            }) {
-                Image(systemName: isStarred ? "star.fill" : "star")
-                    .font(.system(size: 18))
-                    .foregroundColor(isStarred ? .yellow : Colors.textTertiary)
-                    .scaleEffect(isStarred ? 1.15 : 1.0)
-                    .frame(width: 40, height: 56)
-                    .contentShape(Rectangle())
-            }
-
-            // ── Download button (only if NOT downloaded and NOT downloading) ──
-            if !isDownloaded && !isDownloading {
-                Button(action: { startDownload() }) {
-                    HStack(spacing: 4) {
-                        Text("Get")
-                            .font(.system(size: 12, weight: .bold))
-                            .textCase(.uppercase)
-                        Image(systemName: "arrow.down.circle")
-                            .font(.system(size: 18, weight: .bold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(oceanBlue)
-                    .cornerRadius(12)
-                }
-                .padding(.trailing, 8)
-            }
-
-            // ── Cancel button (only while downloading) ────────────────────
-            if isDownloading {
+            // ── Buttons HStack ─────────────────────────────────────────
+            HStack(spacing: 12) {
+                // ── Star ──
                 Button(action: {
-                    Task { await AssetManager.shared.cancelDownload(filename: remoteSound.filename) }
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.5)) {
+                        onToggleStar()
+                    }
                 }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 22))
-                        .foregroundColor(.red.opacity(0.85))
-                        .frame(width: 40, height: 56)
+                    Image(systemName: isStarred ? "star.fill" : "star")
+                        .font(.system(size: 20))
+                        .foregroundColor(isStarred ? .yellow : Colors.textTertiary)
+                        .scaleEffect(isStarred ? 1.15 : 1.0)
                         .contentShape(Rectangle())
                 }
-            }
 
-            // ── Preview / Play / Stop button ──────────────────────────────
-            Button(action: {
-                if isDownloaded {
-                    onSelect()
-                } else if !isDownloading {
-                    onPreview()
-                }
-            }) {
-                HStack(spacing: 6) {
-                    if !isDownloaded && !isDownloading && !isPlaying && !isBuffering {
-                        Text("Preview")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(oceanBlue)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(oceanBlue.opacity(0.1))
-                            .cornerRadius(10)
+                // ── Download button ──
+                if !isDownloaded && !isDownloading {
+                    Button(action: { startDownload() }) {
+                        HStack(spacing: 4) {
+                            Text("GET")
+                                .font(.system(size: 13, weight: .bold))
+                            Image(systemName: "arrow.down.circle")
+                                .font(.system(size: 15, weight: .bold))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(oceanBlue)
+                        .clipShape(Capsule())
                     }
-                    
-                    ZStack {
-                        if isBuffering {
-                            ProgressView().tint(oceanBlue).scaleEffect(0.8)
-                        } else if isPlaying {
-                            Image(systemName: "stop.fill")
-                                .font(.system(size: 20))
-                                .foregroundColor(isDownloaded ? Colors.textPrimary : oceanBlue)
-                        } else if !isDownloading {
-                            Image(systemName: "play.fill")
-                                .font(.system(size: 20))
-                                .foregroundColor(isDownloaded ? Colors.textSecondary : oceanBlue.opacity(0.85))
-                        } else {
-                            Color.clear
+                }
+
+                // ── Cancel button ──
+                if isDownloading {
+                    Button(action: {
+                        Task { await AssetManager.shared.cancelDownload(filename: remoteSound.filename) }
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 22))
+                            .foregroundColor(.red.opacity(0.85))
+                            .contentShape(Rectangle())
+                    }
+                }
+
+                // ── Preview / Play / Stop button ──
+                Button(action: {
+                    if isDownloaded {
+                        onSelect()
+                    } else if !isDownloading {
+                        onPreview()
+                    }
+                }) {
+                    HStack(spacing: 8) {
+                        if !isDownloaded && !isDownloading && !isPlaying && !isBuffering {
+                            Text("Preview")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(oceanBlue)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(oceanBlue.opacity(0.15))
+                                .clipShape(Capsule())
+                        }
+                        
+                        ZStack {
+                            if isBuffering {
+                                ProgressView().tint(oceanBlue).scaleEffect(0.8)
+                            } else if isPlaying {
+                                Image(systemName: "stop.fill")
+                                    .font(.system(size: 22))
+                                    .foregroundColor(isDownloaded ? Colors.textPrimary : oceanBlue)
+                            } else if !isDownloading {
+                                Image(systemName: "play.fill")
+                                    .font(.system(size: 22))
+                                    .foregroundColor(isDownloaded ? Colors.textSecondary : oceanBlue)
+                            } else {
+                                Color.clear
+                            }
                         }
                     }
+                    .contentShape(Rectangle())
                 }
-                .frame(minWidth: 48, minHeight: 56)
-                .contentShape(Rectangle())
             }
+            .padding(.trailing, 16)
             .padding(.trailing, 4)
         }
     }

@@ -152,6 +152,7 @@ private struct MissionPreviewSheet: View {
         case .ticTacToe: return "Win or draw a game of Tic-Tac-Toe to wake up."
         case .step: return "Take a certain number of steps to dismiss the alarm."
         case .qrBarcode: return "Scan a specific QR or Barcode to turn the alarm off."
+        case .squat: return "Do a set of squats to dismiss the alarm and energize your body."
         case .off: return "Turn off the alarm normally."
         }
     }
@@ -319,6 +320,18 @@ private struct MissionAnimationView: View {
                     .frame(width: 140, height: 60)
                     .background(Colors.cardSurface)
                     .cornerRadius(12)
+            case .squat:
+                HStack {
+                    Image(systemName: "figure.strengthtraining.traditional")
+                        .foregroundColor(Colors.accentTeal)
+                        .scaleEffect(animate ? 1.1 : 0.9)
+                    Text("10/10")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Colors.accentTeal)
+                }
+                .frame(width: 140, height: 60)
+                .background(Colors.cardSurface)
+                .cornerRadius(12)
             case .off:
                 EmptyView()
             }
@@ -439,6 +452,17 @@ private struct MissionAnimationView: View {
                     .frame(width: 140, height: 60)
                     .background(Colors.cardSurface)
                     .cornerRadius(12)
+            case .squat:
+                HStack {
+                    Image(systemName: "figure.cooldown")
+                        .foregroundColor(Colors.textSecondary)
+                    Text("2/10")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Colors.accentRed)
+                }
+                .frame(width: 140, height: 60)
+                .background(Colors.cardSurface)
+                .cornerRadius(12)
             case .off:
                 EmptyView()
             }

@@ -49,7 +49,7 @@ class QRBarcodeMissionViewModel: ObservableObject {
         
         if isRuntime {
             // Validate Match
-            if let target = runtimeTargetCodeVal, normalized == target {
+            if let target = runtimeTargetCodeVal, target == "PREVIEW_DUMMY_MODE" || normalized == target {
                 // Success
                 scannerService.stopSession()
                 scannerService.isSessionRunning = false 
@@ -130,6 +130,7 @@ class QRBarcodeMissionViewModel: ObservableObject {
         scannerService.scannedCode = nil
         showingNameSheet = false 
         isScanning = true
+        scannerService.setupSession()
         scannerService.startSession()
     }
     
@@ -143,6 +144,7 @@ class QRBarcodeMissionViewModel: ObservableObject {
         isRuntime = true
         scannerService.scannedCode = nil
         isScanning = true
+        scannerService.setupSession()
         scannerService.startSession()
     }
 }

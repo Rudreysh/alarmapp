@@ -98,7 +98,16 @@ enum HabitIntent: String, Codable, CaseIterable, Sendable {
 
 enum GoalPeriod: String, Codable, CaseIterable, Sendable {
     case dayLong
-    // Future: weekLong, monthLong
+    case weekLong
+    case monthLong
+    
+    var title: String {
+        switch self {
+        case .dayLong: return "Daily"
+        case .weekLong: return "Weekly"
+        case .monthLong: return "Monthly"
+        }
+    }
 }
 
 enum MetricKind: String, Codable, CaseIterable, Sendable {

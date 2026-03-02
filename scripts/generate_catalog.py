@@ -75,7 +75,7 @@ def generate_catalog():
                     sounds.append({
                         "id": file_id,
                         "filename": filename,
-                        "title": os.path.splitext(filename)[0].replace("-", " ").title(),
+                        "title": os.path.splitext(filename)[0].replace("-", " ").replace("_", " ").title(),
                         "category": category.title(),
                         "url": url,
                         "isPremium": False

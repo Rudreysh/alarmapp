@@ -51,6 +51,25 @@ class TimerViewModel: ObservableObject {
         let initialDuration = TimeInterval(preferences.pomoDurationMinutes * 60)
         self.pomoDurationSeconds = initialDuration
         self.pomoRemainingSeconds = initialDuration
+        
+        // Listen for toggles from LiveActivity Widget
+        let name = CFNotificationName("ht.alarmo.togglePlayback" as CFString)
+        let observer = Unmanaged.passUnretained(self).toOpaque()
+        CFNotificationCenterAddObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            observer,
+            { (center, observer, name, object, userInfo) in
+                if let observer = observer {
+                    let viewModel = Unmanaged<TimerViewModel>.fromOpaque(observer).takeUnretainedValue()
+                    Task { @MainActor in
+                        viewModel.toggleAmbientSound()
+                    }
+                }
+            },
+            name.rawValue,
+            nil,
+            .deliverImmediately
+        )
     }
     
     func toggleTimer() {
@@ -169,6 +188,7 @@ class TimerViewModel: ObservableObject {
         if isAmbientPlaying {
             ambientSoundPlayer.playLooping(resourceName: soundName, volume: 1.0, fadeDuration: 1.0)
         }
+        updateLiveActivityAmbientState()
     }
     
     func toggleAmbientSound() {
@@ -184,6 +204,14 @@ class TimerViewModel: ObservableObject {
                 showSoundSelection = true
             }
         }
+        updateLiveActivityAmbientState()
+    }
+    
+    private func updateLiveActivityAmbientState() {
+        LiveActivityManager.shared.updateAmbientState(
+            isAmbientPlaying: isAmbientPlaying,
+            ambientSoundName: preferences.ambientSoundName
+        )
     }
     
     func setPomoDuration(_ seconds: TimeInterval) {

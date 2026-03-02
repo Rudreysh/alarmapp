@@ -71,7 +71,11 @@ struct DigitalTimeDisplay: View {
     @Binding var second: Int
     
     var body: some View {
-        SunRayTimePickerView(hour: $hour, minute: $minute, second: $second)
+        SunRayTimePickerView(
+            hour: $hour, 
+            minute: $minute, 
+            second: $second
+        )
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
     }

@@ -119,6 +119,17 @@ class PomodoroEngine: ObservableObject {
         timer?.cancel()
         state.phase = .paused(segment: segment)
         state.segmentEndDate = nil // Invalidate end date on pause
+        
+        let remaining = state.remainingSeconds
+        let total = totalDuration(for: segment)
+        let elapsed = total - remaining
+        
+        LiveActivityManager.shared.update(
+            startTime: Date().addingTimeInterval(TimeInterval(-elapsed)),
+            endTime: Date().addingTimeInterval(TimeInterval(state.remainingSeconds)),
+            isRunning: false,
+            stateString: segment == .focus ? "Paused" : "Break Paused"
+        )
     }
     
     func resume(segment: SegmentKind? = nil) {
@@ -126,9 +137,20 @@ class PomodoroEngine: ObservableObject {
         state.phase = .running(segment: seg)
         state.currentSegment = seg
         
-        // Recalculate end date based on remaining
-        state.segmentEndDate = Date().addingTimeInterval(TimeInterval(state.remainingSeconds))
+        let endDate = Date().addingTimeInterval(TimeInterval(state.remainingSeconds))
+        state.segmentEndDate = endDate
         startTicker()
+        
+        let remaining = state.remainingSeconds
+        let total = totalDuration(for: seg)
+        let elapsed = total - remaining
+        
+        LiveActivityManager.shared.update(
+            startTime: Date().addingTimeInterval(TimeInterval(-elapsed)),
+            endTime: endDate,
+            isRunning: true,
+            stateString: seg == .focus ? "Focus Hard" : "Break Time"
+        )
     }
     
     func stop(reset: Bool = true, userInitiated: Bool = false) {
@@ -142,6 +164,7 @@ class PomodoroEngine: ObservableObject {
             _ = accountabilityManager.handleFocusEarlyStopPenalty()
         }
         
+        LiveActivityManager.shared.end()
         timer?.cancel()
         accountabilityManager.endFocusSession()
         if reset {
@@ -174,9 +197,14 @@ class PomodoroEngine: ObservableObject {
         // Set duration
         let duration = totalDuration(for: kind)
         state.remainingSeconds = duration
-        state.segmentEndDate = Date().addingTimeInterval(TimeInterval(duration))
+        let endDate = Date().addingTimeInterval(TimeInterval(duration))
+        state.segmentEndDate = endDate
         
         startTicker()
+        
+        let focusName = state.overriddenTaskName ?? "Focus"
+        let stateString = kind == .focus ? "Focus Hard" : "Break Time"
+        LiveActivityManager.shared.start(focusName: focusName, startTime: Date(), endTime: endDate, stateString: stateString)
     }
     
     private func startTicker() {
@@ -203,6 +231,7 @@ class PomodoroEngine: ObservableObject {
     private func completeSegment(wasSkipped: Bool = false) {
         timer?.cancel()
         state.segmentEndDate = nil
+        LiveActivityManager.shared.end()
         
         guard let completedKind = state.currentSegment else { return }
         

@@ -24,41 +24,73 @@ struct AppListsView: View {
             ZStack {
                 SettingsGlassBackground()
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        Text("BLOCK LISTS")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(Colors.textSecondary)
-
+                List {
+                    Section {
                         ForEach(blockLists) { list in
-                            listCard(list: list)
+                            listRow(list: list)
+                        }
+                        .onDelete { indices in
+                            indices.forEach { index in
+                                listPendingDelete = blockLists[index]
+                            }
                         }
 
-                        dashedNewCard(title: "New Block List") {
+                        Button(action: { 
                             if let created = viewModel.createList(type: .block, context: modelContext) {
                                 selectedDetailList = created
                             }
+                        }) {
+                            Label("New Block List", systemImage: "plus.circle.fill")
+                                .font(.body.weight(.semibold))
+                                .foregroundColor(Colors.accentBlue)
                         }
-
-                        Text("ALLOW LISTS")
-                            .font(.system(size: 14, weight: .bold))
+                    } header: {
+                        Text("BLOCK LISTS")
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(Colors.textSecondary)
-                            .padding(.top, 4)
+                    }
+                    .listRowBackground(Color.white.opacity(0.08))
 
+                    Section {
                         ForEach(allowLists) { list in
-                            listCard(list: list)
+                            listRow(list: list)
+                        }
+                        .onDelete { indices in
+                            indices.forEach { index in
+                                listPendingDelete = allowLists[index]
+                            }
                         }
 
-                        dashedNewCard(title: "New Allow List", pro: true) {
+                        Button(action: { 
                             if let created = viewModel.createList(type: .allow, context: modelContext) {
                                 selectedDetailList = created
                             }
+                        }) {
+                            HStack {
+                                Label("New Allow List", systemImage: "plus.circle.fill")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundColor(Colors.accentTeal)
+                                Spacer()
+                                Text("PRO")
+                                    .font(.system(size: 10, weight: .black))
+                                    .foregroundColor(.black)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                                    .background(Colors.pillGreen)
+                                    .clipShape(Capsule())
+                            }
                         }
+                    } header: {
+                        Text("ALLOW LISTS")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Colors.textSecondary)
                     }
-                    .padding(20)
+                    .listRowBackground(Color.white.opacity(0.08))
                 }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
             }
-            .navigationTitle("App Lists")
+            .navigationTitle(viewModel.isEditingSelection ? "Select List" : "App Lists")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -66,7 +98,7 @@ struct AppListsView: View {
                         .foregroundColor(Colors.textPrimary)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(viewModel.isEditingSelection ? "Done" : "Edit") {
+                    Button(viewModel.isEditingSelection ? "Done" : "Select") {
                         viewModel.toggleEditMode()
                     }
                     .foregroundColor(Colors.textPrimary)
@@ -102,68 +134,38 @@ struct AppListsView: View {
     }
 
     @ViewBuilder
-    private func listCard(list: AppList) -> some View {
+    private func listRow(list: AppList) -> some View {
         let isSelected = viewModel.selectedListID == list.id
         let summary = listSelectionSummary(for: list)
 
-        HStack(spacing: 14) {
-            Image(systemName: list.type == .block ? "stop.fill" : "checkmark.shield.fill")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(SettingsPalette.accent)
-                .frame(width: 44, height: 44)
-                .background(Colors.bgSecondary)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-            VStack(alignment: .leading, spacing: 6) {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(list.name)
-                    .font(.system(size: 32/2, weight: .bold))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(Colors.textPrimary)
-                Text("\(list.type == .block ? "Blocking" : "Allowing") • \(summary)")
-                    .font(.system(size: 14, weight: .semibold))
+                Text(summary)
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundColor(Colors.textSecondary)
             }
-
+            
             Spacer()
 
             if viewModel.isEditingSelection {
-                Button {
-                    viewModel.setSelectedList(list, context: modelContext)
-                } label: {
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 28, weight: .semibold))
-                        .foregroundColor(isSelected ? SettingsPalette.accent : Colors.textSecondary)
-                }
-                .buttonStyle(.plain)
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 24))
+                    .foregroundColor(isSelected ? Colors.accentBlue : Colors.textTertiary)
             } else {
-                Button("Edit") {
-                    selectedDetailList = list
-                }
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(Colors.textPrimary)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 10)
-                .background(Colors.bgSecondary)
-                .clipShape(Capsule())
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundColor(Colors.textTertiary)
             }
         }
-        .padding(16)
-        .background(
-            LinearGradient(
-                colors: [SettingsPalette.cardTop, SettingsPalette.cardBottom],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.14), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button(role: .destructive) {
-                listPendingDelete = list
-            } label: {
-                Label("Delete", systemImage: "trash")
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if viewModel.isEditingSelection {
+                viewModel.setSelectedList(list, context: modelContext)
+            } else {
+                selectedDetailList = list
             }
         }
     }
@@ -184,52 +186,9 @@ struct AppListsView: View {
         let categoryText = categoryCount == 1 ? "1 category" : "\(categoryCount) categories"
         return "\(appText), \(categoryText)"
     }
-
-    @ViewBuilder
-    private func dashedNewCard(title: String, pro: Bool = false, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 12) {
-                Image(systemName: "plus")
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundColor(Colors.textSecondary)
-                    .frame(width: 56, height: 56)
-                    .background(Colors.bgSecondary)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-
-                HStack(spacing: 8) {
-                    Text(title)
-                        .font(.system(size: 36/2, weight: .semibold))
-                        .foregroundColor(Colors.textPrimary)
-                    if pro {
-                        Text("PRO")
-                            .font(.system(size: 12, weight: .black))
-                            .foregroundColor(.black)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(Colors.pillGreen)
-                            .clipShape(Capsule())
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 28)
-            .background(
-                LinearGradient(
-                    colors: [SettingsPalette.cardTop.opacity(0.85), SettingsPalette.cardBottom.opacity(0.85)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(style: StrokeStyle(lineWidth: 1, dash: [6]))
-                    .foregroundColor(Color.white.opacity(0.22))
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
 }
+
+// MARK: - App Detail View
 
 struct BlockListDetailView: View {
     @Environment(\.dismiss) private var dismiss
@@ -260,50 +219,114 @@ struct BlockListDetailView: View {
             ZStack {
                 SettingsGlassBackground()
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        titleSection
-                        permissionSection
-                        categoriesSection
-                        appsSection
-                        adultBlockingSection
+                List {
+                    Section {
+                        TextField("List Name", text: $viewModel.name)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(Colors.textPrimary)
+                    } header: {
+                        Text("List Identity")
+                            .foregroundColor(Colors.textSecondary)
+                    }
+                    .listRowBackground(Color.white.opacity(0.08))
 
-                        Button {
-                            viewModel.save(to: list, context: modelContext, appListsViewModel: appListsViewModel)
-                            dismiss()
-                        } label: {
-                            Text("Save")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundColor(.black)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(
-                                    SettingsPalette.accentGradient
-                                )
-                                .clipShape(Capsule())
+                    if !authManager.isAuthorized {
+                        Section {
+                            Button {
+                                requestAccessAndOpenPicker()
+                            } label: {
+                                HStack {
+                                    if isRequestingAccess {
+                                        ProgressView().tint(Colors.accentTeal).padding(.trailing, 8)
+                                    }
+                                    Text("Enable Screen Time Access")
+                                        .font(.body.bold())
+                                        .foregroundColor(Colors.accentTeal)
+                                }
+                            }
+                        } footer: {
+                            if let msg = authManager.statusMessage, !msg.isEmpty {
+                                Text(msg)
+                            } else {
+                                Text("Required to block apps and categories.")
+                            }
                         }
-                        .padding(.top, 12)
+                        .listRowBackground(Color.white.opacity(0.08))
+                    }
 
+                    Section {
+                        Button {
+                            openPickerWithAuthorizationCheck()
+                        } label: {
+                            HStack {
+                                Text("Restricted Apps")
+                                    .foregroundColor(Colors.textPrimary)
+                                Spacer()
+                                Text("\(viewModel.selectedAppsCount) Apps")
+                                    .foregroundColor(Colors.textSecondary)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.bold())
+                                    .foregroundColor(Colors.textTertiary)
+                            }
+                        }
+                        
+                        Button {
+                            openPickerWithAuthorizationCheck()
+                        } label: {
+                            HStack {
+                                Text("Restricted Categories")
+                                    .foregroundColor(Colors.textPrimary)
+                                Spacer()
+                                Text("\(viewModel.selectedCategoriesCount) Categories")
+                                    .foregroundColor(Colors.textSecondary)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.bold())
+                                    .foregroundColor(Colors.textTertiary)
+                            }
+                        }
+                    } header: {
+                        Text("Rules & Restrictions")
+                            .foregroundColor(Colors.textSecondary)
+                    }
+                    .listRowBackground(Color.white.opacity(0.08))
+
+                    Section {
+                        Toggle("Adult Content Blocking", isOn: $viewModel.adultBlockingEnabled)
+                            .tint(Colors.accentBlue)
+                    } footer: {
+                        Text("This acts as a safety hook for stricter browser restrictions in future updates.")
+                    }
+                    .listRowBackground(Color.white.opacity(0.08))
+
+                    Section {
                         Button {
                             viewModel.showDeleteConfirmation = true
                         } label: {
-                            Text("Delete Block List")
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(SettingsPalette.accentDark)
-                                .frame(maxWidth: .infinity)
+                            Text("Delete List")
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .foregroundColor(Colors.accentRed)
+                                .font(.body.weight(.semibold))
                         }
-                        .padding(.top, 4)
                     }
-                    .padding(20)
-                    .padding(.bottom, 20)
+                    .listRowBackground(Color.white.opacity(0.08))
                 }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
             }
-            .navigationTitle("Block List")
+            .navigationTitle("Block List Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") { dismiss() }
+                    Button("Cancel") { dismiss() }
                         .foregroundColor(Colors.textPrimary)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") {
+                        viewModel.save(to: list, context: modelContext, appListsViewModel: appListsViewModel)
+                        dismiss()
+                    }
+                    .font(.headline)
+                    .foregroundColor(Colors.accentBlue)
                 }
             }
             #if canImport(FamilyControls)
@@ -339,146 +362,6 @@ struct BlockListDetailView: View {
                 authManager.refreshStatus()
             }
         }
-    }
-
-    private var titleSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            TextField("Block List", text: $viewModel.name)
-                .font(.system(size: 42, weight: .bold))
-                .foregroundColor(Colors.textPrimary)
-
-            Text("Block List: only these apps will be blocked during your session")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(Colors.textSecondary)
-        }
-    }
-
-    private var permissionSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if !authManager.isAuthorized {
-                Button {
-                    requestAccessAndOpenPicker()
-                } label: {
-                    HStack {
-                        if isRequestingAccess {
-                            ProgressView()
-                                .tint(.white)
-                        } else {
-                            Image(systemName: "app.badge")
-                        }
-                        Text("Enable Screen Time Access")
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                    }
-                    .foregroundColor(.white)
-                    .padding(14)
-                    .background(Colors.bgSecondary)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .disabled(isRequestingAccess)
-            }
-
-            if let statusMessage = authManager.statusMessage, !statusMessage.isEmpty {
-                Text(statusMessage)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(Colors.textSecondary)
-            }
-        }
-    }
-
-    private var categoriesSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Categories")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(Colors.textPrimary)
-                Text("\(viewModel.selectedCategoriesCount)")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(Colors.textSecondary)
-                Spacer()
-                Button("Add / Remove") {
-                    openPickerWithAuthorizationCheck()
-                }
-                .foregroundColor(SettingsPalette.accent)
-            }
-
-            selectionCard(title: viewModel.selectedCategoriesCount == 0 ? "No categories selected" : "\(viewModel.selectedCategoriesCount) selected category")
-        }
-    }
-
-    private var appsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Apps")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(Colors.textPrimary)
-                    Text(viewModel.selectedAppsSummary)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(Colors.textSecondary)
-                }
-                Spacer()
-                Button("Add / Remove") {
-                    openPickerWithAuthorizationCheck()
-                }
-                .foregroundColor(SettingsPalette.accent)
-            }
-
-            selectionCard(title: viewModel.selectedAppsCount == 0 ? "No apps selected" : "\(viewModel.selectedAppsCount) selected app")
-        }
-    }
-
-    private var adultBlockingSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Adult Blocking")
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundColor(Colors.textPrimary)
-                Spacer()
-                Toggle("", isOn: $viewModel.adultBlockingEnabled)
-                    .labelsHidden()
-            }
-
-            Text("Please note: this setting is a safety hook for stricter browser restrictions in future updates.")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(Color.yellow)
-        }
-        .padding(16)
-        .background(
-            LinearGradient(
-                colors: [SettingsPalette.cardTop, SettingsPalette.cardBottom],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.white.opacity(0.14), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-
-    private func selectionCard(title: String) -> some View {
-        HStack {
-            Text(title)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(Colors.textPrimary)
-            Spacer()
-        }
-        .padding(16)
-        .background(
-            LinearGradient(
-                colors: [SettingsPalette.cardTop, SettingsPalette.cardBottom],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.white.opacity(0.14), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private func openPickerWithAuthorizationCheck() {

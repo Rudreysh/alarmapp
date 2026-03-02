@@ -62,7 +62,7 @@ struct MissionSelectionView: View {
                             missionRow(title: "QR/Barcode", icon: "barcode.viewfinder", iconBg: Color.purple.opacity(0.3), type: .qrBarcode)
                             missionRow(title: "Shake", icon: "iphone.radiowaves.left.and.right", iconBg: Color.purple.opacity(0.3), type: .shake)
                             missionRow(title: "Photo", icon: "camera.fill", iconBg: Color.purple.opacity(0.3), type: .off)
-                            missionRow(title: "Squat", subtitle: "Coming Soon", icon: "figure.strengthtraining.traditional", iconBg: Color.purple.opacity(0.3), type: .off)
+                            missionRow(title: "Squat", icon: "figure.strengthtraining.traditional", iconBg: Color.purple.opacity(0.3), type: .squat)
                         }
                     }
                     .padding(.bottom, 100) // Increased padding to ensure bottom items are easily accessible

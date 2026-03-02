@@ -71,9 +71,18 @@ struct AlarmRingingView: View {
                                 .font(.system(size: 18, weight: .bold))
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, Spacing.m)
-                                .background(Colors.accentRed)
+                                .background(
+                                    LinearGradient(
+                                        colors: [
+                                            Color(red: 0.08, green: 0.78, blue: 0.92),
+                                            Color(red: 0.05, green: 0.66, blue: 0.84)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
                                 .cornerRadius(Radii.button)
+                                .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3), radius: 15, x: 0, y: 10)
                         }
                     } else {
                         Button(action: { ringCoordinator.snooze() }) {
@@ -97,9 +106,18 @@ struct AlarmRingingView: View {
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundColor(Colors.textPrimary)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, Spacing.m)
-                                .background(Colors.accentRed)
+                                .background(
+                                    LinearGradient(
+                                        colors: [
+                                            Color(red: 0.08, green: 0.78, blue: 0.92),
+                                            Color(red: 0.05, green: 0.66, blue: 0.84)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
                                 .cornerRadius(Radii.button)
+                                .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3), radius: 15, x: 0, y: 10)
                         }
                     }
                 }
@@ -132,7 +150,8 @@ struct AlarmRingingView: View {
         }
         .fullScreenCover(item: $currentMission) { mission in
             Group {
-                if mission.type == .qrBarcode {
+                switch mission.type {
+                case .qrBarcode:
                     QRBarcodeMissionView(
                         targetCode: mission.customData["barcodeVal"] ?? "",
                         onSuccess: {
@@ -140,19 +159,18 @@ struct AlarmRingingView: View {
                             currentMission = nil
                         }
                     )
-                } else if mission.type == .math {
-                    // Fallback using placeholder logic or actual connection if ViewModel allows
-                     MathMissionPlayView(
+                case .math:
+                    MathMissionPlayView(
                         viewModel: MathMissionViewModel(
-                             config: MathMissionConfig(difficulty: MathDifficulty(rawValue: mission.difficulty) ?? .easy, repeatCount: mission.rounds),
-                             isPreviewMode: false,
-                             onComplete: {
+                            config: MathMissionConfig(difficulty: MathDifficulty(rawValue: mission.difficulty) ?? .easy, repeatCount: mission.rounds),
+                            isPreviewMode: false,
+                            onComplete: {
                                 ringCoordinator.completeMission(success: true)
                                 currentMission = nil
-                             }
+                            }
                         )
-                     )
-                } else if mission.type == .findColorTiles {
+                    )
+                case .findColorTiles:
                     FindColorTilesMissionView(
                         viewModel: FindColorTilesViewModel(
                             settings: FindColorTilesSettings(
@@ -167,8 +185,38 @@ struct AlarmRingingView: View {
                             }
                         )
                     )
-                } else {
-                    // Generic fallback
+                case .shake:
+                    ShakeMissionView(
+                        viewModel: ShakeMissionViewModel(
+                            targetShakes: mission.config["shakeCount"] ?? 30,
+                            onComplete: {
+                                ringCoordinator.completeMission(success: true)
+                                currentMission = nil
+                            }
+                        )
+                    )
+                case .step:
+                    StepsMissionView(
+                        viewModel: StepsMissionViewModel(
+                            targetSteps: mission.config["stepCount"] ?? 20,
+                            onComplete: {
+                                ringCoordinator.completeMission(success: true)
+                                currentMission = nil
+                            }
+                        )
+                    )
+                case .squat:
+                    SquatMissionView(
+                        viewModel: SquatMissionViewModel(
+                            targetSquats: mission.config["squatCount"] ?? 10,
+                            onComplete: {
+                                ringCoordinator.completeMission(success: true)
+                                currentMission = nil
+                            }
+                        )
+                    )
+                default:
+                    // Generic fallback for ticTacToe, memoryMatch, typing, etc.
                     VStack {
                         Text(mission.title)
                         Button("Complete (Debug)") {
