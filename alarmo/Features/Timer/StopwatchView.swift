@@ -2,12 +2,19 @@ import SwiftUI
 
 struct StopwatchView: View {
     @ObservedObject var viewModel: TimerViewModel
+    let preferences: AppPreferences
     
     // Feature Engines
-    @StateObject private var swEngine = StopwatchEngine()
+    @StateObject private var swEngine: StopwatchEngine
     @StateObject private var multiStore = MultiTimerStore()
     @StateObject private var countdownStore = CountdownPresetStore()
     @StateObject private var countdownEngine = CountdownEngine(preset: CountdownPreset.defaults[0])
+    
+    init(viewModel: TimerViewModel, preferences: AppPreferences) {
+        self.viewModel = viewModel
+        self.preferences = preferences
+        self._swEngine = StateObject(wrappedValue: StopwatchEngine(preferences: preferences))
+    }
     
     @State private var subMode: StopwatchSubMode = .standard
     
@@ -45,7 +52,7 @@ struct StopwatchView: View {
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 12)
-            .background(Color.white.opacity(0.03))
+
             
             // Content
             ZStack {

@@ -16,228 +16,47 @@ struct HomeView: View {
     @State private var selectedHabitAlarm: Alarm?
     @State private var openAlarmActionsId: UUID? = nil
     @State private var showQuickSettings = false
+    @State private var showEditAlarmCoachMark = false
+    @State private var showHomeQuickSettingsCoachMark = false
+    @State private var showHomeToggleCoachMark = false
+    @State private var showHomeActionsCoachMark = false
+    @State private var showDeleteAlarmCoachMark = false
+    @State private var showAddAlarmCoachMark = false
     @AppStorage("qs_sortOrder") private var sortOrder = 0
     private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
+    let appPreferences: AppPreferences
 
-    init(viewModel: HomeViewModel, alarmStore: AlarmStore) {
+    init(viewModel: HomeViewModel, alarmStore: AlarmStore, appPreferences: AppPreferences = AppPreferences()) {
         _viewModel = StateObject(wrappedValue: viewModel)
         self.alarmStore = alarmStore
+        self.appPreferences = appPreferences
     }
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Colors.bgSecondary, Colors.bgPrimary], startPoint: .top, endPoint: .bottom)
-                .ignoresSafeArea()
-
-            ZStack {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Spacing.l) {
-                    HStack {
-                        Button(action: {
-                            proPaywallStartStep = .intro
-                            showProPaywall = true
-                        }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "alarm.fill")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundStyle(
-                                        LinearGradient(
-                                            colors: [Colors.accentTeal, Colors.accentBlue],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                Text("PRO Free Trial")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(Colors.textPrimary)
-                            }
-                            .padding(.horizontal, Spacing.m)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [
-                                                Colors.accentTeal.opacity(0.12),
-                                                Colors.accentBlue.opacity(0.12)
-                                            ],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                    )
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .stroke(Colors.accentTeal.opacity(0.55), lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(PressedScaleButtonStyle())
-
-                        Spacer()
-                        
-                        Button(action: { showQuickSettings = true }) {
-                            Image(systemName: "ellipsis")
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(Colors.textSecondary)
-                                .frame(width: 44, height: 44)
-                        }
-                        .accessibilityLabel(Text("Quick Settings"))
-                    }
-                    .padding(.top, Spacing.s)
-
-
-                    DailyInsightCard()
-
-                    if !alarmStore.alarms.isEmpty {
-                        TimelineView(.periodic(from: .now, by: 1)) { context in
-                            Text(nextRingHeaderText(now: context.date))
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(Colors.textPrimary)
-                        }
-
-                        LazyVStack(spacing: Spacing.m) {
-                            ForEach(alarmStore.sortedAlarms(by: sortOrder)) { alarm in
-                                SwipeableAlarmRow(
-                                    onDelete: {
-                                        scheduler.cancel(alarmId: alarm.id)
-                                        alarmStore.remove(id: alarm.id) 
-                                    }
-                                ) {
-                                    AlarmCardView(
-                                        alarm: alarm,
-                                        openActionsAlarmId: $openAlarmActionsId,
-                                        onToggle: { isEnabled in
-                                            alarmStore.toggleEnabled(id: alarm.id, enabled: isEnabled)
-                                            // Update scheduling
-                                            var updated = alarm
-                                            updated.enabled = isEnabled
-                                            scheduler.schedule(alarm: updated)
-                                        },
-                                        onDelete: {
-                                            scheduler.cancel(alarmId: alarm.id)
-                                            alarmStore.remove(id: alarm.id)
-                                        },
-                                        onDuplicate: {
-                                            let newAlarm = alarm.duplicate()
-                                            alarmStore.add(newAlarm)
-                                            if newAlarm.enabled {
-                                                scheduler.schedule(alarm: newAlarm)
-                                            }
-                                        },
-                                        onSkipOnce: {
-                                            var updated = alarm
-                                            updated.isSkippedOnce.toggle()
-                                            alarmStore.update(updated)
-                                        },
-                                        onPreview: {
-                                            ringCoordinator.startPreview(alarm: alarm)
-                                        }
-                                    )
-                                    .onTapGesture(count: 2) {
-                                        switch alarm.type {
-                                        case .wakeUp:
-                                            selectedAlarm = alarm
-                                        case .habit:
-                                            selectedHabitAlarm = alarm
-                                        case .quick:
-                                            break
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        Text("No upcoming alarms")
-                            .font(.system(size: 30, weight: .bold))
-                            .foregroundColor(Colors.textPrimary)
-                            .padding(.top, Spacing.s)
-                    }
-
-                    Spacer(minLength: 120)
-                }
-                .padding(.horizontal, Spacing.l)
-                .padding(.bottom, AppConstants.tabBarHeight + Spacing.xl)
-                }
-
-                if alarmStore.alarms.isEmpty {
-                    Text("No alarm set")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(Colors.textTertiary)
-                        .frame(maxHeight: .infinity, alignment: .center)
-                }
-
-                VStack {
-                    Spacer()
-                    Button(action: viewModel.tapRemoveAds) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "nosign")
-                                .foregroundColor(Colors.textSecondary)
-                            Text("Remove all ads")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(Colors.textSecondary)
-                        }
-                        .padding(.vertical, 10)
-                    }
-                    .accessibilityLabel(Text("Remove all ads"))
-                    .padding(.bottom, AppConstants.tabBarHeight + Spacing.s)
-                }
-            }
-
+            homeBackground
+            
+            mainContent
+            
+            fabOverlay
+            
+            addMenuOverlay
+            
+            // This VStack was for "Remove all ads" button, moved to mainContent
             VStack {
                 Spacer()
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showAddMenu.toggle()
-                        }
-                    }) {
-                        Image(systemName: showAddMenu ? "xmark" : "plus")
-                            .font(.system(size: 26, weight: .bold))
-                            .foregroundColor(Colors.textPrimary)
-                            .frame(width: 62, height: 62)
-                            .background(Colors.accentTeal)
-                            .clipShape(Circle())
-                            .appShadow(Shadows.card)
+                Button(action: viewModel.tapRemoveAds) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "nosign")
+                            .foregroundColor(Colors.textSecondary)
+                        Text("Remove all ads")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Colors.textSecondary)
                     }
-                    .accessibilityLabel(Text("Add alarm"))
-                    .padding(.trailing, Spacing.l)
-                    .padding(.bottom, AppConstants.tabBarHeight + Spacing.l)
+                    .padding(.vertical, 10)
                 }
-            }
-
-            if showAddMenu {
-                Colors.bgPrimary.opacity(0.55)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showAddMenu = false
-                        }
-                    }
-
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        FloatingAddMenu(
-                            onSelectTimer: {
-                                openTimer()
-                            },
-                            onSelectHabit: {
-                                openCreateHabit()
-                            },
-                            onSelectQuick: {
-                                openQuickAlarm()
-                            },
-                            onSelectAlarm: {
-                                openCreateAlarm()
-                            }
-                        )
-                        .padding(.trailing, Spacing.l)
-                        .padding(.bottom, AppConstants.tabBarHeight + Spacing.l + 74) // 62 (FAB) + 12 (gap)
-                    }
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .accessibilityLabel(Text("Remove all ads"))
+                .padding(.bottom, AppConstants.tabBarHeight + Spacing.s)
             }
 
             if viewModel.showCelebration {
@@ -258,8 +77,6 @@ struct HomeView: View {
                     }
                 )
             }
-
-
         }
         .onAppear { 
             viewModel.onAppear() 
@@ -309,6 +126,414 @@ struct HomeView: View {
         .fullScreenCover(isPresented: $showProPaywall) {
             ProPaywallFlowView(startStep: proPaywallStartStep) {
                 showProPaywall = false
+            }
+        }
+        .onChange(of: alarmStore.alarms.count) { _, newCount in
+            if newCount > 0 && showAddAlarmCoachMark { // Changed from showCoachMark
+                showAddAlarmCoachMark = false // Changed from showCoachMark
+                appPreferences.hasSeenAddAlarmTooltip = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    showEditAlarmCoachMark = true
+                }
+            }
+        }
+        .onChange(of: showAddAlarmCoachMark) { _, isVisible in
+            if !isVisible && !appPreferences.hasSeenAddAlarmTooltip {
+                appPreferences.hasSeenAddAlarmTooltip = true
+                if !alarmStore.alarms.isEmpty {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        showEditAlarmCoachMark = true
+                    }
+                }
+            }
+        }
+        .onChange(of: showEditAlarmCoachMark) { _, isVisible in
+            if !isVisible && !appPreferences.hasSeenEditAlarmTooltip {
+                appPreferences.hasSeenEditAlarmTooltip = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    showDeleteAlarmCoachMark = true
+                }
+            }
+        }
+        .onChange(of: showDeleteAlarmCoachMark) { _, isVisible in
+            if !isVisible && !appPreferences.hasSeenHomeDeleteTooltip {
+                appPreferences.hasSeenHomeDeleteTooltip = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    showHomeToggleCoachMark = true
+                }
+            }
+        }
+        .onChange(of: showHomeToggleCoachMark) { _, isVisible in
+            if !isVisible && !appPreferences.hasSeenHomeToggleTooltip {
+                appPreferences.hasSeenHomeToggleTooltip = true
+                // When toggle mark is dismissed (via tap or action), show Actions next
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    showHomeActionsCoachMark = true
+                }
+            }
+        }
+        .onChange(of: showHomeActionsCoachMark) { _, isVisible in
+            if !isVisible && !appPreferences.hasSeenHomeActionsTooltip {
+                appPreferences.hasSeenHomeActionsTooltip = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    showHomeQuickSettingsCoachMark = true
+                }
+            }
+        }
+        .onChange(of: showHomeQuickSettingsCoachMark) { _, isVisible in
+            if !isVisible && !appPreferences.hasSeenHomeQuickSettingsTooltip {
+                appPreferences.hasSeenHomeQuickSettingsTooltip = true
+            }
+        }
+        .onTapGesture {
+            // Global dismissals for Home marks on background tap
+            if showHomeToggleCoachMark {
+                showHomeToggleCoachMark = false
+                appPreferences.hasSeenHomeToggleTooltip = true
+            } else if showHomeActionsCoachMark {
+                showHomeActionsCoachMark = false
+                appPreferences.hasSeenHomeActionsTooltip = true
+            } else if showHomeQuickSettingsCoachMark {
+                showHomeQuickSettingsCoachMark = false
+                appPreferences.hasSeenHomeQuickSettingsTooltip = true
+            }
+        }
+    }
+    
+    // MARK: - Subviews
+    
+    private var homeBackground: some View {
+        LinearGradient(colors: [Colors.bgSecondary, Colors.bgPrimary], startPoint: .top, endPoint: .bottom)
+            .ignoresSafeArea()
+    }
+    
+    private var mainContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.l) {
+                headerRow
+                
+                DailyInsightCard()
+                
+                if !alarmStore.alarms.isEmpty {
+                    alarmList
+                } else {
+                    noAlarmsView
+                }
+                
+                Spacer(minLength: 120)
+            }
+            .padding(.horizontal, Spacing.l)
+            .padding(.bottom, AppConstants.tabBarHeight + Spacing.xl)
+        }
+    }
+    
+    private var headerRow: some View {
+        HStack {
+            proTrialButton
+            
+            Spacer()
+            
+            quickSettingsButton
+        }
+        .padding(.top, Spacing.s)
+    }
+    
+    private var proTrialButton: some View {
+        Button(action: {
+            proPaywallStartStep = .intro
+            showProPaywall = true
+        }) {
+            HStack(spacing: 6) {
+                Image(systemName: "alarm.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Colors.accentTeal, Colors.accentBlue],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                Text("PRO Free Trial")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Colors.textPrimary)
+            }
+            .padding(.horizontal, Spacing.m)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Colors.accentTeal.opacity(0.12),
+                                Colors.accentBlue.opacity(0.12)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Colors.accentTeal.opacity(0.55), lineWidth: 1)
+            )
+        }
+        .buttonStyle(PressedScaleButtonStyle())
+    }
+    
+    private var quickSettingsButton: some View {
+        Button(action: { 
+            showQuickSettings = true 
+            if appPreferences.hasSeenHomeQuickSettingsTooltip == false {
+                appPreferences.hasSeenHomeQuickSettingsTooltip = true
+                showHomeQuickSettingsCoachMark = false
+            }
+        }) {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundColor(Colors.textSecondary)
+                .frame(width: 44, height: 44)
+                .coachMark(
+                    title: "Presets",
+                    subtitle: "Manage themes and sorting.",
+                    isVisible: $showHomeQuickSettingsCoachMark,
+                    alignment: .bottomTrailing,
+                    pointDirection: .top,
+                    arrowAlignment: .trailing,
+                    arrowOffsetX: -12,
+                    bubbleOffsetX: 0,
+                    bubbleOffsetY: 60,
+                    color: .red
+                )
+        }
+        .accessibilityLabel(Text("Quick Settings"))
+    }
+    
+    private var alarmList: some View {
+        VStack(alignment: .leading, spacing: Spacing.m) {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                Text(nextRingHeaderText(now: context.date))
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(Colors.textPrimary)
+            }
+            
+            LazyVStack(spacing: Spacing.m) {
+                let sortedAlarms = alarmStore.sortedAlarms(by: sortOrder)
+                ForEach(Array(sortedAlarms.enumerated()), id: \.element.id) { index, alarm in
+                    SwipeableAlarmRow(
+                        isForcedRevealed: Binding(get: { index == 0 ? showDeleteAlarmCoachMark : false }, set: { _ in }),
+                        onDelete: {
+                            scheduler.cancel(alarmId: alarm.id)
+                            alarmStore.remove(id: alarm.id) 
+                        }
+                    ) {
+                        AlarmCardView(
+                            alarm: alarm,
+                            openActionsAlarmId: $openAlarmActionsId,
+                            onToggle: { isEnabled in
+                                alarmStore.toggleEnabled(id: alarm.id, enabled: isEnabled)
+                                var updated = alarm
+                                updated.enabled = isEnabled
+                                scheduler.schedule(alarm: updated)
+                            },
+                            onDelete: {
+                                scheduler.cancel(alarmId: alarm.id)
+                                alarmStore.remove(id: alarm.id)
+                            },
+                            onDuplicate: {
+                                let newAlarm = alarm.duplicate()
+                                alarmStore.add(newAlarm)
+                                if newAlarm.enabled {
+                                    scheduler.schedule(alarm: newAlarm)
+                                }
+                            },
+                            onSkipOnce: {
+                                var updated = alarm
+                                updated.isSkippedOnce.toggle()
+                                alarmStore.update(updated)
+                            },
+                            onPreview: {
+                                ringCoordinator.startPreview(alarm: alarm)
+                            }
+                        )
+                        .coachMark(
+                            title: "Edit",
+                            subtitle: "Double tap to customize settings.",
+                            isVisible: Binding(get: { index == 0 ? showEditAlarmCoachMark : false }, set: { showEditAlarmCoachMark = $0 }),
+                            alignment: .top,
+                            pointDirection: .bottom,
+                            arrowAlignment: .center,
+                            arrowOffsetX: 0,
+                            bubbleOffsetX: 0,
+                            bubbleOffsetY: -100,
+                            color: .red
+                        )
+                        .coachMark(
+                            title: "On/Off",
+                            subtitle: "Toggle to activate.",
+                            isVisible: Binding(get: { index == 0 ? showHomeToggleCoachMark : false }, set: { showHomeToggleCoachMark = $0 }),
+                            alignment: .topTrailing,
+                            pointDirection: .bottom,
+                            arrowAlignment: .trailing,
+                            arrowOffsetX: -24,
+                            bubbleOffsetX: 0,
+                            bubbleOffsetY: -60,
+                            color: .red
+                        )
+                        .coachMark(
+                            title: "Actions",
+                            subtitle: "Duplicate, preview, or delete.",
+                            isVisible: Binding(get: { index == 0 ? showHomeActionsCoachMark : false }, set: { showHomeActionsCoachMark = $0 }),
+                            alignment: .bottomTrailing,
+                            pointDirection: .top,
+                            arrowAlignment: .trailing,
+                            arrowOffsetX: -16,
+                            bubbleOffsetX: 0,
+                            bubbleOffsetY: 54,
+                            color: .red
+                        )
+                        .coachMark(
+                            title: "Delete",
+                            subtitle: "Slide left to delete.",
+                            isVisible: Binding(get: { index == 0 ? showDeleteAlarmCoachMark : false }, set: { showDeleteAlarmCoachMark = $0 }),
+                            alignment: .trailing,
+                            pointDirection: .bottom,
+                            arrowAlignment: .trailing,
+                            arrowOffsetX: -24,
+                            bubbleOffsetX: -20,
+                            bubbleOffsetY: -64,
+                            color: .red
+                        )
+                        .zIndex(index == 0 && (showHomeToggleCoachMark || showHomeActionsCoachMark || showEditAlarmCoachMark || showDeleteAlarmCoachMark) ? 100 : 0)
+
+                        .onTapGesture(count: 2) {
+                            if index == 0 && !appPreferences.hasSeenEditAlarmTooltip {
+                                appPreferences.hasSeenEditAlarmTooltip = true
+                                showEditAlarmCoachMark = false
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                    showHomeToggleCoachMark = true
+                                }
+                            }
+                            switch alarm.type {
+                            case .wakeUp: selectedAlarm = alarm
+                            case .habit: selectedHabitAlarm = alarm
+                            case .quick: break
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private var noAlarmsView: some View {
+        Text("No upcoming alarms")
+            .font(.system(size: 30, weight: .bold))
+            .foregroundColor(Colors.textPrimary)
+            .padding(.top, Spacing.s)
+    }
+    
+    private var fabOverlay: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showAddMenu.toggle()
+                    }
+                    if appPreferences.hasSeenAddAlarmTooltip == false {
+                        appPreferences.hasSeenAddAlarmTooltip = true
+                        showAddAlarmCoachMark = false // Changed from showCoachMark
+                    }
+                }) {
+                    Image(systemName: showAddMenu ? "xmark" : "plus")
+                        .font(.system(size: 26, weight: .bold))
+                        .foregroundColor(Colors.textPrimary)
+                        .frame(width: 62, height: 62)
+                        .background(Colors.accentTeal)
+                        .clipShape(Circle())
+                        .appShadow(Shadows.card)
+                        .coachMark(
+                            title: "Add Alarm",
+                            subtitle: "Tap to create.",
+                            isVisible: $showAddAlarmCoachMark, // Changed from $showCoachMark
+                            alignment: .topTrailing,
+                            pointDirection: .bottom,
+                            arrowAlignment: .trailing,
+                            arrowOffsetX: -24,
+                            bubbleOffsetX: 0,
+                            bubbleOffsetY: -80,
+                            color: .red
+                        )
+                }
+                .accessibilityLabel(Text("Add alarm"))
+                .padding(.trailing, Spacing.l)
+                .padding(.bottom, AppConstants.tabBarHeight + Spacing.l)
+                .onAppear {
+                    if !appPreferences.hasSeenAddAlarmTooltip {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            withAnimation {
+                                showAddAlarmCoachMark = true // Changed from showCoachMark
+                            }
+                        }
+                    } else if !appPreferences.hasSeenEditAlarmTooltip && !alarmStore.alarms.isEmpty {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            withAnimation {
+                                showEditAlarmCoachMark = true
+                            }
+                        }
+                    } else if !appPreferences.hasSeenHomeDeleteTooltip && !alarmStore.alarms.isEmpty {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            withAnimation {
+                                showDeleteAlarmCoachMark = true
+                            }
+                        }
+                    } else if !appPreferences.hasSeenHomeQuickSettingsTooltip && !alarmStore.alarms.isEmpty {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                            withAnimation {
+                                showHomeQuickSettingsCoachMark = true
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private var addMenuOverlay: some View {
+        Group {
+            if showAddMenu {
+                Colors.bgPrimary.opacity(0.55)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showAddMenu = false
+                        }
+                    }
+
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        FloatingAddMenu( // Replaced with FloatingAddMenu
+                            onSelectTimer: {
+                                openTimer()
+                            },
+                            onSelectHabit: {
+                                openCreateHabit()
+                            },
+                            onSelectQuick: {
+                                openQuickAlarm()
+                            },
+                            onSelectAlarm: {
+                                openCreateAlarm()
+                            }
+                        )
+                        .padding(.trailing, Spacing.l)
+                        .padding(.bottom, AppConstants.tabBarHeight + Spacing.l + 74) // 62 (FAB) + 12 (gap)
+                    }
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
     }
@@ -648,6 +873,7 @@ private struct AlarmCardView: View {
 }
 
 private struct SwipeableAlarmRow<Content: View>: View {
+    @Binding var isForcedRevealed: Bool
     let onDelete: () -> Void
     @ViewBuilder let content: () -> Content
 
@@ -694,5 +920,16 @@ private struct SwipeableAlarmRow<Content: View>: View {
                 }
         }
         .animation(.easeInOut(duration: 0.18), value: offset)
+        .onChange(of: isForcedRevealed) { _, revealed in
+            if revealed {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    offset = maxOffset
+                }
+            } else {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    offset = 0
+                }
+            }
+        }
     }
 }

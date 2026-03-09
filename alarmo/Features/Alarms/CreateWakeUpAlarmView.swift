@@ -22,6 +22,17 @@ struct CreateWakeUpAlarmView: View {
     private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
     @State private var showPenaltySettings = false
     @State private var showingLocalTimePreview = true // Default to floating mode if custom TZ
+    
+    // Onboarding Steps
+    @State private var showTimeCoachMark = false
+    @State private var showNameCoachMark = false
+    @State private var showMissionCoachMark = false
+    @State private var showSoundCoachMark = false
+    @State private var showToggleCoachMark = false
+    @State private var showPenaltyCoachMark = false
+    @State private var showActionsCoachMark = false
+    
+    private var preferences = AppPreferences()
 
     init(alarmStore: AlarmStore, existingAlarm: Alarm? = nil, onClose: @escaping () -> Void) {
         self.alarmStore = alarmStore
@@ -60,6 +71,36 @@ struct CreateWakeUpAlarmView: View {
                             second: bindingForPicker.2
                         )
                         .padding(.top, 0)
+                        .coachMark(
+                            title: "Set Time",
+                            subtitle: "Tap to adjust.",
+                            isVisible: $showTimeCoachMark,
+                            alignment: .bottom,
+                            pointDirection: .top,
+                            arrowAlignment: .center,
+                            arrowOffsetX: 0,
+                            bubbleOffsetX: 0,
+                            bubbleOffsetY: 12,
+                            color: .red
+                        )
+        .onChange(of: viewModel.draft.hour) { _, _ in
+            guard showTimeCoachMark else { return }
+            showTimeCoachMark = false
+            preferences.hasSeenEditAlarmTimeTooltip = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showNameCoachMark = true }
+        }
+        .onChange(of: viewModel.draft.minute) { _, _ in
+            guard showTimeCoachMark else { return }
+            showTimeCoachMark = false
+            preferences.hasSeenEditAlarmTimeTooltip = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showNameCoachMark = true }
+        }
+        .onChange(of: viewModel.draft.second) { _, _ in
+            guard showTimeCoachMark else { return }
+            showTimeCoachMark = false
+            preferences.hasSeenEditAlarmTimeTooltip = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showNameCoachMark = true }
+        }
                         
                         // Interactive Location Badge
                         Menu {
@@ -144,6 +185,27 @@ struct CreateWakeUpAlarmView: View {
                             }
                         }
                         .padding(.horizontal, Spacing.l)
+                        .coachMark(
+                            title: "Name",
+                            subtitle: "Label your alarm.",
+                            isVisible: $showNameCoachMark,
+                            alignment: .top,
+                            pointDirection: .bottom,
+                            arrowAlignment: .center,
+                            arrowOffsetX: 0,
+                            bubbleOffsetX: 0,
+                            bubbleOffsetY: -80,
+                            color: .red
+                        )
+                        .onChange(of: nameFocused) { _, isFocused in
+                            if isFocused && showNameCoachMark {
+                                showNameCoachMark = false
+                                preferences.hasSeenEditAlarmNameTooltip = true
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                    showMissionCoachMark = true
+                                }
+                            }
+                        }
                         
                         
                         // 4. SETTINGS GROUPS
@@ -173,8 +235,8 @@ struct CreateWakeUpAlarmView: View {
                         }
                         
                         // Group B: Missions (Moved Below Schedule)
-                        // Using a SectionHeader for consistency if desired, or just the component
                         SectionHeader(title: "Wake Up Missions")
+
                         MissionSlotsView(
                             missions: viewModel.draft.missions,
                             onAdd: {
@@ -190,9 +252,45 @@ struct CreateWakeUpAlarmView: View {
                             }
                         )
                         .padding(.horizontal, 4)
+                        .coachMark(
+                            title: "Missions",
+                            subtitle: "Add wake-up tasks.",
+                            isVisible: $showMissionCoachMark,
+                            alignment: .topLeading,
+                            pointDirection: .bottom,
+                            arrowAlignment: .leading,
+                            arrowOffsetX: 24,
+                            bubbleOffsetX: 14,
+                            bubbleOffsetY: -10,
+                            color: .red
+                        )
+                        .zIndex(showMissionCoachMark ? 100 : 0)
+                        .onChange(of: viewModel.draft.missions.count) { _, newCount in
+                            guard newCount > 0, showMissionCoachMark else { return }
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                showMissionCoachMark = false
+                            }
+                            preferences.hasSeenEditAlarmMissionTooltip = true
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                showSoundCoachMark = true
+                            }
+                        }
 
                         // Group C: Sound & Behavior
                         SectionHeader(title: "Sound & Behavior")
+                            .coachMark(
+                                title: "Sound",
+                                subtitle: "Pick a wake-up tone.",
+                                isVisible: $showSoundCoachMark,
+                                alignment: .bottom,
+                                pointDirection: .bottom,
+                                arrowAlignment: .center,
+                                arrowOffsetX: -40,
+                                bubbleOffsetX: 20,
+                                bubbleOffsetY: 16,
+                                color: .red
+                            )
+                            .zIndex(showSoundCoachMark ? 100 : 0)
                         GroupedSettingsCard {
                              // Alarm Sound
                             MenuRow(
@@ -201,6 +299,36 @@ struct CreateWakeUpAlarmView: View {
                                 value: viewModel.draft.soundName
                             ) {
                                 showSoundEditor = true
+                            }
+                            .onChange(of: showSoundEditor) { _, isOpen in
+                                if isOpen && showSoundCoachMark {
+                                    showSoundCoachMark = false
+                                    preferences.hasSeenEditAlarmSoundTooltip = true
+                                } else if !isOpen && preferences.hasSeenEditAlarmSoundTooltip && !preferences.hasSeenEditAlarmToggleTooltip {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                        showToggleCoachMark = true
+                                    }
+                                }
+                            }
+                            .onChange(of: showGentleWakeUpPicker) { _, isOpen in
+                                if isOpen && showSoundCoachMark {
+                                    showSoundCoachMark = false
+                                    preferences.hasSeenEditAlarmSoundTooltip = true
+                                } else if !isOpen && preferences.hasSeenEditAlarmSoundTooltip && !preferences.hasSeenEditAlarmToggleTooltip {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                        showToggleCoachMark = true
+                                    }
+                                }
+                            }
+                            .onChange(of: showWakeUpCheck) { _, isOpen in
+                                if isOpen && showSoundCoachMark {
+                                    showSoundCoachMark = false
+                                    preferences.hasSeenEditAlarmSoundTooltip = true
+                                } else if !isOpen && preferences.hasSeenEditAlarmSoundTooltip && !preferences.hasSeenEditAlarmToggleTooltip {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                        showToggleCoachMark = true
+                                    }
+                                }
                             }
                             
                             Divider().padding(.leading, 52).opacity(0.3)
@@ -213,6 +341,13 @@ struct CreateWakeUpAlarmView: View {
                             ) {
                                 showGentleWakeUpPicker = true
                             }
+                            .onChange(of: showGentleWakeUpPicker) { _, isOpen in
+                                guard isOpen, showSoundCoachMark else { return }
+                                showSoundCoachMark = false
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                    showToggleCoachMark = true
+                                }
+                            }
                             
                              Divider().padding(.leading, 52).opacity(0.3)
                             
@@ -224,12 +359,32 @@ struct CreateWakeUpAlarmView: View {
                             ) {
                                 showWakeUpCheck = true
                             }
+                            .onChange(of: showWakeUpCheck) { _, isOpen in
+                                guard isOpen, showSoundCoachMark else { return }
+                                showSoundCoachMark = false
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                    showToggleCoachMark = true
+                                }
+                            }
                         }
 
                         // Group D: Time Zone Anchor
                         SectionHeader(title: "Time Zone Anchor")
+                            .coachMark(
+                                title: "Time Zone",
+                                subtitle: "Lock to a city's time.",
+                                isVisible: $showToggleCoachMark,
+                                alignment: .bottom,
+                                pointDirection: .bottom,
+                                arrowAlignment: .center,
+                                arrowOffsetX: 60,
+                                bubbleOffsetX: -20,
+                                bubbleOffsetY: 16,
+                                color: .red
+                            )
+                            .zIndex(showToggleCoachMark ? 100 : 0)
                         GroupedSettingsCard {
-                            Toggle(isOn: Binding(
+                             Toggle(isOn: Binding(
                                 get: { viewModel.draft.timeZoneMode == .custom },
                                 set: { isOn in
                                     viewModel.draft.timeZoneMode = isOn ? .custom : .local
@@ -242,6 +397,16 @@ struct CreateWakeUpAlarmView: View {
                                     .foregroundColor(Colors.textPrimary)
                             }
                             .padding()
+                            .onChange(of: viewModel.draft.timeZoneMode) { _, _ in
+                                guard showToggleCoachMark else { return }
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    showToggleCoachMark = false
+                                }
+                                preferences.hasSeenEditAlarmToggleTooltip = true
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                    showPenaltyCoachMark = true
+                                }
+                            }
                             
                             if viewModel.draft.timeZoneMode == .custom {
                                 Divider().padding(.leading, 16).opacity(0.3)
@@ -265,12 +430,33 @@ struct CreateWakeUpAlarmView: View {
 
                         // Group E: Commitment Pledge
                         SectionHeader(title: "Commitment Pledge")
+                            .coachMark(
+                                title: "Features",
+                                subtitle: "Snooze and penalties.",
+                                isVisible: $showPenaltyCoachMark,
+                                alignment: .bottomTrailing,
+                                pointDirection: .bottom,
+                                arrowAlignment: .trailing,
+                                arrowOffsetX: -32,
+                                bubbleOffsetX: 0,
+                                bubbleOffsetY: 16,
+                                color: .red
+                            )
+                            .zIndex(showPenaltyCoachMark ? 100 : 0)
                         GroupedSettingsCard {
                             Toggle(isOn: $viewModel.draft.penaltyEnabled) {
                                 Text("Enable Penalty")
                                     .foregroundColor(Colors.textPrimary)
                             }
                             .padding()
+                            .onChange(of: viewModel.draft.penaltyEnabled) { _, _ in
+                                guard showPenaltyCoachMark else { return }
+                                withAnimation {
+                                    showPenaltyCoachMark = false
+                                }
+                                preferences.hasSeenEditAlarmActionsTooltip = true
+                                // No more steps currently defined in the chain for this view
+                            }
 
                             if viewModel.draft.penaltyEnabled {
                                 Divider().padding(.leading, 16).opacity(0.3)
@@ -419,6 +605,58 @@ struct CreateWakeUpAlarmView: View {
             if viewModel.draft.timeZoneMode == .custom {
                 showingLocalTimePreview = true
                 viewModel.startCycling()
+            }
+            
+            // Trigger first relevant step
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                if !preferences.hasSeenEditAlarmTimeTooltip {
+                    showTimeCoachMark = true
+                } else if !preferences.hasSeenEditAlarmNameTooltip {
+                    showNameCoachMark = true
+                } else if !preferences.hasSeenEditAlarmMissionTooltip {
+                    showMissionCoachMark = true
+                } else if !preferences.hasSeenEditAlarmSoundTooltip {
+                    showSoundCoachMark = true
+                } else if !preferences.hasSeenEditAlarmToggleTooltip {
+                    showToggleCoachMark = true
+                } else if !preferences.hasSeenEditAlarmActionsTooltip {
+                    showPenaltyCoachMark = true
+                }
+            }
+        }
+        .onChange(of: showTimeCoachMark) { _, isVisible in
+            if !isVisible && !preferences.hasSeenEditAlarmTimeTooltip {
+                preferences.hasSeenEditAlarmTimeTooltip = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showNameCoachMark = true }
+            }
+        }
+        .onChange(of: showNameCoachMark) { _, isVisible in
+            if !isVisible && !preferences.hasSeenEditAlarmNameTooltip {
+                preferences.hasSeenEditAlarmNameTooltip = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showMissionCoachMark = true }
+            }
+        }
+        .onChange(of: showMissionCoachMark) { _, isVisible in
+            if !isVisible && !preferences.hasSeenEditAlarmMissionTooltip {
+                preferences.hasSeenEditAlarmMissionTooltip = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showSoundCoachMark = true }
+            }
+        }
+        .onChange(of: showSoundCoachMark) { _, isVisible in
+            if !isVisible && !preferences.hasSeenEditAlarmSoundTooltip {
+                preferences.hasSeenEditAlarmSoundTooltip = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showToggleCoachMark = true }
+            }
+        }
+        .onChange(of: showToggleCoachMark) { _, isVisible in
+            if !isVisible && !preferences.hasSeenEditAlarmToggleTooltip {
+                preferences.hasSeenEditAlarmToggleTooltip = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showPenaltyCoachMark = true }
+            }
+        }
+        .onChange(of: showPenaltyCoachMark) { _, isVisible in
+            if !isVisible && !preferences.hasSeenEditAlarmActionsTooltip {
+                preferences.hasSeenEditAlarmActionsTooltip = true
             }
         }
         .sheet(isPresented: $showSnoozePicker) {

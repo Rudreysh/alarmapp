@@ -136,11 +136,13 @@ struct PreventPowerOffView: View {
                                 .font(.system(size: 22, weight: .black))
                                 .foregroundColor(SettingsPalette.accent)
 
+#if DEBUG
                             Button("Add test credits (no card)") {
                                 creditsManager.addTestCredits(25)
                             }
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(SettingsPalette.accent)
+#endif
 
                             if creditsManager.products.isEmpty {
                                 Button("Load credit packs") {

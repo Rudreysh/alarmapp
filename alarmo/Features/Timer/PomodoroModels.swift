@@ -97,7 +97,7 @@ extension UnblockChallenge {
         case .step: return "Walk a set number of steps"
         case .qrBarcode: return "Scan a distant QR code"
         case .squat: return "Complete exercise to proceed"
-        case .breathing: return "Take 3 deep breaths to proceed"
+        case .breathing: return "Take 1 deep breath to proceed"
         case .off: return "No challenge required"
         }
     }

@@ -112,23 +112,38 @@ struct DateSelectionSheet: View {
                                         .labelsHidden()
                                 } else {
                                     // Time Period Layout (Start TO End)
-                                    HStack {
-                                        DatePicker("", selection: $tempDate, displayedComponents: .hourAndMinute)
-                                            .datePickerStyle(.wheel)
-                                            .labelsHidden()
-                                            .frame(maxWidth: .infinity)
-                                            .clipped()
+                                    VStack(alignment: .center, spacing: 16) {
+                                        VStack(spacing: 4) {
+                                            Text("Start Time")
+                                                .font(.subheadline)
+                                                .foregroundColor(Colors.textSecondary)
+                                            DatePicker("Start Time", selection: $tempDate, displayedComponents: .hourAndMinute)
+                                                .datePickerStyle(.wheel)
+                                                .labelsHidden()
+                                                .frame(maxWidth: .infinity)
+                                                .frame(height: 120)
+                                                .clipped()
+                                        }
                                         
-                                        Text("TO")
-                                            .font(.headline)
-                                            .foregroundColor(Colors.textPrimary)
+                                        Image(systemName: "arrow.down")
+                                            .font(.title2)
+                                            .foregroundColor(PlanPalette.accent)
                                         
-                                        DatePicker("", selection: $tempEndTime, displayedComponents: .hourAndMinute)
-                                            .datePickerStyle(.wheel)
-                                            .labelsHidden()
-                                            .frame(maxWidth: .infinity)
-                                            .clipped()
+                                        VStack(spacing: 4) {
+                                            Text("End Time")
+                                                .font(.subheadline)
+                                                .foregroundColor(Colors.textSecondary)
+                                            DatePicker("End Time", selection: $tempEndTime, displayedComponents: .hourAndMinute)
+                                                .datePickerStyle(.wheel)
+                                                .labelsHidden()
+                                                .frame(maxWidth: .infinity)
+                                                .frame(height: 120)
+                                                .clipped()
+                                        }
                                     }
+                                    .padding(.vertical, 8)
+                                    .background(Colors.cardSurface.opacity(0.3))
+                                    .cornerRadius(16)
                                 }
                             }
                         }
@@ -1006,6 +1021,7 @@ struct TimeSelectionSheet: View {
     @State private var tempHasTime: Bool = false
     @State private var tempTimeMode: Int = 0 // 0: Point, 1: Period
     @State private var tempEndTime: Date = Date()
+    @State private var activeTab: Int = 0 // 0: Start, 1: End
     
     var body: some View {
         ZStack {
@@ -1092,24 +1108,59 @@ struct TimeSelectionSheet: View {
                                 DatePicker("", selection: $tempDate, displayedComponents: .hourAndMinute)
                                     .datePickerStyle(.wheel)
                                     .labelsHidden()
-                                    .padding(.horizontal)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .frame(height: 180)
+                                    .clipped()
                             } else {
-                                HStack {
-                                    DatePicker("", selection: $tempDate, displayedComponents: .hourAndMinute)
-                                        .datePickerStyle(.wheel)
-                                        .labelsHidden()
-                                        .frame(maxWidth: .infinity)
-                                        .clipped()
+                                VStack(spacing: 24) {
+                                    HStack(spacing: 40) {
+                                        Button(action: { activeTab = 0 }) {
+                                            VStack(spacing: 8) {
+                                                Text("START")
+                                                    .font(.caption)
+                                                    .foregroundColor(activeTab == 0 ? PlanPalette.accent : Colors.textSecondary)
+                                                Text(formatTime(tempDate))
+                                                    .font(.title2)
+                                                    .fontWeight(activeTab == 0 ? .bold : .regular)
+                                                    .foregroundColor(activeTab == 0 ? PlanPalette.accent : Colors.textPrimary)
+                                            }
+                                        }
+                                        .buttonStyle(.plain)
+                                        
+                                        Text("-")
+                                            .font(.title)
+                                            .foregroundColor(Colors.textSecondary)
+                                        
+                                        Button(action: { activeTab = 1 }) {
+                                            VStack(spacing: 8) {
+                                                Text("END")
+                                                    .font(.caption)
+                                                    .foregroundColor(activeTab == 1 ? PlanPalette.accent : Colors.textSecondary)
+                                                Text(formatTime(tempEndTime))
+                                                    .font(.title2)
+                                                    .fontWeight(activeTab == 1 ? .bold : .regular)
+                                                    .foregroundColor(activeTab == 1 ? PlanPalette.accent : Colors.textPrimary)
+                                            }
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    .padding(.top, 16)
                                     
-                                    Text("TO")
-                                        .font(.headline)
-                                        .foregroundColor(Colors.textPrimary)
-                                    
-                                    DatePicker("", selection: $tempEndTime, displayedComponents: .hourAndMinute)
-                                        .datePickerStyle(.wheel)
-                                        .labelsHidden()
-                                        .frame(maxWidth: .infinity)
-                                        .clipped()
+                                    if activeTab == 0 {
+                                        DatePicker("", selection: $tempDate, displayedComponents: .hourAndMinute)
+                                            .datePickerStyle(.wheel)
+                                            .labelsHidden()
+                                            .frame(maxWidth: .infinity, alignment: .center)
+                                            .frame(height: 180)
+                                            .clipped()
+                                    } else {
+                                        DatePicker("", selection: $tempEndTime, displayedComponents: .hourAndMinute)
+                                            .datePickerStyle(.wheel)
+                                            .labelsHidden()
+                                            .frame(maxWidth: .infinity, alignment: .center)
+                                            .frame(height: 180)
+                                            .clipped()
+                                    }
                                 }
                                 .padding(.horizontal)
                             }
@@ -1144,5 +1195,11 @@ struct TimeSelectionSheet: View {
         } else {
             return "Do it at \(f.string(from: tempDate)) of the day"
         }
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.timeStyle = .short
+        return f.string(from: date)
     }
 }

@@ -58,6 +58,39 @@ final class SoundPlayer {
         }
     }
 
+    func playOnce(resourceName: String, volume: Float) {
+        // Find sound URL exactly as playLooping does
+        guard let url = findSoundURL(for: resourceName) else {
+            print("[SoundPlayer] ❌ Could not find sound file for: \(resourceName)")
+            return
+        }
+
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
+            try session.setActive(true)
+            
+            // Note: We use a separate player instance for 'playOnce' if we don't want to interrupt a looping one,
+            // but for simple alerts, reusing or stopping the current player is usually acceptable.
+            // If we want multiple sounds at once, we'd need a collection of players.
+            // For now, let's keep it simple and just play.
+            
+            let oncePlayer = try AVAudioPlayer(contentsOf: url)
+            oncePlayer.volume = volume
+            oncePlayer.numberOfLoops = 0 // Play once
+            oncePlayer.play()
+            
+            // We need to keep a reference or it will be deallocated and stop.
+            // But if we use 'self.player', we stop any ongoing looping sound.
+            // Let's use self.player for simplicity unless user specifically wants both.
+            self.player = oncePlayer
+            
+            print("[SoundPlayer] 🔊 Playing Once: \(url.lastPathComponent) (Vol: \(volume))")
+        } catch {
+             print("[SoundPlayer] ❌ Error playing sound once: \(error)")
+        }
+    }
+
     func stop() {
         if player?.isPlaying == true {
            print("[SoundPlayer] ⏹️ Audio Stopped")

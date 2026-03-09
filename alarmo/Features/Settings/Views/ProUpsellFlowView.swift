@@ -4,6 +4,7 @@ struct ProUpsellFlowView: View {
     @Environment(\.dismiss) var dismiss
     @State private var stepIndex: Int = 0
     @ObservedObject var subManager = SubscriptionManager.shared
+    @State private var showPaywall = false
     
     var body: some View {
         NavigationStack {
@@ -22,8 +23,7 @@ struct ProUpsellFlowView: View {
                     .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
                 } else if stepIndex == 2 {
                     UpsellReminderView(onNext: {
-                        subManager.isPro = true
-                        dismiss()
+                        showPaywall = true
                     })
                     .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
                 }
@@ -48,6 +48,18 @@ struct ProUpsellFlowView: View {
                     }
                 }
             }
+            .fullScreenCover(isPresented: $showPaywall) {
+                PaywallView(
+                    onClose: { showPaywall = false },
+                    onSuccess: {
+                        Task { @MainActor in
+                            await subManager.refreshEntitlements()
+                        }
+                        showPaywall = false
+                        dismiss()
+                    }
+                )
+            }
         }
     }
 }
@@ -67,7 +79,7 @@ struct UpsellBenefitsView: View {
                 .padding(.horizontal)
                 .padding(.top, 16)
                 
-                Text("Improve up to 3x your sleep")
+                Text("Build a better sleep routine")
                     .font(.system(size: 28, weight: .bold))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
@@ -85,7 +97,7 @@ struct UpsellBenefitsView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            PrimaryButton(title: "Try for $0.00", style: .blueGlass) {
+            PrimaryButton(title: "Continue", style: .blueGlass) {
                 onNext()
             }
             .padding(.horizontal)
@@ -189,29 +201,29 @@ struct UpsellTrialDesignView: View {
             
             // Bottom Sheet Area
             VStack(spacing: 16) {
-                SelectionRow(title: "Free", subtitle: "7 days free", isSelected: selectedPlan == 0) {
+                SelectionRow(title: "Starter Trial", subtitle: "Trial availability shown at checkout", isSelected: selectedPlan == 0) {
                     selectedPlan = 0
                 }
                 
-                SelectionRow(title: "Monthly Plan", subtitle: "$1.99 / mo", isSelected: selectedPlan == 1) {
+                SelectionRow(title: "Monthly Plan", subtitle: "Price shown at checkout", isSelected: selectedPlan == 1) {
                     selectedPlan = 1
                 }
                 
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark")
                         .font(.system(size: 14, weight: .bold))
-                    Text("No payment due now!")
+                    Text("Pricing and renewal terms are shown at checkout")
                         .font(.system(size: 15, weight: .semibold))
                 }
                 .foregroundColor(Colors.textSecondary)
                 .padding(.top, 8)
                 
-                PrimaryButton(title: selectedPlan == 0 ? "Redeem 7 days for $0.00" : "Start monthly plan for $1.99", style: .blueGlass) {
+                PrimaryButton(title: selectedPlan == 0 ? "Continue with trial options" : "Continue with monthly options", style: .blueGlass) {
                     onNext()
                 }
                 .padding(.bottom, 8)
                 
-                Text(selectedPlan == 0 ? "7 days free, then $23.99 per year ($1.99/mo). Cancel anytime." : "Billed monthly. Cancel anytime.")
+                Text(selectedPlan == 0 ? "Trial and subscription details appear before purchase confirmation." : "Monthly terms appear before purchase confirmation.")
                     .font(.footnote)
                     .foregroundColor(Colors.textTertiary)
                     .multilineTextAlignment(.center)

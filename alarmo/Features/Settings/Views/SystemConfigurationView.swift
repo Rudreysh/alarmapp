@@ -2,6 +2,8 @@ import SwiftUI
 
 struct SystemConfigurationView: View {
     @ObservedObject var store = SettingsStore.shared
+    @State private var downloadsSize: Int64 = 0
+    @State private var showClearConfirm = false
     
     var body: some View {
         ZStack {
@@ -27,9 +29,20 @@ struct SystemConfigurationView: View {
                     
                     SettingsNavigationRow(
                         title: "Permissions",
-                        isLast: true,
+                        isLast: false,
                         destination: PermissionsView()
                     )
+                    
+                    SettingsActionRow(
+                        title: "Clear Downloaded Assets",
+                        subtitle: downloadsSize > 0 ? "Frees up \(AssetManager.shared.formatBytes(downloadsSize))" : "No downloads to clear",
+                        trailingText: nil,
+                        isLast: true
+                    ) {
+                        if downloadsSize > 0 {
+                            showClearConfirm = true
+                        }
+                    }
                 }
                 
                 Spacer()
@@ -38,6 +51,18 @@ struct SystemConfigurationView: View {
         }
         .navigationTitle("System configuration")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            downloadsSize = AssetManager.shared.getDownloadsSize()
+        }
+        .alert("Clear Downloads?", isPresented: $showClearConfirm) {
+            Button("Cancel", role: .cancel) { }
+            Button("Clear", role: .destructive) {
+                AssetManager.shared.clearAllDownloads()
+                downloadsSize = AssetManager.shared.getDownloadsSize()
+            }
+        } message: {
+            Text("This will free up \(AssetManager.shared.formatBytes(downloadsSize)) of space. You will need internet to download these assets again when playing them.")
+        }
     }
     
     private var currentLanguageName: String {

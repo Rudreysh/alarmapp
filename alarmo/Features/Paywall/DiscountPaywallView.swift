@@ -45,7 +45,7 @@ struct DiscountPaywallView: View {
 
                     VStack(spacing: 16) {
                         // Badge
-                        Text("FLASH SALE")
+                        Text("SPECIAL OFFER")
                             .font(.system(size: 10, weight: .black))
                             .kerning(2)
                             .foregroundColor(.black)
@@ -54,9 +54,9 @@ struct DiscountPaywallView: View {
                             .background(Colors.accentRed)
                             .cornerRadius(4)
 
-                        // 50% Watermark & Title
+                        // Offer Watermark & Title
                         HStack(spacing: -5) {
-                            Text("50%")
+                            Text("PRO")
                                 .font(.system(size: 70, weight: .black))
                                 .foregroundColor(Colors.accentRed)
                                 .italic()
@@ -75,11 +75,11 @@ struct DiscountPaywallView: View {
                         // Compact Yearly Plan Card
                         VStack(spacing: 10) {
                             HStack {
-                                Label("ALMOE PRO", systemImage: "checkmark.seal.fill")
+                                Label("ALARMO PRO", systemImage: "checkmark.seal.fill")
                                     .font(.system(size: 12, weight: .bold))
                                     .foregroundColor(Colors.accentTeal)
                                 Spacer()
-                                Text("-72%")
+                                Text("Offer")
                                     .font(.system(size: 11, weight: .black))
                                     .foregroundColor(.black)
                                     .padding(.horizontal, 6)
@@ -89,14 +89,13 @@ struct DiscountPaywallView: View {
                             }
 
                             HStack(alignment: .lastTextBaseline, spacing: 8) {
-                                Text("₹235")
+                                Text("Localized price")
                                     .font(.system(size: 32, weight: .black))
                                     .foregroundColor(.white)
                                 
-                                Text("₹828")
+                                Text("shown at checkout")
                                     .font(.system(size: 16, weight: .medium))
                                     .foregroundColor(Colors.textTertiary)
-                                    .strikethrough()
                                 
                                 Spacer()
                             }
@@ -115,7 +114,7 @@ struct DiscountPaywallView: View {
                         Button {
                             Task { @MainActor in viewModel.onTapUseCoupon() }
                         } label: {
-                            Text("Unlock 50% Off Now")
+                            Text("Continue to Pro Options")
                                 .font(.system(size: 16, weight: .black))
                                 .foregroundColor(.black)
                                 .frame(maxWidth: .infinity)

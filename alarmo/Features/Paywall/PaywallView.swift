@@ -15,10 +15,10 @@ struct PaywallView: View {
 
                     VStack(spacing: Spacing.s) {
                         LaurelHeader()
-                        Text("#1 Ranked alarm app in 97 countries")
+                        Text("Unlock the full Pro experience")
                             .bodyText()
                             .foregroundColor(Colors.textSecondary)
-                        Text("It is not charged right now,\nFree Trial for 7 Days")
+                        Text("Plans and trial eligibility are shown at checkout")
                             .screenTitle()
                             .foregroundColor(Colors.textPrimary)
                             .multilineTextAlignment(.center)
@@ -49,7 +49,18 @@ struct PaywallView: View {
                     }
                     .padding(.horizontal, Spacing.l)
 
-                    Text("7 days free, then ₹ 469.00 /year")
+                    Button("Restore Purchases") {
+                        Task { @MainActor in
+                            await viewModel.restorePurchases()
+                            if SubscriptionManager.shared.isPro {
+                                onSuccess()
+                            }
+                        }
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Colors.accentTeal)
+
+                    Text(footerDisclaimerText)
                         .captionText()
                         .foregroundColor(Colors.textSecondary)
                         .padding(.bottom, Spacing.l)
@@ -63,6 +74,19 @@ struct PaywallView: View {
         )) { item in
             Alert(title: Text("Notice"), message: Text(item.message), dismissButton: .default(Text("OK")))
         }
+    }
+
+    private var footerDisclaimerText: String {
+        guard let selected = viewModel.selectedProduct() else {
+            return "Subscription terms shown at checkout."
+        }
+        if selected.billingPeriodString.isEmpty {
+            return selected.trialText ?? "Subscription terms shown at checkout."
+        }
+        if let trial = selected.trialText {
+            return "\(trial), then \(selected.billingPeriodString)"
+        }
+        return selected.billingPeriodString
     }
 }
 
@@ -111,7 +135,7 @@ private struct LaurelHeader: View {
         .font(.system(size: 20, weight: .semibold))
         .foregroundColor(Colors.textPrimary)
         .overlay(
-            Text(" App Store")
+            Text("Trusted by alarm users")
                 .captionText()
                 .foregroundColor(Colors.textSecondary)
                 .offset(y: 24)

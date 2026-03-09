@@ -8,6 +8,7 @@ struct TimerRootView: View {
     let preferences: AppPreferences
     let onClose: () -> Void
     @State private var showQuickActions = false
+    @State private var showCoachMark = false
     
     init(preferences: AppPreferences = AppPreferences(), onClose: @escaping () -> Void) {
         self.preferences = preferences
@@ -88,10 +89,28 @@ struct TimerRootView: View {
                     
                     Spacer()
                     
-                    Button(action: toggleQuickActionsMenu) {
+                    Button(action: {
+                        toggleQuickActionsMenu()
+                        if preferences.hasSeenTimerTooltip == false {
+                            preferences.hasSeenTimerTooltip = true
+                            showCoachMark = false
+                        }
+                    }) {
                         Image(systemName: "ellipsis")
                             .font(.system(size: 20))
                             .foregroundColor(Colors.textPrimary)
+                            .coachMark(
+                                title: "Actions",
+                                subtitle: "Customize settings here.",
+                                isVisible: $showCoachMark,
+                                alignment: .bottomTrailing,
+                                pointDirection: .top,
+                                arrowAlignment: .trailing,
+                                arrowOffsetX: -10,
+                                bubbleOffsetX: 0,
+                                bubbleOffsetY: 80,
+                                color: .red
+                            )
                             .frame(width: 56, height: 24, alignment: .trailing)
                     }
                 }
@@ -103,7 +122,7 @@ struct TimerRootView: View {
                     PomoTimerView(viewModel: viewModel, engine: pomodoroEngine)
                         .transition(.asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .trailing)))
                 } else {
-                    StopwatchView(viewModel: viewModel)
+                    StopwatchView(viewModel: viewModel, preferences: preferences)
                         .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
                 }
             }
@@ -156,6 +175,15 @@ struct TimerRootView: View {
                     .padding(.top, 62)
                     .padding(.trailing, Spacing.l)
                     Spacer()
+                }
+            }
+        }
+        .onAppear {
+            if !preferences.hasSeenTimerTooltip {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    withAnimation {
+                        showCoachMark = true
+                    }
                 }
             }
         }

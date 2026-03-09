@@ -2,8 +2,18 @@ import SwiftUI
 import SwiftData
 
 struct PlanView: View {
+    let preferences: AppPreferences
     @StateObject var viewModel = PlanViewModel()
     @Environment(\.modelContext) var modelContext
+    @State private var showCoachMark = false          // FAB
+    @State private var showQuickLogCoachMark = false
+    @State private var showPlanHabitVsTaskCoachMark = false  // Floating menu choice
+    @State private var showPlanSwipeCoachMark = false        // Swipe-to-delete
+    @State private var showPlanCalendarCoachMark = false     // Calendar navigation
+    
+    init(preferences: AppPreferences = AppPreferences()) {
+        self.preferences = preferences
+    }
     
     // Fetch all active items
     @Query(filter: #Predicate<PlanItem> { !$0.isArchived }, sort: \PlanItem.createdAt, order: .reverse)
@@ -57,6 +67,7 @@ struct PlanView: View {
                 CalendarHeaderView(
                     selectedDate: $viewModel.selectedDate,
                     isListView: $viewModel.isListView,
+                    showCalendarCoachMark: $showPlanCalendarCoachMark,
                     isShieldOn: SettingsStore.shared.accountabilityEnabled,
                     onShieldTap: {
                         if subManager.isPro {
@@ -72,18 +83,31 @@ struct PlanView: View {
                     // Timeline List View
                     List {
                          let filtered = viewModel.items(from: allItems)
+                         let firstVisibleItemId = filtered.first?.id
                          // Separate "All Day" (Anytime) vs "Scheduled"
                          
                          // All Day / Anytime Section
                          let anytimeItems = filtered.filter { $0.anytime || $0.scheduledTime == nil }
                          if !anytimeItems.isEmpty {
                              Section(header: timelineSectionHeader(title: "All Day", count: anytimeItems.count, icon: "sun.max.fill")) {
-                                 ForEach(anytimeItems) { item in
+                                 ForEach(Array(anytimeItems.enumerated()), id: \.element.id) { index, item in
                                      PlanItemTimelineRow(item: item, timeString: "", isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
                                          viewModel.toggleComplete(item, context: modelContext)
                                      } onPlay: {
                                          startTimer(for: item)
                                      }
+                                     .coachMark(
+                                         title: "Manage",
+                                         subtitle: "Swipe to edit or delete.",
+                                         isVisible: Binding(get: { item.id == firstVisibleItemId ? showPlanSwipeCoachMark : false }, set: { showPlanSwipeCoachMark = $0 }),
+                                         alignment: .top,
+                                         pointDirection: .bottom,
+                                         arrowAlignment: .center,
+                                         arrowOffsetX: 0,
+                                         bubbleOffsetX: 0,
+                                         bubbleOffsetY: -60,
+                                         color: .red
+                                     )
                                      .listRowBackground(Color.clear)
                                      .listRowSeparator(.hidden)
                                      .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
@@ -93,8 +117,14 @@ struct PlanView: View {
                                      }
                                      .id(item.updatedAt) // Force Refresh
                                      .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                        Button(role: .destructive) { deleteItem(item) } label: { Label("Delete", systemImage: "trash") }
-                                        Button { startEditing(item) } label: { Label("Edit", systemImage: "pencil") }.tint(.blue)
+                                        Button(role: .destructive) { 
+                                            dismissSwipeCoachMark()
+                                            deleteItem(item) 
+                                        } label: { Label("Delete", systemImage: "trash") }
+                                        Button { 
+                                            dismissSwipeCoachMark()
+                                            startEditing(item) 
+                                        } label: { Label("Edit", systemImage: "pencil") }.tint(.blue)
                                     }
                                  }
                              }
@@ -138,6 +168,7 @@ struct PlanView: View {
                     List {
                         // Items List
                         let filtered = viewModel.items(from: allItems)
+                        let firstVisibleItemId = filtered.first?.id
                         let anytimeItems = filtered.filter { $0.anytime }
                         let scheduledItems = filtered.filter { !$0.anytime }
                         
@@ -176,6 +207,18 @@ struct PlanView: View {
                                         } onAdjust: { delta in
                                             viewModel.updateHabitValue(item, delta: delta, context: modelContext)
                                         }
+                                        .coachMark(
+                                            title: "Manage",
+                                            subtitle: "Swipe to edit or delete.",
+                                            isVisible: Binding(get: { item.id == firstVisibleItemId ? showPlanSwipeCoachMark : false }, set: { showPlanSwipeCoachMark = $0 }),
+                                            alignment: .top,
+                                            pointDirection: .bottom,
+                                            arrowAlignment: .center,
+                                            arrowOffsetX: 0,
+                                            bubbleOffsetX: 0,
+                                            bubbleOffsetY: -60,
+                                            color: .red
+                                        )
                                         .listRowBackground(Color.clear)
                                         .listRowSeparator(.hidden)
                                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
@@ -216,18 +259,45 @@ struct PlanView: View {
                                 .buttonStyle(.plain)
                             ) {
                                 if viewModel.isHabitsExpanded {
-                                    ForEach(habits) { item in
+                                    ForEach(Array(habits.enumerated()), id: \.element.id) { index, item in
                                         PlanItemRow(item: item, isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
                                             viewModel.toggleComplete(item, context: modelContext)
                                         } onPlay: {
                                             startTimer(for: item)
                                         } onQuickAdd: { _, position in
+                                            if index == 0 && !preferences.hasSeenQuickLogTooltip {
+                                                preferences.hasSeenQuickLogTooltip = true
+                                                showQuickLogCoachMark = false
+                                            }
                                             let amount = viewModel.incrementHabit(item, value: nil, context: modelContext)
                                             addFloatingBubble(value: "+\(Int(amount))", at: position)
                                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                                         } onAdjust: { delta in
                                             viewModel.updateHabitValue(item, delta: delta, context: modelContext)
                                         }
+                                        .coachMark(
+                                            title: "Manage",
+                                            subtitle: "Swipe to edit or delete.",
+                                            isVisible: Binding(get: { item.id == firstVisibleItemId ? showPlanSwipeCoachMark : false }, set: { showPlanSwipeCoachMark = $0 }),
+                                            alignment: .top,
+                                            pointDirection: .bottom,
+                                            arrowAlignment: .center,
+                                            arrowOffsetX: 0,
+                                            bubbleOffsetX: 0,
+                                            bubbleOffsetY: -60,
+                                            color: .red
+                                        )
+                                        .coachMark(
+                                            title: "Quick Log",
+                                            subtitle: "Tap + to log progress.",
+                                            isVisible: Binding(get: { index == 0 ? showQuickLogCoachMark : false }, set: { showQuickLogCoachMark = $0 }),
+                                            alignment: .bottomTrailing,
+                                            pointDirection: .top,
+                                            arrowAlignment: .trailing,
+                                            arrowOffsetX: -50,
+                                            bubbleOffsetX: -10,
+                                            bubbleOffsetY: 12
+                                        )
                                         .listRowBackground(Color.clear)
                                         .listRowSeparator(.hidden)
                                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
@@ -281,6 +351,18 @@ struct PlanView: View {
                                         } onAdjust: { delta in
                                             viewModel.updateHabitValue(item, delta: delta, context: modelContext)
                                         }
+                                        .coachMark(
+                                            title: "Manage",
+                                            subtitle: "Swipe to edit or delete.",
+                                            isVisible: Binding(get: { item.id == firstVisibleItemId ? showPlanSwipeCoachMark : false }, set: { showPlanSwipeCoachMark = $0 }),
+                                            alignment: .top,
+                                            pointDirection: .bottom,
+                                            arrowAlignment: .center,
+                                            arrowOffsetX: 0,
+                                            bubbleOffsetX: 0,
+                                            bubbleOffsetY: -60,
+                                            color: .red
+                                        )
                                         .listRowBackground(Color.clear)
                                         .listRowSeparator(.hidden)
                                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
@@ -337,7 +419,8 @@ struct PlanView: View {
                         Spacer()
                         PlanFloatingMenu(
                             onSelectTask: {
-                                print("DEBUG: Task Selected")
+                                preferences.hasSeenPlanHabitVsTaskTooltip = true
+                                showPlanHabitVsTaskCoachMark = false
                                 withAnimation { showingAddMenu = false }
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                                     showingCreateSheet = true
@@ -345,7 +428,8 @@ struct PlanView: View {
                             },
                             onSelectHabit: {
                                 let habitCount = allItems.filter { $0.type == .habit }.count
-                                print("DEBUG: Habit Selected")
+                                preferences.hasSeenPlanHabitVsTaskTooltip = true
+                                showPlanHabitVsTaskCoachMark = false
                                 withAnimation { showingAddMenu = false }
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                                     if !subManager.isPro && habitCount >= 2 {
@@ -356,6 +440,18 @@ struct PlanView: View {
                                     }
                                 }
                             }
+                        )
+                        .coachMark(
+                            title: "Plan Type",
+                            subtitle: "Streaks vs tasks.",
+                            isVisible: $showPlanHabitVsTaskCoachMark,
+                            alignment: .topTrailing,
+                            pointDirection: .bottom,
+                            arrowAlignment: .trailing,
+                            arrowOffsetX: -24,
+                            bubbleOffsetX: 0,
+                            bubbleOffsetY: -80,
+                            color: .red
                         )
                         .padding(.trailing, 20)
                         .padding(.bottom, 160) // Position above FAB (90 + 56 + 14)
@@ -373,7 +469,10 @@ struct PlanView: View {
                     Button(action: {
                         withAnimation(.spring()) {
                             showingAddMenu.toggle()
-                            print("DEBUG: Menu Toggled to \(showingAddMenu)")
+                        }
+                        if preferences.hasSeenPlanTooltip == false {
+                            preferences.hasSeenPlanTooltip = true
+                            showCoachMark = false
                         }
                     }) {
                         Image(systemName: showingAddMenu ? "xmark" : "plus")
@@ -381,6 +480,18 @@ struct PlanView: View {
                             .foregroundColor(Colors.textPrimary)
                             .planGlassCircle(size: 56, fillOpacity: 0.13)
                             .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
+                            .coachMark(
+                                title: "Create Plan",
+                                subtitle: "Tap to add item.",
+                                isVisible: $showCoachMark,
+                                alignment: .topTrailing,
+                                pointDirection: .bottom,
+                                arrowAlignment: .trailing,
+                                arrowOffsetX: -24,
+                                bubbleOffsetX: 0,
+                                bubbleOffsetY: -80,
+                                color: .red
+                            )
                     }
                     .padding(.trailing, 20)
                     .padding(.bottom, 90)
@@ -394,6 +505,27 @@ struct PlanView: View {
             
             Task {
                 await viewModel.syncHealthData()
+            }
+            if !preferences.hasSeenPlanTooltip {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    withAnimation { showCoachMark = true }
+                }
+            } else if !preferences.hasSeenPlanHabitVsTaskTooltip && !allItems.isEmpty {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    withAnimation { showPlanHabitVsTaskCoachMark = true }
+                }
+            } else if !preferences.hasSeenPlanSwipeTooltip && !allItems.isEmpty {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    withAnimation { showPlanSwipeCoachMark = true }
+                }
+            } else if !preferences.hasSeenPlanCalendarTooltip {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    withAnimation { showPlanCalendarCoachMark = true }
+                }
+            } else if !preferences.hasSeenQuickLogTooltip && allItems.contains(where: { $0.type == .habit }) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    withAnimation { showQuickLogCoachMark = true }
+                }
             }
         }
         .sheet(isPresented: $showingCreateSheet) {
@@ -426,6 +558,54 @@ struct PlanView: View {
         }
         .sheet(isPresented: $showShieldSettings) {
             AccountabilityShieldSettingsView()
+        }
+        .onChange(of: viewModel.selectedDate) { _, _ in
+            if showPlanCalendarCoachMark {
+                showPlanCalendarCoachMark = false
+                preferences.hasSeenPlanCalendarTooltip = true
+            }
+        }
+        .onChange(of: showCoachMark) { _, isVisible in
+            if !isVisible && !preferences.hasSeenPlanTooltip {
+                preferences.hasSeenPlanTooltip = true
+                if !allItems.isEmpty {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showPlanHabitVsTaskCoachMark = true }
+                }
+            }
+        }
+        .onChange(of: showPlanHabitVsTaskCoachMark) { _, isVisible in
+            if !isVisible && !preferences.hasSeenPlanHabitVsTaskTooltip {
+                preferences.hasSeenPlanHabitVsTaskTooltip = true
+                if !allItems.isEmpty {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showPlanSwipeCoachMark = true }
+                }
+            }
+        }
+        .onChange(of: showPlanSwipeCoachMark) { _, isVisible in
+            if !isVisible && !preferences.hasSeenPlanSwipeTooltip {
+                preferences.hasSeenPlanSwipeTooltip = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showPlanCalendarCoachMark = true }
+            }
+        }
+        .onChange(of: showPlanCalendarCoachMark) { _, isVisible in
+            if !isVisible && !preferences.hasSeenPlanCalendarTooltip {
+                preferences.hasSeenPlanCalendarTooltip = true
+                if allItems.contains(where: { $0.type == .habit }) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showQuickLogCoachMark = true }
+                }
+            }
+        }
+        .onChange(of: showQuickLogCoachMark) { _, isVisible in
+            if !isVisible && !preferences.hasSeenQuickLogTooltip {
+                preferences.hasSeenQuickLogTooltip = true
+            }
+        }
+    }
+    
+    private func dismissSwipeCoachMark() {
+        if showPlanSwipeCoachMark {
+            showPlanSwipeCoachMark = false
+            preferences.hasSeenPlanSwipeTooltip = true
         }
     }
     
@@ -714,6 +894,7 @@ struct PlanHeaderView: View {
 struct CalendarHeaderView: View {
     @Binding var selectedDate: Date
     @Binding var isListView: Bool
+    @Binding var showCalendarCoachMark: Bool
     var isShieldOn: Bool = false
     var onShieldTap: (() -> Void)? = nil
     
@@ -824,6 +1005,18 @@ struct CalendarHeaderView: View {
                 }
                 
                 WeekStripView(selectedDate: $selectedDate)
+                    .coachMark(
+                        title: "Dates",
+                        subtitle: "Tap a day to see schedule.",
+                        isVisible: $showCalendarCoachMark,
+                        alignment: .top,
+                        pointDirection: .bottom,
+                        arrowAlignment: .center,
+                        arrowOffsetX: 0,
+                        bubbleOffsetX: 0,
+                        bubbleOffsetY: -40,
+                        color: .red
+                    )
                 
                 Button(action: { shiftDate(1) }) {
                     Image(systemName: "chevron.right")

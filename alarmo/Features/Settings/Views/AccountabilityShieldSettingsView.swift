@@ -689,6 +689,7 @@ struct AddPaymentCardView: View {
     @State private var expiryDate: String = ""
     @State private var selectedBrand: String = "Visa"
     @State private var animateCard = false
+    @State private var showUnavailableAlert = false
     
     private let brands = ["Visa", "Mastercard", "Amex"]
     
@@ -860,17 +861,7 @@ struct AddPaymentCardView: View {
                     
                     // Attach
                     Button(action: {
-                        cardBrand = selectedBrand.lowercased()
-                        cardLast4 = String(cardNumber.suffix(4))
-                        
-                        let store = SettingsStore.shared
-                        store.isPenaltyPaymentConnected = true
-                        store.penaltyPaymentToken = "tok_\(UUID().uuidString.prefix(8))"
-                        store.penaltyCardBrand = selectedBrand.lowercased()
-                        store.penaltyCardLast4 = String(cardNumber.suffix(4))
-                        store.penaltyTermsAccepted = true
-                        
-                        dismiss()
+                        showUnavailableAlert = true
                     }) {
                         Text("Attach Card")
                             .font(.system(size: 18, weight: .bold))
@@ -901,6 +892,11 @@ struct AddPaymentCardView: View {
                 withAnimation(.easeOut(duration: 0.8)) {
                     animateCard = true
                 }
+            }
+            .alert("Card Setup Unavailable", isPresented: $showUnavailableAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Card processing is not enabled in this build. Use penalty credits from App Store packs.")
             }
         }
     }

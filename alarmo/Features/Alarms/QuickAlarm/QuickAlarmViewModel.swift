@@ -16,6 +16,14 @@ class QuickAlarmViewModel: ObservableObject {
     @Published var penaltyEnabled: Bool
     @Published var penaltyAmountEuro: Int
     
+    // New Settings
+    @Published var gentleWakeUpSeconds: Int = 0
+    @Published var wakeUpCheckEnabled: Bool = false
+    @Published var timeZoneMode: AlarmTimeZoneMode = .local
+    @Published var timeZoneIdentifier: String? = nil
+    @Published var timeZoneCity: String? = nil
+    @Published var dailyMotivationEnabled: Bool = false
+    
     // For UI State
     @Published var fireDateString: String = ""
     
@@ -98,32 +106,33 @@ class QuickAlarmViewModel: ObservableObject {
             isDaily: false,
             repeatMask: 0,
             enabled: true,
-            wakeUpCheckEnabled: false,
+            wakeUpCheckEnabled: wakeUpCheckEnabled,
             soundName: selectedSoundId,
             soundVolume: volume,
             vibrateEnabled: vibrateEnabled,
-            gentleWakeUpSeconds: 0,
+            gentleWakeUpSeconds: gentleWakeUpSeconds,
             timeReminderEnabled: false,
             weatherReminderEnabled: false,
             labelReminderEnabled: false,
             extraLoudEnabled: false,
             bypassSilentMode: bypassSilentMode,
+            timeZoneMode: timeZoneMode,
+            timeZoneIdentifier: timeZoneIdentifier,
+            timeZoneCity: timeZoneCity,
             snoozeMinutes: 5,
+            snoozeSeconds: 0,
             snoozeCount: 3,
             wallpaperId: selectedWallpaperId,
+            dailyMotivationEnabled: dailyMotivationEnabled,
             createdAt: Date(),
-            enforcementMode: accountabilityEnabled
-                ? (blockAppsEnabled && penaltyEnabled
-                    ? .blockAppsAndPenalty
-                    : (blockAppsEnabled ? .blockApps : .penaltyOnly))
-                : .none,
-            blockAppsEnabled: accountabilityEnabled && blockAppsEnabled,
+            enforcementMode: penaltyEnabled ? .penaltyOnly : .none,
+            blockAppsEnabled: false,
             blockedSelectionData: settingsStore.blockedAppsSelectionData,
-            penaltyEnabled: accountabilityEnabled && penaltyEnabled,
+            penaltyEnabled: penaltyEnabled,
             penaltyAmountEuro: penaltyAmountEuro,
             penaltyStrategy: .credits,
             penaltyRules: alarmPenaltyRules,
-            shutdownProtectionEnabled: accountabilityEnabled && penaltyEnabled
+            shutdownProtectionEnabled: penaltyEnabled
         )
         
         print("[QuickAlarm] Saving alarm for +\(finalSeconds) sec (at: \(alarm.timeString))")

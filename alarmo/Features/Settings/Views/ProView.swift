@@ -144,6 +144,7 @@ struct ProView: View {
                         .padding(.top, 20)
                         
                         // Debug/Testing Toggle
+#if DEBUG
                         Toggle(isOn: $subManager.isPro) {
                             Text("Simulate Pro Status (Testing)")
                                 .font(.system(size: 16, weight: .semibold))
@@ -152,6 +153,7 @@ struct ProView: View {
                         .tint(Colors.accentTeal)
                         .padding(.horizontal, 40)
                         .padding(.top, 20)
+#endif
                     }
                     .padding(.bottom, 40)
                 }

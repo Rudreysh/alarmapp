@@ -27,9 +27,9 @@ struct MainTabContainerView: View {
                 case .timer:
                     TimerRootView(preferences: preferences, onClose: { navStore.selectedTab = .alarm })
                 case .plan:
-                    PlanView()
+                    PlanView(preferences: preferences)
                 case .overlap:
-                    OverlapView()
+                    OverlapView(preferences: preferences)
                 case .report:
                     ReportView(modelContext: modelContext, alarmStore: alarmStore)
                 case .setting:

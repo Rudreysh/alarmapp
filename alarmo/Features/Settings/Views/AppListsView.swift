@@ -138,18 +138,12 @@ struct AppListsView: View {
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
         }
-            .navigationTitle(viewModel.isEditingSelection ? "Select List" : "App Lists")
+            .navigationTitle("App Lists")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Close") { dismiss() }
                         .foregroundColor(Colors.textPrimary)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(viewModel.isEditingSelection ? "Done" : "Select") {
-                        viewModel.toggleEditMode()
-                    }
-                    .foregroundColor(Colors.textPrimary)
                 }
             }
             .sheet(item: $selectedDetailList) { list in
@@ -188,44 +182,52 @@ struct AppListsView: View {
         let summary = listSelectionSummary(for: list)
 
         HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(list.name)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(Colors.textPrimary)
-                    if isActiveForFocus && list.type == .block {
-                        Text("ACTIVE")
-                            .font(.system(size: 10, weight: .black))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.red)
-                            .clipShape(Capsule())
+            Button(action: {
+                if list.type == .block {
+                    viewModel.setSelectedList(list, context: modelContext)
+                } else {
+                    selectedDetailList = list
+                }
+            }) {
+                HStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(list.name)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(Colors.textPrimary)
+                        Text(summary)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Colors.textSecondary)
+                    }
+                    Spacer()
+                    if list.type == .block && isActiveForFocus {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(Colors.accentBlue)
+                            .padding(.trailing, 4)
                     }
                 }
-                Text(summary)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Colors.textSecondary)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
             
-            Spacer()
-
-            if viewModel.isEditingSelection {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 24))
-                    .foregroundColor(isSelected ? Colors.accentBlue : Colors.textTertiary)
+            if list.type == .block {
+                Button(action: {
+                    selectedDetailList = list
+                }) {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 22))
+                        .foregroundColor(Colors.accentBlue)
+                        .padding(.leading, 8)
+                }
+                .buttonStyle(.plain)
             } else {
                 Image(systemName: "chevron.right")
                     .font(.caption.bold())
                     .foregroundColor(Colors.textTertiary)
-            }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if viewModel.isEditingSelection {
-                viewModel.setSelectedList(list, context: modelContext)
-            } else {
-                selectedDetailList = list
+                    .padding(.leading, 8)
+                    .onTapGesture {
+                        selectedDetailList = list
+                    }
             }
         }
     }

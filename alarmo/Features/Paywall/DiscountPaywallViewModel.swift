@@ -29,7 +29,7 @@ final class DiscountPaywallViewModel: ObservableObject {
     func onConfirmGetOffer() {
         isExitDiscountDialogPresented = false
         preferences.hasTappedGetOfferFromDiscount = true
-        toastMessage = "Payments not implemented yet."
+        toastMessage = nil
         onRequestGetOffer?()
     }
 }

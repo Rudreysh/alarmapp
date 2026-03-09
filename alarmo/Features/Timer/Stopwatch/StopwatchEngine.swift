@@ -46,6 +46,9 @@ class StopwatchEngine: ObservableObject {
     // Target / interval alerts
     var targetTime: TimeInterval? = nil
     var alertInterval: TimeInterval? = nil
+    
+    private let preferences: AppPreferences
+    private let soundPlayer = SoundPlayer()
 
     private var startDate: Date?
     private var accumulatedTime: TimeInterval = 0
@@ -53,6 +56,10 @@ class StopwatchEngine: ObservableObject {
     private var timerCancellable: AnyCancellable?
     private var firedAlerts: Set<Double> = []
     private var sessionStartDate: Date?
+
+    init(preferences: AppPreferences = AppPreferences()) {
+        self.preferences = preferences
+    }
 
     // MARK: - Public API
 
@@ -162,12 +169,16 @@ class StopwatchEngine: ObservableObject {
         if let target = targetTime, elapsed >= target, !firedAlerts.contains(target) {
             firedAlerts.insert(target)
             UINotificationFeedbackGenerator().notificationOccurred(.success)
+            soundPlayer.playOnce(resourceName: preferences.stopwatchSoundName, volume: 1.0)
+            print("[StopwatchEngine] 🔔 Target Alert Fired: \(target)s")
         }
         if let interval = alertInterval, interval > 0 {
             let bucket = floor(elapsed / interval) * interval
             if bucket > 0 && !firedAlerts.contains(bucket) {
                 firedAlerts.insert(bucket)
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                soundPlayer.playOnce(resourceName: preferences.stopwatchSoundName, volume: 0.8)
+                print("[StopwatchEngine] 🔔 Interval Alert Fired: \(bucket)s")
             }
         }
     }

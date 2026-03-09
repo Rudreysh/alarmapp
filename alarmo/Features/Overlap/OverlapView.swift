@@ -2,8 +2,17 @@ import SwiftUI
 import Combine
 
 struct OverlapView: View {
+    let preferences: AppPreferences
     @StateObject private var store = OverlapStore.shared
     @State private var showOverlapAnalysis = false
+    @State private var showCoachMark = false
+    @State private var showTimeTravelCoachMark = false
+    @State private var showOverlapAnalysisCoachMark = false
+    @State private var showOverlapShareCoachMark = false
+    
+    init(preferences: AppPreferences = AppPreferences()) {
+        self.preferences = preferences
+    }
     @State private var editingCity: OverlapCity?
     @State private var showArrowHint = true
     @State private var arrowAnimationPhase: CGFloat = 0
@@ -122,6 +131,10 @@ struct OverlapView: View {
                                     dragStartOffset = store.timeOffsetMinutes
                                     showArrowHint = false
                                 }
+                                if preferences.hasSeenOverlapTimeTravelTooltip == false {
+                                    preferences.hasSeenOverlapTimeTravelTooltip = true
+                                    showTimeTravelCoachMark = false
+                                }
                                 let delta = Int(-value.translation.width / 2)
                                 store.timeOffsetMinutes = dragStartOffset + delta
                             }
@@ -141,6 +154,10 @@ struct OverlapView: View {
                                     isDragging = true
                                     dragStartOffset = store.timeOffsetMinutes
                                     showArrowHint = false
+                                }
+                                if preferences.hasSeenOverlapTimeTravelTooltip == false {
+                                    preferences.hasSeenOverlapTimeTravelTooltip = true
+                                    showTimeTravelCoachMark = false
                                 }
                                 let delta = Int(-value.translation.width / 2)
                                 store.timeOffsetMinutes = dragStartOffset + delta
@@ -166,6 +183,23 @@ struct OverlapView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
                 withAnimation { showArrowHint = false }
             }
+            if !preferences.hasSeenOverlapTooltip {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    withAnimation { showCoachMark = true }
+                }
+            } else if !preferences.hasSeenOverlapTimeTravelTooltip {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    withAnimation { showTimeTravelCoachMark = true }
+                }
+            } else if !preferences.hasSeenOverlapAnalysisTooltip && !store.cities.isEmpty {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    withAnimation { showOverlapAnalysisCoachMark = true }
+                }
+            } else if !preferences.hasSeenOverlapContextMenuTooltip && !store.cities.isEmpty {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    withAnimation { showOverlapShareCoachMark = true }
+                }
+            }
         }
         .sheet(item: $editingCity) { city in
             CityDetailSheet(city: city, store: store)
@@ -175,6 +209,33 @@ struct OverlapView: View {
         }
         .fullScreenCover(isPresented: $showUpsell) {
             ProUpsellFlowView()
+        }
+        .onChange(of: showCoachMark) { _, isVisible in
+            if !isVisible && !preferences.hasSeenOverlapTooltip {
+                preferences.hasSeenOverlapTooltip = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showTimeTravelCoachMark = true }
+            }
+        }
+        .onChange(of: showTimeTravelCoachMark) { _, isVisible in
+            if !isVisible && !preferences.hasSeenOverlapTimeTravelTooltip {
+                preferences.hasSeenOverlapTimeTravelTooltip = true
+                if !store.cities.isEmpty {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showOverlapAnalysisCoachMark = true }
+                }
+            }
+        }
+        .onChange(of: showOverlapAnalysisCoachMark) { _, isVisible in
+            if !isVisible && !preferences.hasSeenOverlapAnalysisTooltip {
+                preferences.hasSeenOverlapAnalysisTooltip = true
+                if !store.cities.isEmpty {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showOverlapShareCoachMark = true }
+                }
+            }
+        }
+        .onChange(of: showOverlapShareCoachMark) { _, isVisible in
+            if !isVisible && !preferences.hasSeenOverlapContextMenuTooltip {
+                preferences.hasSeenOverlapContextMenuTooltip = true
+            }
         }
     }
 
@@ -502,6 +563,17 @@ struct OverlapView: View {
                         Capsule()
                             .stroke(Color.white.opacity(0.08), lineWidth: 1)
                     )
+                    .coachMark(
+                        title: "Time Travel",
+                        subtitle: "Swipe to see other times.",
+                        isVisible: $showTimeTravelCoachMark,
+                        alignment: .top,
+                        pointDirection: .bottom,
+                        arrowAlignment: .center,
+                        arrowOffsetX: 0,
+                        bubbleOffsetX: 0,
+                        bubbleOffsetY: -64
+                    )
             } else {
                 Button {
                     withAnimation(.spring(response: 0.4)) {
@@ -559,21 +631,51 @@ struct OverlapView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     searchFocused = true
                 }
+                if preferences.hasSeenOverlapTooltip == false {
+                    preferences.hasSeenOverlapTooltip = true
+                    showCoachMark = false
+                }
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 20, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
                     .frame(maxWidth: .infinity, minHeight: 44)
+                    .coachMark(
+                        title: "Add City",
+                        subtitle: "Search for cities.",
+                        isVisible: $showCoachMark,
+                        alignment: .top,
+                        pointDirection: .bottom,
+                        arrowAlignment: .center,
+                        arrowOffsetX: 0,
+                        bubbleOffsetX: 0,
+                        bubbleOffsetY: -80,
+                        color: .red
+                    )
             }
 
             // Overlap Analysis (sinusoidal icon)
             Button { 
+                preferences.hasSeenOverlapAnalysisTooltip = true
+                showOverlapAnalysisCoachMark = false
                 showOverlapAnalysis = true 
             } label: {
                 Image(systemName: "waveform.path")
                     .font(.system(size: 22, weight: .black))
                     .foregroundColor(Colors.textPrimary)
                     .frame(maxWidth: .infinity, minHeight: 44)
+                    .coachMark(
+                        title: "Analyze",
+                        subtitle: "Find best meeting times.",
+                        isVisible: $showOverlapAnalysisCoachMark,
+                        alignment: .top,
+                        pointDirection: .bottom,
+                        arrowAlignment: .center,
+                        arrowOffsetX: 0,
+                        bubbleOffsetX: 0,
+                        bubbleOffsetY: -80,
+                        color: .red
+                    )
             }
 
             // Share text representation
@@ -582,6 +684,18 @@ struct OverlapView: View {
                     .font(.system(size: 20, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
                     .frame(maxWidth: .infinity, minHeight: 44)
+                    .coachMark(
+                        title: "Share",
+                        subtitle: "Send times to others.",
+                        isVisible: $showOverlapShareCoachMark,
+                        alignment: .topTrailing,
+                        pointDirection: .bottom,
+                        arrowAlignment: .trailing,
+                        arrowOffsetX: -24,
+                        bubbleOffsetX: -16,
+                        bubbleOffsetY: -80,
+                        color: .red
+                    )
             }
         }
         .padding(.horizontal, 16)

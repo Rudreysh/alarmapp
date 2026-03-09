@@ -181,6 +181,19 @@ struct SoundSettingsView: View {
     // showPicker binding removed; using NavigationLink instead to fix "Two Sheets" bug
     @ObservedObject var soundPlayer: SoundPreviewPlayer
     @Environment(\.dismiss) var dismiss
+
+    private func normalizedTitle(_ title: String) -> String {
+        title
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+            .lowercased()
+    }
+
+    private var isPreviewingSelectedSound: Bool {
+        guard let playing = soundPlayer.playingResourceName else { return false }
+        return soundPlayer.isPlaying && normalizedTitle(playing) == normalizedTitle(soundName)
+    }
     
     var body: some View {
         NavigationView {
@@ -192,13 +205,13 @@ struct SoundSettingsView: View {
                     HStack(spacing: 12) {
                         // Play/Stop Button
                         Button(action: {
-                            if soundPlayer.isPlaying && soundPlayer.playingResourceName == soundName {
+                            if isPreviewingSelectedSound {
                                 soundPlayer.stop()
                             } else {
                                 soundPlayer.play(resourceName: soundName, volume: volume)
                             }
                         }) {
-                            Image(systemName: (soundPlayer.isPlaying && soundPlayer.playingResourceName == soundName) ? "stop.circle.fill" : "play.circle.fill")
+                            Image(systemName: isPreviewingSelectedSound ? "stop.circle.fill" : "play.circle.fill")
                                 .font(.system(size: 32))
                                 .foregroundColor(Colors.accentTeal)
                         }
@@ -238,7 +251,7 @@ struct SoundSettingsView: View {
                                 get: { volume },
                                 set: { newVal in
                                     volume = newVal
-                                    if soundPlayer.isPlaying && soundPlayer.playingResourceName == soundName {
+                                    if isPreviewingSelectedSound {
                                         soundPlayer.setVolume(newVal) // SoundPreviewPlayer Protocol doesn't have setVolume, checking class...
                                     }
                                 }

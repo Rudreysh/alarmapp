@@ -17,6 +17,14 @@ struct PomoTimerView: View {
     @State private var showAppLists = false
     @State private var showDeepFocusConfirm = false
     
+    // Timer Onboarding Sequence
+    @State private var showTimerTimeIntegerCoachMark = false
+    @State private var showTimerCircleCoachMark = false
+    @State private var showTimerIntervalCoachMark = false
+    @State private var showTimerMusicCoachMark = false
+    @State private var showTimerBlockListCoachMark = false
+    @State private var showTimerStartCoachMark = false
+    
     @Query(sort: \AppList.updatedAt, order: .reverse)
     private var allAppLists: [AppList]
     
@@ -42,54 +50,6 @@ struct PomoTimerView: View {
             let diameter = min(availableWidth * 0.75, availableHeight * 0.45)
             
             ZStack {
-                // Opal-like atmospheric background (Pomodoro screen only)
-                LinearGradient(
-                    colors: [
-                        Color.black,
-                        Color(red: 0.02, green: 0.03, blue: 0.06),
-                        Color(red: 0.03, green: 0.06, blue: 0.10),
-                        Color(red: 0.02, green: 0.03, blue: 0.06),
-                        Color.black
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .overlay(alignment: .top) {
-                    RoundedRectangle(cornerRadius: 80, style: .continuous)
-                        .fill(
-                            RadialGradient(
-                                colors: [
-                                    TimerPalette.accentSoft.opacity(0.12),
-                                    .clear
-                                ],
-                                center: .center,
-                                startRadius: 10,
-                                endRadius: 280
-                            )
-                        )
-                        .frame(width: availableWidth * 0.35, height: 260)
-                        .blur(radius: 20)
-                        .offset(y: -100)
-                }
-                .overlay(alignment: .bottom) {
-                    Ellipse()
-                        .fill(
-                            RadialGradient(
-                                colors: [
-                                    TimerPalette.accent.opacity(0.08),
-                                    .clear
-                                ],
-                                center: .center,
-                                startRadius: 8,
-                                endRadius: 220
-                            )
-                        )
-                        .frame(width: availableWidth * 0.65, height: 140)
-                        .blur(radius: 12)
-                        .offset(y: 70)
-                }
-                .allowsHitTesting(false)
-
                 // Main Timer UI
                 VStack(spacing: 0) {
                     // Task Selection Header
@@ -140,7 +100,14 @@ struct PomoTimerView: View {
                     
                     HStack(spacing: 16) {
                         // Interval Settings Shortcut
-                        Button(action: { showIntervalSettings = true }) {
+                        Button(action: { 
+                            showIntervalSettings = true 
+                            if showTimerIntervalCoachMark {
+                                showTimerIntervalCoachMark = false
+                                viewModel.preferences.hasSeenTimerIntervalTooltip = true
+                                triggerNextTimerStep()
+                            }
+                        }) {
                             HStack(spacing: 6) {
                                 Image(systemName: "timer")
                                     .font(.system(size: 13, weight: .bold))
@@ -152,10 +119,29 @@ struct PomoTimerView: View {
                             .padding(.horizontal, 16)
                             .background(TimerPalette.accent.opacity(0.22))
                             .clipShape(Capsule())
+                            .coachMark(
+                                title: "Interval",
+                                subtitle: "Control focus breaks.",
+                                isVisible: $showTimerIntervalCoachMark,
+                                alignment: .bottom,
+                                pointDirection: .top,
+                                arrowAlignment: .center,
+                                arrowOffsetX: 0,
+                                bubbleOffsetX: 0,
+                                bubbleOffsetY: 76,
+                                color: .red
+                            )
                         }
                         
                         // Ambient Sound Selection Shortcut
-                        Button(action: { viewModel.showSoundSelection = true }) {
+                        Button(action: { 
+                            viewModel.showSoundSelection = true 
+                            if showTimerMusicCoachMark {
+                                showTimerMusicCoachMark = false
+                                viewModel.preferences.hasSeenTimerMusicTooltip = true
+                                triggerNextTimerStep()
+                            }
+                        }) {
                             HStack(spacing: 6) {
                                 if viewModel.ambientSoundName.isEmpty {
                                     Image(systemName: "plus.circle.fill")
@@ -167,9 +153,6 @@ struct PomoTimerView: View {
                                         .font(.system(size: 13, weight: .bold))
                                     Text(viewModel.ambientSoundName)
                                         .font(.system(size: 13, weight: .bold))
-                                        .lineLimit(1)
-                                        .truncationMode(.tail)
-                                        .frame(maxWidth: 100, alignment: .leading)
                                 }
                             }
                             .foregroundColor(TimerPalette.accent)
@@ -177,6 +160,18 @@ struct PomoTimerView: View {
                             .padding(.horizontal, 16)
                             .background(TimerPalette.accent.opacity(0.22))
                             .clipShape(Capsule())
+                            .coachMark(
+                                title: "Music",
+                                subtitle: "Pick ambient sounds.",
+                                isVisible: $showTimerMusicCoachMark,
+                                alignment: .bottom,
+                                pointDirection: .top,
+                                arrowAlignment: .center,
+                                arrowOffsetX: 0,
+                                bubbleOffsetX: 0,
+                                bubbleOffsetY: 76,
+                                color: .red
+                            )
                         }
                     }
                     .padding(.top, 4)
@@ -185,26 +180,62 @@ struct PomoTimerView: View {
                     if engine.isBlockingActive || !engine.config.selectedBlockListId.isEmpty {
                         blockingStatusPill
                             .padding(.top, 4)
+                            .coachMark(
+                                title: "Deep Focus",
+                                subtitle: "Block distractions by blocking apps.",
+                                isVisible: $showTimerBlockListCoachMark,
+                                alignment: .top,
+                                pointDirection: .bottom,
+                                arrowAlignment: .center,
+                                arrowOffsetX: 0,
+                                bubbleOffsetX: 0,
+                                bubbleOffsetY: -80,
+                                color: .red
+                            )
+                            .onTapGesture {
+                                if showTimerBlockListCoachMark {
+                                    showTimerBlockListCoachMark = false
+                                    viewModel.preferences.hasSeenTimerBlockListTooltip = true
+                                    triggerNextTimerStep()
+                                }
+                            }
                     }
 
                     Spacer()
                     
                     // Timer Circle
-                    ZStack {
-                        ProgressRing(
+                    VStack(spacing: 24) {
+                        DraggableDialTimer(
+                            totalSeconds: Binding(
+                                get: { engine.state.remainingSeconds },
+                                set: { 
+                                    applySelectedSeconds($0) 
+                                    if showTimerCircleCoachMark {
+                                        showTimerCircleCoachMark = false
+                                        viewModel.preferences.hasSeenTimerCircleTooltip = true
+                                        triggerNextTimerStep()
+                                    }
+                                }
+                            ),
+                            isRunning: engine.isRunning,
                             progress: engine.currentProgress,
                             color: currentSegmentColor
                         )
                         .frame(width: diameter, height: diameter)
+                        .coachMark(
+                            title: "Dial",
+                            subtitle: "Rotate to set time.",
+                            isVisible: $showTimerCircleCoachMark,
+                            alignment: .top,
+                            pointDirection: .bottom,
+                            arrowAlignment: .center,
+                            arrowOffsetX: 0,
+                            bubbleOffsetX: 0,
+                            bubbleOffsetY: -120,
+                            color: .red
+                        )
                         
                         VStack(spacing: 8) {
-                            // Sub-timer (Cyan, above main)
-                            Text(timeString(from: engine.state.remainingSeconds))
-                                .font(.system(size: diameter * 0.08, weight: .heavy, design: .monospaced))
-                                .kerning(1.5)
-                                .foregroundColor(TimerPalette.accent.opacity(0.8))
-                                .padding(.bottom, -4)
-
                             Text(timeString(from: engine.state.remainingSeconds))
                                 .font(.system(size: diameter * 0.22, weight: .heavy, design: .monospaced))
                                 .kerning(2)
@@ -212,10 +243,33 @@ struct PomoTimerView: View {
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.5)
                                 .onTapGesture {
+                                    if showTimerTimeIntegerCoachMark {
+                                        showTimerTimeIntegerCoachMark = false
+                                        viewModel.preferences.hasSeenTimerTimeIntegerTooltip = true
+                                        triggerNextTimerStep()
+                                    }
                                     // only allow edit if running or paused
                                     editingSeconds = engine.state.remainingSeconds
                                     showTimerEditSheet = true
                                 }
+                                .coachMark(
+                                    title: "Keypad",
+                                    subtitle: "Tap to set precisely.",
+                                    isVisible: $showTimerTimeIntegerCoachMark,
+                                    alignment: .top,
+                                    pointDirection: .bottom,
+                                    arrowAlignment: .center,
+                                    arrowOffsetX: 0,
+                                    bubbleOffsetX: 0,
+                                    bubbleOffsetY: -120,
+                                    color: .red
+                                )
+                            
+                            // Expected End Time / Schedule
+                            let endTime = Date().addingTimeInterval(TimeInterval(engine.state.remainingSeconds))
+                            Text("\(formattedTime(Date())) - \(formattedTime(endTime))")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(TimerPalette.accent)
                             
                             if engine.config.isEnabled {
                                 Text(currentSegmentLabel)
@@ -246,14 +300,30 @@ struct PomoTimerView: View {
                             
                             PrimaryButton(title: "Start Timer", style: .blueGlass) {
                                 engine.start(taskId: taskStore.selectedTaskId)
+                                if showTimerStartCoachMark {
+                                    showTimerStartCoachMark = false
+                                    viewModel.preferences.hasSeenTimerStartTooltip = true
+                                }
                             }
                             .padding(.horizontal, Spacing.l)
+                            .coachMark(
+                                title: "Start",
+                                subtitle: "Begin session.",
+                                isVisible: $showTimerStartCoachMark,
+                                alignment: .top,
+                                pointDirection: .bottom,
+                                arrowAlignment: .center,
+                                arrowOffsetX: 0,
+                                bubbleOffsetX: 0,
+                                bubbleOffsetY: -80,
+                                color: .red
+                            )
                         } else {
                             // Running / Paused Controls
                             // We use a ZStack/Overlay approach to keep the main buttons (Music, Play, Stop)
                             // perfectly stable and centered. The Break button appears to the left without
                             // shifting the others.
-                            HStack(spacing: 30) {
+                            HStack(spacing: 44) {
                                 // Ambient Sound Toggle/Select
                                 Button(action: {
                                     if viewModel.ambientSoundName.isEmpty {
@@ -264,19 +334,20 @@ struct PomoTimerView: View {
                                 }) {
                                     ZStack(alignment: .bottomTrailing) {
                                         Image(systemName: "music.note")
-                                            .font(.system(size: 20))
+                                            .font(.system(size: 20, weight: .semibold))
                                         
                                         if !viewModel.ambientSoundName.isEmpty {
                                             Image(systemName: viewModel.isAmbientPlaying ? "pause.fill" : "play.fill")
-                                                .font(.system(size: 10))
+                                                .font(.system(size: 10, weight: .bold))
                                                 .foregroundColor(.white)
                                                 .background(Circle().fill(Color.red).frame(width: 14, height: 14))
                                                 .offset(x: 2, y: 2)
                                         }
                                     }
-                                    .foregroundColor(Colors.textPrimary)
-                                    .frame(width: 50, height: 50)
-                                    .background(Circle().stroke(Colors.cardStroke, lineWidth: 1))
+                                    .foregroundColor(Colors.textSecondary)
+                                    .frame(width: 56, height: 56)
+                                    .background(Circle().fill(Color(red: 0.13, green: 0.15, blue: 0.20)))
+                                    .overlay(Circle().stroke(Color.white.opacity(0.10), lineWidth: 1))
                                 }
                                 .onLongPressGesture {
                                     viewModel.showSoundSelection = true
@@ -289,44 +360,53 @@ struct PomoTimerView: View {
                                     } else {
                                         engine.resume()
                                     }
+                                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                                 }) {
-                                    Image(systemName: engine.isRunning ? "pause.fill" : "play.fill")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(Colors.textPrimary)
-                                        .frame(width: 70, height: 70)
-                                        .background(currentSegmentColor)
-                                        .clipShape(Circle())
-                                        .appShadow(Shadows.button)
+                                    ZStack {
+                                        Circle()
+                                            .fill(currentSegmentColor)
+                                            .frame(width: 72, height: 72)
+                                        Image(systemName: engine.isRunning ? "pause.fill" : "play.fill")
+                                            .font(.system(size: 26, weight: .bold))
+                                            .foregroundColor(.black)
+                                    }
+                                    .shadow(color: currentSegmentColor.opacity(0.5), radius: 16, y: 6)
                                 }
                                 
-                            // Stop — hidden in Deep Focus during active focus run
+                                // Stop — hidden in Deep Focus during active focus run
                                 if engine.canStopSession {
-                                    Button(action: { engine.requestStop() }) {
+                                    Button(action: {
+                                        engine.requestStop()
+                                        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+                                    }) {
                                         Image(systemName: "stop.fill")
-                                            .font(.system(size: 20))
-                                            .foregroundColor(Colors.textPrimary)
-                                            .frame(width: 50, height: 50)
-                                            .background(Circle().stroke(Colors.cardStroke, lineWidth: 1))
+                                            .font(.system(size: 20, weight: .semibold))
+                                            .foregroundColor(Color(red: 0.9, green: 0.25, blue: 0.25))
+                                            .frame(width: 56, height: 56)
+                                            .background(Circle().fill(Color(red: 0.13, green: 0.15, blue: 0.20)))
+                                            .overlay(Circle().stroke(Color.white.opacity(0.10), lineWidth: 1))
                                     }
                                 } else {
                                     // Placeholder to keep layout stable
                                     Image(systemName: "lock.fill")
-                                        .font(.system(size: 20))
+                                        .font(.system(size: 20, weight: .semibold))
                                         .foregroundColor(Color.red.opacity(0.7))
-                                        .frame(width: 50, height: 50)
-                                        .background(Circle().stroke(Color.red.opacity(0.3), lineWidth: 1))
+                                        .frame(width: 56, height: 56)
+                                        .background(Circle().fill(Color(red: 0.13, green: 0.15, blue: 0.20)))
+                                        .overlay(Circle().stroke(Color.white.opacity(0.10), lineWidth: 1))
                                 }
                             }
                             .overlay(alignment: .leading) {
                                 // Manual Break (Coffee) - Appears to the left
                                 Button(action: { engine.requestBreak() }) {
                                     Image(systemName: "cup.and.saucer.fill")
-                                        .font(.system(size: 20))
-                                        .foregroundColor(Colors.textPrimary)
-                                        .frame(width: 50, height: 50)
-                                        .background(Circle().stroke(Colors.cardStroke, lineWidth: 1))
+                                        .font(.system(size: 20, weight: .semibold))
+                                        .foregroundColor(Colors.textSecondary)
+                                        .frame(width: 56, height: 56)
+                                        .background(Circle().fill(Color(red: 0.13, green: 0.15, blue: 0.20)))
+                                        .overlay(Circle().stroke(Color.white.opacity(0.10), lineWidth: 1))
                                 }
-                                .padding(.leading, -80) // 50 (width) + 30 (spacing)
+                                .padding(.leading, -100) // 56 (width) + 44 (spacing)
                                 .opacity(engine.isRunning ? 0 : 1)
                                 .disabled(engine.isRunning)
                                 .animation(.easeInOut(duration: 0.2), value: engine.isRunning)
@@ -477,6 +557,44 @@ struct PomoTimerView: View {
                  viewModel.toggleAmbientSound()
             }
         }
+        .onAppear {
+            onTimerAppear()
+        }
+        .onChange(of: showTimerTimeIntegerCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerTimeIntegerTooltip {
+                viewModel.preferences.hasSeenTimerTimeIntegerTooltip = true
+                triggerNextTimerStep()
+            }
+        }
+        .onChange(of: showTimerCircleCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerCircleTooltip {
+                viewModel.preferences.hasSeenTimerCircleTooltip = true
+                triggerNextTimerStep()
+            }
+        }
+        .onChange(of: showTimerIntervalCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerIntervalTooltip {
+                viewModel.preferences.hasSeenTimerIntervalTooltip = true
+                triggerNextTimerStep()
+            }
+        }
+        .onChange(of: showTimerMusicCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerMusicTooltip {
+                viewModel.preferences.hasSeenTimerMusicTooltip = true
+                triggerNextTimerStep()
+            }
+        }
+        .onChange(of: showTimerBlockListCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerBlockListTooltip {
+                viewModel.preferences.hasSeenTimerBlockListTooltip = true
+                triggerNextTimerStep()
+            }
+        }
+        .onChange(of: showTimerStartCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerStartTooltip {
+                viewModel.preferences.hasSeenTimerStartTooltip = true
+            }
+        }
     }
     
     // MARK: - Helpers
@@ -496,35 +614,7 @@ struct PomoTimerView: View {
     
     private var idleControlRow: some View {
         HStack(spacing: 10) {
-            roundStepButton(symbol: "minus") {
-                adjustFocusDuration(byMinutes: -5)
-            }
-            
-            Button {
-                editingSeconds = max(60, engine.config.focusSeconds)
-                showTimerEditSheet = true
-            } label: {
-                Text("\(max(1, engine.config.focusSeconds / 60))m")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(Color.black.opacity(0.88))
-                    .frame(minWidth: 72)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(Color.white.opacity(0.96))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(Color.white.opacity(0.7), lineWidth: 0.6)
-                    )
-                    .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 4)
-            }
-            .buttonStyle(.plain)
-            
-            roundStepButton(symbol: "plus") {
-                adjustFocusDuration(byMinutes: 5)
-            }
+            Spacer()
             
             Button {
                 showAppLists = true
@@ -542,9 +632,8 @@ struct PomoTimerView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(blockEnabled ? Colors.textPrimary : Colors.textSecondary)
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 14)
-                .frame(maxWidth: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .fill(blockEnabled ? Color.red.opacity(0.12) : Color.white.opacity(0.12))
@@ -557,35 +646,29 @@ struct PomoTimerView: View {
                 .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 5)
             }
             .buttonStyle(.plain)
+            .coachMark(
+                title: "Deep Focus",
+                subtitle: "Block distractions by blocking apps.",
+                isVisible: $showTimerBlockListCoachMark,
+                alignment: .top,
+                pointDirection: .bottom,
+                arrowAlignment: .center,
+                arrowOffsetX: 0,
+                bubbleOffsetX: 0,
+                bubbleOffsetY: -80,
+                color: .red
+            )
+            .onTapGesture {
+                if showTimerBlockListCoachMark {
+                    showTimerBlockListCoachMark = false
+                    viewModel.preferences.hasSeenTimerBlockListTooltip = true
+                    triggerNextTimerStep()
+                }
+            }
+            .buttonStyle(.plain)
+            
+            Spacer()
         }
-    }
-    
-    private func roundStepButton(symbol: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(Colors.textPrimary)
-                .frame(width: 48, height: 48)
-                .background(
-                    Circle()
-                        .fill(Color.white.opacity(0.12))
-                        .background(.ultraThinMaterial, in: Circle())
-                )
-                .overlay(
-                    Circle()
-                        .stroke(Color.white.opacity(0.24), lineWidth: 1)
-                )
-                .shadow(color: Color.black.opacity(0.26), radius: 10, x: 0, y: 5)
-        }
-        .buttonStyle(.plain)
-    }
-    
-    private func adjustFocusDuration(byMinutes delta: Int) {
-        let currentMinutes = max(1, engine.config.focusSeconds / 60)
-        let nextMinutes = min(180, max(1, currentMinutes + delta))
-        var updated = engine.config
-        updated.focusSeconds = nextMinutes * 60
-        engine.updateConfig(updated)
     }
 
     private func applySelectedSeconds(_ seconds: Int) {
@@ -661,7 +744,7 @@ struct PomoTimerView: View {
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(Color.red)
-                        .clipShape(Capsule())
+                    }
                 }
             }
             .padding(.horizontal, 14)
@@ -670,12 +753,37 @@ struct PomoTimerView: View {
                 Capsule()
                     .fill(isRunningFocus ? Color.red.opacity(0.15) : Color.white.opacity(0.08))
             )
-            .overlay(
-                Capsule()
-                    .stroke(isRunningFocus ? Color.red.opacity(0.3) : Color.white.opacity(0.15), lineWidth: 1)
-            )
+            .buttonStyle(.plain)
+    }
+    
+    // MARK: - Onboarding Logic
+    
+    private func onTimerAppear() {
+        if !viewModel.preferences.hasSeenTimerTimeIntegerTooltip {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                showTimerTimeIntegerCoachMark = true
+            }
+        } else if !viewModel.preferences.hasSeenTimerCircleTooltip {
+            showTimerCircleCoachMark = true
         }
-        .buttonStyle(.plain)
+    }
+    
+    private func triggerNextTimerStep() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            withAnimation {
+                if !viewModel.preferences.hasSeenTimerCircleTooltip {
+                    showTimerCircleCoachMark = true
+                } else if !viewModel.preferences.hasSeenTimerIntervalTooltip {
+                    showTimerIntervalCoachMark = true
+                } else if !viewModel.preferences.hasSeenTimerMusicTooltip {
+                    showTimerMusicCoachMark = true
+                } else if !viewModel.preferences.hasSeenTimerBlockListTooltip {
+                    showTimerBlockListCoachMark = true
+                } else if !viewModel.preferences.hasSeenTimerStartTooltip {
+                    showTimerStartCoachMark = true
+                }
+            }
+        }
     }
     
     
@@ -684,9 +792,16 @@ struct PomoTimerView: View {
     }
     
     func timeString(from totalSeconds: Int) -> String {
-        let minutes = totalSeconds / 60
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
         let seconds = totalSeconds % 60
-        return String(format: "%02d:%02d", minutes, seconds)
+        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+    }
+    
+    private func formattedTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
     }
     
     // MARK: - Overlays

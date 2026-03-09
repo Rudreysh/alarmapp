@@ -11,6 +11,39 @@ protocol AppPreferencesProtocol: AnyObject {
     var hasSeenDiscountExitDialog: Bool { get set }
     var hasTappedGetOfferFromDiscount: Bool { get set }
     var hasAnyAlarm: Bool { get set }
+    var hasSeenAddAlarmTooltip: Bool { get set }
+    var hasSeenTimerTooltip: Bool { get set }
+    var hasSeenPlanTooltip: Bool { get set }
+    var hasSeenOverlapTooltip: Bool { get set }
+    var hasSeenEditAlarmTooltip: Bool { get set }
+    var hasSeenQuickLogTooltip: Bool { get set }
+    var hasSeenTimerMusicTooltip: Bool { get set }
+    var hasSeenOverlapTimeTravelTooltip: Bool { get set }
+    var hasSeenHomeQuickSettingsTooltip: Bool { get set }
+    var hasSeenHomeToggleTooltip: Bool { get set }
+    var hasSeenHomeActionsTooltip: Bool { get set }
+    var hasSeenHomeDeleteTooltip: Bool { get set }
+    var hasSeenEditAlarmTimeTooltip: Bool { get set }
+    var hasSeenEditAlarmNavTooltip: Bool { get set }
+    var hasSeenEditAlarmNameTooltip: Bool { get set }
+    var hasSeenEditAlarmMissionTooltip: Bool { get set }
+    var hasSeenEditAlarmTimezoneTooltip: Bool { get set }
+    var hasSeenEditAlarmToggleTooltip: Bool { get set }
+    var hasSeenEditAlarmActionsTooltip: Bool { get set }
+    var hasSeenTimerTimeIntegerTooltip: Bool { get set }
+    var hasSeenTimerCircleTooltip: Bool { get set }
+    var hasSeenTimerIntervalTooltip: Bool { get set }
+    var hasSeenTimerBlockListTooltip: Bool { get set }
+    var hasSeenTimerStartTooltip: Bool { get set }
+    // Plan
+    var hasSeenPlanFabTooltip: Bool { get set }
+    var hasSeenPlanHabitVsTaskTooltip: Bool { get set }
+    var hasSeenPlanSwipeTooltip: Bool { get set }
+    var hasSeenPlanCalendarTooltip: Bool { get set }
+    // Overlap
+    var hasSeenOverlapAddCityTooltip: Bool { get set }
+    var hasSeenOverlapAnalysisTooltip: Bool { get set }
+    var hasSeenOverlapContextMenuTooltip: Bool { get set }
     var onboardingAlarmHour: Int { get set }
     var onboardingAlarmMinute: Int { get set }
     var onboardingAlarmSecond: Int { get set }
@@ -57,6 +90,40 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
     @Published var hasSeenDiscountExitDialog: Bool { didSet { defaults.set(hasSeenDiscountExitDialog, forKey: Keys.hasSeenDiscountExitDialog) } }
     @Published var hasTappedGetOfferFromDiscount: Bool { didSet { defaults.set(hasTappedGetOfferFromDiscount, forKey: Keys.hasTappedGetOfferFromDiscount) } }
     @Published var hasAnyAlarm: Bool { didSet { defaults.set(hasAnyAlarm, forKey: Keys.hasAnyAlarm) } }
+    @Published var hasSeenAddAlarmTooltip: Bool { didSet { defaults.set(hasSeenAddAlarmTooltip, forKey: Keys.hasSeenAddAlarmTooltip) } }
+    @Published var hasSeenTimerTooltip: Bool { didSet { defaults.set(hasSeenTimerTooltip, forKey: Keys.hasSeenTimerTooltip) } }
+    @Published var hasSeenPlanTooltip: Bool { didSet { defaults.set(hasSeenPlanTooltip, forKey: Keys.hasSeenPlanTooltip) } }
+    @Published var hasSeenOverlapTooltip: Bool { didSet { defaults.set(hasSeenOverlapTooltip, forKey: Keys.hasSeenOverlapTooltip) } }
+    @Published var hasSeenEditAlarmTooltip: Bool { didSet { defaults.set(hasSeenEditAlarmTooltip, forKey: Keys.hasSeenEditAlarmTooltip) } }
+    @Published var hasSeenQuickLogTooltip: Bool { didSet { defaults.set(hasSeenQuickLogTooltip, forKey: Keys.hasSeenQuickLogTooltip) } }
+    @Published var hasSeenTimerMusicTooltip: Bool { didSet { defaults.set(hasSeenTimerMusicTooltip, forKey: Keys.hasSeenTimerMusicTooltip) } }
+    @Published var hasSeenOverlapTimeTravelTooltip: Bool { didSet { defaults.set(hasSeenOverlapTimeTravelTooltip, forKey: Keys.hasSeenOverlapTimeTravelTooltip) } }
+    @Published var hasSeenHomeQuickSettingsTooltip: Bool { didSet { defaults.set(hasSeenHomeQuickSettingsTooltip, forKey: Keys.hasSeenHomeQuickSettingsTooltip) } }
+    @Published var hasSeenHomeToggleTooltip: Bool { didSet { defaults.set(hasSeenHomeToggleTooltip, forKey: Keys.hasSeenHomeToggleTooltip) } }
+    @Published var hasSeenHomeActionsTooltip: Bool { didSet { defaults.set(hasSeenHomeActionsTooltip, forKey: Keys.hasSeenHomeActionsTooltip) } }
+    @Published var hasSeenHomeDeleteTooltip: Bool { didSet { defaults.set(hasSeenHomeDeleteTooltip, forKey: Keys.hasSeenHomeDeleteTooltip) } }
+    @Published var hasSeenEditAlarmTimeTooltip: Bool { didSet { defaults.set(hasSeenEditAlarmTimeTooltip, forKey: Keys.hasSeenEditAlarmTimeTooltip) } }
+    @Published var hasSeenEditAlarmNavTooltip: Bool { didSet { defaults.set(hasSeenEditAlarmNavTooltip, forKey: Keys.hasSeenEditAlarmNavTooltip) } }
+    @Published var hasSeenEditAlarmNameTooltip: Bool { didSet { defaults.set(hasSeenEditAlarmNameTooltip, forKey: Keys.hasSeenEditAlarmNameTooltip) } }
+    @Published var hasSeenEditAlarmMissionTooltip: Bool { didSet { defaults.set(hasSeenEditAlarmMissionTooltip, forKey: Keys.hasSeenEditAlarmMissionTooltip) } }
+    @Published var hasSeenEditAlarmTimezoneTooltip: Bool { didSet { defaults.set(hasSeenEditAlarmTimezoneTooltip, forKey: Keys.hasSeenEditAlarmTimezoneTooltip) } }
+    @Published var hasSeenEditAlarmToggleTooltip: Bool { didSet { defaults.set(hasSeenEditAlarmToggleTooltip, forKey: Keys.hasSeenEditAlarmToggleTooltip) } }
+    @Published var hasSeenEditAlarmSoundTooltip: Bool { didSet { defaults.set(hasSeenEditAlarmSoundTooltip, forKey: Keys.hasSeenEditAlarmSoundTooltip) } }
+    @Published var hasSeenEditAlarmActionsTooltip: Bool { didSet { defaults.set(hasSeenEditAlarmActionsTooltip, forKey: Keys.hasSeenEditAlarmActionsTooltip) } }
+    @Published var hasSeenTimerTimeIntegerTooltip: Bool { didSet { defaults.set(hasSeenTimerTimeIntegerTooltip, forKey: Keys.hasSeenTimerTimeIntegerTooltip) } }
+    @Published var hasSeenTimerCircleTooltip: Bool { didSet { defaults.set(hasSeenTimerCircleTooltip, forKey: Keys.hasSeenTimerCircleTooltip) } }
+    @Published var hasSeenTimerIntervalTooltip: Bool { didSet { defaults.set(hasSeenTimerIntervalTooltip, forKey: Keys.hasSeenTimerIntervalTooltip) } }
+    @Published var hasSeenTimerBlockListTooltip: Bool { didSet { defaults.set(hasSeenTimerBlockListTooltip, forKey: Keys.hasSeenTimerBlockListTooltip) } }
+    @Published var hasSeenTimerStartTooltip: Bool { didSet { defaults.set(hasSeenTimerStartTooltip, forKey: Keys.hasSeenTimerStartTooltip) } }
+    // Plan
+    @Published var hasSeenPlanFabTooltip: Bool { didSet { defaults.set(hasSeenPlanFabTooltip, forKey: Keys.hasSeenPlanFabTooltip) } }
+    @Published var hasSeenPlanHabitVsTaskTooltip: Bool { didSet { defaults.set(hasSeenPlanHabitVsTaskTooltip, forKey: Keys.hasSeenPlanHabitVsTaskTooltip) } }
+    @Published var hasSeenPlanSwipeTooltip: Bool { didSet { defaults.set(hasSeenPlanSwipeTooltip, forKey: Keys.hasSeenPlanSwipeTooltip) } }
+    @Published var hasSeenPlanCalendarTooltip: Bool { didSet { defaults.set(hasSeenPlanCalendarTooltip, forKey: Keys.hasSeenPlanCalendarTooltip) } }
+    // Overlap
+    @Published var hasSeenOverlapAddCityTooltip: Bool { didSet { defaults.set(hasSeenOverlapAddCityTooltip, forKey: Keys.hasSeenOverlapAddCityTooltip) } }
+    @Published var hasSeenOverlapAnalysisTooltip: Bool { didSet { defaults.set(hasSeenOverlapAnalysisTooltip, forKey: Keys.hasSeenOverlapAnalysisTooltip) } }
+    @Published var hasSeenOverlapContextMenuTooltip: Bool { didSet { defaults.set(hasSeenOverlapContextMenuTooltip, forKey: Keys.hasSeenOverlapContextMenuTooltip) } }
     @Published var onboardingAlarmHour: Int { didSet { defaults.set(onboardingAlarmHour, forKey: Keys.onboardingAlarmHour) } }
     @Published var onboardingAlarmMinute: Int { didSet { defaults.set(onboardingAlarmMinute, forKey: Keys.onboardingAlarmMinute) } }
     @Published var onboardingAlarmSecond: Int { didSet { defaults.set(onboardingAlarmSecond, forKey: Keys.onboardingAlarmSecond) } }
@@ -104,6 +171,76 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
         self.hasSeenDiscountExitDialog = defaults.bool(forKey: Keys.hasSeenDiscountExitDialog)
         self.hasTappedGetOfferFromDiscount = defaults.bool(forKey: Keys.hasTappedGetOfferFromDiscount)
         self.hasAnyAlarm = defaults.bool(forKey: Keys.hasAnyAlarm)
+        
+        #if DEBUG
+        // Always show tooltips for testing
+        self.hasSeenAddAlarmTooltip = false
+        self.hasSeenTimerTooltip = false
+        self.hasSeenPlanTooltip = false
+        self.hasSeenOverlapTooltip = false
+        self.hasSeenEditAlarmTooltip = false
+        self.hasSeenQuickLogTooltip = false
+        self.hasSeenTimerMusicTooltip = false
+        self.hasSeenOverlapTimeTravelTooltip = false
+        self.hasSeenHomeQuickSettingsTooltip = false
+        self.hasSeenHomeToggleTooltip = false
+        self.hasSeenHomeActionsTooltip = false
+        self.hasSeenHomeDeleteTooltip = false
+        self.hasSeenEditAlarmSoundTooltip = false
+        self.hasSeenEditAlarmTimeTooltip = false
+        self.hasSeenEditAlarmNavTooltip = false
+        self.hasSeenEditAlarmNameTooltip = false
+        self.hasSeenEditAlarmMissionTooltip = false
+        self.hasSeenEditAlarmTimezoneTooltip = false
+        self.hasSeenEditAlarmToggleTooltip = false
+        self.hasSeenEditAlarmActionsTooltip = false
+        self.hasSeenTimerTimeIntegerTooltip = false
+        self.hasSeenTimerCircleTooltip = false
+        self.hasSeenTimerIntervalTooltip = false
+        self.hasSeenTimerBlockListTooltip = false
+        self.hasSeenTimerStartTooltip = false
+        self.hasSeenPlanFabTooltip = false
+        self.hasSeenPlanHabitVsTaskTooltip = false
+        self.hasSeenPlanSwipeTooltip = false
+        self.hasSeenPlanCalendarTooltip = false
+        self.hasSeenOverlapAddCityTooltip = false
+        self.hasSeenOverlapAnalysisTooltip = false
+        self.hasSeenOverlapContextMenuTooltip = false
+        #else
+        self.hasSeenAddAlarmTooltip = defaults.bool(forKey: Keys.hasSeenAddAlarmTooltip)
+        self.hasSeenTimerTooltip = defaults.bool(forKey: Keys.hasSeenTimerTooltip)
+        self.hasSeenPlanTooltip = defaults.bool(forKey: Keys.hasSeenPlanTooltip)
+        self.hasSeenOverlapTooltip = defaults.bool(forKey: Keys.hasSeenOverlapTooltip)
+        self.hasSeenEditAlarmTooltip = defaults.bool(forKey: Keys.hasSeenEditAlarmTooltip)
+        self.hasSeenQuickLogTooltip = defaults.bool(forKey: Keys.hasSeenQuickLogTooltip)
+        self.hasSeenTimerMusicTooltip = defaults.bool(forKey: Keys.hasSeenTimerMusicTooltip)
+        self.hasSeenOverlapTimeTravelTooltip = defaults.bool(forKey: Keys.hasSeenOverlapTimeTravelTooltip)
+        self.hasSeenHomeQuickSettingsTooltip = defaults.bool(forKey: Keys.hasSeenHomeQuickSettingsTooltip)
+        self.hasSeenHomeToggleTooltip = defaults.bool(forKey: Keys.hasSeenHomeToggleTooltip)
+        self.hasSeenHomeActionsTooltip = defaults.bool(forKey: Keys.hasSeenHomeActionsTooltip)
+        self.hasSeenHomeDeleteTooltip = defaults.bool(forKey: Keys.hasSeenHomeDeleteTooltip)
+        self.hasSeenEditAlarmTimeTooltip = defaults.bool(forKey: Keys.hasSeenEditAlarmTimeTooltip)
+        self.hasSeenEditAlarmNavTooltip = defaults.bool(forKey: Keys.hasSeenEditAlarmNavTooltip)
+        self.hasSeenEditAlarmNameTooltip = defaults.bool(forKey: Keys.hasSeenEditAlarmNameTooltip)
+        self.hasSeenEditAlarmMissionTooltip = defaults.bool(forKey: Keys.hasSeenEditAlarmMissionTooltip)
+        self.hasSeenEditAlarmTimezoneTooltip = defaults.bool(forKey: Keys.hasSeenEditAlarmTimezoneTooltip)
+        self.hasSeenEditAlarmToggleTooltip = defaults.bool(forKey: Keys.hasSeenEditAlarmToggleTooltip)
+        self.hasSeenEditAlarmSoundTooltip = defaults.bool(forKey: Keys.hasSeenEditAlarmSoundTooltip)
+        self.hasSeenEditAlarmActionsTooltip = defaults.bool(forKey: Keys.hasSeenEditAlarmActionsTooltip)
+        self.hasSeenTimerTimeIntegerTooltip = defaults.bool(forKey: Keys.hasSeenTimerTimeIntegerTooltip)
+        self.hasSeenTimerCircleTooltip = defaults.bool(forKey: Keys.hasSeenTimerCircleTooltip)
+        self.hasSeenTimerIntervalTooltip = defaults.bool(forKey: Keys.hasSeenTimerIntervalTooltip)
+        self.hasSeenTimerBlockListTooltip = defaults.bool(forKey: Keys.hasSeenTimerBlockListTooltip)
+        self.hasSeenTimerStartTooltip = defaults.bool(forKey: Keys.hasSeenTimerStartTooltip)
+        self.hasSeenPlanFabTooltip = defaults.bool(forKey: Keys.hasSeenPlanFabTooltip)
+        self.hasSeenPlanHabitVsTaskTooltip = defaults.bool(forKey: Keys.hasSeenPlanHabitVsTaskTooltip)
+        self.hasSeenPlanSwipeTooltip = defaults.bool(forKey: Keys.hasSeenPlanSwipeTooltip)
+        self.hasSeenPlanCalendarTooltip = defaults.bool(forKey: Keys.hasSeenPlanCalendarTooltip)
+        self.hasSeenOverlapAddCityTooltip = defaults.bool(forKey: Keys.hasSeenOverlapAddCityTooltip)
+        self.hasSeenOverlapAnalysisTooltip = defaults.bool(forKey: Keys.hasSeenOverlapAnalysisTooltip)
+        self.hasSeenOverlapContextMenuTooltip = defaults.bool(forKey: Keys.hasSeenOverlapContextMenuTooltip)
+        #endif
+        
         let storedHour = defaults.object(forKey: Keys.onboardingAlarmHour) as? Int
         let storedMinute = defaults.object(forKey: Keys.onboardingAlarmMinute) as? Int
         let storedSecond = defaults.object(forKey: Keys.onboardingAlarmSecond) as? Int
@@ -166,6 +303,38 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
         static let hasSeenDiscountExitDialog = "alarmo.discount.exitDialog.seen"
         static let hasTappedGetOfferFromDiscount = "alarmo.discount.getOffer.tapped"
         static let hasAnyAlarm = "alarmo.alarm.hasAny"
+        static let hasSeenAddAlarmTooltip = "alarmo.home.hasSeenAddAlarmTooltip"
+        static let hasSeenTimerTooltip = "alarmo.home.hasSeenTimerTooltip"
+        static let hasSeenPlanTooltip = "alarmo.home.hasSeenPlanTooltip"
+        static let hasSeenOverlapTooltip = "alarmo.home.hasSeenOverlapTooltip"
+        static let hasSeenEditAlarmTooltip = "alarmo.home.hasSeenEditAlarmTooltip"
+        static let hasSeenQuickLogTooltip = "alarmo.home.hasSeenQuickLogTooltip"
+        static let hasSeenTimerMusicTooltip = "alarmo.home.hasSeenTimerMusicTooltip"
+        static let hasSeenOverlapTimeTravelTooltip = "alarmo.home.hasSeenOverlapTimeTravelTooltip"
+        static let hasSeenHomeQuickSettingsTooltip = "alarmo.home.hasSeenHomeQuickSettingsTooltip"
+        static let hasSeenHomeToggleTooltip = "alarmo.home.hasSeenHomeToggleTooltip"
+        static let hasSeenHomeActionsTooltip = "alarmo.home.hasSeenHomeActionsTooltip"
+        static let hasSeenHomeDeleteTooltip = "alarmo.home.hasSeenHomeDeleteTooltip"
+        static let hasSeenEditAlarmTimeTooltip = "alarmo.alarm.hasSeenEditAlarmTimeTooltip"
+        static let hasSeenEditAlarmNavTooltip = "alarmo.alarm.hasSeenEditAlarmNavTooltip"
+        static let hasSeenEditAlarmNameTooltip = "alarmo.alarm.hasSeenEditAlarmNameTooltip"
+        static let hasSeenEditAlarmMissionTooltip = "alarmo.alarm.hasSeenEditAlarmMissionTooltip"
+        static let hasSeenEditAlarmTimezoneTooltip = "alarmo.alarm.hasSeenEditAlarmTimezoneTooltip"
+        static let hasSeenEditAlarmToggleTooltip = "hasSeenEditAlarmToggleTooltip"
+        static let hasSeenEditAlarmSoundTooltip = "hasSeenEditAlarmSoundTooltip"
+        static let hasSeenEditAlarmActionsTooltip = "hasSeenEditAlarmActionsTooltip"
+        static let hasSeenTimerTimeIntegerTooltip = "alarmo.timer.hasSeenTimerTimeIntegerTooltip"
+        static let hasSeenTimerCircleTooltip = "alarmo.timer.hasSeenTimerCircleTooltip"
+        static let hasSeenTimerIntervalTooltip = "alarmo.timer.hasSeenTimerIntervalTooltip"
+        static let hasSeenTimerBlockListTooltip = "alarmo.timer.hasSeenTimerBlockListTooltip"
+        static let hasSeenTimerStartTooltip = "alarmo.timer.hasSeenTimerStartTooltip"
+        static let hasSeenPlanFabTooltip = "alarmo.plan.hasSeenFabTooltip"
+        static let hasSeenPlanHabitVsTaskTooltip = "alarmo.plan.hasSeenHabitVsTaskTooltip"
+        static let hasSeenPlanSwipeTooltip = "alarmo.plan.hasSeenSwipeTooltip"
+        static let hasSeenPlanCalendarTooltip = "alarmo.plan.hasSeenCalendarTooltip"
+        static let hasSeenOverlapAddCityTooltip = "alarmo.overlap.hasSeenAddCityTooltip"
+        static let hasSeenOverlapAnalysisTooltip = "alarmo.overlap.hasSeenAnalysisTooltip"
+        static let hasSeenOverlapContextMenuTooltip = "alarmo.overlap.hasSeenContextMenuTooltip"
         static let onboardingAlarmHour = "alarmo.alarm.onboardingHour"
         static let onboardingAlarmMinute = "alarmo.alarm.onboardingMinute"
         static let onboardingAlarmSecond = "alarmo.alarm.onboardingSecond"

@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 /// Onboarding sound selection screen.
 ///
@@ -34,6 +35,7 @@ struct OnboardingSoundSelectionView: View {
 
     @ObservedObject var onboardingViewModel: OnboardingViewModel
     @StateObject private var viewModel = OnboardingSoundSelectionViewModel()
+    @State private var playbackRenderTick: Int = 0
     let onNext: () -> Void
 
     private var downloadableSections: [(category: String, sounds: [RemoteSound])] {
@@ -61,6 +63,51 @@ struct OnboardingSoundSelectionView: View {
         case .downloadable(let name):
             return viewModel.selectedCategory == .cloud && currentCloudCategory == name
         }
+    }
+
+    private func normalizedTitle(_ title: String) -> String {
+        title
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+            .lowercased()
+    }
+
+    private func isCurrentPlayingResource(named title: String) -> Bool {
+        guard let playing = viewModel.soundPlayer.playingResourceName else { return false }
+        return normalizedTitle(playing) == normalizedTitle(title)
+    }
+
+    private func isSoundPlaying(named title: String) -> Bool {
+        viewModel.soundPlayer.isPlaying && isCurrentPlayingResource(named: title)
+    }
+
+    private func isSoundBuffering(named title: String) -> Bool {
+        viewModel.soundPlayer.isBuffering && isCurrentPlayingResource(named: title)
+    }
+
+    private func isPlayingInCategory(_ tab: TopTab) -> Bool {
+        guard viewModel.soundPlayer.isPlaying else { return false }
+        guard let playing = viewModel.soundPlayer.playingResourceName else { return false }
+        
+        switch tab {
+        case .category(let category):
+            let allSounds = SoundCatalogRepository().loadAllSounds()
+            if category == .alarmTone {
+                if let playingAsset = allSounds.first(where: { normalizedTitle($0.title) == normalizedTitle(playing) }) {
+                    return playingAsset.category == .alarmTone || playingAsset.category == .loud || playingAsset.category == .classic
+                }
+            } else if category == .favorites {
+                return allSounds.first(where: { normalizedTitle($0.title) == normalizedTitle(playing) })?.isStarred == true
+            } else {
+                return allSounds.first(where: { normalizedTitle($0.title) == normalizedTitle(playing) })?.category == category
+            }
+        case .downloadable(let name):
+             if let cloudSound = AssetManager.shared.remoteSounds.first(where: { normalizedTitle($0.title) == normalizedTitle(playing) }) {
+                 return cloudSound.category.caseInsensitiveCompare(name) == .orderedSame
+             }
+        }
+        return false
     }
 
     private func selectTopTab(_ tab: TopTab) {
@@ -99,7 +146,8 @@ struct OnboardingSoundSelectionView: View {
                             OnboardingTopTabPill(
                                 title: tab.title,
                                 emoji: tab.emoji,
-                                isSelected: isTopTabSelected(tab)
+                                isSelected: isTopTabSelected(tab),
+                                isPlaying: isPlayingInCategory(tab)
                             ) {
                                 withAnimation(.spring(response: 0.3)) {
                                     selectTopTab(tab)
@@ -138,6 +186,10 @@ struct OnboardingSoundSelectionView: View {
                 viewModel.setInitialSelection(first)
                 onboardingViewModel.setSelectedSound(first)
             }
+        }
+        .onReceive(viewModel.soundPlayer.objectWillChange) { _ in
+            // Keep play/stop buttons and category indicators synced with preview playback state.
+            playbackRenderTick += 1
         }
         .onDisappear { viewModel.stopPlayback() }
     }
@@ -203,18 +255,18 @@ struct OnboardingSoundSelectionView: View {
                     RemoteSoundRow(
                         remoteSound: remoteSound,
                         isSelected: viewModel.selectedSoundId == sound.id,
-                        isPlaying: viewModel.soundPlayer.isPlaying && viewModel.soundPlayer.playingResourceName == sound.title,
-                        isBuffering: viewModel.soundPlayer.isBuffering && viewModel.soundPlayer.playingResourceName == sound.title,
+                        isPlaying: isSoundPlaying(named: sound.title),
+                        isBuffering: isSoundBuffering(named: sound.title),
                         isStarred: sound.isStarred,
                         onSelect: {
                             if let url = AssetManager.shared.localURL(for: sound.fileURL.lastPathComponent) {
                                 let asset = SoundAsset(id: sound.id, title: sound.title, fileURL: url, category: sound.category)
-                                viewModel.selectSoundOnly(asset)
+                                viewModel.tapSound(asset, volume: onboardingViewModel.state.selectedVolume)
                                 onboardingViewModel.setSelectedSound(asset)
                             }
                         },
                         onPreview: {
-                            if viewModel.soundPlayer.isPlaying && viewModel.soundPlayer.playingResourceName == sound.title {
+                            if isSoundPlaying(named: sound.title) {
                                 viewModel.soundPlayer.stop()
                             } else {
                                 viewModel.soundPlayer.playStreamURL(sound.fileURL, resourceName: sound.title, volume: onboardingViewModel.state.selectedVolume)
@@ -228,8 +280,8 @@ struct OnboardingSoundSelectionView: View {
                     SoundRow(
                         sound: sound,
                         isSelected: viewModel.selectedSoundId == sound.id,
-                        isPlaying: viewModel.soundPlayer.isPlaying && viewModel.soundPlayer.playingResourceName == sound.title,
-                        isBuffering: viewModel.soundPlayer.isBuffering && viewModel.soundPlayer.playingResourceName == sound.title
+                        isPlaying: isSoundPlaying(named: sound.title),
+                        isBuffering: isSoundBuffering(named: sound.title)
                     ) { action in
                         switch action {
                         case .select:
@@ -293,18 +345,18 @@ struct OnboardingSoundSelectionView: View {
         RemoteSoundRow(
             remoteSound: remoteSound,
             isSelected: viewModel.selectedSoundId == remoteSound.id,
-            isPlaying: viewModel.soundPlayer.isPlaying && viewModel.soundPlayer.playingResourceName == remoteSound.title,
-            isBuffering: viewModel.soundPlayer.isBuffering && viewModel.soundPlayer.playingResourceName == remoteSound.title,
+            isPlaying: isSoundPlaying(named: remoteSound.title),
+            isBuffering: isSoundBuffering(named: remoteSound.title),
             isStarred: isStarred,
             onSelect: {
                 if let url = AssetManager.shared.localURL(for: remoteSound.filename) {
                     let asset = SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: url, category: .cloud)
-                    viewModel.selectSoundOnly(asset)
+                    viewModel.tapSound(asset, volume: onboardingViewModel.state.selectedVolume)
                     onboardingViewModel.setSelectedSound(asset)
                 }
             },
             onPreview: {
-                if viewModel.soundPlayer.isPlaying && viewModel.soundPlayer.playingResourceName == remoteSound.title {
+                if isSoundPlaying(named: remoteSound.title) {
                     viewModel.soundPlayer.stop()
                 } else {
                     viewModel.soundPlayer.playStreamURL(remoteSound.url, resourceName: remoteSound.title, volume: onboardingViewModel.state.selectedVolume)
@@ -326,6 +378,7 @@ private struct OnboardingTopTabPill: View {
     let title: String
     let emoji: String?
     let isSelected: Bool
+    let isPlaying: Bool
     let action: () -> Void
 
     var body: some View {
@@ -336,6 +389,12 @@ private struct OnboardingTopTabPill: View {
                 }
                 Text(title)
                     .font(.system(size: 14, weight: .semibold))
+                
+                if isPlaying {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .font(.caption2)
+                        .foregroundColor(isSelected ? .white : Colors.accentTeal)
+                }
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 16)

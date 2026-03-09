@@ -9,198 +9,270 @@ struct QuickAlarmView: View {
     @State private var showWallpaperPicker = false
     @State private var showTimePicker = false
     @State private var showAccountabilityInfo = false
+    @State private var showGentleWakeUpPicker = false
+    @State private var showWakeUpCheck = false
+    @State private var showTimeZonePicker = false
+    @State private var showPenaltySettings = false
     
     @StateObject private var soundPlayer = SoundPreviewPlayer()
     private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
-    private let sectionCardRadius: CGFloat = 18
-    private let presetColumns = Array(repeating: GridItem(.flexible(), spacing: Spacing.s), count: 3)
     
     var body: some View {
         NavigationView {
             ZStack {
                 // Background matching alarm UI
-                Colors.bgPrimary.ignoresSafeArea()
+                LinearGradient(
+                    colors: [Colors.bgSecondary, Colors.bgPrimary],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .ignoresSafeArea()
                 
-                ScrollView {
-                    VStack(spacing: Spacing.l) {
-                        // Top Spacer
-                        Color.clear.frame(height: Spacing.s)
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 24) {
                         
-                        // Main Timer Display - Tappable
+                        // Main Timer Display
                         Button(action: { showTimePicker = true }) {
-                            VStack(spacing: Spacing.s) {
-                                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                    // Minutes Display
+                            VStack(spacing: 8) {
+                                HStack(alignment: .firstTextBaseline, spacing: 4) {
                                     Text("\(viewModel.minutes)")
-                                        .font(.system(size: 68, weight: .bold))
-                                        .foregroundColor(Colors.textPrimary)
-                                    
-                                    Text("min")
-                                        .font(.system(size: 28, weight: .semibold))
+                                        .font(.system(size: 72, weight: .bold, design: .rounded))
+                                        .foregroundColor(Colors.accentTeal)
+                                    Text("m")
+                                        .font(.system(size: 26, weight: .semibold, design: .rounded))
                                         .foregroundColor(Colors.textSecondary)
                                     
-                                    // Seconds Display
                                     Text("\(viewModel.seconds)")
-                                        .font(.system(size: 68, weight: .bold))
-                                        .foregroundColor(Colors.textPrimary)
-                                    
-                                    Text("sec")
-                                        .font(.system(size: 28, weight: .semibold))
+                                        .font(.system(size: 72, weight: .bold, design: .rounded))
+                                        .foregroundColor(Colors.accentTeal)
+                                        .padding(.leading, 8)
+                                    Text("s")
+                                        .font(.system(size: 26, weight: .semibold, design: .rounded))
                                         .foregroundColor(Colors.textSecondary)
-                                    
-                                    // Reset Button
-                                    Button(action: {
-                                        withAnimation(.easeInOut(duration: 0.15)) { viewModel.reset() }
-                                    }) {
-                                        Image(systemName: "arrow.clockwise")
-                                            .font(.system(size: 18, weight: .semibold))
-                                            .foregroundColor(Colors.textPrimary)
-                                            .frame(width: 38, height: 38)
-                                            .background(Colors.bgSecondary)
-                                            .clipShape(Circle())
-                                    }
-                                    .offset(y: -8)
                                 }
                                 
-                                // Total seconds display
-                                Text("\(viewModel.totalSeconds) seconds")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(Colors.textTertiary)
-                                
-                                // Ring at time
-                                Text("Ring at \(viewModel.fireDateString)")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundColor(Colors.textSecondary)
+                                HStack(spacing: 6) {
+                                    Image(systemName: "bell.fill")
+                                        .font(.system(size: 13))
+                                    Text("Ring at \(viewModel.fireDateString)")
+                                        .font(.system(size: 15, weight: .bold))
+                                }
+                                .foregroundColor(Colors.textSecondary)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(Capsule().fill(Color.white.opacity(0.06)))
                             }
-                            .padding(.vertical, Spacing.l)
-                            .padding(.horizontal, Spacing.m)
+                            .padding(.vertical, 32)
                             .frame(maxWidth: .infinity)
                             .background(
-                                RoundedRectangle(cornerRadius: sectionCardRadius)
+                                RoundedRectangle(cornerRadius: 24, style: .continuous)
                                     .fill(Colors.cardSurface)
                             )
                             .overlay(
-                                RoundedRectangle(cornerRadius: sectionCardRadius)
+                                RoundedRectangle(cornerRadius: 24, style: .continuous)
                                     .stroke(Colors.cardStroke, lineWidth: 1)
                             )
+                            // Reset button in the top-right
+                            .overlay(alignment: .topTrailing) {
+                                Button(action: {
+                                    withAnimation(.spring(response: 0.3)) { viewModel.reset() }
+                                }) {
+                                    Image(systemName: "arrow.clockwise")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(Colors.textSecondary)
+                                        .frame(width: 40, height: 40)
+                                        .background(Circle().fill(Color.white.opacity(0.06)))
+                                }
+                                .padding(16)
+                            }
                         }
                         .buttonStyle(.plain)
-                        .padding(.horizontal, Spacing.m)
+                        .padding(.horizontal, 20)
                         
-                        // Presets Grid
-                        LazyVGrid(columns: presetColumns, spacing: Spacing.s) {
-                            QuickPresetButton(label: "1 min", action: { viewModel.setPreset(minutes: 1, seconds: 0) })
-                            QuickPresetButton(label: "5 min", action: { viewModel.setPreset(minutes: 5, seconds: 0) })
-                            QuickPresetButton(label: "10 min", action: { viewModel.setPreset(minutes: 10, seconds: 0) })
-                            QuickPresetButton(label: "15 min", action: { viewModel.setPreset(minutes: 15, seconds: 0) })
-                            QuickPresetButton(label: "30 min", action: { viewModel.setPreset(minutes: 30, seconds: 0) })
-                            QuickPresetButton(label: "1 hour", action: { viewModel.setPreset(minutes: 60, seconds: 0) })
+                        // Presets Section
+                        VStack(spacing: 12) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "bolt.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(Colors.accentTeal)
+                                Text("Quick Presets")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(Colors.textPrimary)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 24)
+                            
+                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                                QuickPresetTile(icon: "1.circle", color: .orange, title: "Super Fast", timeStr: "01:00", action: { viewModel.setPreset(minutes: 1, seconds: 0) })
+                                QuickPresetTile(icon: "5.circle", color: .yellow, title: "Short Nap", timeStr: "05:00", action: { viewModel.setPreset(minutes: 5, seconds: 0) })
+                                QuickPresetTile(icon: "10.circle", color: .green, title: "Coffee Break", timeStr: "10:00", action: { viewModel.setPreset(minutes: 10, seconds: 0) })
+                                QuickPresetTile(icon: "moon.zzz.fill", color: .teal, title: "Quick Rest", timeStr: "15:00", action: { viewModel.setPreset(minutes: 15, seconds: 0) })
+                                QuickPresetTile(icon: "book.fill", color: .blue, title: "Reading", timeStr: "30:00", action: { viewModel.setPreset(minutes: 30, seconds: 0) })
+                                QuickPresetTile(icon: "brain.head.profile", color: .indigo, title: "Deep Focus", timeStr: "1 hr", action: { viewModel.setPreset(minutes: 60, seconds: 0) })
+                            }
+                            .padding(.horizontal, 20)
                         }
-                        .padding(.horizontal, Spacing.m)
                         
-                        // Settings - Premium Style
-                        VStack(spacing: Spacing.s) {
-                            // Sound & Behavior Section
-                            SectionHeader(title: "Sound & Behavior")
-                            QuickSettingsCard {
-                                MenuRow(
-                                    icon: "bell.fill",
-                                    title: "Alarm Sound",
-                                    value: viewModel.selectedSoundId
-                                ) {
-                                    showSoundEditor = true
+                        // Settings Section
+                        VStack(spacing: 24) {
+                            
+                            // SOUND & BEHAVIOR
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("SOUND & BEHAVIOR")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(Colors.textSecondary)
+                                    .padding(.leading, 16)
+                                
+                                QuickSettingsCardView {
+                                    MenuRow(
+                                        icon: "bell.fill",
+                                        title: "Alarm Sound",
+                                        value: viewModel.selectedSoundId
+                                    ) {
+                                        showSoundEditor = true
+                                    }
+                                    
+                                    Divider().padding(.leading, 52).opacity(0.3)
+                                    
+                                    MenuRow(
+                                        icon: "sun.max.fill",
+                                        title: "Gentle Wake-Up",
+                                        value: viewModel.gentleWakeUpSeconds == 0 ? "Off" : "\(viewModel.gentleWakeUpSeconds) seconds"
+                                    ) {
+                                        showGentleWakeUpPicker = true
+                                    }
+                                    
+                                    Divider().padding(.leading, 52).opacity(0.3)
+                                    
+                                    MenuRow(
+                                        icon: "checkmark.shield.fill",
+                                        title: "Wake-Up Check",
+                                        value: viewModel.wakeUpCheckEnabled ? "On" : "Off"
+                                    ) {
+                                        showWakeUpCheck = true
+                                    }
                                 }
                             }
                             
-                            // Wallpaper Section
-                            SectionHeader(title: "Wallpaper")
-                            QuickSettingsCard {
-                                MenuRow(
-                                    icon: "photo.fill",
-                                    title: "Wallpaper",
-                                    value: "Select",
-                                    thumbnail: resolvedWallpaperImage
-                                ) {
-                                    showWallpaperPicker = true
+                            // TIME ZONE ANCHOR
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("TIME ZONE ANCHOR")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(Colors.textSecondary)
+                                    .padding(.leading, 16)
+                                
+                                QuickSettingsCardView {
+                                    Toggle(isOn: Binding(
+                                        get: { viewModel.timeZoneMode == .custom },
+                                        set: { isOn in
+                                            viewModel.timeZoneMode = isOn ? .custom : .local
+                                            if isOn && viewModel.timeZoneIdentifier == nil {
+                                                viewModel.timeZoneIdentifier = TimeZone.current.identifier
+                                            }
+                                        }
+                                    )) {
+                                        Text("Anchor to Time Zone")
+                                            .foregroundColor(Colors.textPrimary)
+                                    }
+                                    .padding()
+                                    
+                                    if viewModel.timeZoneMode == .custom {
+                                        Divider().padding(.leading, 16).opacity(0.3)
+                                        
+                                        MenuRow(
+                                            icon: "globe",
+                                            title: "Time Zone",
+                                            value: viewModel.timeZoneCity ?? viewModel.timeZoneIdentifier ?? "Select"
+                                        ) {
+                                            showTimeZonePicker = true
+                                        }
+                                    }
                                 }
                             }
-
-                            // Accountability Section
-                            SectionHeader(title: "Accountability Shield")
-                            QuickSettingsCard {
-                                Toggle(isOn: $viewModel.accountabilityEnabled) {
-                                    Text("Enable for this quick alarm")
-                                        .foregroundColor(Colors.textPrimary)
-                                }
-                                .padding()
-
-                                if viewModel.accountabilityEnabled {
-                                    Divider().padding(.leading, 16).opacity(0.3)
-
-                                    Toggle(isOn: $viewModel.blockAppsEnabled) {
-                                        Text("Lock phone while ringing")
-                                            .foregroundColor(Colors.textPrimary)
-                                    }
-                                    .padding(.horizontal)
-                                    .padding(.vertical, 10)
-
-                                    if viewModel.blockAppsEnabled {
-                                        Divider().padding(.leading, 16).opacity(0.3)
-                                        BlockedAppsSelectionView()
-                                            .padding(.horizontal)
-                                            .padding(.vertical, 10)
-                                    }
-
-                                    Divider().padding(.leading, 16).opacity(0.3)
-
+                            
+                            // COMMITMENT PLEDGE
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("COMMITMENT PLEDGE")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(Colors.textSecondary)
+                                    .padding(.leading, 16)
+                                
+                                QuickSettingsCardView {
                                     Toggle(isOn: $viewModel.penaltyEnabled) {
-                                        Text("Use penalty credits")
+                                        Text("Enable Penalty")
                                             .foregroundColor(Colors.textPrimary)
                                     }
-                                    .padding(.horizontal)
-                                    .padding(.vertical, 10)
+                                    .padding()
 
                                     if viewModel.penaltyEnabled {
                                         Divider().padding(.leading, 16).opacity(0.3)
-                                        Stepper(
-                                            "Penalty Amount (€\(viewModel.penaltyAmountEuro))",
-                                            value: $viewModel.penaltyAmountEuro,
-                                            in: 1...10
-                                        )
-                                        .foregroundColor(Colors.textPrimary)
-                                        .padding(.horizontal)
-                                        .padding(.vertical, 10)
+                                        MenuRow(
+                                            icon: "slider.horizontal.3",
+                                            title: "Edit Penalty Rules",
+                                            value: "Settings"
+                                        ) {
+                                            showPenaltySettings = true
+                                        }
                                     }
+                                }
+                            }
+                            
+                            // WALLPAPER
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("WALLPAPER")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(Colors.textSecondary)
+                                    .padding(.leading, 16)
+                                
+                                QuickSettingsCardView {
+                                    MenuRow(
+                                        icon: "photo.fill",
+                                        title: "Wallpaper",
+                                        value: "Select",
+                                        thumbnail: resolvedWallpaperImage
+                                    ) {
+                                        showWallpaperPicker = true
+                                    }
+                                    
+                                    Divider().padding(.leading, 16).opacity(0.3)
+                                    
+                                    Toggle(isOn: $viewModel.dailyMotivationEnabled) {
+                                        HStack(spacing: 12) {
+                                            Image(systemName: "quote.bubble.fill")
+                                                .foregroundColor(Colors.accentTeal)
+                                            Text("Daily Motivation")
+                                                .foregroundColor(Colors.textPrimary)
+                                        }
+                                    }
+                                    .padding()
 
-                                    Button {
-                                        showAccountabilityInfo = true
-                                    } label: {
-                                        Text("How this works")
-                                            .font(.system(size: 13, weight: .semibold))
-                                            .foregroundColor(Colors.accentTeal)
+                                    if viewModel.dailyMotivationEnabled {
+                                        Text("Displays a new motivational quote each day when the alarm rings.")
+                                            .font(.caption)
+                                            .foregroundColor(Colors.textSecondary)
                                             .padding(.horizontal)
                                             .padding(.bottom, 8)
                                     }
                                 }
                             }
                         }
-                        .padding(.top, Spacing.s)
+                        .padding(.horizontal, 20)
                         
-                        // Bottom padding
-                        Color.clear.frame(height: Spacing.xl)
+                        // Bottom spacer
+                        Color.clear.frame(height: 40)
                     }
+                    .padding(.vertical, 8)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel", action: onClose)
-                        .foregroundColor(Colors.textPrimary)
+                        .foregroundColor(Colors.textSecondary)
                 }
                 
                 ToolbarItem(placement: .principal) {
-                    Text("Quick alarm")
-                        .font(.headline)
+                    Text("Quick Alarm")
+                        .font(.system(size: 17, weight: .bold))
                         .foregroundColor(Colors.textPrimary)
                 }
                 
@@ -210,7 +282,7 @@ struct QuickAlarmView: View {
                         onClose()
                     }) {
                         Text("Save")
-                            .font(.headline)
+                            .font(.system(size: 16, weight: .bold))
                             .foregroundColor(Colors.accentTeal)
                     }
                 }
@@ -237,6 +309,27 @@ struct QuickAlarmView: View {
         .sheet(isPresented: $showAccountabilityInfo) {
             AccountabilityInfoView()
         }
+        .sheet(isPresented: $showGentleWakeUpPicker) {
+            GentleWakeUpPickerView(
+                selectedSeconds: $viewModel.gentleWakeUpSeconds,
+                maxVolume: $viewModel.volume,
+                soundName: viewModel.selectedSoundId,
+                soundPlayer: soundPlayer
+            )
+        }
+        .sheet(isPresented: $showWakeUpCheck) {
+            WakeUpCheckView(isEnabled: $viewModel.wakeUpCheckEnabled)
+        }
+        .sheet(isPresented: $showTimeZonePicker) {
+            TimeZonePickerView(
+                selectedIdentifier: $viewModel.timeZoneIdentifier,
+                selectedCity: $viewModel.timeZoneCity,
+                selectedMode: $viewModel.timeZoneMode
+            )
+        }
+        .sheet(isPresented: $showPenaltySettings) {
+            AccountabilityShieldSettingsView()
+        }
         .onDisappear {
             soundPlayer.stop()
         }
@@ -250,47 +343,61 @@ struct QuickAlarmView: View {
     }
 }
 
-struct QuickPresetButton: View {
-    let label: String
+// Reusable preset tile styled exactly like preset buttons in Quick Settings
+struct QuickPresetTile: View {
+    let icon: String
+    let color: Color
+    let title: String
+    let timeStr: String
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
-            Text(label)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(Colors.textPrimary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 17)
-                .background(
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(Colors.cardSurface)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(Colors.cardStroke, lineWidth: 1)
-                )
+            VStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(color)
+                    .frame(width: 44, height: 44)
+                    .background(color.opacity(0.12))
+                    .cornerRadius(12)
+                
+                VStack(spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(Colors.textPrimary)
+                        .lineLimit(1)
+                    Text(timeStr)
+                        .font(.system(size: 16, weight: .black, design: .monospaced))
+                        .foregroundColor(Colors.accentTeal)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Colors.cardSurface))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Colors.cardStroke, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
 }
 
-private struct QuickSettingsCard<Content: View>: View {
+// Standardized list row / card pattern
+private struct QuickSettingsCardView<Content: View>: View {
     let content: Content
-
+    
     init(@ViewBuilder content: () -> Content) {
         self.content = content()
     }
-
+    
     var body: some View {
         VStack(spacing: 0) {
             content
         }
+        .padding(16)
         .background(Colors.cardSurface)
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(Colors.cardStroke, lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal, Spacing.m)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }

@@ -72,7 +72,7 @@ struct BreathingExerciseView: View {
     @State private var soundGen = BreathingSoundGenerator()
     @State private var soundTimer: Timer? = nil
     
-    private let requiredCycles = 3
+    private let requiredCycles = 1
     private let breatheInDuration: Double = 4.0
     private let holdDuration: Double = 4.0
     private let breatheOutDuration: Double = 6.0
@@ -128,7 +128,10 @@ struct BreathingExerciseView: View {
                 VStack(spacing: 12) {
                     if isCompleted {
                         // Continue button
-                        Button(action: { onComplete() }) {
+                        Button(action: {
+                            stopMusic()
+                            onComplete()
+                        }) {
                             Text("Continue")
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundColor(.black)
@@ -172,7 +175,10 @@ struct BreathingExerciseView: View {
                         }
                     }
                     
-                    Button(action: { onCancel() }) {
+                    Button(action: {
+                        stopMusic()
+                        onCancel()
+                    }) {
                         Text("Nevermind")
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(.white.opacity(0.5))
@@ -185,13 +191,13 @@ struct BreathingExerciseView: View {
         .ignoresSafeArea()
         .onAppear {
             startMusic()
-            soundGen.start()
+            // soundGen.start() // Disabled to prevent conflicting sounds
             startBreathCycle()
             startGradientAnimation()
         }
         .onDisappear {
             stopMusic()
-            soundGen.stop()
+            // soundGen.stop()
             phaseTimer?.invalidate()
             holdTimer?.invalidate()
             soundTimer?.invalidate()
@@ -428,9 +434,33 @@ struct BreathingExerciseView: View {
     
     // MARK: - Music
     private func startMusic() {
-        let musicPath = "HostedAssets/sounds/Relaxing/Sleep Meditation Background Music"
+        var musicUrl: URL?
         
-        if let url = Bundle.main.url(forResource: musicPath, withExtension: "mp3") {
+        // 1. Check folder reference path first
+        if let url = Bundle.main.url(forResource: "Rain Sound", withExtension: "mp3", subdirectory: "sounds/Nature") {
+            musicUrl = url
+        }
+        // 2. Check flat bundle (fallback)
+        else if let url = Bundle.main.url(forResource: "Rain Sound", withExtension: "mp3") {
+            musicUrl = url
+        }
+        // 3. Fallback to Documents/AppSupport if downloaded dynamically
+        else if let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            if let bundleId = Bundle.main.bundleIdentifier {
+                let hostedPath = appSupport.appendingPathComponent(bundleId)
+                    .appendingPathComponent("HostedAssets/sounds/Nature/Rain Sound.mp3")
+                if FileManager.default.fileExists(atPath: hostedPath.path) {
+                    musicUrl = hostedPath
+                } else {
+                    let fallbackPath = appSupport.appendingPathComponent("HostedAssets/sounds/Nature/Rain Sound.mp3")
+                    if FileManager.default.fileExists(atPath: fallbackPath.path) {
+                        musicUrl = fallbackPath
+                    }
+                }
+            }
+        }
+        
+        if let url = musicUrl {
             do {
                 try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
                 try AVAudioSession.sharedInstance().setActive(true)
@@ -438,28 +468,12 @@ struct BreathingExerciseView: View {
                 audioPlayer?.numberOfLoops = -1
                 audioPlayer?.volume = 0.4
                 audioPlayer?.play()
+                print("[BreathingExercise] Playing music from \(url)")
             } catch {
                 print("[BreathingExercise] Music error: \(error)")
             }
         } else {
-            // Try loading from documents / hosted assets path
-            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            if let appSupport,
-               let bundleId = Bundle.main.bundleIdentifier {
-                let hostedPath = appSupport.appendingPathComponent(bundleId)
-                    .appendingPathComponent("HostedAssets/sounds/Relaxing/Sleep Meditation Background Music.mp3")
-                if FileManager.default.fileExists(atPath: hostedPath.path) {
-                    do {
-                        audioPlayer = try AVAudioPlayer(contentsOf: hostedPath)
-                        audioPlayer?.numberOfLoops = -1
-                        audioPlayer?.volume = 0.4
-                        audioPlayer?.play()
-                    } catch {
-                        print("[BreathingExercise] Hosted music error: \(error)")
-                    }
-                }
-            }
-            print("[BreathingExercise] Could not find meditation music in bundle")
+            print("[BreathingExercise] Could not find meditation music in bundle or documents")
         }
     }
     

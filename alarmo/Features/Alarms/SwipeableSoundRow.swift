@@ -1,16 +1,18 @@
 import SwiftUI
 
 struct SwipeableSoundRow<Content: View>: View {
-    let onRename: () -> Void
+    var onRename: (() -> Void)? = nil
     let onDelete: () -> Void
     @ViewBuilder let content: () -> Content
 
     @State private var offset: CGFloat = 0
     @GestureState private var dragOffset: CGFloat = 0
 
-    // Width for two buttons (64 + 64 + spacing)
-    private let maxOffset: CGFloat = -150
-    private let revealThreshold: CGFloat = -60
+    // Width for two buttons (64 + 64 + 8 = 136). One button = 64.
+    private var maxOffset: CGFloat {
+        onRename != nil ? -150 : -72
+    }
+    private let revealThreshold: CGFloat = -40
 
     var body: some View {
         ZStack(alignment: .trailing) {
@@ -18,18 +20,20 @@ struct SwipeableSoundRow<Content: View>: View {
             HStack(spacing: 8) {
                 Spacer()
                 
-                Button(action: {
-                    withAnimation { offset = 0 }
-                    onRename()
-                }) {
-                    ZStack {
-                        Colors.accentTeal
-                        Image(systemName: "pencil")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
+                if let onRenameAction = onRename {
+                    Button(action: {
+                        withAnimation { offset = 0 }
+                        onRenameAction()
+                    }) {
+                        ZStack {
+                            Colors.accentTeal
+                            Image(systemName: "pencil")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                        .frame(width: 64)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
                     }
-                    .frame(width: 64)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
                 }
                 
                 Button(action: {

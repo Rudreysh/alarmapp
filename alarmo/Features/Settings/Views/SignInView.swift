@@ -4,6 +4,11 @@ import AuthenticationServices
 struct SignInView: View {
     @ObservedObject var store = SettingsStore.shared
     @Environment(\.dismiss) var dismiss
+    @Environment(\.openURL) private var openURL
+    @State private var alertMessage: String?
+    
+    private let termsURL = URL(string: "https://alarmo.app/terms")!
+    private let privacyURL = URL(string: "https://alarmo.app/privacy")!
     
     var body: some View {
         ZStack {
@@ -38,26 +43,26 @@ struct SignInView: View {
                 Spacer()
                 
                 VStack(spacing: 20) {
-                    Button(action: handleSignIn) {
-                        HStack {
-                            Image(systemName: "apple.logo")
-                                .font(.title3)
-                            Text("Continue with Apple")
-                                .font(.system(size: 17, weight: .bold))
-                        }
-                        .foregroundColor(.black)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .background(Color.white)
-                        .cornerRadius(28)
+                    SignInWithAppleButton(.continue) { request in
+                        request.requestedScopes = [.fullName, .email]
+                    } onCompletion: { result in
+                        handleSignIn(result)
                     }
+                    .signInWithAppleButtonStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .clipShape(Capsule())
                     
                     VStack(spacing: 4) {
                         Text("By proceeding, you are agreeing to our")
                         HStack(spacing: 4) {
-                            Button("Terms & Conditions") { }
+                            Button("Terms & Conditions") {
+                                openURL(termsURL)
+                            }
                             Text("and")
-                            Button("Privacy Policy.") { }
+                            Button("Privacy Policy.") {
+                                openURL(privacyURL)
+                            }
                         }
                     }
                     .font(.system(size: 13))
@@ -68,30 +73,38 @@ struct SignInView: View {
                 .padding(.bottom, 20)
             }
         }
+        .alert("Sign In Failed", isPresented: Binding(
+            get: { alertMessage != nil },
+            set: { newValue in
+                if !newValue { alertMessage = nil }
+            }
+        )) {
+            Button("OK", role: .cancel) { alertMessage = nil }
+        } message: {
+            Text(alertMessage ?? "")
+        }
     }
     
-    private func handleSignIn() {
-        // ASAuthorizationAppleIDProvider implementation
-        let provider = ASAuthorizationAppleIDProvider()
-        let request = provider.createRequest()
-        request.requestedScopes = [.fullName, .email]
-        
-        let controller = ASAuthorizationController(authorizationRequests: [request])
-        controller.performRequests()
-        
-        // Mock success for now
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+    private func handleSignIn(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .success(let authorization):
+            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+                alertMessage = "Could not read your Apple account credential."
+                return
+            }
+            let appleUserId = credential.user
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            let mockUserId = "mock_apple_id_\(UUID().uuidString)"
-            
-            // Save to Keychain
-            if let data = mockUserId.data(using: .utf8) {
+            if let data = appleUserId.data(using: .utf8) {
                 KeychainHelper.shared.save(data, service: "com.alarmo.auth", account: "appleUserId")
             }
-            
             store.isSignedIn = true
-            store.appleUserId = mockUserId
+            store.appleUserId = appleUserId
             dismiss()
+        case .failure(let error):
+            if let authError = error as? ASAuthorizationError, authError.code == .canceled {
+                return
+            }
+            alertMessage = error.localizedDescription
         }
     }
 }

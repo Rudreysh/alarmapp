@@ -99,7 +99,7 @@ struct SoundPickerView: View {
     // Fallback init for previews if needed
     init(selectedSound: Binding<String>, soundPlayer: SoundPreviewPlayer = SoundPreviewPlayer.shared) {
         _selectedSound = selectedSound
-        self.soundPlayer = soundPlayer
+        _soundPlayer = ObservedObject(wrappedValue: soundPlayer)
     }
 
     var body: some View {
@@ -133,7 +133,8 @@ struct SoundPickerView: View {
                             TopTabPill(
                                 title: tab.title,
                                 emoji: tab.emoji,
-                                isSelected: isTopTabSelected(tab)
+                                isSelected: isTopTabSelected(tab),
+                                isPlaying: isPlayingInCategory(tab)
                             ) {
                                 selectTopTab(tab)
                             }
@@ -175,30 +176,65 @@ struct SoundPickerView: View {
                                             VStack(spacing: 0) {
                                                 ForEach(section.sounds) { remoteSound in
                                                     let isStarred = sounds.first(where: { $0.id == remoteSound.id })?.isStarred ?? false
-                                                    RemoteSoundRow(
-                                                        remoteSound: remoteSound,
-                                                        isSelected: selectedSound == remoteSound.title,
-                                                        isPlaying: soundPlayer.isPlaying && soundPlayer.playingResourceName == remoteSound.title,
-                                                        isBuffering: soundPlayer.isBuffering && soundPlayer.playingResourceName == remoteSound.title,
-                                                        isStarred: isStarred,
-                                                        onSelect: {
+                                                    let isDownloaded = assetManager.fileExists(filename: remoteSound.filename)
+                                                    
+                                                    if isDownloaded {
+                                                        SwipeableSoundRow(onDelete: {
+                                                            assetManager.deleteLocalFile(filename: remoteSound.filename)
+                                                            if isCurrentPlayingResource(named: remoteSound.title) { soundPlayer.stop() }
                                                             loadSounds()
-                                                            selectedSound = remoteSound.title
-                                                            if let url = assetManager.localURL(for: remoteSound.filename) {
-                                                                togglePlay(sound: SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: url, category: .cloud))
-                                                            }
-                                                        },
-                                                        onPreview: {
-                                                            if soundPlayer.isPlaying && soundPlayer.playingResourceName == remoteSound.title {
-                                                                soundPlayer.stop()
-                                                            } else {
-                                                                soundPlayer.playStreamURL(remoteSound.url, resourceName: remoteSound.title)
-                                                            }
-                                                        },
-                                                        onToggleStar: {
-                                                            toggleStar(sound: SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: remoteSound.url, category: .cloud, isStarred: isStarred))
+                                                        }) {
+                                                            RemoteSoundRow(
+                                                                remoteSound: remoteSound,
+                                                                isSelected: selectedSound == remoteSound.title,
+                                                                isPlaying: isSoundPlaying(named: remoteSound.title),
+                                                                isBuffering: isSoundBuffering(named: remoteSound.title),
+                                                                isStarred: isStarred,
+                                                                onSelect: {
+                                                                    loadSounds()
+                                                                    selectedSound = remoteSound.title
+                                                                    if let url = assetManager.localURL(for: remoteSound.filename) {
+                                                                        togglePlay(sound: SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: url, category: .cloud))
+                                                                    }
+                                                                },
+                                                                onPreview: {
+                                                                    if isSoundPlaying(named: remoteSound.title) {
+                                                                        soundPlayer.stop()
+                                                                    } else {
+                                                                        soundPlayer.playStreamURL(remoteSound.url, resourceName: remoteSound.title)
+                                                                    }
+                                                                },
+                                                                onToggleStar: {
+                                                                    toggleStar(sound: SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: remoteSound.url, category: .cloud, isStarred: isStarred))
+                                                                }
+                                                            )
                                                         }
-                                                    )
+                                                    } else {
+                                                        RemoteSoundRow(
+                                                            remoteSound: remoteSound,
+                                                            isSelected: selectedSound == remoteSound.title,
+                                                            isPlaying: isSoundPlaying(named: remoteSound.title),
+                                                            isBuffering: isSoundBuffering(named: remoteSound.title),
+                                                            isStarred: isStarred,
+                                                            onSelect: {
+                                                                loadSounds()
+                                                                selectedSound = remoteSound.title
+                                                                if let url = assetManager.localURL(for: remoteSound.filename) {
+                                                                    togglePlay(sound: SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: url, category: .cloud))
+                                                                }
+                                                            },
+                                                            onPreview: {
+                                                                if isSoundPlaying(named: remoteSound.title) {
+                                                                    soundPlayer.stop()
+                                                                } else {
+                                                                    soundPlayer.playStreamURL(remoteSound.url, resourceName: remoteSound.title)
+                                                                }
+                                                            },
+                                                            onToggleStar: {
+                                                                toggleStar(sound: SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: remoteSound.url, category: .cloud, isStarred: isStarred))
+                                                            }
+                                                        )
+                                                    }
 
                                                     Divider()
                                                         .background(Colors.cardStroke)
@@ -238,8 +274,8 @@ struct SoundPickerView: View {
                                                     SoundRow(
                                                         sound: sound,
                                                         isSelected: selectedSound == sound.title,
-                                                        isPlaying: soundPlayer.isPlaying && soundPlayer.playingResourceName == sound.title,
-                                                        isBuffering: soundPlayer.isBuffering && soundPlayer.playingResourceName == sound.title
+                                                        isPlaying: isSoundPlaying(named: sound.title),
+                                                        isBuffering: isSoundBuffering(named: sound.title)
                                                     ) { action in
                                                         switch action {
                                                         case .select:
@@ -276,23 +312,96 @@ struct SoundPickerView: View {
                                                 }
                                             }
                                         } else {
-                                            SoundRow(
-                                                sound: sound,
-                                                isSelected: selectedSound == sound.title,
-                                                isPlaying: soundPlayer.isPlaying && soundPlayer.playingResourceName == sound.title,
-                                                isBuffering: soundPlayer.isBuffering && soundPlayer.playingResourceName == sound.title
-                                            ) { action in
-                                                switch action {
-                                                case .select:
-                                                    selectedSound = sound.title
-                                                    togglePlay(sound: sound)
-                                                case .play:
-                                                    // Keep UI selection in sync with the currently previewing sound.
-                                                    selectedSound = sound.title
-                                                    print("[SoundPicker] Play tapped -> selectedSound set to \(sound.title)")
-                                                    togglePlay(sound: sound)
-                                                case .toggleStar:
-                                                    toggleStar(sound: sound)
+                                            let isRemote = !sound.fileURL.isFileURL
+                                            
+                                            if isRemote {
+                                                let remoteSound = RemoteSound(
+                                                    id: sound.id,
+                                                    filename: sound.fileURL.lastPathComponent,
+                                                    title: sound.title,
+                                                    category: sound.category.title,
+                                                    url: sound.fileURL,
+                                                    isPremium: false
+                                                )
+                                                
+                                                let isDownloaded = assetManager.fileExists(filename: sound.fileURL.lastPathComponent)
+                                                
+                                                if isDownloaded {
+                                                    SwipeableSoundRow(onDelete: {
+                                                        assetManager.deleteLocalFile(filename: sound.fileURL.lastPathComponent)
+                                                        if isCurrentPlayingResource(named: sound.title) { soundPlayer.stop() }
+                                                        loadSounds()
+                                                    }) {
+                                                        RemoteSoundRow(
+                                                            remoteSound: remoteSound,
+                                                            isSelected: selectedSound == sound.title,
+                                                            isPlaying: isSoundPlaying(named: sound.title),
+                                                            isBuffering: isSoundBuffering(named: sound.title),
+                                                            isStarred: sound.isStarred,
+                                                            onSelect: {
+                                                                selectedSound = sound.title
+                                                                if let url = assetManager.localURL(for: sound.fileURL.lastPathComponent) {
+                                                                    let asset = SoundAsset(id: sound.id, title: sound.title, fileURL: url, category: sound.category)
+                                                                    togglePlay(sound: asset)
+                                                                }
+                                                            },
+                                                            onPreview: {
+                                                                if isSoundPlaying(named: sound.title) {
+                                                                    soundPlayer.stop()
+                                                                } else {
+                                                                    soundPlayer.playStreamURL(sound.fileURL, resourceName: sound.title)
+                                                                }
+                                                            },
+                                                            onToggleStar: {
+                                                                toggleStar(sound: sound)
+                                                            }
+                                                        )
+                                                    }
+                                                } else {
+                                                    RemoteSoundRow(
+                                                        remoteSound: remoteSound,
+                                                        isSelected: selectedSound == sound.title,
+                                                        isPlaying: isSoundPlaying(named: sound.title),
+                                                        isBuffering: isSoundBuffering(named: sound.title),
+                                                        isStarred: sound.isStarred,
+                                                        onSelect: {
+                                                            selectedSound = sound.title
+                                                            if let url = assetManager.localURL(for: sound.fileURL.lastPathComponent) {
+                                                                let asset = SoundAsset(id: sound.id, title: sound.title, fileURL: url, category: sound.category)
+                                                                togglePlay(sound: asset)
+                                                            }
+                                                        },
+                                                        onPreview: {
+                                                            if isSoundPlaying(named: sound.title) {
+                                                                soundPlayer.stop()
+                                                            } else {
+                                                                soundPlayer.playStreamURL(sound.fileURL, resourceName: sound.title)
+                                                            }
+                                                        },
+                                                        onToggleStar: {
+                                                            toggleStar(sound: sound)
+                                                        }
+                                                    )
+                                                }
+                                            } else {
+                                                SoundRow(
+                                                    sound: sound,
+                                                    isSelected: selectedSound == sound.title,
+                                                    isPlaying: isSoundPlaying(named: sound.title),
+                                                    isBuffering: isSoundBuffering(named: sound.title)
+                                                ) { action in
+                                                    switch action {
+                                                    case .select:
+                                                        selectedSound = sound.title
+                                                        togglePlay(sound: sound)
+                                                    case .play:
+                                                        // Keep UI selection in sync with the currently previewing sound.
+                                                        selectedSound = sound.title
+                                                        print("[SoundPicker] Play tapped -> selectedSound set to \(sound.title)")
+                                                        togglePlay(sound: sound)
+                                                    case .toggleStar:
+                                                        toggleStar(sound: sound)
+                                                    }
                                                 }
                                             }
                                         }
@@ -495,13 +604,57 @@ struct SoundPickerView: View {
         }
         return sounds.filter { $0.category == selectedTab }
     }
+
+    private func normalizedTitle(_ title: String) -> String {
+        title
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+            .lowercased()
+    }
+
+    private func isCurrentPlayingResource(named title: String) -> Bool {
+        guard let playing = soundPlayer.playingResourceName else { return false }
+        return normalizedTitle(playing) == normalizedTitle(title)
+    }
+
+    private func isSoundPlaying(named title: String) -> Bool {
+        soundPlayer.isPlaying && isCurrentPlayingResource(named: title)
+    }
+
+    private func isSoundBuffering(named title: String) -> Bool {
+        soundPlayer.isBuffering && isCurrentPlayingResource(named: title)
+    }
+    
+    private func isPlayingInCategory(_ tab: TopTab) -> Bool {
+        guard soundPlayer.isPlaying else { return false }
+        guard let playing = soundPlayer.playingResourceName else { return false }
+        
+        switch tab {
+        case .category(let category):
+            if category == .alarmTone {
+                if let playingAsset = sounds.first(where: { normalizedTitle($0.title) == normalizedTitle(playing) }) {
+                    return playingAsset.category == .alarmTone || playingAsset.category == .loud || playingAsset.category == .classic
+                }
+            } else if category == .favorites {
+                return sounds.first(where: { normalizedTitle($0.title) == normalizedTitle(playing) })?.isStarred == true
+            } else {
+                return sounds.first(where: { normalizedTitle($0.title) == normalizedTitle(playing) })?.category == category
+            }
+        case .downloadable(let name):
+             if let cloudSound = assetManager.remoteSounds.first(where: { normalizedTitle($0.title) == normalizedTitle(playing) }) {
+                 return cloudSound.category.caseInsensitiveCompare(name) == .orderedSame
+             }
+        }
+        return false
+    }
     
     private func loadSounds() {
         sounds = repository.loadAllSounds()
     }
     
     private func togglePlay(sound: SoundAsset) {
-        if soundPlayer.isPlaying && soundPlayer.playingResourceName == sound.title {
+        if isSoundPlaying(named: sound.title) {
             print("[SoundPicker] Stop preview: \(sound.title)")
             soundPlayer.stop()
         } else {
@@ -534,7 +687,7 @@ struct SoundPickerView: View {
 
         do {
             _ = try customSoundService.renameCustomSound(from: target.fileURL, to: trimmed)
-            if soundPlayer.isPlaying && soundPlayer.playingResourceName == target.title {
+            if isSoundPlaying(named: target.title) {
                 soundPlayer.stop()
             }
             if selectedSound == target.title {
@@ -557,7 +710,7 @@ struct SoundPickerView: View {
         guard let target = deleteTargetSound else { return }
 
         do {
-            if soundPlayer.isPlaying && soundPlayer.playingResourceName == target.title {
+            if isSoundPlaying(named: target.title) {
                 soundPlayer.stop()
             }
             try customSoundService.deleteCustomSound(at: target.fileURL)
@@ -577,6 +730,7 @@ private struct TopTabPill: View {
     let title: String
     let emoji: String?
     let isSelected: Bool
+    let isPlaying: Bool
     let action: () -> Void
 
     var body: some View {
@@ -587,6 +741,12 @@ private struct TopTabPill: View {
                 }
                 Text(title)
                     .font(.system(size: 14, weight: .semibold))
+                
+                if isPlaying {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .font(.caption2)
+                        .foregroundColor(isSelected ? .white : Colors.accentTeal)
+                }
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 16)
@@ -923,7 +1083,7 @@ struct RemoteSoundRow: View {
             .padding(.leading, 12)
 
             // ── Buttons HStack ─────────────────────────────────────────
-            HStack(spacing: 12) {
+            HStack(spacing: 16) {
                 // ── Star ──
                 Button(action: {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.5)) {
@@ -937,31 +1097,22 @@ struct RemoteSoundRow: View {
                         .contentShape(Rectangle())
                 }
 
-                // ── Download button ──
-                if !isDownloaded && !isDownloading {
-                    Button(action: { startDownload() }) {
-                        HStack(spacing: 4) {
-                            Text("GET")
-                                .font(.system(size: 13, weight: .bold))
-                            Image(systemName: "arrow.down.circle")
-                                .font(.system(size: 15, weight: .bold))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(oceanBlue)
-                        .clipShape(Capsule())
-                    }
-                }
-
-                // ── Cancel button ──
+                // ── Download / Cancel button ──
                 if isDownloading {
                     Button(action: {
                         Task { await AssetManager.shared.cancelDownload(filename: remoteSound.filename) }
                     }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 22))
-                            .foregroundColor(.red.opacity(0.85))
+                        Image(systemName: "stop.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(oceanBlue.opacity(0.85))
+                            .contentShape(Rectangle())
+                    }
+                } else if !isDownloaded {
+                    Button(action: { startDownload() }) {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(oceanBlue)
+                            .background(Circle().fill(Colors.bgPrimary))
                             .contentShape(Rectangle())
                     }
                 }
@@ -974,33 +1125,20 @@ struct RemoteSoundRow: View {
                         onPreview()
                     }
                 }) {
-                    HStack(spacing: 8) {
-                        if !isDownloaded && !isDownloading && !isPlaying && !isBuffering {
-                            Text("Preview")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(oceanBlue)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(oceanBlue.opacity(0.15))
-                                .clipShape(Capsule())
-                        }
-                        
-                        ZStack {
-                            if isBuffering {
-                                ProgressView().tint(oceanBlue).scaleEffect(0.8)
-                            } else if isPlaying {
-                                Image(systemName: "stop.fill")
-                                    .font(.system(size: 22))
-                                    .foregroundColor(isDownloaded ? Colors.textPrimary : oceanBlue)
-                            } else if !isDownloading {
-                                Image(systemName: "play.fill")
-                                    .font(.system(size: 22))
-                                    .foregroundColor(isDownloaded ? Colors.textSecondary : oceanBlue)
-                            } else {
-                                Color.clear
-                            }
+                    ZStack {
+                        if isBuffering {
+                            ProgressView().tint(oceanBlue).scaleEffect(0.8)
+                        } else if isPlaying {
+                            Image(systemName: "stop.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(isDownloaded ? Colors.textPrimary : oceanBlue)
+                        } else {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(isDownloaded ? Colors.textSecondary : oceanBlue)
                         }
                     }
+                    .frame(width: 24, height: 24)
                     .contentShape(Rectangle())
                 }
             }

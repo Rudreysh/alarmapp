@@ -42,7 +42,7 @@ class TimerViewModel: ObservableObject {
     @Published var isAmbientPlaying: Bool = false
     let ambientSoundPlayer = SoundPlayer()
     
-    private let preferences: AppPreferences
+    let preferences: AppPreferences
     private var cancellables = Set<AnyCancellable>()
     private var timerPublisher: AnyCancellable?
     

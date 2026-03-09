@@ -152,12 +152,12 @@ private struct ProPaywallIntroView: View {
 
             Spacer()
 
-            PrimaryButton(title: "Try for $0", style: .blueGlass) {
+            PrimaryButton(title: "Continue", style: .blueGlass) {
                 onNext()
             }
             .padding(.horizontal, Spacing.l)
 
-            Text("No charge until trial ends")
+            Text("Trial availability depends on selected plan")
                 .captionText()
                 .foregroundColor(Colors.textSecondary)
                 .padding(.bottom, Spacing.l)
@@ -207,7 +207,7 @@ private struct ProPaywallFeaturesView: View {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark")
                     .foregroundColor(Colors.accentTeal)
-                Text("100M+ wake up data analyzed")
+                Text("Built for reliable wake-ups")
                     .foregroundColor(.white.opacity(0.8))
                     .font(.system(size: 16, weight: .semibold))
             }
@@ -218,12 +218,12 @@ private struct ProPaywallFeaturesView: View {
 
             Spacer()
 
-            PrimaryButton(title: "Start my free week", style: .blueGlass) {
+            PrimaryButton(title: "Continue", style: .blueGlass) {
                 onNext()
             }
             .padding(.horizontal, Spacing.l)
 
-            Text("No charge until trial ends")
+            Text("Plans and trial eligibility shown at checkout")
                 .captionText()
                 .foregroundColor(Colors.textSecondary)
                 .frame(maxWidth: .infinity)
@@ -295,12 +295,12 @@ private struct ProPaywallReminderView: View {
         VStack(alignment: .leading, spacing: Spacing.l) {
             PaywallHeader(onClose: onClose)
 
-            Text("You'll be notified\n2 days before trial ends")
+            Text("You'll be reminded\nbefore renewal")
                 .font(.system(size: 30, weight: .bold))
                 .foregroundColor(.white)
                 .padding(.horizontal, Spacing.l)
 
-            Text("No worries on auto-renewal")
+            Text("Manage your subscription anytime")
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundColor(.white.opacity(0.7))
                 .padding(.horizontal, Spacing.l)
@@ -312,7 +312,7 @@ private struct ProPaywallReminderView: View {
                 .frame(height: 200)
                 .overlay(
                     VStack(spacing: Spacing.m) {
-                        Text("🔔 We'll remind you on 17 Jan")
+                        Text("🔔 Renewal reminder notifications available")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(.white)
                             .padding(.horizontal, Spacing.m)
@@ -330,12 +330,12 @@ private struct ProPaywallReminderView: View {
 
             Spacer()
 
-            PrimaryButton(title: "Start my free week", style: .blueGlass) {
+            PrimaryButton(title: "Continue", style: .blueGlass) {
                 onNext()
             }
             .padding(.horizontal, Spacing.l)
 
-            Text("No charge until trial ends")
+            Text("Plans and trial eligibility shown at checkout")
                 .captionText()
                 .foregroundColor(Colors.textSecondary)
                 .frame(maxWidth: .infinity)
@@ -349,6 +349,7 @@ private struct ProPaywallPlanSelectionView: View {
     @Binding var selectedPlan: ProPlanOption
     
     @StateObject private var subManager = SubscriptionManager.shared
+    @StateObject private var paywallViewModel = PaywallViewModel()
     @State private var showStudentAlert = false
     @State private var isProcessing = false
 
@@ -357,23 +358,35 @@ private struct ProPaywallPlanSelectionView: View {
             PaywallHeader(onClose: onClose)
 
             VStack(spacing: Spacing.s) {
-                Text("#1 Ranked alarm app in 97 countries")
+                Text("Upgrade to Pro")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white.opacity(0.7))
-                Text("Start your 7-day\nFree trial for Pro")
+                Text("Choose your plan")
                     .font(.system(size: 28, weight: .bold))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, Spacing.l)
 
-            ProPlanCard(plan: .yearly, selected: selectedPlan == .yearly) {
+            ProPlanCard(
+                plan: .yearly,
+                product: product(for: .yearly),
+                selected: selectedPlan == .yearly
+            ) {
                 selectedPlan = .yearly
             }
-            ProPlanCard(plan: .monthly, selected: selectedPlan == .monthly) {
+            ProPlanCard(
+                plan: .monthly,
+                product: product(for: .monthly),
+                selected: selectedPlan == .monthly
+            ) {
                 selectedPlan = .monthly
             }
-            ProPlanCard(plan: .lifetime, selected: selectedPlan == .lifetime) {
+            ProPlanCard(
+                plan: .lifetime,
+                product: product(for: .lifetime),
+                selected: selectedPlan == .lifetime
+            ) {
                 selectedPlan = .lifetime
             }
 
@@ -392,11 +405,11 @@ private struct ProPaywallPlanSelectionView: View {
             .alert("Student Plan", isPresented: $showStudentAlert) {
                 Button("Got it", role: .cancel) { }
             } message: {
-                Text("Student verification is coming soon in the next update. Stay tuned for up to 50% off!")
+                Text("Student verification is coming soon in a future update.")
             }
             .padding(.horizontal, Spacing.l)
 
-            Text("Experience the Life\n50 Million Users Are Enjoying\nfor Yourself")
+            Text("Choose the Pro setup\nthat fits your routine")
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundColor(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
@@ -405,32 +418,78 @@ private struct ProPaywallPlanSelectionView: View {
             Spacer()
 
             PrimaryButton(title: isProcessing ? "Processing..." : (selectedPlan == .yearly ? "Start my free week" : "Unlock Pro Now"), style: .blueGlass) {
-                isProcessing = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                Task { @MainActor in
+                    isProcessing = true
+                    paywallViewModel.selectPlan(selectedPlan.paywallPlan)
+                    await paywallViewModel.purchaseSelected()
+                    await subManager.refreshEntitlements()
                     isProcessing = false
-                    // Mock unlocking
-                    subManager.isPro = true
-                    switch selectedPlan {
-                    case .yearly: subManager.planName = "Yearly Plan"
-                    case .monthly: subManager.planName = "Monthly Plan"
-                    case .lifetime: subManager.planName = "Lifetime Plan"
+                    if paywallViewModel.alertMessage == nil && subManager.isPro {
+                        onClose()
+                    } else if paywallViewModel.alertMessage == nil {
+                        paywallViewModel.alertMessage = "Purchase completed. Please tap Restore Purchases if Pro is not unlocked."
                     }
-                    onClose()
                 }
             }
             .disabled(isProcessing)
             .padding(.horizontal, Spacing.l)
 
-            Text(selectedPlan == .yearly ? "Automatic payment after free trial ends (in 7 days)" : "Billed immediately. Cancel anytime.")
+            Button("Restore Purchases") {
+                Task { @MainActor in
+                    await paywallViewModel.restorePurchases()
+                    await subManager.refreshEntitlements()
+                    if subManager.isPro {
+                        onClose()
+                    }
+                }
+            }
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundColor(Colors.accentTeal)
+
+            Text(selectedPlanDetailsText)
                 .captionText()
                 .foregroundColor(Colors.textSecondary)
                 .padding(.bottom, Spacing.l)
         }
+        .task {
+            await paywallViewModel.load()
+        }
+        .alert("Notice", isPresented: Binding(
+            get: { paywallViewModel.alertMessage != nil },
+            set: { newValue in
+                if !newValue { paywallViewModel.alertMessage = nil }
+            }
+        )) {
+            Button("OK", role: .cancel) { paywallViewModel.alertMessage = nil }
+        } message: {
+            Text(paywallViewModel.alertMessage ?? "")
+        }
+    }
+
+    private func product(for option: ProPlanOption) -> PaywallProduct? {
+        paywallViewModel.products.first { $0.plan == option.paywallPlan }
+    }
+
+    private var selectedPlanDetailsText: String {
+        guard let selected = product(for: selectedPlan) else {
+            return "Pricing and renewal terms are shown at checkout."
+        }
+        if let trial = selected.trialText, !trial.isEmpty, !selected.billingPeriodString.isEmpty {
+            return "\(trial), then \(selected.billingPeriodString)"
+        }
+        if !selected.billingPeriodString.isEmpty {
+            return selected.billingPeriodString
+        }
+        if let trial = selected.trialText, !trial.isEmpty {
+            return trial
+        }
+        return "Pricing and renewal terms are shown at checkout."
     }
 }
 
 private struct ProPlanCard: View {
     let plan: ProPlanOption
+    let product: PaywallProduct?
     let selected: Bool
     let onTap: () -> Void
 
@@ -450,19 +509,15 @@ private struct ProPlanCard: View {
                     Text(planTitle)
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(.white)
-                    if plan == .yearly {
-                        Text("7-day free trial")
+                    if let trial = product?.trialText, !trial.isEmpty {
+                        Text(trial)
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(Colors.accentTeal)
+                            .foregroundColor(product?.isTrialAvailable == true ? Colors.accentTeal : .white.opacity(0.7))
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
-                            .background(Colors.accentTeal.opacity(0.2))
+                            .background((product?.isTrialAvailable == true ? Colors.accentTeal.opacity(0.2) : Color.white.opacity(0.08)))
                             .clipShape(Capsule())
-                    } else if plan == .monthly {
-                        Text("No free trial included")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.6))
-                    } else {
+                    } else if plan == .lifetime {
                         Text("Pay once, use forever")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(.white.opacity(0.6))
@@ -480,8 +535,8 @@ private struct ProPlanCard: View {
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(.white.opacity(0.6))
                     }
-                    if plan == .yearly {
-                        Text("₹ 828.00")
+                    if let oldPrice = product?.oldPriceString, !oldPrice.isEmpty {
+                        Text(oldPrice)
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(.white.opacity(0.4))
                             .strikethrough()
@@ -501,6 +556,9 @@ private struct ProPlanCard: View {
     }
 
     private var planTitle: String {
+        if let name = product?.displayName, !name.isEmpty {
+            return name
+        }
         switch plan {
         case .yearly: return "Yearly"
         case .monthly: return "Monthly"
@@ -509,18 +567,23 @@ private struct ProPlanCard: View {
     }
 
     private var planPrice: String {
-        switch plan {
-        case .yearly: return "₹ 39.08 /month"
-        case .monthly: return "₹ 69.00 /month"
-        case .lifetime: return "₹ 1,129.00"
+        if let price = product?.priceString, !price.isEmpty {
+            return price
         }
+        return "Price at checkout"
     }
 
     private var planSubprice: String {
-        switch plan {
-        case .yearly: return "₹ 469.00 /year"
-        case .monthly: return "₹ 828.00 /year"
-        case .lifetime: return ""
+        product?.billingPeriodString ?? ""
+    }
+}
+
+private extension ProPlanOption {
+    var paywallPlan: PaywallPlan {
+        switch self {
+        case .yearly: return .yearly
+        case .monthly: return .monthly
+        case .lifetime: return .lifetime
         }
     }
 }

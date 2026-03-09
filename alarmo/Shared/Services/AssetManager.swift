@@ -120,6 +120,35 @@ final class AssetManager: ObservableObject {
         deleteLocalFile(filename: filename)
         print("🚫 AssetManager: Cancelled download and removed \(filename)")
     }
+    
+    func getDownloadsSize() -> Int64 {
+        guard let files = try? fileManager.contentsOfDirectory(at: assetDirectory, includingPropertiesForKeys: [.fileSizeKey]) else { return 0 }
+        var size: Int64 = 0
+        for file in files {
+            if file.lastPathComponent == "catalog.json" { continue }
+            if let attrs = try? fileManager.attributesOfItem(atPath: file.path),
+               let fileSize = attrs[.size] as? Int64 {
+                size += fileSize
+            }
+        }
+        return size
+    }
+
+    func formatBytes(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useMB, .useGB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
+    }
+
+    func clearAllDownloads() {
+        guard let files = try? fileManager.contentsOfDirectory(at: assetDirectory, includingPropertiesForKeys: nil) else { return }
+        for file in files {
+            if file.lastPathComponent == "catalog.json" { continue }
+            try? fileManager.removeItem(at: file)
+        }
+        print("🗑️ AssetManager: Cleared all downloaded assets")
+    }
 
     /// Download a remote file and save it locally.
     /// Returns the local file URL on success.
