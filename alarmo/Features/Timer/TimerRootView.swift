@@ -108,7 +108,7 @@ struct TimerRootView: View {
                                 arrowAlignment: .trailing,
                                 arrowOffsetX: -10,
                                 bubbleOffsetX: 0,
-                                bubbleOffsetY: 80,
+                                bubbleOffsetY: 90,
                                 color: .red
                             )
                             .frame(width: 56, height: 24, alignment: .trailing)

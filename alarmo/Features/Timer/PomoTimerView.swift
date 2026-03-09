@@ -177,7 +177,7 @@ struct PomoTimerView: View {
                     .padding(.top, 4)
                     
                     // ---- Blocking Status Row ----
-                    if engine.isBlockingActive || !engine.config.selectedBlockListId.isEmpty {
+                    if shouldShowTopBlockingStatusPill {
                         blockingStatusPill
                             .padding(.top, 4)
                             .coachMark(
@@ -598,6 +598,14 @@ struct PomoTimerView: View {
     }
     
     // MARK: - Helpers
+
+    private var shouldShowTopBlockingStatusPill: Bool {
+        // Avoid duplicating the block list chip in idle mode (idle row already shows it).
+        if case .idle = engine.state.phase {
+            return false
+        }
+        return engine.isBlockingActive || !engine.config.selectedBlockListId.isEmpty
+    }
     
     /// Restore the persisted block list reference back into the engine (e.g. after cold start).
     /// Does NOT change blockAppsEnabled — just makes sure activeBlockList is set.
