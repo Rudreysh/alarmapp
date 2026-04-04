@@ -5,11 +5,15 @@ struct PlanView: View {
     let preferences: AppPreferences
     @StateObject var viewModel = PlanViewModel()
     @Environment(\.modelContext) var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showCoachMark = false          // FAB
     @State private var showQuickLogCoachMark = false
     @State private var showPlanHabitVsTaskCoachMark = false  // Floating menu choice
     @State private var showPlanSwipeCoachMark = false        // Swipe-to-delete
     @State private var showPlanCalendarCoachMark = false     // Calendar navigation
+    @State private var showHabitCelebration = false
+    @State private var celebrationHabitTitle: String?
+    @State private var celebrationHideTask: Task<Void, Never>?
     
     init(preferences: AppPreferences = AppPreferences()) {
         self.preferences = preferences
@@ -47,6 +51,12 @@ struct PlanView: View {
     // I will use a fullScreenCover to show a wrapper for PomoTimerView.
     
     @State private var floatingBubbles: [FloatingBubble] = []
+    private let floatingActionButtonBottomPadding: CGFloat = 90
+    private let floatingActionButtonSize: CGFloat = 56
+    private var listBottomClearance: CGFloat {
+        // Keep bottom rows clearly above the floating + button and tab bar.
+        AppConstants.tabBarHeight + floatingActionButtonBottomPadding + (floatingActionButtonSize * 0.5) + 22
+    }
     
     struct FloatingBubble: Identifiable {
         let id = UUID()
@@ -161,8 +171,14 @@ struct PlanView: View {
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
+                    .scrollIndicators(.visible, axes: .vertical)
+                    .scrollIndicatorsFlash(onAppear: true)
                     .environment(\.defaultMinListHeaderHeight, 18)
-                    .padding(.bottom, AppConstants.tabBarHeight + Spacing.m)
+                    .safeAreaInset(edge: .bottom) {
+                        Color.clear.frame(height: listBottomClearance)
+                            .allowsHitTesting(false)
+
+                    }
                 } else {
                     // Standard Calendar Mode (Sections)
                     List {
@@ -190,13 +206,12 @@ struct PlanView: View {
                                         Spacer()
                                     }
                                     .padding(.leading, -16) 
-                                    .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
                             ) {
                                 if viewModel.isAnytimeExpanded {
                                     ForEach(anytimeItems) { item in
-                                        PlanItemRow(item: item, isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
+                                        PlanItemRow(item: item, selectedDate: viewModel.selectedDate, isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
                                             viewModel.toggleComplete(item, context: modelContext)
                                         } onPlay: {
                                             startTimer(for: item)
@@ -209,7 +224,7 @@ struct PlanView: View {
                                         }
                                         .coachMark(
                                             title: "Manage",
-                                            subtitle: "Swipe to edit or delete.",
+                                            subtitle: "Long press to edit or delete.",
                                             isVisible: Binding(get: { item.id == firstVisibleItemId ? showPlanSwipeCoachMark : false }, set: { showPlanSwipeCoachMark = $0 }),
                                             alignment: .top,
                                             pointDirection: .bottom,
@@ -223,9 +238,6 @@ struct PlanView: View {
                                         .listRowSeparator(.hidden)
                                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                                         .contentShape(Rectangle())
-                                        .onTapGesture(count: 2) {
-                                            viewModel.toggleComplete(item, context: modelContext)
-                                        }
                                         .onTapGesture {
                                             selectedItem = item
                                         }
@@ -254,13 +266,12 @@ struct PlanView: View {
                                         Spacer()
                                     }
                                     .padding(.leading, -16)
-                                    .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
                             ) {
                                 if viewModel.isHabitsExpanded {
                                     ForEach(Array(habits.enumerated()), id: \.element.id) { index, item in
-                                        PlanItemRow(item: item, isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
+                                        PlanItemRow(item: item, selectedDate: viewModel.selectedDate, isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
                                             viewModel.toggleComplete(item, context: modelContext)
                                         } onPlay: {
                                             startTimer(for: item)
@@ -302,17 +313,22 @@ struct PlanView: View {
                                         .listRowSeparator(.hidden)
                                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                                         .contentShape(Rectangle())
-                                        .onTapGesture(count: 2) {
-                                            viewModel.toggleComplete(item, context: modelContext)
-                                        }
                                         .onTapGesture {
                                             // Tap on habit -> Open Detail View (Start Focus screen)
                                             selectedItem = item
                                         }
                                         .id(item.updatedAt) // Force Refresh
-                                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                            Button(role: .destructive) { deleteItem(item) } label: { Label("Delete", systemImage: "trash") }
-                                            Button { startEditing(item) } label: { Label("Edit", systemImage: "pencil") }.tint(.blue)
+                                        .contextMenu {
+                                            Button {
+                                                startEditing(item)
+                                            } label: {
+                                                Label("Edit", systemImage: "pencil")
+                                            }
+                                            Button(role: .destructive) {
+                                                deleteItem(item)
+                                            } label: {
+                                                Label("Delete", systemImage: "trash")
+                                            }
                                         }
                                     }
                                 }
@@ -334,13 +350,12 @@ struct PlanView: View {
                                         Spacer()
                                     }
                                     .padding(.leading, -16)
-                                    .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
                             ) {
                                  if viewModel.isTasksExpanded {
                                     ForEach(tasks) { item in
-                                        PlanItemRow(item: item, isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
+                                        PlanItemRow(item: item, selectedDate: viewModel.selectedDate, isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
                                             viewModel.toggleComplete(item, context: modelContext)
                                         } onPlay: {
                                             startTimer(for: item)
@@ -367,9 +382,6 @@ struct PlanView: View {
                                         .listRowSeparator(.hidden)
                                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                                         .contentShape(Rectangle())
-                                        .onTapGesture(count: 2) {
-                                            viewModel.toggleComplete(item, context: modelContext)
-                                        }
                                         .onTapGesture {
                                             selectedItem = item
                                         }
@@ -385,21 +397,30 @@ struct PlanView: View {
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
-                    .padding(.bottom, AppConstants.tabBarHeight + Spacing.m)
+                    .scrollIndicators(.visible, axes: .vertical)
+                    .scrollIndicatorsFlash(onAppear: true)
+                    .safeAreaInset(edge: .bottom) {
+                        Color.clear.frame(height: listBottomClearance)
+                            .allowsHitTesting(false)
+
+                    }
                 }
             }
             
             // Floating Bubbles Overlay
-            ForEach(floatingBubbles) { bubble in
-                Text(bubble.value)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(PlanPalette.textPrimary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .planGlassPanel(cornerRadius: 10, fillOpacity: 0.14)
-                    .position(x: bubble.x, y: bubble.y)
-                    .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .offset(y: -100).combined(with: .opacity)))
+            Group {
+                ForEach(floatingBubbles) { bubble in
+                    Text(bubble.value)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(PlanPalette.textPrimary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .planGlassPanel(cornerRadius: 10, fillOpacity: 0.14)
+                        .position(x: bubble.x, y: bubble.y)
+                        .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .offset(y: -100).combined(with: .opacity)))
+                }
             }
+            .allowsHitTesting(false)
             
             // Dimmed Background when menu is open
             if showingAddMenu {
@@ -416,7 +437,6 @@ struct PlanView: View {
                 VStack {
                     Spacer()
                     HStack {
-                        Spacer()
                         PlanFloatingMenu(
                             onSelectTask: {
                                 preferences.hasSeenPlanHabitVsTaskTooltip = true
@@ -445,66 +465,68 @@ struct PlanView: View {
                             title: "Plan Type",
                             subtitle: "Streaks vs tasks.",
                             isVisible: $showPlanHabitVsTaskCoachMark,
-                            alignment: .topTrailing,
+                            alignment: .topLeading,
                             pointDirection: .bottom,
-                            arrowAlignment: .trailing,
-                            arrowOffsetX: -24,
+                            arrowAlignment: .leading,
+                            arrowOffsetX: 24,
                             bubbleOffsetX: 0,
                             bubbleOffsetY: -80,
                             color: .red
                         )
-                        .padding(.trailing, 20)
+                        .padding(.leading, 20)
                         .padding(.bottom, 160) // Position above FAB (90 + 56 + 14)
+                        Spacer()
                     }
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(3)
             }
             
-            // FAB (Top Level ZStack)
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        withAnimation(.spring()) {
-                            showingAddMenu.toggle()
-                        }
-                        if preferences.hasSeenPlanTooltip == false {
-                            preferences.hasSeenPlanTooltip = true
-                            showCoachMark = false
-                        }
-                    }) {
-                        Image(systemName: showingAddMenu ? "xmark" : "plus")
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundColor(Colors.textPrimary)
-                            .planGlassCircle(size: 56, fillOpacity: 0.13)
-                            .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
-                            .coachMark(
-                                title: "Create Plan",
-                                subtitle: "Tap to add item.",
-                                isVisible: $showCoachMark,
-                                alignment: .topTrailing,
-                                pointDirection: .bottom,
-                                arrowAlignment: .trailing,
-                                arrowOffsetX: -24,
-                                bubbleOffsetX: 0,
-                                bubbleOffsetY: -80,
-                                color: .red
-                            )
-                    }
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 90)
+            // FAB
+            Button(action: {
+                withAnimation(.spring()) {
+                    showingAddMenu.toggle()
                 }
+                if preferences.hasSeenPlanTooltip == false {
+                    preferences.hasSeenPlanTooltip = true
+                    showCoachMark = false
+                }
+            }) {
+                Image(systemName: showingAddMenu ? "xmark" : "plus")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(Colors.textPrimary)
+                    .planGlassCircle(size: 56, fillOpacity: 0.13)
+                    .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
+                    .coachMark(
+                        title: "Create Plan",
+                        subtitle: "Tap to add item.",
+                        isVisible: $showCoachMark,
+                        alignment: .topLeading,
+                        pointDirection: .bottom,
+                        arrowAlignment: .leading,
+                        arrowOffsetX: 24,
+                        bubbleOffsetX: 0,
+                        bubbleOffsetY: -80,
+                        color: .red
+                    )
             }
+            .padding(.leading, 20)
+            .padding(.bottom, floatingActionButtonBottomPadding)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
             .zIndex(4)
+
+            if showHabitCelebration {
+                HabitGoalCelebrationOverlay(habitTitle: celebrationHabitTitle)
+                    .zIndex(30)
+            }
         }
         .onAppear {
             viewModel.setContext(modelContext)
+            viewModel.allItems = allItems
             checkDefaultTasks()
             
             Task {
-                await viewModel.syncHealthData()
+                await viewModel.syncHealthData(from: allItems)
             }
             if !preferences.hasSeenPlanTooltip {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
@@ -526,6 +548,12 @@ struct PlanView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                     withAnimation { showQuickLogCoachMark = true }
                 }
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+            Task {
+                await viewModel.syncHealthData(from: allItems)
             }
         }
         .sheet(isPresented: $showingCreateSheet) {
@@ -565,6 +593,12 @@ struct PlanView: View {
                 preferences.hasSeenPlanCalendarTooltip = true
             }
         }
+        .onChange(of: allItems.count) { _, _ in
+            viewModel.allItems = allItems
+            Task {
+                await viewModel.syncHealthData(from: allItems)
+            }
+        }
         .onChange(of: showCoachMark) { _, isVisible in
             if !isVisible && !preferences.hasSeenPlanTooltip {
                 preferences.hasSeenPlanTooltip = true
@@ -600,12 +634,37 @@ struct PlanView: View {
                 preferences.hasSeenQuickLogTooltip = true
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: PlanViewModel.habitGoalReachedNotification)) { output in
+            triggerHabitCelebration(with: output.userInfo?["habitTitle"] as? String)
+        }
+        .onDisappear {
+            celebrationHideTask?.cancel()
+        }
     }
     
     private func dismissSwipeCoachMark() {
         if showPlanSwipeCoachMark {
             showPlanSwipeCoachMark = false
             preferences.hasSeenPlanSwipeTooltip = true
+        }
+    }
+
+    private func triggerHabitCelebration(with title: String?) {
+        celebrationHideTask?.cancel()
+        celebrationHabitTitle = title
+
+        withAnimation(.easeOut(duration: 0.25)) {
+            showHabitCelebration = true
+        }
+
+        celebrationHideTask = Task {
+            try? await Task.sleep(nanoseconds: 2_600_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                withAnimation(.easeOut(duration: 0.85)) {
+                    showHabitCelebration = false
+                }
+            }
         }
     }
     
@@ -624,7 +683,9 @@ struct PlanView: View {
         // Configure engine
         pomoEngine.stop(reset: true)
         pomoEngine.apply(planItem: item)
-        pomoEngine.start()
+        if item.type != .habit {
+            pomoEngine.start()
+        }
         
         // Navigate to Timer Tab
         navStore.requestedTimerMode = .pomo
@@ -716,12 +777,14 @@ struct PlanItemTimelineRow: View {
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            // Time Column
-            Text(timeString)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(Colors.textSecondary)
-                .frame(width: 50, alignment: .trailing)
-                .padding(.top, 14) // Align with text roughly
+            // Time Column (only reserve space when there is a scheduled time)
+            if showsTimeColumn {
+                Text(timeString)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Colors.textSecondary)
+                    .frame(width: 50, alignment: .trailing)
+                    .padding(.top, 14) // Align with text roughly
+            }
             
             // Content Card
             if item.type == .note {
@@ -839,6 +902,10 @@ struct PlanItemTimelineRow: View {
         .padding(.vertical, 4)
     }
     
+    private var showsTimeColumn: Bool {
+        !timeString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    
     var tintColor: Color {
         switch item.tintKey {
         case "red": return .red
@@ -864,7 +931,7 @@ struct PlanHeaderView: View {
             
             HStack(spacing: 8) {
                 HStack(spacing: 4) {
-                    Text("Shield Off")
+                    Text("Penalty Off")
                         .font(.caption)
                         .foregroundColor(PlanPalette.textPrimary)
                     Image(systemName: "shield.slash.fill")
@@ -953,19 +1020,6 @@ struct CalendarHeaderView: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        
-                        HStack(spacing: 4) {
-                            Image(systemName: "flame.fill")
-                                .font(.caption2)
-                                .foregroundColor(.orange)
-                            Text("1") 
-                                .font(.caption2)
-                                .fontWeight(.bold)
-                                .foregroundColor(PlanPalette.textPrimary)
-                        }
-                        .padding(.vertical, 5)
-                        .padding(.horizontal, 8)
-                        .planGlassPanel(cornerRadius: 12, fillOpacity: 0.12)
                     }
                     
                     // View Toggle
@@ -1131,9 +1185,17 @@ struct PlanBannerView: View {
     }
 }
 
+private struct PlanItemRowSizePreferenceKey: PreferenceKey {
+    static var defaultValue: CGSize = CGSize(width: 1, height: 1)
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        value = nextValue()
+    }
+}
+
 // Updated PlanItemRow
 struct PlanItemRow: View {
     @Bindable var item: PlanItem
+    let selectedDate: Date
     let isCompleted: Bool
     let onToggle: () -> Void
     var onPlay: (() -> Void)? = nil
@@ -1141,9 +1203,13 @@ struct PlanItemRow: View {
     var onAdjust: ((Double) -> Void)? = nil
     
     @State private var quickAddScale: CGFloat = 1.0
-    @State private var dragOffset: CGFloat = 0
     @State private var isDragging: Bool = false
-    @State private var lastChangeTime: Date = Date()
+    @State private var dragPreviewValue: Double?
+    @State private var dragStartValue: Double?
+    @State private var rowWidth: CGFloat = 320
+    @State private var rowHeight: CGFloat = 80
+    @State private var lastHapticStep: Int = -1
+    @State private var dragIntent: DragIntent?
     
     var body: some View {
         ZStack {
@@ -1236,16 +1302,6 @@ struct PlanItemRow: View {
                                     quickAddScale = 1.0
                                 }
                             }
-                            .gesture(
-                                DragGesture(minimumDistance: 5)
-                                    .onChanged { value in
-                                        handleDrag(value: value, width: UIScreen.main.bounds.width)
-                                    }
-                                    .onEnded { _ in
-                                        isDragging = false
-                                        dragOffset = 0
-                                    }
-                            )
                     }
                     .frame(width: 24, height: 24)
                     .padding(.trailing, 4)
@@ -1274,57 +1330,131 @@ struct PlanItemRow: View {
                 .stroke(isCompleted ? PlanPalette.accent.opacity(0.32) : (isDragging ? tintColor.opacity(0.5) : Color.white.opacity(0.20)), lineWidth: isDragging ? 2 : 1)
         )
         .shadow(color: isCompleted ? PlanPalette.accent.opacity(0.20) : (isDragging ? tintColor.opacity(0.3) : Color.black.opacity(0.16)), radius: isDragging ? 15 : 10, x: 0, y: isDragging ? 6 : 4)
-        .gesture(
-            item.type == .habit && !isCompleted ?
-            DragGesture(minimumDistance: 20)
-                .onChanged { value in
-                    // Only start if horizontal enough
-                    if !isDragging && abs(value.translation.width) > abs(value.translation.height) {
-                        isDragging = true
-                    }
-                    if isDragging {
-                         handleDrag(value: value, width: UIScreen.main.bounds.width - 32)
-                    }
-                }
-                .onEnded { _ in
-                    isDragging = false
-                    dragOffset = 0
-                }
-            : nil
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .preference(key: PlanItemRowSizePreferenceKey.self, value: geo.size)
+            }
+        )
+        .onPreferenceChange(PlanItemRowSizePreferenceKey.self) { size in
+            rowWidth = max(1, size.width)
+            rowHeight = max(1, size.height)
+        }
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            dragAdjustGesture,
+            including: supportsInlineDragAdjust ? .all : .none
         )
     }
-    
-    private func handleDrag(value: DragGesture.Value, width: CGFloat) {
-        let delta = value.translation.width - dragOffset
-        dragOffset = value.translation.width
-        
-        // Calculate amount
-        let sensitivity: Double = {
-            let unit = item.goalUnit.lowercased()
-            if unit == "m" || unit == "meters" { return 200.0 } // 200px = full goal roughly? No.
-            return 100.0 // 100px = 1 portion or 10%
-        }()
-        
-        let amount = (Double(delta) / sensitivity) * (item.goalValue / 5.0) // Swipe across 5 sensitivity steps = goal
-        
-        if abs(amount) > 0.01 {
-            // Throttle updates or just call
-            if Date().timeIntervalSince(lastChangeTime) > 0.05 {
-                onAdjust?(amount)
-                lastChangeTime = Date()
-                
-                // Haptic feedback
-                if abs(value.translation.width.truncatingRemainder(dividingBy: 20)) < 2 {
+
+    private var dragAdjustGesture: some Gesture {
+        DragGesture(minimumDistance: 10, coordinateSpace: .local)
+            .onChanged { value in
+                let horizontal = abs(value.translation.width)
+                let vertical = abs(value.translation.height)
+
+                if dragIntent == nil {
+                    // Wait for clear intent so small taps don't trigger progress jumps.
+                    guard horizontal > 8 || vertical > 8 else { return }
+
+                    // Only lock when horizontal intent is clear.
+                    // Do not lock to vertical; that blocks later horizontal drags in the same touch.
+                    guard horizontal > (vertical * 1.2) else { return }
+
+                    dragIntent = .horizontal
+                    isDragging = true
+                    dragStartValue = item.currentValue(on: selectedDate)
+                    let startRatio = item.goalValue > 0 ? max(0, min(1, (dragStartValue ?? 0) / item.goalValue)) : 0
+                    lastHapticStep = Int((startRatio * 20).rounded(.down))
+                }
+
+                guard dragIntent == .horizontal, isDragging else { return }
+
+                // Relative drag model: swipe right increases from current value, left decreases.
+                // This avoids jumping to goal on tiny movement near the row's right side.
+                let startValue = dragStartValue ?? item.currentValue(on: selectedDate)
+                let effectiveWidth = max(rowWidth - 56, 220)
+                let deltaRatio = Double(value.translation.width / effectiveWidth)
+                let rawValue = startValue + (deltaRatio * item.goalValue)
+                let nextValue = max(0, min(item.goalValue, rawValue))
+                dragPreviewValue = nextValue
+
+                let progressRatio = item.goalValue > 0 ? max(0, min(1, nextValue / item.goalValue)) : 0
+                let newStep = Int((progressRatio * 20).rounded(.down))
+                if newStep != lastHapticStep {
                     UISelectionFeedbackGenerator().selectionChanged()
+                    lastHapticStep = newStep
                 }
             }
+            .onEnded { _ in
+                if dragIntent == .horizontal {
+                    commitDraggedAdjustment()
+                } else {
+                    isDragging = false
+                    dragPreviewValue = nil
+                    dragStartValue = nil
+                    lastHapticStep = -1
+                }
+                dragIntent = nil
+            }
+    }
+    
+    private func commitDraggedAdjustment() {
+        defer {
+            isDragging = false
+            dragPreviewValue = nil
+            dragStartValue = nil
+            lastHapticStep = -1
         }
+        
+        guard isDragging else { return }
+        
+        let current = item.currentValue(on: selectedDate)
+        let rawTarget = dragPreviewValue ?? current
+        let forceGoalCompletion = item.goalValue > 0 && (rawTarget / item.goalValue) >= 0.995
+        let target = snapDraggedValue(rawTarget, forceGoalCompletion: forceGoalCompletion)
+        let delta = target - current
+        guard abs(delta) > 0.0001 else { return }
+        onAdjust?(delta)
+    }
+    
+    private func snapDraggedValue(_ value: Double, forceGoalCompletion: Bool = false) -> Double {
+        let unit = item.goalUnit.lowercased()
+        let step: Double
+        
+        if unit == "ml" {
+            step = 10
+        } else if unit == "oz" {
+            step = 0.5
+        } else if unit.contains("cup") {
+            step = 0.1
+        } else if unit.contains("step") {
+            step = 50
+        } else if unit == "m" || unit.contains("meter") {
+            step = 10
+        } else if unit == "km" || unit.contains("kilometer") {
+            step = 0.1
+        } else if unit.contains("min") {
+            step = 1
+        } else if unit.contains("hr") || unit.contains("hour") {
+            step = 0.05
+        } else {
+            step = 1
+        }
+
+        if forceGoalCompletion {
+            return item.goalValue
+        }
+
+        let clamped = max(0, min(item.goalValue, value))
+        let snapped = floor(clamped / step) * step
+        return max(0, min(item.goalValue, snapped))
     }
     
     @ViewBuilder
     private var progressBackground: some View {
         GeometryReader { geo in
-            let p = progress
+            let p = displayedProgress
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(
                     LinearGradient(
@@ -1344,23 +1474,32 @@ struct PlanItemRow: View {
     }
     
     private var iconSection: some View {
-        Button(action: onToggle) {
-            ZStack {
-                if isSFIcon {
-                    Image(systemName: item.iconName)
-                        .font(.system(size: iconFontSize, weight: .bold))
-                        .foregroundColor(tintColor)
-                        .frame(width: iconContainerSize, height: iconContainerSize)
-                        .background(tintColor.opacity(0.14))
-                        .clipShape(Circle())
-                } else {
-                    Text(item.iconName)
-                        .font(.system(size: emojiFontSize))
-                        .frame(width: iconContainerSize, height: iconContainerSize)
-                }
+        Group {
+            if item.type == .habit {
+                iconContent
+            } else {
+                Button(action: onToggle) { iconContent }
+                    .buttonStyle(.plain)
             }
         }
-        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var iconContent: some View {
+        ZStack {
+            if isSFIcon {
+                Image(systemName: item.iconName)
+                    .font(.system(size: iconFontSize, weight: .bold))
+                    .foregroundColor(tintColor)
+                    .frame(width: iconContainerSize, height: iconContainerSize)
+                    .background(tintColor.opacity(0.14))
+                    .clipShape(Circle())
+            } else {
+                Text(item.iconName)
+                    .font(.system(size: emojiFontSize))
+                    .frame(width: iconContainerSize, height: iconContainerSize)
+            }
+        }
     }
 
     private var isHabitItem: Bool { item.type == .habit }
@@ -1380,17 +1519,38 @@ struct PlanItemRow: View {
         let t = item.title.lowercased()
         return t.contains("meditation") || t.contains("yoga") || t.contains("breathe") || item.iconName.contains("body")
     }
+
+    private var supportsInlineDragAdjust: Bool {
+        item.type == .habit && !isCompleted
+    }
+
+    private func isInSliderInteractionZone(_ point: CGPoint) -> Bool {
+        // Treat the central lane as the manual progress slider area.
+        // This preserves vertical list scrolling when dragging near edges/icons.
+        let minX: CGFloat = 28
+        let maxX = max(minX + 40, rowWidth - 28)
+        let minY: CGFloat = 2
+        let maxY = max(minY + 24, rowHeight - 2)
+        return point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY
+    }
     
     private var progress: Double {
         if item.type != .habit { return 0 }
-        let current = item.currentValue(on: Date())
-        let target = item.goalValue
-        return min(max(current / target, 0), 1)
+        return item.progressFraction(on: selectedDate)
+    }
+    
+    private var displayedProgress: Double {
+        guard item.type == .habit else { return 0 }
+        guard item.goalValue > 0 else { return 0 }
+        if isDragging, let dragPreviewValue {
+            return max(0, min(1, dragPreviewValue / item.goalValue))
+        }
+        return progress
     }
     
     var goalText: String? {
         if item.type == .habit {
-            let current = item.currentValue(on: Date())
+            let current = (isDragging ? dragPreviewValue : nil) ?? item.currentValue(on: selectedDate)
             let total = item.goalValue
             let unit = item.goalUnit
             let currentStr = current.formatted(.number.precision(.fractionLength(0...2)))
@@ -1428,4 +1588,9 @@ struct PlanItemRow: View {
         default: return .blue
         }
     }
+}
+
+private enum DragIntent {
+    case horizontal
+    case vertical
 }

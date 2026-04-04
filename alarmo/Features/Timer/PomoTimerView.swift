@@ -27,6 +27,7 @@ struct PomoTimerView: View {
     
     @Query(sort: \AppList.updatedAt, order: .reverse)
     private var allAppLists: [AppList]
+    private let settingsStore = SettingsStore.shared
     
     var habitProgressText: String? {
         guard let taskId = engine.state.selectedTaskId else { return nil }
@@ -491,14 +492,8 @@ struct PomoTimerView: View {
         .sheet(isPresented: $showAppLists) {
             AppListsView(engine: engine)
                 .onDisappear {
-                    // Sync selected block list back into the engine
-                    if let selected = allAppLists.first(where: {
-                        $0.id.uuidString == engine.config.selectedBlockListId
-                    }) ?? allAppLists.first(where: { $0.type == .block }) {
-                        if engine.config.blockAppsEnabled {
-                            engine.setActiveBlockList(selected)
-                        }
-                    }
+                    // Pull the latest selected list from shared settings after the sheet closes.
+                    syncBlockListToEngine()
                 }
         }
         // MARK: - Intervention Sheet
@@ -526,15 +521,11 @@ struct PomoTimerView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             engine.refreshTimer()
-            // Restore the saved block list reference into the engine on launch
-            if engine.activeBlockList == nil && !engine.config.selectedBlockListId.isEmpty {
-                if let saved = allAppLists.first(where: {
-                    $0.id.uuidString == engine.config.selectedBlockListId
-                }) {
-                    engine.activeBlockList = saved
-                    print("🔗 [PomoTimerView] Restored activeBlockList → '\(saved.name)'")
-                }
-            }
+            // Keep block-list selection coherent after background/foreground transitions.
+            syncBlockListToEngine()
+        }
+        .onChange(of: allAppLists.map(\.id)) { _, _ in
+            syncBlockListToEngine()
         }
         .onChange(of: engine.isRunning) { _, running in
             if !running && viewModel.isAmbientPlaying {
@@ -604,20 +595,30 @@ struct PomoTimerView: View {
         if case .idle = engine.state.phase {
             return false
         }
-        return engine.isBlockingActive || !engine.config.selectedBlockListId.isEmpty
+        return engine.config.blockAppsEnabled && selectedBlockList != nil
     }
     
     /// Restore the persisted block list reference back into the engine (e.g. after cold start).
-    /// Does NOT change blockAppsEnabled — just makes sure activeBlockList is set.
     private func syncBlockListToEngine() {
-        guard engine.activeBlockList == nil,
-              !engine.config.selectedBlockListId.isEmpty,
-              let saved = allAppLists.first(where: {
-                  $0.id.uuidString == engine.config.selectedBlockListId
-              }) else { return }
-        // Use the internal setter; preserve existing blockAppsEnabled flag
-        engine.activeBlockList = saved
-        print("🔗 [PomoTimerView] syncBlockListToEngine → '\(saved.name)'")
+        let selectedId = settingsStore.selectedBlockListId
+        guard !selectedId.isEmpty else {
+            if engine.activeBlockList != nil || !engine.config.selectedBlockListId.isEmpty {
+                engine.setActiveBlockList(nil)
+            }
+            return
+        }
+
+        guard let saved = allAppLists.first(where: {
+            $0.type == .block && $0.id.uuidString == selectedId
+        }) else {
+            engine.setActiveBlockList(nil)
+            return
+        }
+
+        if engine.activeBlockList?.id != saved.id || engine.config.selectedBlockListId != selectedId {
+            engine.setActiveBlockList(saved)
+            print("🔗 [PomoTimerView] syncBlockListToEngine → '\(saved.name)'")
+        }
     }
     
     private var idleControlRow: some View {
@@ -627,9 +628,7 @@ struct PomoTimerView: View {
             Button {
                 showAppLists = true
             } label: {
-                let listName = allAppLists.first(where: {
-                    $0.id.uuidString == engine.config.selectedBlockListId
-                })?.name
+                let listName = selectedBlockList?.name
                 let blockEnabled = engine.config.blockAppsEnabled && listName != nil
                 
                 HStack(spacing: 6) {
@@ -711,21 +710,8 @@ struct PomoTimerView: View {
     // MARK: - Blocking Status Pill
     
     private var blockingStatusPill: some View {
-        let listName = allAppLists.first(where: {
-            $0.id.uuidString == engine.config.selectedBlockListId
-        })?.name ?? "Blocklist"
-        
-        let appCount: Int = {
-            #if canImport(FamilyControls)
-            return allAppLists.first(where: {
-                $0.id.uuidString == engine.config.selectedBlockListId
-            })?.selectedApplicationsCount ?? 0
-            #else
-            return allAppLists.first(where: {
-                $0.id.uuidString == engine.config.selectedBlockListId
-            })?.mockAppIDs.count ?? 0
-            #endif
-        }()
+        let listName = selectedBlockList?.name ?? "Block Apps"
+        let appCount = selectedBlockListAppCount
         
         let isRunningFocus = engine.isBlockingActive
         
@@ -797,6 +783,21 @@ struct PomoTimerView: View {
     
     var currentSegmentLabel: String {
         engine.state.currentSegment?.title.uppercased() ?? "FOCUS"
+    }
+
+    private var selectedBlockList: AppList? {
+        allAppLists.first(where: {
+            $0.type == .block && $0.id.uuidString == engine.config.selectedBlockListId
+        })
+    }
+
+    private var selectedBlockListAppCount: Int {
+        guard let list = selectedBlockList else { return 0 }
+        #if canImport(FamilyControls)
+        return list.selectedApplicationsCount
+        #else
+        return list.mockAppIDs.count
+        #endif
     }
     
     func timeString(from totalSeconds: Int) -> String {
