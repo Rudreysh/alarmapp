@@ -1343,23 +1343,20 @@ struct PlanItemRow: View {
         .contentShape(Rectangle())
         .simultaneousGesture(
             dragAdjustGesture,
-            including: supportsInlineDragAdjust ? .all : .none
+            including: supportsInlineDragAdjust ? .gesture : .none
         )
     }
 
     private var dragAdjustGesture: some Gesture {
-        DragGesture(minimumDistance: 10, coordinateSpace: .local)
+        DragGesture(minimumDistance: 24, coordinateSpace: .local)
             .onChanged { value in
                 let horizontal = abs(value.translation.width)
                 let vertical = abs(value.translation.height)
 
                 if dragIntent == nil {
-                    // Wait for clear intent so small taps don't trigger progress jumps.
-                    guard horizontal > 8 || vertical > 8 else { return }
-
-                    // Only lock when horizontal intent is clear.
-                    // Do not lock to vertical; that blocks later horizontal drags in the same touch.
-                    guard horizontal > (vertical * 1.2) else { return }
+                    // Drag only activates for clear horizontal swipes.
+                    // Higher threshold keeps vertical List scroll responsive on habit rows.
+                    guard horizontal > (vertical * 1.8) else { return }
 
                     dragIntent = .horizontal
                     isDragging = true
