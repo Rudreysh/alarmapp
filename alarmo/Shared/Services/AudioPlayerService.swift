@@ -39,9 +39,7 @@ final class AudioPreviewPlayer: ObservableObject, AudioPreviewPlayerProtocol {
 
         // Setup Session
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
-            try session.setActive(true)
+            try AudioRouteManager.configurePlaybackSession(duckOthers: true)
         } catch {
             print("[AudioPreviewPlayer] Session setup failed: \(error)")
         }

@@ -9,6 +9,7 @@ struct SignInView: View {
     
     private let termsURL = URL(string: "https://alarmo.app/terms")!
     private let privacyURL = URL(string: "https://alarmo.app/privacy")!
+    private var canUseAppleSignIn: Bool { EntitlementInspector.hasAppleSignInAccess }
     
     var body: some View {
         ZStack {
@@ -43,15 +44,33 @@ struct SignInView: View {
                 Spacer()
                 
                 VStack(spacing: 20) {
-                    SignInWithAppleButton(.continue) { request in
-                        request.requestedScopes = [.fullName, .email]
-                    } onCompletion: { result in
-                        handleSignIn(result)
+                    if canUseAppleSignIn {
+                        SignInWithAppleButton(.continue) { request in
+                            request.requestedScopes = [.fullName, .email]
+                        } onCompletion: { result in
+                            handleSignIn(result)
+                        }
+                        .signInWithAppleButtonStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 56)
+                        .clipShape(Capsule())
+                    } else {
+                        Button {
+                            alertMessage = configurationIssueMessage()
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "applelogo")
+                                    .font(.system(size: 22, weight: .semibold))
+                                Text("Continue with Apple")
+                                    .font(.system(size: 18, weight: .bold))
+                            }
+                            .foregroundColor(.black.opacity(0.65))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(Color.white.opacity(0.8))
+                            .clipShape(Capsule())
+                        }
                     }
-                    .signInWithAppleButtonStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .clipShape(Capsule())
                     
                     VStack(spacing: 4) {
                         Text("By proceeding, you are agreeing to our")
@@ -104,7 +123,27 @@ struct SignInView: View {
             if let authError = error as? ASAuthorizationError, authError.code == .canceled {
                 return
             }
-            alertMessage = error.localizedDescription
+            alertMessage = friendlyMessage(for: error)
         }
+    }
+
+    private func friendlyMessage(for error: Error) -> String {
+        let nsError = error as NSError
+        if nsError.domain == ASAuthorizationError.errorDomain && nsError.code == ASAuthorizationError.Code.unknown.rawValue {
+            return configurationIssueMessage()
+        }
+        return error.localizedDescription
+    }
+
+    private func configurationIssueMessage() -> String {
+        """
+        Apple Sign In is not available for this build yet.
+
+        Fix checklist:
+        1) Xcode target -> Signing & Capabilities -> add "Sign In with Apple".
+        2) In Apple Developer, enable Sign In with Apple for bundle id \(Bundle.main.bundleIdentifier ?? "your.bundle.id").
+        3) Regenerate provisioning profile, clean build, reinstall app.
+        4) Ensure iPhone is signed into Apple ID (iCloud).
+        """
     }
 }

@@ -41,7 +41,7 @@ struct MainTabContainerView: View {
                 tabs: [
                     TabBarItem(id: MainTab.alarm, title: "Alarm", systemImage: "alarm"),
                     TabBarItem(id: MainTab.timer, title: "Timer", systemImage: "timer"),
-                    TabBarItem(id: MainTab.plan, title: "Plan", systemImage: "calendar"),
+                    TabBarItem(id: MainTab.plan, title: "Habit", systemImage: "calendar"),
                     TabBarItem(id: MainTab.overlap, title: "Overlap", systemImage: "globe.americas"),
                     TabBarItem(id: MainTab.report, title: "Report", systemImage: "doc.text"),
                     TabBarItem(id: MainTab.setting, title: "Setting", systemImage: "gearshape")
@@ -51,51 +51,92 @@ struct MainTabContainerView: View {
         }
         .ignoresSafeArea(edges: .bottom)
         .onAppear {
-            // Daily login points check
             PointsService.shared.checkDailyLogin()
-            
-            pomodoroEngine.onSessionComplete = { taskId, segment, duration in
-                guard segment == .focus, let taskId = taskId else { return }
-                
-                // Award focus points regardless of task linkage
-                PointsService.shared.focusSessionEnded(
-                    taskId: taskId,
-                    taskName: nil,
-                    durationSeconds: duration,
-                    wasSkipped: false
-                )
-                
-                // Fetch the plan item and update progress
-                let descriptor = FetchDescriptor<PlanItem>(predicate: #Predicate<PlanItem> { item in
-                    item.id == taskId
-                })
-                if let item = try? modelContext.fetch(descriptor).first {
-                    let calendar = Calendar.current
-                    if let existingLog = item.completionLogs.first(where: { calendar.isDateInToday($0.date) }) {
-                        existingLog.durationSeconds = (existingLog.durationSeconds ?? 0) + duration
-                        existingLog.completed = item.isGoalMet()
-                    } else {
-                        let log = CompletionLog(date: Date(), completed: false)
-                        log.durationSeconds = duration
-                        item.completionLogs.append(log)
-                        log.completed = item.isGoalMet()
-                    }
-                    try? modelContext.save()
-                    
-                    let event = ActivityEvent(
-                        domain: .task,
-                        entityId: item.id,
-                        status: .success,
-                        value: Double(duration),
-                        metadata: ["type": "pomodoro"]
-                    )
-                    modelContext.insert(event)
-                    try? modelContext.save()
-                    
-                    // Update task name for focus points
-                    print("✅ Updated progress for \(item.title): +\(duration)s")
-                }
-            }
+            bindPomodoroLifecycle()
         }
+    }
+
+    private func bindPomodoroLifecycle() {
+        pomodoroEngine.onSegmentStarted = { taskId, segment, durationSeconds in
+            guard segment == .focus else { return }
+            let event = ActivityEvent(
+                domain: .pomodoro,
+                entityId: taskId ?? UUID(),
+                status: .started,
+                value: Double(durationSeconds)
+            )
+            modelContext.insert(event)
+            try? modelContext.save()
+        }
+
+        pomodoroEngine.onSegmentInterrupted = { taskId, segment, elapsedSeconds in
+            guard segment == .focus else { return }
+
+            let itemName = taskId.flatMap { fetchPlanItem(id: $0)?.title }
+            PointsService.shared.pomodoroSessionEnded(
+                taskId: taskId,
+                taskName: itemName,
+                durationSeconds: elapsedSeconds,
+                interrupted: true
+            )
+
+            let event = ActivityEvent(
+                domain: .pomodoro,
+                entityId: taskId ?? UUID(),
+                status: .interrupted,
+                value: Double(elapsedSeconds)
+            )
+            modelContext.insert(event)
+            try? modelContext.save()
+        }
+
+        pomodoroEngine.onSessionComplete = { taskId, segment, durationSeconds, wasSkipped in
+            guard segment == .focus else { return }
+
+            let linkedItem = taskId.flatMap { fetchPlanItem(id: $0) }
+            let itemName = linkedItem?.title
+
+            PointsService.shared.pomodoroSessionEnded(
+                taskId: taskId,
+                taskName: itemName,
+                durationSeconds: durationSeconds,
+                interrupted: wasSkipped
+            )
+
+            let eventStatus: ActivityStatus = wasSkipped ? .interrupted : .completed
+            let event = ActivityEvent(
+                domain: .pomodoro,
+                entityId: taskId ?? UUID(),
+                status: eventStatus,
+                value: Double(durationSeconds),
+                metadata: taskId == nil ? ["session": "unlinked"] : nil
+            )
+            modelContext.insert(event)
+
+            guard let linkedItem, !wasSkipped else {
+                try? modelContext.save()
+                return
+            }
+
+            let calendar = Calendar.current
+            if let existingLog = linkedItem.completionLogs.first(where: { calendar.isDateInToday($0.date) }) {
+                existingLog.durationSeconds = (existingLog.durationSeconds ?? 0) + durationSeconds
+                existingLog.completed = linkedItem.isGoalMet()
+            } else {
+                let log = CompletionLog(date: Date(), completed: false)
+                log.durationSeconds = durationSeconds
+                linkedItem.completionLogs.append(log)
+                log.completed = linkedItem.isGoalMet()
+            }
+
+            try? modelContext.save()
+        }
+    }
+
+    private func fetchPlanItem(id: UUID) -> PlanItem? {
+        let descriptor = FetchDescriptor<PlanItem>(predicate: #Predicate<PlanItem> { item in
+            item.id == id
+        })
+        return try? modelContext.fetch(descriptor).first
     }
 }

@@ -27,7 +27,11 @@ struct SessionInterventionView: View {
     
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            ZStack {
+                TimerGlassBackground()
+                Color.black.opacity(0.30)
+            }
+            .ignoresSafeArea()
             
             Group {
                 if showingMission, let mission = activeMission {

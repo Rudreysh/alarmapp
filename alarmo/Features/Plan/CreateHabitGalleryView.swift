@@ -6,7 +6,31 @@ struct CreateHabitGalleryView: View {
     @Environment(\.modelContext) var modelContext
     
     @State private var selectedCategory: HabitCategory = .suggested
-    @State private var selectedTemplateItem: PlanItem? // To trigger edit sheet
+    @State private var selectedTemplateItem: PlanItem?
+    @State private var searchQuery = ""
+    @FocusState private var isSearchFocused: Bool
+    
+    private var filteredHabits: [HabitTemplate] {
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !query.isEmpty else { return [] }
+        return HabitTemplate.allHabits.filter { habit in
+            habit.title.lowercased().contains(query) ||
+            habit.subtitle.lowercased().contains(query) ||
+            habit.category.rawValue.lowercased().contains(query) ||
+            habit.goalUnit.lowercased().contains(query)
+        }
+    }
+    
+    private var groupedSearchResults: [(category: HabitCategory, habits: [HabitTemplate])] {
+        var groups: [(HabitCategory, [HabitTemplate])] = []
+        for category in HabitCategory.allCases {
+            let habits = filteredHabits.filter { $0.category == category }
+            if !habits.isEmpty {
+                groups.append((category, habits))
+            }
+        }
+        return groups
+    }
 
     var body: some View {
         NavigationView {
@@ -14,48 +38,88 @@ struct CreateHabitGalleryView: View {
                 TimerGlassBackground()
                 
                 VStack(spacing: 0) {
-                    // Category Tabs
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(HabitCategory.allCases, id: \.self) { category in
-                                CategoryTabButton(
-                                    title: category.rawValue,
-                                    isSelected: selectedCategory == category,
-                                    action: { withAnimation { selectedCategory = category } }
-                                )
+                    // Search Bar
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(searchQuery.isEmpty ? PlanPalette.textSecondary : PlanPalette.accent)
+                            .font(.system(size: 15))
+                        
+                        TextField("Search habits...", text: $searchQuery)
+                            .font(.system(size: 15))
+                            .foregroundColor(PlanPalette.textPrimary)
+                            .focused($isSearchFocused)
+                        
+                        if !searchQuery.isEmpty {
+                            Button(action: { searchQuery = "" }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(PlanPalette.textSecondary)
+                                    .font(.system(size: 14))
                             }
+                            .buttonStyle(.plain)
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(Color.black.opacity(0.15))
-                                .background(.ultraThinMaterial, in: Capsule())
-                        )
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                        )
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
                     }
-                    .scrollBounceBehavior(.basedOnSize)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.black.opacity(0.2))
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(isSearchFocused ? PlanPalette.accent.opacity(0.5) : Color.white.opacity(0.1), lineWidth: 1)
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
                     
-                    // Habits List
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            let habits = habitsForCategory(selectedCategory)
-                            ForEach(habits) { habit in
-                                HabitCard(habit: habit) {
-                                    createHabit(from: habit)
+                    if !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        // Search Results
+                        searchResultsView
+                    } else {
+                        // Category Tabs
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach(HabitCategory.allCases, id: \.self) { category in
+                                    CategoryTabButton(
+                                        title: category.rawValue,
+                                        isSelected: selectedCategory == category,
+                                        action: { withAnimation { selectedCategory = category } }
+                                    )
                                 }
                             }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(Color.black.opacity(0.15))
+                                    .background(.ultraThinMaterial, in: Capsule())
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 80) // Space for bottom button
+                        .scrollBounceBehavior(.basedOnSize)
+                        
+                        // Habits List
+                        ScrollView {
+                            LazyVStack(spacing: 12) {
+                                let habits = habitsForCategory(selectedCategory)
+                                ForEach(habits) { habit in
+                                    HabitCard(habit: habit) {
+                                        createHabit(from: habit)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.top, 8)
+                            .padding(.bottom, 80)
+                        }
                     }
                 }
                 
@@ -80,10 +144,50 @@ struct CreateHabitGalleryView: View {
             }
             .sheet(item: $selectedTemplateItem) { item in
                  CreatePlanItemView(templateItem: item, onSave: { newItem in
-                     _ = newItem // Persisted and scheduled by CreatePlanItemView.
-                     dismiss() // Dismiss gallery after saving the new item
+                     _ = newItem
+                     dismiss()
                  })
             }
+    }
+    
+    @ViewBuilder
+    private var searchResultsView: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                if filteredHabits.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 40))
+                            .foregroundColor(PlanPalette.textSecondary.opacity(0.5))
+                        Text("No habits found")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(PlanPalette.textSecondary)
+                        Text("Try a different search term")
+                            .font(.system(size: 14))
+                            .foregroundColor(PlanPalette.textSecondary.opacity(0.7))
+                    }
+                    .padding(.top, 60)
+                    .frame(maxWidth: .infinity)
+                } else {
+                    ForEach(groupedSearchResults, id: \.category) { group in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(group.category.rawValue)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(PlanPalette.textSecondary)
+                                .padding(.horizontal, 16)
+                                .padding(.top, 12)
+                            
+                            ForEach(group.habits) { habit in
+                                HabitCard(habit: habit) {
+                                    createHabit(from: habit)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.bottom, 80)
+        }
     }
     
     private func habitsForCategory(_ category: HabitCategory) -> [HabitTemplate] {

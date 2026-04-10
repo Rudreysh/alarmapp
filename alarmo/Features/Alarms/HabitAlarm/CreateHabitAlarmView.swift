@@ -22,6 +22,8 @@ struct CreateHabitAlarmView: View {
     @State private var editingMissionIndex: Int?
     @State private var showPenaltySettings = false
     @State private var showingLocalTimePreview = true // Default to floating mode if custom TZ
+    @State private var showAlarmAccessAlert = false
+    @State private var alarmAccessAlertMessage = "Enable notification access for reliable alarm ringing."
     
     // Reminder Pickers
     @State private var showFrequencyPicker = false
@@ -41,10 +43,12 @@ struct CreateHabitAlarmView: View {
         if let alarm = existingAlarm {
             _viewModel = StateObject(wrappedValue: CreateHabitAlarmViewModel(alarm: alarm))
         } else {
+            let now = Date()
+            let calendar = Calendar.current
             _viewModel = StateObject(wrappedValue: CreateHabitAlarmViewModel(
-                defaultHour: defaults.onboardingAlarmHour,
-                defaultMinute: defaults.onboardingAlarmMinute,
-                defaultSecond: defaults.onboardingAlarmSecond,
+                defaultHour: calendar.component(.hour, from: now),
+                defaultMinute: calendar.component(.minute, from: now),
+                defaultSecond: calendar.component(.second, from: now),
                 defaultSoundName: defaults.onboardingSoundName,
                 defaultSoundVolume: defaults.onboardingSoundVolume,
                 defaultWallpaperId: defaults.onboardingWallpaperId
@@ -301,8 +305,8 @@ struct CreateHabitAlarmView: View {
                             }
                         }
 
-                        // Group F: Accountability Shield
-                        SectionHeader(title: "Accountability Shield")
+                        // Group F: Accountability Penalty
+                        SectionHeader(title: "Accountability Penalty")
                         GroupedSettingsCard {
                             Toggle(isOn: $viewModel.penaltyEnabled) {
                                 Text("Enable Penalty")
@@ -363,7 +367,7 @@ struct CreateHabitAlarmView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
-                        saveAlarm()
+                        saveAlarm(ignoreDeliveryWarnings: true)
                     }) {
                         Text("Save")
                             .font(.headline)
@@ -411,6 +415,19 @@ struct CreateHabitAlarmView: View {
         }
         .sheet(isPresented: $showPenaltySettings) {
             PreventPowerOffView()
+        }
+        .alert("Alarm Access Needed", isPresented: $showAlarmAccessAlert) {
+            Button("Save Anyway") {
+                saveAlarm(ignoreDeliveryWarnings: true)
+            }
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text(alarmAccessAlertMessage)
         }
         .sheet(isPresented: $showMissionSelection) {
             MissionSelectionView { mission in
@@ -472,6 +489,37 @@ struct CreateHabitAlarmView: View {
                         type: .step
                     )
                     updatedMission.config = ["stepCount": steps]
+                    updateMission(updatedMission)
+                }
+            } else if mission.type == .householdItemHunt {
+                HouseholdItemHuntSettingsView(
+                    initialFilename: mission.customData["referenceImageFilename"]
+                ) { config in
+                    var updatedMission = AlarmMission(type: .householdItemHunt)
+                    updatedMission.customData["referenceImageFilename"] = config.referenceImageFilename
+                    updateMission(updatedMission)
+                }
+            } else if mission.type == .qrBarcode {
+                let initialBarcodeId = mission.customData["barcodeId"].flatMap(UUID.init(uuidString:))
+                let initialRawValue = mission.customData["barcodeVal"]
+                let initialSymbology = mission.customData["barcodeSym"]
+                QRBarcodeSettingsView(
+                    initialConfig: QRBarcodeMissionConfig(
+                        selectedBarcodeId: initialBarcodeId,
+                        selectedRawValueFallback: initialRawValue,
+                        selectedSymbologyFallback: initialSymbology
+                    )
+                ) { config in
+                    var updatedMission = AlarmMission(type: .qrBarcode)
+                    if let id = config.selectedBarcodeId {
+                        updatedMission.customData["barcodeId"] = id.uuidString
+                    }
+                    if let raw = config.selectedRawValueFallback ?? config.selectedBarcodeId.flatMap(QRBarcodeMissionViewModel.rawValue(for:)) {
+                        updatedMission.customData["barcodeVal"] = raw
+                    }
+                    if let sym = config.selectedSymbologyFallback ?? config.selectedBarcodeId.flatMap({ QRBarcodeMissionViewModel.symbology(for: $0) }) {
+                        updatedMission.customData["barcodeSym"] = sym
+                    }
                     updateMission(updatedMission)
                 }
             } else if mission.type == .shake {
@@ -695,9 +743,25 @@ struct CreateHabitAlarmView: View {
         selectedMissionForConfig = nil
     }
     
-    private func saveAlarm() {
+    private func saveAlarm(ignoreDeliveryWarnings: Bool = false) {
         Task { @MainActor in
-            _ = await notificationManager.ensureAuthorization()
+            let granted = await notificationManager.ensureAuthorization()
+            let delivery = await notificationManager.currentAlarmDeliveryStatus()
+            if !ignoreDeliveryWarnings && (!granted || !delivery.notificationsAuthorized) {
+                alarmAccessAlertMessage = "Alarm notifications are not authorized. Turn on notifications for Alarmo."
+                showAlarmAccessAlert = true
+                return
+            }
+            if !ignoreDeliveryWarnings && !delivery.soundEnabled {
+                alarmAccessAlertMessage = "Notification sounds are turned off for Alarmo. Turn sounds on so alarms ring audibly."
+                showAlarmAccessAlert = true
+                return
+            }
+            if !ignoreDeliveryWarnings && !delivery.timeSensitiveEnabled {
+                alarmAccessAlertMessage = "Time Sensitive notifications are off. Enable them to keep alarm alerts audible during Focus modes."
+                showAlarmAccessAlert = true
+                return
+            }
             var alarmPenaltyRules = settingsStore.penaltyRules
             // Alarm penalty in this mode is snooze-threshold based.
             alarmPenaltyRules.alarmMissionFailTriggersPenalty = false

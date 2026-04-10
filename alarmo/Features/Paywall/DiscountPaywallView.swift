@@ -16,10 +16,17 @@ struct DiscountPaywallView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Background
-            Color.black.opacity(0.8)
-                .ignoresSafeArea()
-                .onTapGesture { onClose() }
+            // Dimmed app-themed backdrop to keep paywall consistent with Alarm/Home screens.
+            ZStack {
+                LinearGradient(
+                    colors: [Colors.bgSecondary, Colors.bgPrimary],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                Color.black.opacity(0.52)
+            }
+            .ignoresSafeArea()
+            .onTapGesture { onClose() }
 
             VStack(spacing: 0) {
                 Spacer()
@@ -55,22 +62,32 @@ struct DiscountPaywallView: View {
                             .cornerRadius(4)
 
                         // Offer Watermark & Title
-                        HStack(spacing: -5) {
+                        HStack(alignment: .lastTextBaseline, spacing: 8) {
                             Text("PRO")
-                                .font(.system(size: 70, weight: .black))
+                                .font(.system(size: 66, weight: .black))
                                 .foregroundColor(Colors.accentRed)
                                 .italic()
-                                .opacity(0.8)
-                            
-                            VStack(alignment: .leading, spacing: -6) {
+                                .opacity(0.86)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+
+                            VStack(alignment: .leading, spacing: 2) {
                                 Text("Limited")
-                                    .font(.system(size: 18, weight: .bold))
+                                    .font(.system(size: 20, weight: .bold))
                                     .foregroundColor(Colors.textSecondary)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.85)
+
                                 Text("Offer")
-                                    .font(.system(size: 38, weight: .black))
+                                    .font(.system(size: 44, weight: .black))
                                     .foregroundColor(.white)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.85)
                             }
+                            // Slight right shift requested for better visual balance.
+                            .offset(x: 6)
                         }
+                        .frame(maxWidth: .infinity, alignment: .center)
 
                         // Compact Yearly Plan Card
                         VStack(spacing: 10) {
@@ -79,7 +96,7 @@ struct DiscountPaywallView: View {
                                     .font(.system(size: 12, weight: .bold))
                                     .foregroundColor(Colors.accentTeal)
                                 Spacer()
-                                Text("Offer")
+                                Text(viewModel.offerBadgeText.uppercased())
                                     .font(.system(size: 11, weight: .black))
                                     .foregroundColor(.black)
                                     .padding(.horizontal, 6)
@@ -89,14 +106,39 @@ struct DiscountPaywallView: View {
                             }
 
                             HStack(alignment: .lastTextBaseline, spacing: 8) {
-                                Text("Localized price")
-                                    .font(.system(size: 32, weight: .black))
+                                if let oldPrice = viewModel.offerOldPriceText, !oldPrice.isEmpty {
+                                    Text(oldPrice)
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(Colors.textTertiary)
+                                        .strikethrough()
+                                }
+
+                                Text(viewModel.offerPriceText)
+                                    .font(.system(size: 34, weight: .black))
                                     .foregroundColor(.white)
-                                
-                                Text("shown at checkout")
+
+                                Text(viewModel.offerPlanName)
                                     .font(.system(size: 16, weight: .medium))
                                     .foregroundColor(Colors.textTertiary)
-                                
+
+                                Spacer()
+                            }
+
+                            HStack(spacing: 6) {
+                                Text(viewModel.offerBillingText)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(Colors.textSecondary)
+
+                                if let trial = viewModel.offerTrialText, !trial.isEmpty {
+                                    Text("•")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(Colors.textTertiary)
+
+                                    Text(trial)
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(Colors.accentTeal)
+                                }
+
                                 Spacer()
                             }
                         }
@@ -140,11 +182,19 @@ struct DiscountPaywallView: View {
                 }
                 .background(
                     ZStack {
-                        Color(red: 0.07, green: 0.08, blue: 0.1)
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.08, green: 0.12, blue: 0.20),
+                                Color(red: 0.05, green: 0.08, blue: 0.14),
+                                Color(red: 0.03, green: 0.06, blue: 0.10)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                         
                         // Top glow
                         Ellipse()
-                            .fill(Colors.accentRed.opacity(0.08))
+                            .fill(Colors.accentTeal.opacity(0.14))
                             .frame(width: 300, height: 100)
                             .blur(radius: 40)
                             .offset(y: -150)
@@ -152,6 +202,9 @@ struct DiscountPaywallView: View {
                 )
                 .clipShape(RoundedCorner(radius: 32, corners: [.topLeft, .topRight]))
             }
+        }
+        .task {
+            await viewModel.loadPricingIfNeeded()
         }
         .transition(.move(edge: .bottom))
         .animation(.spring(response: 0.5, dampingFraction: 0.85), value: viewModel.isExitDiscountDialogPresented)

@@ -151,10 +151,10 @@ struct FAQData {
         FAQItem(category: .troubleshooting, question: "My alarm didn't ring", answer: "1. Check if 'Do Not Disturb' or 'Silent Mode' is enabled.\n2. Go to Settings > Sound Output and verify volume.\n3. Check 'Alarm Optimization' guide in settings to prevent iOS from killing the app."),
         FAQItem(category: .troubleshooting, question: "Alarm volume is too weak", answer: "Go to Settings > Sound Output. Ensure 'Fade-in' is disabled or set to a short duration. Check if 'Loud Effect' is enabled."),
         FAQItem(category: .troubleshooting, question: "Can I dismiss the alarm without unlocking?", answer: "No. iOS requires the screen to be unlocked for interactive tasks like Missions."),
-        FAQItem(category: .troubleshooting, question: "How to prevent app termination?", answer: "Enabled 'Accountability Shield' in settings. This will track if the app is force-closed or the phone is turned off."),
+        FAQItem(category: .troubleshooting, question: "How to prevent app termination?", answer: "Enabled 'Accountability Penalty' in settings. This will track if the app is force-closed or the phone is turned off."),
 
         // Features
-        FAQItem(category: .features, question: "What is Accountability Shield?", answer: "It prevents you from cheating. If you turn off your phone, force-close the app, or delete it while an alarm is active, you will be penalized (lose points or pay a fee)."),
+        FAQItem(category: .features, question: "What is Accountability Penalty?", answer: "It prevents you from cheating. If you turn off your phone, force-close the app, or delete it while an alarm is active, you will be penalized (lose points or pay a fee)."),
         FAQItem(category: .features, question: "How do Missions work?", answer: "Missions (like Math, Memory, Squats) require you to perform an action to dismiss the alarm. You can configure them in the Alarm Editor."),
         FAQItem(category: .features, question: "What happens if I fail a mission?", answer: "The alarm will continue to ring. If you force-close the app to escape, the Penalty Engine will detect it."),
 

@@ -12,6 +12,8 @@ struct PlanItemDetailView: View {
     @State private var showingEditSheet = false
     @State private var showingAddProgress = false
     @State private var tempProgressValue: Double = 0
+    @State private var showCelebration = false
+    @State private var celebrationHideTask: Task<Void, Never>?
     
     var body: some View {
         ZStack {
@@ -22,10 +24,11 @@ struct PlanItemDetailView: View {
                 HStack {
                     Button(action: { dismiss() }) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(PlanPalette.textSecondary)
-                            .planGlassCircle(size: 32, fillOpacity: 0.12)
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(Colors.textPrimary)
+                            .planGlassCircle(size: 40, fillOpacity: 0.18)
                     }
+                    .buttonStyle(.plain)
                     Spacer()
                     Text("Today")
                         .font(.headline)
@@ -36,8 +39,11 @@ struct PlanItemDetailView: View {
                             .font(.system(size: 18, weight: .bold))
                             .foregroundColor(Colors.textPrimary)
                     }
+                    .buttonStyle(.plain)
                 }
-                .padding()
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
                 
                 if isWaterHabit {
                     WaterProgressView(item: item)
@@ -58,9 +64,35 @@ struct PlanItemDetailView: View {
                         .padding(.horizontal, 24)
                     }
 
-                    PrimaryButton(title: "Add Progress", iconName: "plus", style: .blueGlass) {
+                    Button(action: {
                         showingAddProgress = true
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 16, weight: .bold))
+                            Text("Add Progress")
+                                .font(.system(size: 18, weight: .bold))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [itemColor.opacity(0.78), itemColor],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(itemColor.opacity(0.35), lineWidth: 1)
+                        )
+                        .shadow(color: itemColor.opacity(0.35), radius: 12, x: 0, y: 8)
                     }
+                    .buttonStyle(.plain)
                     .padding(.horizontal, 24)
                     
                     Button(action: { showingEditSheet = true }) {
@@ -85,12 +117,27 @@ struct PlanItemDetailView: View {
         .sheet(isPresented: $showingEditSheet) {
             CreatePlanItemView(editingItem: item)
         }
+        .overlay {
+            if showCelebration {
+                HabitGoalCelebrationOverlay(habitTitle: item.title)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: PlanViewModel.habitGoalReachedNotification)) { output in
+            guard let habitId = output.userInfo?["habitId"] as? String,
+                  habitId == item.id.uuidString else { return }
+            triggerCelebration()
+        }
+        .onDisappear {
+            celebrationHideTask?.cancel()
+        }
     }
     
     private func startFocus() {
         pomodoroEngine.stop(reset: true)
         pomodoroEngine.apply(planItem: item)
-        pomodoroEngine.start()
+        if item.type != .habit {
+            pomodoroEngine.start()
+        }
         
         navStore.selectedTab = .timer
         dismiss()
@@ -121,6 +168,22 @@ struct PlanItemDetailView: View {
         default: return .blue
         }
     }
+
+    private func triggerCelebration() {
+        celebrationHideTask?.cancel()
+        withAnimation(.easeOut(duration: 0.25)) {
+            showCelebration = true
+        }
+        celebrationHideTask = Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                withAnimation(.easeOut(duration: 0.55)) {
+                    showCelebration = false
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Subviews
@@ -129,6 +192,7 @@ struct MindfulHabitProgressView: View {
     @Bindable var item: PlanItem
     @State private var pulse = false
     @Environment(\.modelContext) var modelContext
+    private let progressUpdater = PlanViewModel()
     
     var body: some View {
         VStack(spacing: 40) {
@@ -215,61 +279,15 @@ struct MindfulHabitProgressView: View {
     }
     
     private var progress: Double {
-        min(max(currentValue / item.goalValue, 0), 1)
+        item.progressFraction(on: Date())
     }
     
     private func incrementProgress() {
-        let calendar = Calendar.current
-        let amount = incrementAmount
-        
-        if let existingLog = item.completionLogs.first(where: { calendar.isDateInToday($0.date) }) {
-            if item.metricKind == .time {
-                existingLog.durationSeconds = (existingLog.durationSeconds ?? 0) + Int(amount * 60)
-            } else {
-                existingLog.value = (existingLog.value ?? 0) + amount
-            }
-            existingLog.completed = item.isGoalMet()
-        } else {
-            let log = CompletionLog(date: Date(), completed: false)
-            if item.metricKind == .time {
-                log.durationSeconds = Int(amount * 60)
-            } else {
-                log.value = amount
-            }
-            item.completionLogs.append(log)
-            log.completed = item.isGoalMet()
-        }
-        
-        item.updatedAt = Date()
-        try? modelContext.save()
+        progressUpdater.updateHabitValue(item, delta: incrementAmount, context: modelContext)
     }
     
     private func decrementProgress() {
-        let calendar = Calendar.current
-        let amount = incrementAmount
-        
-        if let existingLog = item.completionLogs.first(where: { calendar.isDateInToday($0.date) }) {
-            if item.metricKind == .time {
-                let newSeconds = max((existingLog.durationSeconds ?? 0) - Int(amount * 60), 0)
-                if newSeconds > 0 {
-                    existingLog.durationSeconds = newSeconds
-                    existingLog.completed = item.isGoalMet()
-                } else {
-                    modelContext.delete(existingLog)
-                }
-            } else {
-                let newValue = max((existingLog.value ?? 0) - amount, 0)
-                if newValue > 0 {
-                    existingLog.value = newValue
-                    existingLog.completed = item.isGoalMet()
-                } else {
-                    modelContext.delete(existingLog)
-                }
-            }
-        }
-        
-        item.updatedAt = Date()
-        try? modelContext.save()
+        progressUpdater.updateHabitValue(item, delta: -incrementAmount, context: modelContext)
     }
     
     private var incrementAmount: Double {
@@ -297,110 +315,277 @@ struct MindfulHabitProgressView: View {
 
 struct WaterProgressView: View {
     @Bindable var item: PlanItem
+    @Environment(\.modelContext) var modelContext
+    @State private var dragValue: Double?
+    private let progressUpdater = PlanViewModel()
+    private let circleSize: CGFloat = 300
     
     var body: some View {
         VStack(spacing: 24) {
             Spacer()
             
             ZStack {
-                // Liquid Animations would go here
-                AnimatedWaveView(progress: progress)
-                    .frame(height: 300)
+                Circle()
+                    .stroke(Color.white.opacity(0.12), lineWidth: 14)
+                    .frame(width: circleSize + 18, height: circleSize + 18)
+
+                AnimatedWaveView(progress: displayedProgress)
+                    .frame(width: circleSize, height: circleSize)
                     .clipShape(Circle())
                     .overlay(Circle().stroke(Colors.cardStroke, lineWidth: 2))
-                    .padding(40)
+                    .overlay {
+                        GeometryReader { geo in
+                            let radius = min(geo.size.width, geo.size.height) / 2 - 10
+                            let centerX = geo.size.width / 2
+                            let centerY = geo.size.height / 2
+                            let angle = (displayedProgress * 360) - 90
+                            let radians = angle * .pi / 180
+                            let x = centerX + cos(radians) * radius
+                            let y = centerY + sin(radians) * radius
+
+                            Circle()
+                                .fill(Colors.accentBlue)
+                                .frame(width: 20, height: 20)
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white.opacity(0.7), lineWidth: 2)
+                                )
+                                .shadow(color: Colors.accentBlue.opacity(0.6), radius: 6, x: 0, y: 0)
+                                .position(x: x, y: y)
+                        }
+                    }
+                    .contentShape(Circle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                dragValue = valueFor(location: value.location, in: circleSize)
+                            }
+                            .onEnded { _ in
+                                commitDraggedValue()
+                            }
+                    )
+                    .animation(.interactiveSpring(response: 0.2, dampingFraction: 0.82), value: displayedProgress)
                 
                 VStack(spacing: 8) {
-                    Text("\(currentValue.formatted(.number.precision(.fractionLength(0...2))))/\(item.goalValue.formatted(.number.precision(.fractionLength(0...2))))\(item.goalUnit)")
+                    Text("\(formatMetric(displayedValue))/\(formatMetric(item.goalValue)) \(item.goalUnit)")
                         .font(.system(size: 32, weight: .regular, design: .monospaced))
                         .kerning(1.5)
                         .foregroundColor(Colors.textPrimary)
                     
-                    Text("Water intake & your goal")
+                    Text("Slide on circle to adjust")
                         .font(.subheadline)
                         .foregroundColor(Colors.textSecondary)
                 }
             }
+            .padding(.horizontal, 20)
+
+            HStack(spacing: 16) {
+                Button(action: decrementProgress) {
+                    Label("Subtract", systemImage: "minus")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(Colors.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(Color.white.opacity(0.10))
+                        )
+                }
+                .disabled(currentValue <= 0)
+                .opacity(currentValue <= 0 ? 0.32 : 1.0)
+
+                Button(action: incrementProgress) {
+                    Label("Add", systemImage: "plus")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.black.opacity(0.92))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(Colors.accentBlue)
+                        )
+                }
+            }
+            .padding(.horizontal, 26)
             
             Spacer()
         }
     }
     
     private var currentValue: Double {
-        item.completionLogs
-            .filter { Calendar.current.isDateInToday($0.date) }
-            .reduce(0) { $0 + ($1.value ?? ($1.completed ? item.goalValue : 0)) }
+        item.currentValue(on: Date())
     }
     
-    private var progress: Double {
-        let p = currentValue / item.goalValue
-        return min(max(p, 0), 1)
+    private var displayedValue: Double {
+        max(0, min(dragValue ?? currentValue, item.goalValue))
+    }
+
+    private var displayedProgress: Double {
+        guard item.goalValue > 0 else { return 0 }
+        return max(0, min(displayedValue / item.goalValue, 1))
+    }
+
+    private var incrementAmount: Double {
+        let unit = item.goalUnit.lowercased()
+        if unit == "ml" { return 250 }
+        if unit == "oz" { return 8 }
+        if unit.contains("cup") { return 1 }
+        return 1
+    }
+
+    private func incrementProgress() {
+        progressUpdater.updateHabitValue(item, delta: incrementAmount, context: modelContext)
+    }
+
+    private func decrementProgress() {
+        progressUpdater.updateHabitValue(item, delta: -incrementAmount, context: modelContext)
+    }
+
+    private func valueFor(location: CGPoint, in size: CGFloat) -> Double {
+        let center = CGPoint(x: size / 2, y: size / 2)
+        let dx = location.x - center.x
+        let dy = location.y - center.y
+
+        guard dx != 0 || dy != 0 else { return currentValue }
+
+        var angle = atan2(dy, dx) + (.pi / 2)
+        if angle < 0 {
+            angle += .pi * 2
+        }
+
+        let progress = max(0, min(1, angle / (.pi * 2)))
+        return roundForDisplay(progress * item.goalValue)
+    }
+
+    private func commitDraggedValue() {
+        guard let dragValue else { return }
+        defer { self.dragValue = nil }
+
+        let delta = dragValue - currentValue
+        guard abs(delta) > 0.0001 else { return }
+        progressUpdater.updateHabitValue(item, delta: delta, context: modelContext)
+    }
+
+    private func roundForDisplay(_ value: Double) -> Double {
+        let unit = item.goalUnit.lowercased()
+        if unit == "ml" {
+            return (value / 10).rounded() * 10
+        }
+        if unit == "oz" {
+            return (value * 2).rounded() / 2
+        }
+        return value.rounded()
+    }
+
+    private func formatMetric(_ value: Double) -> String {
+        let unit = item.goalUnit.lowercased()
+        if unit == "ml" || unit.contains("step") {
+            return Int(value.rounded()).formatted(.number.grouping(.automatic))
+        }
+        return value.formatted(.number.precision(.fractionLength(0...2)))
     }
 }
 
 struct GenericHabitProgressView: View {
     @Bindable var item: PlanItem
     @Environment(\.modelContext) var modelContext
+    private let progressUpdater = PlanViewModel()
     
     var body: some View {
-        VStack(spacing: 32) {
-            Spacer().frame(height: 40)
-            
+        VStack(spacing: 24) {
+            Spacer().frame(height: 18)
+
             ZStack {
                 Circle()
-                    .stroke(Colors.bgSecondary, lineWidth: 20)
-                    .frame(width: 200, height: 200)
-                
+                    .stroke(itemColor.opacity(0.18), lineWidth: 18)
+                    .frame(width: 222, height: 222)
+
                 Circle()
                     .trim(from: 0, to: progress)
-                    .stroke(itemColor, style: StrokeStyle(lineWidth: 20, lineCap: .round))
-                    .frame(width: 200, height: 200)
+                    .stroke(
+                        LinearGradient(
+                            colors: [itemColor.opacity(0.55), itemColor, itemColor.opacity(0.82)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        style: StrokeStyle(lineWidth: 18, lineCap: .round, lineJoin: .round)
+                    )
+                    .frame(width: 222, height: 222)
                     .rotationEffect(.degrees(-90))
-                
-                VStack(spacing: 4) {
-                    Text("\(progressValue.formatted(.number.precision(.fractionLength(0...2))))")
-                        .font(.system(size: 44, weight: .regular, design: .monospaced))
-                        .kerning(2)
+                    .shadow(color: itemColor.opacity(0.28), radius: 16, x: 0, y: 8)
+
+                VStack(spacing: 6) {
+                    Image(systemName: ringSymbol)
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundColor(itemColor)
+
+                    Text("\(Int((progress * 100).rounded()))%")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
                         .foregroundColor(Colors.textPrimary)
-                    
-                    Text("\(item.goalUnit)")
-                        .font(.headline)
-                        .foregroundColor(Colors.textSecondary)
-                    
-                    Text("of \(item.goalValue.formatted(.number.precision(.fractionLength(0...2)))) goal")
-                        .font(.caption)
+
+                    Text("completed")
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
                 }
-                
-                // Plus and Minus buttons inside the circle
-                VStack {
-                    Spacer()
-                    HStack(spacing: 80) {
-                        // Minus Button
-                        Button(action: decrementProgress) {
-                            Image(systemName: "minus")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(Colors.textPrimary)
-                                .frame(width: 38, height: 38)
-                                .background(Circle().fill(Color.white.opacity(0.12)))
-                        }
-                        .disabled(progressValue <= 0)
-                        .opacity(progressValue <= 0 ? 0.3 : 1.0)
-                        
-                        // Plus Button
-                        Button(action: incrementProgress) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.black)
-                                .frame(width: 38, height: 38)
-                                .background(Circle().fill(itemColor))
-                        }
-                    }
-                    .padding(.bottom, 20)
-                }
-                .frame(width: 200, height: 200)
             }
-            
+
+            VStack(spacing: 8) {
+                Text(formattedProgressValue)
+                    .font(.system(size: 46, weight: .heavy, design: .rounded))
+                    .foregroundColor(Colors.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+
+                Text("\(item.goalUnit) • of \(formattedGoalValue) goal")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Colors.textSecondary)
+
+                Text(progressStatusText)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(progress >= 1 ? itemColor : Colors.textSecondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 18)
+            .padding(.horizontal, 20)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.white.opacity(0.06))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+            )
+            .padding(.horizontal, 26)
+
+            HStack(spacing: 16) {
+                Button(action: decrementProgress) {
+                    Label("Subtract", systemImage: "minus")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(Colors.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(Color.white.opacity(0.10))
+                        )
+                }
+                .disabled(progressValue <= 0)
+                .opacity(progressValue <= 0 ? 0.32 : 1.0)
+
+                Button(action: incrementProgress) {
+                    Label("Add", systemImage: "plus")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.black.opacity(0.92))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(itemColor)
+                        )
+                }
+            }
+            .padding(.horizontal, 26)
+
             VStack(alignment: .leading, spacing: 12) {
                 Text(item.title)
                     .font(.title2)
@@ -426,44 +611,41 @@ struct GenericHabitProgressView: View {
     }
     
     private var progress: Double {
-        min(max(progressValue / item.goalValue, 0), 1)
+        item.progressFraction(on: Date())
+    }
+
+    private var ringSymbol: String {
+        let unit = item.goalUnit.lowercased()
+        if unit.contains("step") { return "figure.walk" }
+        if unit.contains("min") || unit.contains("hour") || item.metricKind == .time { return "clock.fill" }
+        return item.iconName
+    }
+
+    private var progressStatusText: String {
+        if progress >= 1 {
+            return "Goal reached today"
+        }
+        return "\(formattedRemainingValue) \(item.goalUnit) remaining"
+    }
+
+    private var formattedProgressValue: String {
+        formatMetric(progressValue)
+    }
+
+    private var formattedGoalValue: String {
+        formatMetric(item.goalValue)
+    }
+
+    private var formattedRemainingValue: String {
+        formatMetric(max(item.goalValue - progressValue, 0))
     }
     
     private func incrementProgress() {
-        let calendar = Calendar.current
-        let amount = incrementAmount
-        
-        if let existingLog = item.completionLogs.first(where: { calendar.isDateInToday($0.date) }) {
-            existingLog.value = (existingLog.value ?? 0) + amount
-            existingLog.completed = item.isGoalMet()
-        } else {
-            let log = CompletionLog(date: Date(), completed: false)
-            log.value = amount
-            item.completionLogs.append(log)
-            log.completed = item.isGoalMet()
-        }
-        
-        item.updatedAt = Date()
-        try? modelContext.save()
+        progressUpdater.updateHabitValue(item, delta: incrementAmount, context: modelContext)
     }
     
     private func decrementProgress() {
-        let calendar = Calendar.current
-        let amount = incrementAmount
-        
-        if let existingLog = item.completionLogs.first(where: { calendar.isDateInToday($0.date) }) {
-            let newValue = max((existingLog.value ?? 0) - amount, 0)
-            if newValue > 0 {
-                existingLog.value = newValue
-                existingLog.completed = item.isGoalMet()
-            } else {
-                // Remove the log if value reaches 0
-                modelContext.delete(existingLog)
-            }
-        }
-        
-        item.updatedAt = Date()
-        try? modelContext.save()
+        progressUpdater.updateHabitValue(item, delta: -incrementAmount, context: modelContext)
     }
     
     private var incrementAmount: Double {
@@ -474,6 +656,13 @@ struct GenericHabitProgressView: View {
         if unit.contains("min") { return 5 }
         if unit.contains("hr") || unit.contains("hour") { return 0.25 }
         return 1
+    }
+
+    private func formatMetric(_ value: Double) -> String {
+        if item.goalUnit.lowercased().contains("step") {
+            return Int(value.rounded()).formatted(.number.grouping(.automatic))
+        }
+        return value.formatted(.number.precision(.fractionLength(0...2)))
     }
     
     private var itemColor: Color {
@@ -549,6 +738,7 @@ struct AddHabitProgressSheet: View {
     @Bindable var item: PlanItem
     @Environment(\.dismiss) var dismiss
     @Environment(\.modelContext) var modelContext
+    private let progressUpdater = PlanViewModel()
     
     @State private var value: Double = 0
     @State private var stringValue: String = "0"
@@ -696,28 +886,7 @@ struct AddHabitProgressSheet: View {
     
     private func saveProgress() {
         guard let val = Double(stringValue), val > 0 else { return }
-        
-        let calendar = Calendar.current
-        if let existingLog = item.completionLogs.first(where: { calendar.isDateInToday($0.date) }) {
-            if item.metricKind == .time {
-                // val is in minutes, convert to seconds
-                existingLog.durationSeconds = (existingLog.durationSeconds ?? 0) + Int(val * 60)
-            } else {
-                existingLog.value = (existingLog.value ?? 0) + val
-            }
-            existingLog.completed = item.isGoalMet()
-        } else {
-            let log = CompletionLog(date: Date(), completed: false)
-            if item.metricKind == .time {
-                log.durationSeconds = Int(val * 60)
-            } else {
-                log.value = val
-            }
-            item.completionLogs.append(log)
-            log.completed = item.isGoalMet()
-        }
-        
-        try? modelContext.save()
+        progressUpdater.updateHabitValue(item, delta: val, context: modelContext)
         dismiss()
     }
     

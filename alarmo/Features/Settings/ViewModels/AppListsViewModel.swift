@@ -66,7 +66,7 @@ final class AppListsViewModel: ObservableObject {
     }
 
     func deleteList(_ list: AppList, context: ModelContext) {
-        let deletingSelected = selectedListID == list.id
+        let deletingSelected = selectedListID == list.id || settings.selectedBlockListId == list.id.uuidString
         context.delete(list)
         try? context.save()
 

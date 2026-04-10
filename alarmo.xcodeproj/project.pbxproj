@@ -463,6 +463,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S8C43TQHMP;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = /Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -480,6 +481,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S8C43TQHMP;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = /Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoShieldUI/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -496,7 +498,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S8C43TQHMP;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = /Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -514,7 +518,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S8C43TQHMP;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = /Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoShieldUI/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -652,9 +658,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = alarmo/alarmo.entitlements;
+				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
+				CODE_SIGN_ENTITLEMENTS = alarmo/alarmoDebug.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S8C43TQHMP;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Alarmo needs access to your media library to import custom alarm sounds.";
@@ -697,6 +705,7 @@
 				CODE_SIGN_ENTITLEMENTS = alarmo/alarmo.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S8C43TQHMP;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Alarmo needs access to your media library to import custom alarm sounds.";
@@ -737,6 +746,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S8C43TQHMP;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
@@ -778,6 +788,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S8C43TQHMP;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;

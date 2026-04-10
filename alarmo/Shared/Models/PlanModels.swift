@@ -195,7 +195,6 @@ final class PlanItem {
         self.reminderEnabled = false
         self.reminderTimes = []
         self.intervalTimerEnabled = false
-        self.intervalTimerEnabled = false
         self.mission = mission
     }
     
@@ -259,6 +258,21 @@ final class PlanItem {
         switch habitIntent ?? .build {
         case .build: return val >= goalValue
         case .quit: return val <= goalValue
+        }
+    }
+
+    func progressFraction(on date: Date = Date()) -> Double {
+        let current = currentValue(on: date)
+        let target = goalValue
+
+        switch habitIntent ?? .build {
+        case .build:
+            guard target > 0 else { return current > 0 ? 1 : 0 }
+            return min(max(current / target, 0), 1)
+        case .quit:
+            guard target > 0 else { return current <= 0 ? 1 : 0 }
+            guard current > 0 else { return 1 }
+            return min(max(target / current, 0), 1)
         }
     }
 }
@@ -325,9 +339,15 @@ enum ActivityDomain: String, Codable, CaseIterable {
     case habit
     case task
     case alarm
+    case pomodoro
+    case stopwatch
 }
 
 enum ActivityStatus: String, Codable {
+    case created
+    case started
+    case completed
+    case interrupted
     case success
     case fail
     case skipped

@@ -114,6 +114,19 @@ class MultiTimerStore: ObservableObject {
         timers.filter { $0.state == .paused }.forEach { $0.resume() }
     }
 
+    func startOrResumeAll() {
+        timers.forEach { timer in
+            switch timer.state {
+            case .idle:
+                timer.start()
+            case .paused:
+                timer.resume()
+            case .running:
+                break
+            }
+        }
+    }
+
     func resetAll() {
         timers.forEach { $0.reset() }
     }

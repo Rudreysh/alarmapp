@@ -133,7 +133,7 @@ final class AccountabilityShieldEngine: ObservableObject {
         }
         #endif
         guard settings.accountabilityEnabled else {
-            print("[Shield] Skip: Accountability Shield disabled globally")
+            print("[Shield] Skip: Accountability Penalty disabled globally")
             return false
         }
         guard alarm.penaltyEnabled, session.penaltyEnabled else {

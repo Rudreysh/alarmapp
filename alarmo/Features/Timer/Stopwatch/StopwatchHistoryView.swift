@@ -23,6 +23,7 @@ struct StopwatchHistoryView: View {
                 }
             } else {
                 // Weekly Highlights
+                let weeklyDelta = weeklyDeltaLabel()
                 VStack(spacing: 4) {
                     Text("THIS WEEK")
                         .font(.system(size: 12, weight: .bold))
@@ -32,9 +33,9 @@ struct StopwatchHistoryView: View {
                         .font(.system(size: 32, weight: .bold, design: .monospaced))
                         .foregroundColor(TimerPalette.accent)
                     
-                    Text("+12% vs last week") // Placeholder stat
+                    Text(weeklyDelta.text)
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Color(red: 0.20, green: 0.78, blue: 0.45))
+                        .foregroundColor(weeklyDelta.color)
                 }
                 .padding(.vertical, 20)
                 .frame(maxWidth: .infinity)
@@ -49,7 +50,7 @@ struct StopwatchHistoryView: View {
                             .listRowSeparator(.hidden)
                     }
                     .onDelete { indexSet in
-                        engine.sessions.remove(atOffsets: indexSet)
+                        engine.deleteSessions(at: indexSet)
                     }
                 }
                 .listStyle(.plain)
@@ -82,6 +83,34 @@ struct StopwatchHistoryView: View {
             .reduce(0) { $0 + $1.totalDuration }
         
         return swFormatTime(weeklyTotal, showHundredths: false)
+    }
+
+    private func weeklyDeltaLabel() -> (text: String, color: Color) {
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)) ?? now
+        let startOfLastWeek = calendar.date(byAdding: .weekOfYear, value: -1, to: startOfWeek) ?? startOfWeek
+
+        let thisWeek = engine.sessions
+            .filter { $0.startedAt >= startOfWeek }
+            .reduce(0) { $0 + $1.totalDuration }
+
+        let lastWeek = engine.sessions
+            .filter { $0.startedAt >= startOfLastWeek && $0.startedAt < startOfWeek }
+            .reduce(0) { $0 + $1.totalDuration }
+
+        if lastWeek <= 0 {
+            if thisWeek > 0 {
+                return ("New activity this week", Color(red: 0.20, green: 0.78, blue: 0.45))
+            }
+            return ("No activity yet", Colors.textTertiary)
+        }
+
+        let delta = ((thisWeek - lastWeek) / lastWeek) * 100
+        let sign = delta >= 0 ? "+" : ""
+        let label = "\(sign)\(Int(delta.rounded()))% vs last week"
+        let labelColor = delta >= 0 ? Color(red: 0.20, green: 0.78, blue: 0.45) : Color(red: 0.90, green: 0.25, blue: 0.25)
+        return (label, labelColor)
     }
 }
 
@@ -141,8 +170,8 @@ struct SessionRow: View {
                 Label("Share Session", systemImage: "square.and.arrow.up")
             }
             
-            Button("Export as CSV") {
-                // Placeholder for CSV export
+            ShareLink(item: generateCSVText()) {
+                Label("Export as CSV", systemImage: "tablecells")
             }
         }
     }
@@ -158,5 +187,15 @@ struct SessionRow: View {
         }
         text += "\nTracked with Alarmo"
         return text
+    }
+
+    private func generateCSVText() -> String {
+        let dateText = session.startedAt.formatted(date: .numeric, time: .shortened)
+        let durationText = swFormatTime(session.totalDuration, showHundredths: false)
+        let bestLapText = session.bestLap.map { swFormatTime($0, showHundredths: true) } ?? ""
+        return """
+        label,started_at,total_duration,lap_count,best_lap
+        \(session.label),\(dateText),\(durationText),\(session.lapCount),\(bestLapText)
+        """
     }
 }

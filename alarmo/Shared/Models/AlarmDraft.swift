@@ -29,7 +29,7 @@ struct AlarmDraft: Equatable {
     var dailyMotivationEnabled: Bool = false
     var missions: [AlarmMission] = []
     
-    // Accountability Shield
+    // Accountability Penalty
     var accountabilityEnabled: Bool = false
     var blockAppsEnabled: Bool = false
     var blockedSelectionData: Data?

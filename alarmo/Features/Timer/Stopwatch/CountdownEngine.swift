@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UserNotifications
 
 // MARK: - Countdown Preset Model
 
@@ -60,11 +61,15 @@ class CountdownEngine: ObservableObject {
     private var startDate: Date?
     private var remainingAtResume: TimeInterval
     private var timerCancellable: AnyCancellable?
+    private var notificationActionCancellables = Set<AnyCancellable>()
+    private let notificationOrchestrator = NotificationOrchestrator.shared
+    private var pendingFinishNotificationId: String?
 
     init(preset: CountdownPreset) {
         self.preset = preset
         self.remaining = preset.duration
         self.remainingAtResume = preset.duration
+        bindNotificationActions()
     }
 
     var progress: Double {
@@ -74,9 +79,15 @@ class CountdownEngine: ObservableObject {
 
     func start() {
         guard state != .running else { return }
+        if state == .finished || remaining <= 0 {
+            remaining = preset.duration
+            remainingAtResume = preset.duration
+            currentRepeat = 1
+        }
         remainingAtResume = remaining
         startDate = Date()
         state = .running
+        scheduleFinishNotification(after: remaining)
         startTick()
     }
 
@@ -87,10 +98,12 @@ class CountdownEngine: ObservableObject {
         remainingAtResume = remaining
         state = .paused
         timerCancellable?.cancel()
+        cancelFinishNotification()
     }
 
     func reset() {
         timerCancellable?.cancel()
+        cancelFinishNotification()
         remaining = preset.duration
         remainingAtResume = preset.duration
         currentRepeat = 1
@@ -108,6 +121,7 @@ class CountdownEngine: ObservableObject {
         remainingAtResume = remaining
         if state == .running {
             startDate = Date()
+            scheduleFinishNotification(after: remaining)
         }
     }
 
@@ -130,6 +144,7 @@ class CountdownEngine: ObservableObject {
 
     private func handleFinished() {
         timerCancellable?.cancel()
+        cancelFinishNotification()
         UINotificationFeedbackGenerator().notificationOccurred(.success)
 
         let maxRepeats = preset.repeatCount
@@ -138,14 +153,96 @@ class CountdownEngine: ObservableObject {
         if preset.autoRepeat && (infinite || currentRepeat < maxRepeats) {
             currentRepeat += 1
             onRepeat?(currentRepeat)
+            publishRepeatCycleNotification()
             remaining = preset.duration
             remainingAtResume = preset.duration
             startDate = Date()
+            scheduleFinishNotification(after: remaining)
             startTick()
         } else {
             state = .finished
+            publishFinishedNotification()
             onComplete?()
         }
+    }
+
+    private func scheduleFinishNotification(after seconds: TimeInterval) {
+        cancelFinishNotification()
+        guard seconds > 0 else { return }
+        let id = "\(AppNotificationIdentifier.countdownFinish)-\(preset.id.uuidString)-\(UUID().uuidString)"
+        pendingFinishNotificationId = id
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: seconds, repeats: false)
+        notificationOrchestrator.schedule(
+            identifier: id,
+            scenario: .countdownFinished,
+            trigger: trigger,
+            context: AppNotificationContext(itemName: preset.name),
+            categoryIdentifier: AppNotificationCategory.countdown,
+            userInfo: [
+                "scenario": AppNotificationScenario.countdownFinished.rawValue,
+                "itemName": preset.name
+            ],
+            sound: .default
+        )
+    }
+
+    private func cancelFinishNotification() {
+        guard let id = pendingFinishNotificationId else { return }
+        notificationOrchestrator.cancel(identifiers: [id])
+        pendingFinishNotificationId = nil
+    }
+
+    private func publishFinishedNotification() {
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        notificationOrchestrator.schedule(
+            identifier: "alarmo.countdown.finished-now-\(UUID().uuidString)",
+            scenario: .countdownFinished,
+            trigger: trigger,
+            context: AppNotificationContext(itemName: preset.name),
+            categoryIdentifier: AppNotificationCategory.countdown,
+            userInfo: [
+                "scenario": AppNotificationScenario.countdownFinished.rawValue,
+                "itemName": preset.name
+            ],
+            sound: .default
+        )
+    }
+
+    private func publishRepeatCycleNotification() {
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        notificationOrchestrator.schedule(
+            identifier: "alarmo.countdown.repeat-\(UUID().uuidString)",
+            scenario: .countdownCycleRepeat,
+            trigger: trigger,
+            context: AppNotificationContext(itemName: preset.name),
+            categoryIdentifier: AppNotificationCategory.countdown,
+            userInfo: [
+                "scenario": AppNotificationScenario.countdownCycleRepeat.rawValue,
+                "itemName": preset.name
+            ],
+            sound: .default
+        )
+    }
+
+    private func bindNotificationActions() {
+        NotificationCenter.default.publisher(for: .countdownAddMinuteRequestedFromNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                let updated = Int(self.remaining.rounded(.up)) + 60
+                self.adjustRemainingTime(to: max(1, updated))
+                if self.state == .finished {
+                    self.state = .paused
+                }
+            }
+            .store(in: &notificationActionCancellables)
+
+        NotificationCenter.default.publisher(for: .countdownStopRequestedFromNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.reset()
+            }
+            .store(in: &notificationActionCancellables)
     }
 }
 

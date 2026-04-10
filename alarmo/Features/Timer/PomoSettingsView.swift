@@ -119,8 +119,8 @@ struct PomoSettingsView: View {
                             }
                         }
 
-                        // Section 4: Accountability Shield (PRO)
-                        FocusSettingsSection(title: "Accountability Shield (PRO)") {
+                        // Section 4: Accountability Penalty (PRO)
+                        FocusSettingsSection(title: "Accountability Penalty (PRO)") {
                             FocusSettingsToggleRow(
                                 title: "Enable for Pomodoro focus",
                                 isOn: proBinding($settingsStore.accountabilityEnabled)

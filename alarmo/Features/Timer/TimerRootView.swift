@@ -1,10 +1,16 @@
 import SwiftUI
+import SwiftData
 
 struct TimerRootView: View {
     @StateObject private var viewModel: TimerViewModel
+    @StateObject private var stopwatchEngine: StopwatchEngine
+    @StateObject private var multiTimerStore: MultiTimerStore
+    @StateObject private var countdownStore: CountdownPresetStore
+    @StateObject private var countdownEngine: CountdownEngine
     @EnvironmentObject var taskStore: TaskStore
     @EnvironmentObject var pomodoroEngine: PomodoroEngine
     @EnvironmentObject var navStore: NavigationStore
+    @Environment(\.modelContext) private var modelContext
     let preferences: AppPreferences
     let onClose: () -> Void
     @State private var showQuickActions = false
@@ -14,6 +20,13 @@ struct TimerRootView: View {
         self.preferences = preferences
         self.onClose = onClose
         self._viewModel = StateObject(wrappedValue: TimerViewModel(preferences: preferences))
+        self._stopwatchEngine = StateObject(wrappedValue: StopwatchEngine(preferences: preferences))
+        self._multiTimerStore = StateObject(wrappedValue: MultiTimerStore())
+        let presetStore = CountdownPresetStore()
+        self._countdownStore = StateObject(wrappedValue: presetStore)
+        self._countdownEngine = StateObject(
+            wrappedValue: CountdownEngine(preset: presetStore.presets.first ?? CountdownPreset.defaults[0])
+        )
         // Taskstore and Engine are now environment
     }
     
@@ -122,7 +135,14 @@ struct TimerRootView: View {
                     PomoTimerView(viewModel: viewModel, engine: pomodoroEngine)
                         .transition(.asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .trailing)))
                 } else {
-                    StopwatchView(viewModel: viewModel, preferences: preferences)
+                    StopwatchView(
+                        viewModel: viewModel,
+                        preferences: preferences,
+                        swEngine: stopwatchEngine,
+                        multiStore: multiTimerStore,
+                        countdownStore: countdownStore,
+                        countdownEngine: countdownEngine
+                    )
                         .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
                 }
             }
@@ -179,6 +199,7 @@ struct TimerRootView: View {
             }
         }
         .onAppear {
+            bindStopwatchLifecycle()
             if !preferences.hasSeenTimerTooltip {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                     withAnimation {
@@ -276,5 +297,38 @@ struct TimerRootView: View {
             .frame(height: 50)
         }
         .buttonStyle(.plain)
+    }
+
+    private func bindStopwatchLifecycle() {
+        stopwatchEngine.onSessionStarted = { startedAt in
+            let event = ActivityEvent(
+                domain: .stopwatch,
+                entityId: UUID(),
+                timestampUTC: startedAt,
+                status: .started
+            )
+            modelContext.insert(event)
+            try? modelContext.save()
+        }
+
+        stopwatchEngine.onSessionCompleted = { elapsed, session in
+            PointsService.shared.stopwatchSessionCompleted(
+                durationSeconds: Int(elapsed),
+                sessionLabel: session.label
+            )
+
+            let event = ActivityEvent(
+                domain: .stopwatch,
+                entityId: session.id,
+                timestampUTC: session.endedAt,
+                status: .completed,
+                value: elapsed,
+                metadata: [
+                    "lapCount": "\(session.lapCount)"
+                ]
+            )
+            modelContext.insert(event)
+            try? modelContext.save()
+        }
     }
 }

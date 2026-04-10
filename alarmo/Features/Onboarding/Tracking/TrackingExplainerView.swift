@@ -31,7 +31,7 @@ struct TrackingExplainerView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                ProgressHeader(step: 4, total: AppConstants.onboardingTotalSteps)
+                ProgressHeader(step: 11, total: AppConstants.onboardingTotalSteps)
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.m)
                     .padding(.bottom, Spacing.s)

@@ -3,6 +3,7 @@ import Combine
 
 protocol AppPreferencesProtocol: AnyObject {
     var onboardingCompleted: Bool { get set }
+    var forceShowOnboardingNextLaunch: Bool { get set }
     var hasShownFirstHomeDiscountFlow: Bool { get set }
     var hasTappedRemoveAdsBefore: Bool { get set }
     var hasSeenPaywallAtLeastOnce: Bool { get set }
@@ -82,11 +83,12 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
             print("[AppPreferences] onboardingCompleted changed to: \(onboardingCompleted)")
         } 
     }
+    @Published var forceShowOnboardingNextLaunch: Bool { didSet { defaults.set(forceShowOnboardingNextLaunch, forKey: Keys.forceShowOnboardingNextLaunch) } }
     @Published var hasShownFirstHomeDiscountFlow: Bool { didSet { defaults.set(hasShownFirstHomeDiscountFlow, forKey: Keys.hasShownFirstHomeDiscountFlow) } }
     @Published var hasTappedRemoveAdsBefore: Bool { didSet { defaults.set(hasTappedRemoveAdsBefore, forKey: Keys.hasTappedRemoveAdsBefore) } }
     @Published var hasSeenPaywallAtLeastOnce: Bool { didSet { defaults.set(hasSeenPaywallAtLeastOnce, forKey: Keys.hasSeenPaywallAtLeastOnce) } }
     @Published var devAlwaysShowUpsell: Bool { didSet { defaults.set(devAlwaysShowUpsell, forKey: Keys.devAlwaysShowUpsell) } }
-    @Published var devAlwaysShowOnboarding: Bool
+    @Published var devAlwaysShowOnboarding: Bool { didSet { defaults.set(devAlwaysShowOnboarding, forKey: Keys.devAlwaysShowOnboarding) } }
     @Published var hasSeenDiscountExitDialog: Bool { didSet { defaults.set(hasSeenDiscountExitDialog, forKey: Keys.hasSeenDiscountExitDialog) } }
     @Published var hasTappedGetOfferFromDiscount: Bool { didSet { defaults.set(hasTappedGetOfferFromDiscount, forKey: Keys.hasTappedGetOfferFromDiscount) } }
     @Published var hasAnyAlarm: Bool { didSet { defaults.set(hasAnyAlarm, forKey: Keys.hasAnyAlarm) } }
@@ -156,7 +158,19 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        let currentBuildVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+        let previousBuildVersion = defaults.string(forKey: Keys.lastSeenBuildVersion)
+        if let currentBuildVersion,
+           let previousBuildVersion,
+           previousBuildVersion != currentBuildVersion {
+            defaults.set(true, forKey: Keys.forceShowOnboardingNextLaunch)
+        }
+        if let currentBuildVersion {
+            defaults.set(currentBuildVersion, forKey: Keys.lastSeenBuildVersion)
+        }
+
         self.onboardingCompleted = defaults.bool(forKey: Keys.onboardingCompleted)
+        self.forceShowOnboardingNextLaunch = defaults.bool(forKey: Keys.forceShowOnboardingNextLaunch)
         self.hasShownFirstHomeDiscountFlow = defaults.bool(forKey: Keys.hasShownFirstHomeDiscountFlow)
         self.hasTappedRemoveAdsBefore = defaults.bool(forKey: Keys.hasTappedRemoveAdsBefore)
         self.hasSeenPaywallAtLeastOnce = defaults.bool(forKey: Keys.hasSeenPaywallAtLeastOnce)
@@ -167,7 +181,7 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
             defaults.set(Self.debugDefaultOnboardingValue, forKey: Keys.devAlwaysShowOnboarding)
         }
         self.devAlwaysShowUpsell = defaults.bool(forKey: Keys.devAlwaysShowUpsell)
-        self.devAlwaysShowOnboarding = Self.debugDefaultOnboardingValue
+        self.devAlwaysShowOnboarding = defaults.bool(forKey: Keys.devAlwaysShowOnboarding)
         self.hasSeenDiscountExitDialog = defaults.bool(forKey: Keys.hasSeenDiscountExitDialog)
         self.hasTappedGetOfferFromDiscount = defaults.bool(forKey: Keys.hasTappedGetOfferFromDiscount)
         self.hasAnyAlarm = defaults.bool(forKey: Keys.hasAnyAlarm)
@@ -295,6 +309,8 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
 
     private enum Keys {
         static let onboardingCompleted = "alarmo.onboarding.completed"
+        static let forceShowOnboardingNextLaunch = "alarmo.onboarding.forceShowNextLaunch"
+        static let lastSeenBuildVersion = "alarmo.app.lastSeenBuildVersion"
         static let hasShownFirstHomeDiscountFlow = "alarmo.home.firstDiscountShown"
         static let hasTappedRemoveAdsBefore = "alarmo.removeAds.tapped"
         static let hasSeenPaywallAtLeastOnce = "alarmo.paywall.seen"

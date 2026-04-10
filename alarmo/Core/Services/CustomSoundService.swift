@@ -141,6 +141,31 @@ class CustomSoundService: NSObject, ObservableObject {
         return dir.appendingPathComponent("\(name).m4a")
     }
 
+    func nextAvailableRecordingName(base: String = "Recording") -> String {
+        let dir = (try? customSoundsDirectoryURL()) ?? fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("CustomSounds")
+
+        let existingNames: Set<String>
+        if let urls = try? fileManager.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+            existingNames = Set(
+                urls
+                    .filter { $0.pathExtension.lowercased() == "m4a" }
+                    .map { $0.deletingPathExtension().lastPathComponent.lowercased() }
+            )
+        } else {
+            existingNames = []
+        }
+
+        var index = 1
+        while true {
+            let candidate = "\(base) \(index)"
+            if !existingNames.contains(candidate.lowercased()) {
+                return candidate
+            }
+            index += 1
+        }
+    }
+
     private func customSoundsDirectoryURL() throws -> URL {
         let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let customSoundsDir = documents.appendingPathComponent("CustomSounds")

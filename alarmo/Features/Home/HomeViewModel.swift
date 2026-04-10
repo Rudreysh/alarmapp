@@ -17,12 +17,7 @@ final class HomeViewModel: ObservableObject {
         guard !didHandleAppear else { return }
         didHandleAppear = true
 
-        if preferences.devAlwaysShowUpsell {
-            pendingPaywallAfterCelebration = true
-            showCelebration = true
-            return
-        }
-
+        // Show first-run discount flow only once (first time Alarm screen appears).
         if !preferences.hasShownFirstHomeDiscountFlow {
             preferences.hasShownFirstHomeDiscountFlow = true
             pendingPaywallAfterCelebration = true

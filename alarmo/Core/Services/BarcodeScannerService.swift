@@ -6,10 +6,14 @@ class BarcodeScannerService: NSObject, ObservableObject {
     @Published var permissionStatus: AVAuthorizationStatus = .notDetermined
     @Published var scannedCode: (String, String)? // (value, type)
     @Published var isSessionRunning = false
+    @Published var isTorchAvailable = false
+    @Published var isTorchEnabled = false
     
     let session = AVCaptureSession()
     private let metadataOutput = AVCaptureMetadataOutput()
     private let sessionQueue = DispatchQueue(label: "com.alarmo.cameraQueue")
+    private var videoDevice: AVCaptureDevice?
+    private var requestedTorchEnabled = false
     
     override init() {
         super.init()
@@ -50,6 +54,12 @@ class BarcodeScannerService: NSObject, ObservableObject {
                     self.session.commitConfiguration()
                     return
                 }
+
+                self.videoDevice = videoDevice
+                self.configureCaptureDevice(videoDevice)
+                DispatchQueue.main.async {
+                    self.isTorchAvailable = videoDevice.hasTorch
+                }
                 
                 guard let videoDeviceInput = try? AVCaptureDeviceInput(device: videoDevice) else {
                     print("[BarcodeScannerService] ❌ Could not create video device input")
@@ -87,9 +97,11 @@ class BarcodeScannerService: NSObject, ObservableObject {
                 }
                 
                 self.session.commitConfiguration()
+                self.applyRequestedTorchState()
                 print("[BarcodeScannerService] Session configuration committed")
             } else {
                 print("[BarcodeScannerService] Session inputs already configured")
+                self.applyRequestedTorchState()
             }
         }
     }
@@ -111,12 +123,89 @@ class BarcodeScannerService: NSObject, ObservableObject {
     }
     
     func stopSession() {
+        // Always switch torch off when leaving scanner.
+        setTorch(enabled: false)
         guard session.isRunning else { return }
         sessionQueue.async {
             self.session.stopRunning()
             DispatchQueue.main.async {
                 self.isSessionRunning = false
             }
+        }
+    }
+
+    func toggleTorch() {
+        setTorch(enabled: !isTorchEnabled)
+    }
+
+    func setTorch(enabled: Bool) {
+        requestedTorchEnabled = enabled
+        sessionQueue.async { [weak self] in
+            self?.applyRequestedTorchState()
+        }
+    }
+
+    private func applyRequestedTorchState() {
+        guard let device = videoDevice ?? AVCaptureDevice.default(for: .video) else {
+            DispatchQueue.main.async {
+                self.isTorchAvailable = false
+                self.isTorchEnabled = false
+            }
+            return
+        }
+        videoDevice = device
+
+        guard device.hasTorch else {
+            DispatchQueue.main.async {
+                self.isTorchAvailable = false
+                self.isTorchEnabled = false
+            }
+            return
+        }
+
+        do {
+            try device.lockForConfiguration()
+            defer { device.unlockForConfiguration() }
+
+            if requestedTorchEnabled {
+                let level = min(max(AVCaptureDevice.maxAvailableTorchLevel, 0.2), 1.0)
+                try device.setTorchModeOn(level: level)
+            } else {
+                device.torchMode = .off
+            }
+            let torchOn = requestedTorchEnabled && device.torchMode == .on
+            DispatchQueue.main.async {
+                self.isTorchAvailable = true
+                self.isTorchEnabled = torchOn
+            }
+        } catch {
+            print("[BarcodeScannerService] ⚠️ Torch configuration failed: \(error.localizedDescription)")
+            DispatchQueue.main.async {
+                self.isTorchAvailable = device.hasTorch
+                self.isTorchEnabled = false
+            }
+        }
+    }
+
+    private func configureCaptureDevice(_ device: AVCaptureDevice) {
+        do {
+            try device.lockForConfiguration()
+            defer { device.unlockForConfiguration() }
+
+            if device.isFocusModeSupported(.continuousAutoFocus) {
+                device.focusMode = .continuousAutoFocus
+            }
+            if device.isExposureModeSupported(.continuousAutoExposure) {
+                device.exposureMode = .continuousAutoExposure
+            }
+            if device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) {
+                device.whiteBalanceMode = .continuousAutoWhiteBalance
+            }
+            if device.isLowLightBoostSupported {
+                device.automaticallyEnablesLowLightBoostWhenAvailable = true
+            }
+        } catch {
+            print("[BarcodeScannerService] ⚠️ Device configuration failed: \(error.localizedDescription)")
         }
     }
 }

@@ -39,7 +39,7 @@ struct Alarm: Identifiable, Codable, Equatable {
     var isSkippedOnce: Bool
     var missions: [AlarmMission] = []
     
-    // Accountability Shield
+    // Accountability Penalty
     var enforcementMode: EnforcementMode = .none
     var blockAppsEnabled: Bool = false
     var blockedSelectionData: Data?

@@ -15,6 +15,9 @@ struct MyPointsView: View {
                     
                     // Today's Summary
                     todaySummaryCard
+
+                    // Streak Summary
+                    streakSummaryCard
                     
                     // How to Earn Points
                     howToEarnCard
@@ -29,7 +32,7 @@ struct MyPointsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text("My Points")
+                Text("Discipline Score")
                     .font(.headline)
                     .foregroundColor(Colors.textPrimary)
             }
@@ -100,7 +103,7 @@ struct MyPointsView: View {
                         .font(.caption2)
                         .foregroundColor(Colors.textSecondary)
                     Spacer()
-                    Text("\(pointsService.pointsToNextLevel) pts to Lv \(pointsService.currentLevel + 1)")
+                    Text(pointsService.pointsToNextLevel == 0 ? "Max level reached" : "\(pointsService.pointsToNextLevel) pts to Lv \(pointsService.currentLevel + 1)")
                         .font(.caption2)
                         .foregroundColor(Colors.textSecondary)
                 }
@@ -124,27 +127,36 @@ struct MyPointsView: View {
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(Colors.textPrimary)
             
+            let breakdown = pointsService.todayBreakdown
             HStack(spacing: 16) {
                 todayStat(
                     icon: "plus.circle.fill",
                     color: .green,
-                    value: "\(pointsService.todayPoints > 0 ? "+" : "")\(pointsService.todayPoints)",
-                    label: "Earned"
+                    value: "\(breakdown.total > 0 ? "+" : "")\(breakdown.total)",
+                    label: "Daily Score"
                 )
                 
                 todayStat(
-                    icon: "list.bullet.circle.fill",
-                    color: .blue,
-                    value: "\(pointsService.todayTransactions.count)",
-                    label: "Activities"
+                    icon: "chart.bar.fill",
+                    color: .cyan,
+                    value: "\(max(0, breakdown.alarm + breakdown.pomodoro + breakdown.habit + breakdown.task + breakdown.stopwatch))",
+                    label: "Gains"
                 )
                 
                 todayStat(
-                    icon: "star.circle.fill",
-                    color: .orange,
-                    value: "\(pointsService.totalPoints)",
-                    label: "Total"
+                    icon: "exclamationmark.triangle.fill",
+                    color: .red,
+                    value: "\(breakdown.penalties)",
+                    label: "Penalty"
                 )
+            }
+
+            VStack(spacing: 10) {
+                breakdownRow(icon: "alarm.fill", color: .cyan, title: "Alarm", value: breakdown.alarm)
+                breakdownRow(icon: "timer", color: .mint, title: "Pomodoro", value: breakdown.pomodoro)
+                breakdownRow(icon: "checkmark.circle.fill", color: .blue, title: "Habits", value: breakdown.habit)
+                breakdownRow(icon: "checkmark.square.fill", color: .purple, title: "Tasks", value: breakdown.task)
+                breakdownRow(icon: "stopwatch.fill", color: .orange, title: "Stopwatch", value: breakdown.stopwatch)
             }
         }
         .padding(20)
@@ -172,6 +184,57 @@ struct MyPointsView: View {
         }
         .frame(maxWidth: .infinity)
     }
+
+    private func breakdownRow(icon: String, color: Color, title: String, value: Int) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .foregroundColor(color)
+            Text(title)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(Colors.textPrimary)
+            Spacer()
+            Text("\(value > 0 ? "+" : "")\(value)")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(value < 0 ? .red : .green)
+        }
+    }
+
+    private var streakSummaryCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Streaks")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(Colors.textPrimary)
+
+            HStack(spacing: 12) {
+                streakPill(title: "Wake", value: pointsService.wakeUpStreak, color: .cyan)
+                streakPill(title: "Focus", value: pointsService.focusStreak, color: .mint)
+                streakPill(title: "Habit", value: pointsService.habitStreak, color: .blue)
+                streakPill(title: "Task", value: pointsService.taskStreak, color: .purple)
+            }
+        }
+        .padding(20)
+        .background(Colors.cardSurface.opacity(0.6))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Colors.cardStroke, lineWidth: 1)
+        )
+    }
+
+    private func streakPill(title: String, value: Int, color: Color) -> some View {
+        VStack(spacing: 6) {
+            Text("\(value)")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(color)
+            Text(title)
+                .font(.caption)
+                .foregroundColor(Colors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(color.opacity(0.14))
+        .cornerRadius(12)
+    }
     
     // MARK: - How to Earn
     
@@ -183,16 +246,18 @@ struct MyPointsView: View {
             
             VStack(spacing: 12) {
                 earnRow(icon: "alarm.fill", color: .cyan, title: "Dismiss Alarm (no snooze)", points: "+\(PointsConfig.alarmDismissedClean)")
-                earnRow(icon: "target", color: .green, title: "Complete Mission", points: "+\(PointsConfig.alarmDismissedWithMission)")
+                earnRow(icon: "target", color: .green, title: "Dismiss Alarm with Mission", points: "+\(PointsConfig.alarmDismissedWithMission)")
+                earnRow(icon: "alarm.waves.left.and.right", color: .red, title: "Miss Alarm", points: "\(PointsConfig.alarmMissedPenalty)")
                 earnRow(icon: "checkmark.circle.fill", color: .blue, title: "Complete Habit", points: "+\(PointsConfig.habitCompleted)")
-                earnRow(icon: "flame.fill", color: .orange, title: "Streak Bonus (7 days)", points: "+\(PointsConfig.habitStreakMilestone7)")
+                earnRow(icon: "flame.fill", color: .orange, title: "Habit Milestone", points: "+\(PointsConfig.habitStreakMilestone)")
                 earnRow(icon: "checkmark.square.fill", color: .purple, title: "Complete Task", points: "+\(PointsConfig.taskCompleted)")
-                earnRow(icon: "timer", color: .pink, title: "Focus (per 5 min)", points: "+\(PointsConfig.focusPerFiveMinutes)")
+                earnRow(icon: "timer", color: .pink, title: "Complete Focus Session", points: "+\(PointsConfig.focusSessionCompleted)")
+                earnRow(icon: "stopwatch.fill", color: .orange, title: "Stopwatch 60+ minutes", points: "+\(PointsConfig.stopwatch60Min)")
                 earnRow(icon: "sun.max.fill", color: .yellow, title: "Daily Check-in", points: "+\(PointsConfig.dailyLogin)")
                 
                 Divider().background(Colors.cardStroke)
                 
-                earnRow(icon: "zzz", color: .red, title: "Snooze Penalty", points: "\(PointsConfig.alarmSnoozePenalty)")
+                earnRow(icon: "zzz", color: .red, title: "Skip / Interrupt Penalty", points: "\(PointsConfig.focusSessionInterruptedPenalty)")
             }
         }
         .padding(20)

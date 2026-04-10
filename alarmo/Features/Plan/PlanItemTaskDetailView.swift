@@ -198,12 +198,31 @@ struct PlanItemTaskDetailView: View {
             }
         } else {
             // Complete
-            let log = CompletionLog(date: Date(), completed: true)
+            let completionDate = Date()
+            let log = CompletionLog(date: completionDate, completed: true)
             item.completionLogs.append(log)
+            modelContext.insert(
+                ActivityEvent(
+                    domain: item.type == .habit ? .habit : .task,
+                    entityId: item.id,
+                    timestampUTC: completionDate,
+                    status: .completed
+                )
+            )
             
             // Award points
-            if item.type == .task {
-                PointsService.shared.taskCompleted(taskId: item.id, taskName: item.title)
+            if item.type == .habit {
+                PointsService.shared.habitCompleted(
+                    habitId: item.id,
+                    habitName: item.title,
+                    streakDays: habitStreak(for: item)
+                )
+            } else {
+                PointsService.shared.taskCompleted(
+                    taskId: item.id,
+                    taskName: item.title,
+                    completedBeforeDeadline: didCompleteBeforeDeadline(item, at: completionDate)
+                )
             }
         }
         try? modelContext.save()
@@ -318,9 +337,51 @@ struct PlanItemTaskDetailView: View {
         } else {
              let log = CompletionLog(date: Date(), completed: true)
              sub.completionLogs.append(log)
+             modelContext.insert(
+                ActivityEvent(
+                    domain: .task,
+                    entityId: sub.id,
+                    status: .completed
+                )
+             )
+             PointsService.shared.taskCompleted(taskId: sub.id, taskName: sub.title)
         }
         try? modelContext.save()
-        try? modelContext.save()
+    }
+
+    private func habitStreak(for planItem: PlanItem) -> Int {
+        let calendar = Calendar.current
+        var streak = 0
+        var checkDate = Date()
+        for _ in 0..<365 {
+            let completed = planItem.completionLogs.contains { log in
+                calendar.isDate(log.date, inSameDayAs: checkDate) && log.completed
+            }
+            guard completed else { break }
+            streak += 1
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: checkDate) else { break }
+            checkDate = previous
+        }
+        return streak
+    }
+
+    private func didCompleteBeforeDeadline(_ planItem: PlanItem, at completionDate: Date) -> Bool {
+        guard let dueDate = planItem.scheduledDate else { return false }
+        let calendar = Calendar.current
+        let dateComponents = calendar.dateComponents([.year, .month, .day], from: dueDate)
+        let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: planItem.scheduledTime ?? dueDate)
+        var mergedComponents = DateComponents()
+        mergedComponents.year = dateComponents.year
+        mergedComponents.month = dateComponents.month
+        mergedComponents.day = dateComponents.day
+        mergedComponents.hour = timeComponents.hour ?? 23
+        mergedComponents.minute = timeComponents.minute ?? 59
+        mergedComponents.second = timeComponents.second ?? 59
+
+        guard let deadline = calendar.date(from: mergedComponents) else {
+            return completionDate <= dueDate
+        }
+        return completionDate <= deadline
     }
     
     private func deleteSubtask(_ sub: PlanItem) {

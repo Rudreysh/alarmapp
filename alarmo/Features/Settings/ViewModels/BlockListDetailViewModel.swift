@@ -59,7 +59,8 @@ final class BlockListDetailViewModel: ObservableObject {
     }
 
     func save(to list: AppList, context: ModelContext, appListsViewModel: AppListsViewModel) {
-        list.name = name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? list.name : name
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        list.name = trimmedName.isEmpty ? list.name : trimmedName
         list.adultBlockingEnabled = adultBlockingEnabled
         #if canImport(FamilyControls)
         list.selection = selection
@@ -79,7 +80,8 @@ final class BlockListDetailViewModel: ObservableObject {
     }
 
     func delete(list: AppList, context: ModelContext, appListsViewModel: AppListsViewModel) {
-        let wasSelected = appListsViewModel.selectedListID == list.id
+        let wasSelected = appListsViewModel.selectedListID == list.id ||
+            SettingsStore.shared.selectedBlockListId == list.id.uuidString
         context.delete(list)
         try? context.save()
 

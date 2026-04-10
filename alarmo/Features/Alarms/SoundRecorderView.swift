@@ -180,7 +180,6 @@ struct SoundRecorderView: View {
                         PrimaryButton(title: "Save") {
                             saveRecording()
                         }
-                        .disabled(soundName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                     .padding(.horizontal)
                 }
@@ -252,10 +251,10 @@ struct SoundRecorderView: View {
     }
     
     private func saveRecording() {
-        let finalName = soundName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !finalName.isEmpty else {
-            validationMessage = "Please enter a sound name."
-            return
+        var finalName = soundName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if finalName.isEmpty {
+            finalName = service.nextAvailableRecordingName()
+            soundName = finalName
         }
         
         let destination = service.customSoundURL(named: finalName)

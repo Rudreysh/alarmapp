@@ -6,16 +6,26 @@ struct CelebrationOverlayView: View {
 
     var body: some View {
         ZStack {
-            Colors.bgPrimary.opacity(0.75)
+            // Keep celebration overlay dark/blackish so it matches the app background system.
+            Color.black.opacity(0.62)
                 .ignoresSafeArea()
 
             LinearGradient(
                 colors: [
-                    Color(red: 0.06, green: 0.14, blue: 0.24).opacity(0.9),
-                    Color(red: 0.03, green: 0.08, blue: 0.16).opacity(0.9)
+                    Color.black.opacity(0.42),
+                    Colors.bgSecondary.opacity(0.36),
+                    Color.black.opacity(0.48)
                 ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            RadialGradient(
+                colors: [Colors.accentTeal.opacity(0.12), .clear],
+                center: .center,
+                startRadius: 30,
+                endRadius: 360
             )
             .ignoresSafeArea()
 

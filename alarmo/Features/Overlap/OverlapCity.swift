@@ -84,32 +84,7 @@ struct OverlapCity: Identifiable, Codable, Equatable {
 
     /// Country flag emoji derived from the timezone identifier.
     var flagEmoji: String {
-        let tzToCountry: [String: String] = [
-            "Asia/Kolkata": "🇮🇳", "Asia/Shanghai": "🇨🇳", "Asia/Tokyo": "🇯🇵",
-            "Asia/Seoul": "🇰🇷", "Asia/Taipei": "🇹🇼", "Asia/Dubai": "🇦🇪",
-            "Asia/Qatar": "🇶🇦", "Asia/Riyadh": "🇸🇦", "Asia/Kuala_Lumpur": "🇲🇾",
-            "Asia/Jakarta": "🇮🇩", "Asia/Manila": "🇵🇭", "Asia/Ho_Chi_Minh": "🇻🇳",
-            "Asia/Singapore": "🇸🇬", "Asia/Hong_Kong": "🇭🇰", "Asia/Bangkok": "🇹🇭",
-            "Europe/London": "🇬🇧", "Europe/Berlin": "🇩🇪", "Europe/Paris": "🇫🇷",
-            "Europe/Rome": "🇮🇹", "Europe/Madrid": "🇪🇸", "Europe/Amsterdam": "🇳🇱",
-            "Europe/Brussels": "🇧🇪", "Europe/Zurich": "🇨🇭", "Europe/Vienna": "🇦🇹",
-            "Europe/Stockholm": "🇸🇪", "Europe/Oslo": "🇳🇴", "Europe/Copenhagen": "🇩🇰",
-            "Europe/Helsinki": "🇫🇮", "Europe/Warsaw": "🇵🇱", "Europe/Prague": "🇨🇿",
-            "Europe/Budapest": "🇭🇺", "Europe/Lisbon": "🇵🇹", "Europe/Athens": "🇬🇷",
-            "Europe/Dublin": "🇮🇪", "Europe/Moscow": "🇷🇺", "Europe/Istanbul": "🇹🇷",
-            "America/New_York": "🇺🇸", "America/Chicago": "🇺🇸",
-            "America/Los_Angeles": "🇺🇸", "America/Denver": "🇺🇸",
-            "America/Toronto": "🇨🇦", "America/Vancouver": "🇨🇦",
-            "America/Sao_Paulo": "🇧🇷", "America/Argentina/Buenos_Aires": "🇦🇷",
-            "America/Mexico_City": "🇲🇽", "America/Bogota": "🇨🇴",
-            "America/Lima": "🇵🇪", "America/Santiago": "🇨🇱",
-            "Africa/Johannesburg": "🇿🇦", "Africa/Nairobi": "🇰🇪",
-            "Africa/Lagos": "🇳🇬", "Africa/Cairo": "🇪🇬", "Africa/Casablanca": "🇲🇦",
-            "Australia/Sydney": "🇦🇺", "Australia/Melbourne": "🇦🇺",
-            "Australia/Brisbane": "🇦🇺", "Australia/Perth": "🇦🇺",
-            "Pacific/Auckland": "🇳🇿",
-        ]
-        return tzToCountry[timeZoneIdentifier] ?? "🌐"
+        WorldCityDatabase.flagEmoji(forTimeZone: timeZoneIdentifier)
     }
 }
 
@@ -202,6 +177,119 @@ struct WorldCityDatabase {
         ("Ho Chi Minh City", "Asia/Ho_Chi_Minh", "Vietnam", ["Saigon"]),
         ("Hanoi", "Asia/Ho_Chi_Minh", "Vietnam", []),
         ("Texas", "America/Chicago", "US", ["TX"]),
+        ("Rome", "Europe/Rome", "Italy", ["Roma"]),
+        ("Madrid", "Europe/Madrid", "Spain", []),
+        ("Amsterdam", "Europe/Amsterdam", "Netherlands", []),
+        ("Brussels", "Europe/Brussels", "Belgium", []),
+        ("Zurich", "Europe/Zurich", "Switzerland", ["Zürich"]),
+        ("Vienna", "Europe/Vienna", "Austria", ["Wien"]),
+        ("Stockholm", "Europe/Stockholm", "Sweden", []),
+        ("Oslo", "Europe/Oslo", "Norway", []),
+        ("Copenhagen", "Europe/Copenhagen", "Denmark", ["København"]),
+        ("Helsinki", "Europe/Helsinki", "Finland", []),
+        ("Lisbon", "Europe/Lisbon", "Portugal", ["Lisboa"]),
+        ("Athens", "Europe/Athens", "Greece", []),
+        ("Dublin", "Europe/Dublin", "Ireland", []),
+        ("Warsaw", "Europe/Warsaw", "Poland", ["Warszawa"]),
+        ("Prague", "Europe/Prague", "Czech Republic", ["Praha"]),
+        ("Budapest", "Europe/Budapest", "Hungary", []),
+        ("Istanbul", "Europe/Istanbul", "Turkey", ["Constantinople"]),
+        ("Tel Aviv", "Asia/Jerusalem", "Israel", []),
+        ("Cairo", "Africa/Cairo", "Egypt", []),
+        ("Nairobi", "Africa/Nairobi", "Kenya", []),
+        ("Johannesburg", "Africa/Johannesburg", "South Africa", ["Joburg"]),
+        ("Lagos", "Africa/Lagos", "Nigeria", []),
+        ("Nairobi", "Africa/Nairobi", "Kenya", []),
+        ("Casablanca", "Africa/Casablanca", "Morocco", []),
+        ("Bangkok", "Asia/Bangkok", "Thailand", ["Krung Thep"]),
+        ("Singapore", "Asia/Singapore", "Singapore", []),
+        ("Hong Kong", "Asia/Hong_Kong", "Hong Kong", ["HK"]),
+        ("Jakarta", "Asia/Jakarta", "Indonesia", []),
+        ("Manila", "Asia/Manila", "Philippines", []),
+        ("Sydney", "Australia/Sydney", "Australia", []),
+        ("Toronto", "America/Toronto", "Canada", []),
+        ("Vancouver", "America/Vancouver", "Canada", []),
+        ("Montreal", "America/Toronto", "Canada", ["Montréal"]),
+        ("Ottawa", "America/Toronto", "Canada", []),
+        ("Vancouver", "America/Vancouver", "Canada", []),
+        ("Denver", "America/Denver", "USA", ["Mile High City"]),
+        ("Phoenix", "America/Phoenix", "USA", []),
+        ("Salt Lake City", "America/Denver", "USA", ["SLC"]),
+        ("Saint Paul", "America/Chicago", "USA", []),
+        ("Minneapolis", "America/Chicago", "USA", []),
+        ("Detroit", "America/New_York", "USA", []),
+        ("Portland", "America/Los_Angeles", "USA", []),
+        ("San Diego", "America/Los_Angeles", "USA", []),
+        ("Honolulu", "Pacific/Honolulu", "USA", []),
+        ("Anchorage", "America/Anchorage", "USA", []),
+        ("Mexico City", "America/Mexico_City", "Mexico", ["CDMX"]),
+        ("Lima", "America/Lima", "Peru", []),
+        ("Bogotá", "America/Bogota", "Colombia", ["Bogota"]),
+        ("Santiago", "America/Santiago", "Chile", []),
+        ("Caracas", "America/Caracas", "Venezuela", []),
+        ("Quito", "America/Guayaquil", "Ecuador", []),
+        ("Asunción", "America/Asuncion", "Paraguay", ["Asuncion"]),
+        ("Montevideo", "America/Montevideo", "Uruguay", []),
+        ("Panama City", "America/Panama", "Panama", []),
+        ("San José", "America/Costa_Rica", "Costa Rica", ["San Jose"]),
+        ("Havana", "America/Havana", "Cuba", []),
+        ("Santo Domingo", "America/Santo_Domingo", "Dominican Republic", []),
+        ("San Juan", "America/Puerto_Rico", "Puerto Rico", []),
+        ("Port of Spain", "America/Port_of_Spain", "Trinidad and Tobago", []),
+        ("Kingston", "America/Jamaica", "Jamaica", []),
+        ("Nassau", "America/Nassau", "Bahamas", []),
+        ("Reykjavik", "Atlantic/Reykjavik", "Iceland", ["Reykjavík"]),
+        ("Moscow", "Europe/Moscow", "Russia", []),
+        ("Saint Petersburg", "Europe/Moscow", "Russia", ["St Petersburg"]),
+        ("Kyiv", "Europe/Kyiv", "Ukraine", ["Kiev"]),
+        ("Bucharest", "Europe/Bucharest", "Romania", []),
+        ("Sofia", "Europe/Sofia", "Bulgaria", []),
+        ("Belgrade", "Europe/Belgrade", "Serbia", []),
+        ("Zagreb", "Europe/Zagreb", "Croatia", []),
+        ("Bratislava", "Europe/Bratislava", "Slovakia", []),
+        ("Ljubljana", "Europe/Ljubljana", "Slovenia", []),
+        ("Tallinn", "Europe/Tallinn", "Estonia", []),
+        ("Riga", "Europe/Riga", "Latvia", []),
+        ("Vilnius", "Europe/Vilnius", "Lithuania", []),
+        ("Tbilisi", "Asia/Tbilisi", "Georgia", []),
+        ("Yerevan", "Asia/Yerevan", "Armenia", []),
+        ("Baku", "Asia/Baku", "Azerbaijan", []),
+        ("Tehran", "Asia/Tehran", "Iran", []),
+        ("Baghdad", "Asia/Baghdad", "Iraq", []),
+        ("Kuwait City", "Asia/Kuwait", "Kuwait", []),
+        ("Muscat", "Asia/Muscat", "Oman", []),
+        ("Manama", "Asia/Bahrain", "Bahrain", []),
+        ("Amman", "Asia/Amman", "Jordan", []),
+        ("Beirut", "Asia/Beirut", "Lebanon", []),
+        ("Damascus", "Asia/Damascus", "Syria", []),
+        ("Jerusalem", "Asia/Jerusalem", "Israel", []),
+        ("Tashkent", "Asia/Tashkent", "Uzbekistan", []),
+        ("Almaty", "Asia/Almaty", "Kazakhstan", []),
+        ("Nur-Sultan", "Asia/Almaty", "Kazakhstan", ["Astana"]),
+        ("Islamabad", "Asia/Karachi", "Pakistan", []),
+        ("Karachi", "Asia/Karachi", "Pakistan", []),
+        ("Dhaka", "Asia/Dhaka", "Bangladesh", []),
+        ("Kathmandu", "Asia/Kathmandu", "Nepal", []),
+        ("Colombo", "Asia/Colombo", "Sri Lanka", []),
+        ("Male", "Indian/Maldives", "Maldives", []),
+        ("Ulaanbaatar", "Asia/Ulaanbaatar", "Mongolia", []),
+        ("Pyongyang", "Asia/Pyongyang", "North Korea", []),
+        ("Phnom Penh", "Asia/Phnom_Penh", "Cambodia", []),
+        ("Vientiane", "Asia/Vientiane", "Laos", []),
+        ("Yangon", "Asia/Rangoon", "Myanmar", ["Rangoon"]),
+        ("Antananarivo", "Indian/Antananarivo", "Madagascar", []),
+        ("Addis Ababa", "Africa/Addis_Ababa", "Ethiopia", []),
+        ("Dakar", "Africa/Dakar", "Senegal", []),
+        ("Accra", "Africa/Accra", "Ghana", []),
+        ("Abidjan", "Africa/Abidjan", "Ivory Coast", []),
+        ("Luanda", "Africa/Luanda", "Angola", []),
+        ("Dar es Salaam", "Africa/Dar_es_Salaam", "Tanzania", []),
+        ("Kampala", "Africa/Kampala", "Uganda", []),
+        ("Algiers", "Africa/Algiers", "Algeria", []),
+        ("Tunis", "Africa/Tunis", "Tunisia", []),
+        ("Tripoli", "Africa/Tripoli", "Libya", []),
+        ("Khartoum", "Africa/Khartoum", "Sudan", []),
+
     ]
 
     static let majorCities: [CityEntry] = {
@@ -214,6 +302,158 @@ struct WorldCityDatabase {
             )
         }
     }()
+
+    /// Popular suggestions grouped by region: US first, then Europe, Asia, then others.
+    static let suggestedCities: [CityEntry] = {
+        var uniqueByCountry: [CityEntry] = []
+        var seenCountries = Set<String>()
+
+        for alias in cityAliases {
+            let canonicalCountry = canonicalCountryName(alias.country)
+            guard !seenCountries.contains(canonicalCountry) else { continue }
+            seenCountries.insert(canonicalCountry)
+
+            uniqueByCountry.append(
+                CityEntry(
+                    cityName: alias.name,
+                    timeZoneIdentifier: alias.tz,
+                    country: canonicalCountry,
+                    aliases: alias.aliases
+                )
+            )
+        }
+
+        let us = uniqueByCountry
+            .filter { $0.country == "United States" }
+            .sorted(by: countryThenCity)
+        let europe = uniqueByCountry
+            .filter { europeanCountries.contains($0.country) }
+            .sorted(by: countryThenCity)
+        let asia = uniqueByCountry
+            .filter { asianCountries.contains($0.country) }
+            .sorted(by: countryThenCity)
+        let other = uniqueByCountry
+            .filter { !($0.country == "United States" || europeanCountries.contains($0.country) || asianCountries.contains($0.country)) }
+            .sorted(by: countryThenCity)
+
+        return us + europe + asia + other
+    }()
+
+    private static let europeanCountries: Set<String> = [
+        "Austria", "Belgium", "Bulgaria", "Croatia", "Czech Republic",
+        "Denmark", "Estonia", "Finland", "France", "Germany", "Greece",
+        "Hungary", "Iceland", "Ireland", "Italy", "Latvia", "Lithuania",
+        "Netherlands", "Norway", "Poland", "Portugal", "Romania", "Russia",
+        "Serbia", "Slovakia", "Slovenia", "Spain", "Sweden", "Switzerland",
+        "Turkey", "Ukraine", "United Kingdom"
+    ]
+
+    private static let asianCountries: Set<String> = [
+        "Armenia", "Azerbaijan", "Bahrain", "Bangladesh", "Cambodia",
+        "China", "Georgia", "Hong Kong", "India", "Indonesia", "Iran",
+        "Iraq", "Israel", "Japan", "Jordan", "Kazakhstan", "Kuwait",
+        "Laos", "Lebanon", "Malaysia", "Maldives", "Mongolia", "Myanmar",
+        "Nepal", "North Korea", "Oman", "Pakistan", "Philippines", "Qatar",
+        "Saudi Arabia", "Singapore", "South Korea", "Sri Lanka", "Syria",
+        "Taiwan", "Thailand", "UAE", "Uzbekistan", "Vietnam"
+    ]
+
+    private static func canonicalCountryName(_ rawCountry: String) -> String {
+        switch rawCountry.lowercased() {
+        case "us", "usa", "united states", "united states of america":
+            return "United States"
+        case "uk", "u.k.", "great britain":
+            return "United Kingdom"
+        default:
+            return rawCountry
+        }
+    }
+
+    private static func countryThenCity(_ lhs: CityEntry, _ rhs: CityEntry) -> Bool {
+        if lhs.country == rhs.country {
+            return lhs.cityName < rhs.cityName
+        }
+        return lhs.country < rhs.country
+    }
+
+    static func flagEmoji(forTimeZone timeZoneIdentifier: String, countryHint: String? = nil) -> String {
+        if let code = aliasTimeZoneCountryCode[timeZoneIdentifier] {
+            return flagEmoji(forCountryCode: code)
+        }
+
+        if let hint = countryHint, let code = countryCode(forCountryName: canonicalCountryName(hint)) {
+            return flagEmoji(forCountryCode: code)
+        }
+
+        return "🌐"
+    }
+
+    private static let aliasTimeZoneCountryCode: [String: String] = {
+        var map: [String: String] = [:]
+        for alias in cityAliases {
+            let canonical = canonicalCountryName(alias.country)
+            guard let code = countryCode(forCountryName: canonical) else { continue }
+            if map[alias.tz] == nil {
+                map[alias.tz] = code
+            }
+        }
+        return map
+    }()
+
+    private static let countryNameToCodeIndex: [String: String] = {
+        let locale = Locale(identifier: "en_US_POSIX")
+        var index: [String: String] = [:]
+
+        for code in Locale.Region.isoRegions.map(\.identifier) {
+            if let name = locale.localizedString(forRegionCode: code) {
+                index[normalizeCountryKey(name)] = code
+            }
+        }
+
+        return index
+    }()
+
+    private static let countryCodeOverrides: [String: String] = [
+        "usa": "US",
+        "us": "US",
+        "unitedstates": "US",
+        "unitedstatesofamerica": "US",
+        "uk": "GB",
+        "unitedkingdom": "GB",
+        "greatbritain": "GB",
+        "uae": "AE",
+        "hongkong": "HK",
+        "taiwan": "TW",
+        "southkorea": "KR",
+        "northkorea": "KP",
+        "czechrepublic": "CZ",
+        "ivorycoast": "CI"
+    ]
+
+    private static func countryCode(forCountryName countryName: String) -> String? {
+        let normalized = normalizeCountryKey(countryName)
+        if let overridden = countryCodeOverrides[normalized] {
+            return overridden
+        }
+        return countryNameToCodeIndex[normalized]
+    }
+
+    private static func normalizeCountryKey(_ value: String) -> String {
+        value
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
+            .replacingOccurrences(of: "[^a-z0-9]", with: "", options: .regularExpression)
+    }
+
+    private static func flagEmoji(forCountryCode countryCode: String) -> String {
+        let uppercase = countryCode.uppercased()
+        guard uppercase.count == 2 else { return "🌐" }
+
+        let base: UInt32 = 127_397
+        let scalars = uppercase.unicodeScalars.compactMap { UnicodeScalar(base + $0.value) }
+        guard scalars.count == 2 else { return "🌐" }
+        return String(String.UnicodeScalarView(scalars))
+    }
 
     static let cities: [CityEntry] = {
         var entries: [CityEntry] = []

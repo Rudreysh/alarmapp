@@ -21,10 +21,16 @@ struct QuickSettingsPanel: View {
     @AppStorage("qs_focusModeEnabled") private var focusModeEnabled = false
     @AppStorage("qs_sortOrder") private var sortOrder = 0
     @AppStorage("qs_streak") private var alarmStreak = 0
+    @AppStorage("qs_alarmQuickPresets") private var quickPresetsData: Data = Data()
 
     @State private var selectedTab = 0
     @State private var showAllDisabledConfirm = false
     @State private var feedbackMessage: String? = nil
+    @State private var quickPresets: [AlarmQuickPreset] = []
+    @State private var isManagingPresets = false
+    @State private var showPresetEditor = false
+    @State private var editingPresetID: UUID? = nil
+    @State private var presetDraft = AlarmQuickPresetDraft()
 
     private let tabs: [(title: String, icon: String)] = [
         ("Presets", "square.stack.3d.up.fill"),
@@ -94,6 +100,20 @@ struct QuickSettingsPanel: View {
         }
         .presentationDragIndicator(.visible)
         .presentationDetents([.fraction(0.75), .large])
+        .onAppear {
+            loadQuickPresets()
+        }
+        .sheet(isPresented: $showPresetEditor) {
+            QuickAlarmPresetEditorSheet(
+                draft: $presetDraft,
+                isEditing: editingPresetID != nil,
+                onCancel: { showPresetEditor = false },
+                onSave: {
+                    savePresetDraft()
+                    showPresetEditor = false
+                }
+            )
+        }
     }
 
     // MARK: - Tab Selector
@@ -679,23 +699,119 @@ struct QuickSettingsPanel: View {
 
     private var quickPresetsSection: some View {
         VStack(spacing: 12) {
-            sectionHeader(icon: "clock.badge.plus", title: "Quick Presets", subtitle: "One-tap alarm templates")
+            HStack {
+                sectionHeader(icon: "clock.badge.plus", title: "Quick Presets", subtitle: "Create, edit, and run your own templates")
+                VStack(spacing: 8) {
+                    Button {
+                        openCreatePreset()
+                    } label: {
+                        Label("Add", systemImage: "plus")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.black)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Capsule().fill(Colors.accentTeal))
+                    }
+                    .buttonStyle(.plain)
 
-            let presets: [(icon: String, color: Color, name: String, emoji: String, h: Int, m: Int)] = [
-                ("sunrise.fill", .orange, "Early Bird", "🌅", 5, 30),
-                ("sun.max.fill", .yellow, "Morning", "☀️", 7, 0),
-                ("briefcase.fill", .brown, "Work Start", "💼", 8, 0),
-                ("cup.and.saucer.fill", .teal, "Lunch Break", "🍱", 12, 0),
-                ("bolt.fill", .cyan, "Power Nap", "⚡️", 14, 30),
-                ("moon.stars.fill", .indigo, "Night Owl", "🌙", 23, 0),
-            ]
+                    Button {
+                        withAnimation(.spring(response: 0.25)) { isManagingPresets.toggle() }
+                    } label: {
+                        Text(isManagingPresets ? "Done" : "Manage")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(isManagingPresets ? .black : Colors.textSecondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Capsule().fill(isManagingPresets ? Colors.accentTeal : Color.white.opacity(0.08)))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                ForEach(presets, id: \.name) { preset in
-                    PresetAlarmButton(icon: preset.icon, iconColor: preset.color, name: preset.name, hour: preset.h, minute: preset.m) {
-                        addPresetAlarm(hour: preset.h, minute: preset.m, name: preset.name, emoji: preset.emoji)
-                        showFeedback("\(preset.name) alarm added!")
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { dismiss() }
+            if quickPresets.isEmpty {
+                QSCard {
+                    VStack(spacing: 10) {
+                        Text("No presets yet")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(Colors.textPrimary)
+                        Text("Create a custom preset to quickly add alarms.")
+                            .font(.system(size: 12))
+                            .foregroundColor(Colors.textTertiary)
+                        Button("Add Preset") {
+                            openCreatePreset()
+                        }
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(Colors.accentTeal))
+                    }
+                }
+            } else {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(quickPresets) { preset in
+                        ZStack(alignment: .topTrailing) {
+                            PresetAlarmButton(
+                                icon: preset.icon,
+                                iconColor: preset.iconColor,
+                                name: preset.name,
+                                hour: preset.hour,
+                                minute: preset.minute
+                            ) {
+                                if isManagingPresets {
+                                    openEditPreset(preset)
+                                } else {
+                                    addPresetAlarm(hour: preset.hour, minute: preset.minute, name: preset.name, emoji: preset.emoji)
+                                    showFeedback("\(preset.name) alarm added!")
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { dismiss() }
+                                }
+                            }
+                            .contextMenu {
+                                Button {
+                                    addPresetAlarm(hour: preset.hour, minute: preset.minute, name: preset.name, emoji: preset.emoji)
+                                    showFeedback("\(preset.name) alarm added!")
+                                } label: {
+                                    Label("Add Alarm", systemImage: "alarm")
+                                }
+                                Button {
+                                    openEditPreset(preset)
+                                } label: {
+                                    Label("Edit Preset", systemImage: "pencil")
+                                }
+                                Button(role: .destructive) {
+                                    deletePreset(preset)
+                                } label: {
+                                    Label("Delete Preset", systemImage: "trash")
+                                }
+                            }
+
+                            if isManagingPresets {
+                                HStack(spacing: 6) {
+                                    Button {
+                                        openEditPreset(preset)
+                                    } label: {
+                                        Image(systemName: "pencil")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.black)
+                                            .frame(width: 26, height: 26)
+                                            .background(Circle().fill(Colors.accentTeal))
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    Button {
+                                        deletePreset(preset)
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .frame(width: 26, height: 26)
+                                            .background(Circle().fill(Color.red.opacity(0.85)))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(8)
+                            }
+                        }
                     }
                 }
             }
@@ -706,10 +822,10 @@ struct QuickSettingsPanel: View {
                         .font(.system(size: 18))
                         .foregroundColor(Colors.accentTeal)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Presets add a new alarm")
+                        Text("Custom presets create new alarms")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(Colors.textPrimary)
-                        Text("Enabled by default with daily repeat. Edit from your alarm list.")
+                        Text("Tap Add to create templates, Manage to edit times and names. New alarms are enabled with daily repeat.")
                             .font(.system(size: 12))
                             .foregroundColor(Colors.textTertiary)
                     }
@@ -748,6 +864,53 @@ struct QuickSettingsPanel: View {
         }
     }
 
+    // MARK: - Custom Presets Persistence
+
+    private func loadQuickPresets() {
+        if let decoded = try? JSONDecoder().decode([AlarmQuickPreset].self, from: quickPresetsData), !decoded.isEmpty {
+            quickPresets = decoded
+            return
+        }
+        quickPresets = AlarmQuickPreset.defaults
+        saveQuickPresets()
+    }
+
+    private func saveQuickPresets() {
+        if let data = try? JSONEncoder().encode(quickPresets) {
+            quickPresetsData = data
+        }
+    }
+
+    private func openCreatePreset() {
+        editingPresetID = nil
+        presetDraft = AlarmQuickPresetDraft()
+        showPresetEditor = true
+    }
+
+    private func openEditPreset(_ preset: AlarmQuickPreset) {
+        editingPresetID = preset.id
+        presetDraft = AlarmQuickPresetDraft(preset: preset)
+        showPresetEditor = true
+    }
+
+    private func savePresetDraft() {
+        let preset = presetDraft.toPreset(id: editingPresetID ?? UUID())
+        if let editingPresetID, let idx = quickPresets.firstIndex(where: { $0.id == editingPresetID }) {
+            quickPresets[idx] = preset
+            showFeedback("Preset updated")
+        } else {
+            quickPresets.insert(preset, at: 0)
+            showFeedback("Preset created")
+        }
+        saveQuickPresets()
+    }
+
+    private func deletePreset(_ preset: AlarmQuickPreset) {
+        quickPresets.removeAll(where: { $0.id == preset.id })
+        saveQuickPresets()
+        showFeedback("Preset deleted")
+    }
+
     // MARK: - Bedtime Reminder (Real UNUserNotificationCenter scheduling)
 
     /// Calculates bedtime: earliest enabled alarm time minus sleep goal and lead time.
@@ -769,7 +932,7 @@ struct QuickSettingsPanel: View {
             guard granted else { return }
 
             // Cancel old reminder
-            center.removePendingNotificationRequests(withIdentifiers: ["alarmo.bedtime.reminder"])
+            center.removePendingNotificationRequests(withIdentifiers: [AppNotificationIdentifier.bedtimeReminder])
 
             // Find earliest enabled alarm
             let enabled = self.alarmStore.alarms.filter(\.enabled)
@@ -782,30 +945,17 @@ struct QuickSettingsPanel: View {
             let h = normalized / 60
             let m = normalized % 60
 
-            let content = UNMutableNotificationContent()
-            content.title = "🌙 Time to Wind Down"
-            content.body = "Your \(String(format: "%02d:%02d", earliest.hour, earliest.minute)) alarm rings in \(self.sleepGoalHours)h \(self.bedReminderMinutes)m. Get ready for sleep!"
-            content.sound = .default
-            content.interruptionLevel = .passive
-
-            var comps = DateComponents()
-            comps.hour = h
-            comps.minute = m
-            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
-            let request = UNNotificationRequest(identifier: "alarmo.bedtime.reminder", content: content, trigger: trigger)
-
-            center.add(request) { error in
-                DispatchQueue.main.async {
-                    if error == nil {
-                        self.showFeedback("Bedtime reminder set for \(String(format: "%02d:%02d", h, m))")
-                    }
-                }
+            guard let reminderDate = Calendar.current.date(bySettingHour: h, minute: m, second: 0, of: Date()) else { return }
+            let nextAlarmText = String(format: "%02d:%02d", earliest.hour, earliest.minute)
+            NotificationOrchestrator.shared.scheduleBedtimeReminder(at: reminderDate, nextAlarmTimeText: nextAlarmText)
+            DispatchQueue.main.async {
+                self.showFeedback("Bedtime reminder set for \(String(format: "%02d:%02d", h, m))")
             }
         }
     }
 
     private func cancelBedtimeReminder() {
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["alarmo.bedtime.reminder"])
+        NotificationOrchestrator.shared.cancel(identifiers: [AppNotificationIdentifier.bedtimeReminder])
     }
 
     private func setupStep(icon: String, text: String) -> some View {
@@ -961,5 +1111,233 @@ struct PresetAlarmButton: View {
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Colors.cardStroke, lineWidth: 1))
         }
         .buttonStyle(.plain)
+    }
+}
+
+struct AlarmQuickPreset: Identifiable, Codable {
+    var id: UUID
+    var icon: String
+    var colorKey: String
+    var name: String
+    var emoji: String
+    var hour: Int
+    var minute: Int
+
+    var iconColor: Color {
+        Self.color(for: colorKey)
+    }
+
+    static func color(for key: String) -> Color {
+        switch key {
+        case "orange": return .orange
+        case "yellow": return .yellow
+        case "brown": return .brown
+        case "teal": return .teal
+        case "cyan": return .cyan
+        case "indigo": return .indigo
+        case "mint": return .mint
+        case "blue": return .blue
+        case "green": return .green
+        case "pink": return .pink
+        default: return Colors.accentTeal
+        }
+    }
+
+    static let colorChoices: [(key: String, color: Color)] = [
+        ("teal", .teal),
+        ("yellow", .yellow),
+        ("orange", .orange),
+        ("cyan", .cyan),
+        ("indigo", .indigo),
+        ("blue", .blue),
+        ("green", .green),
+        ("pink", .pink),
+        ("brown", .brown),
+        ("mint", .mint)
+    ]
+
+    static let iconChoices: [String] = [
+        "sunrise.fill",
+        "sun.max.fill",
+        "briefcase.fill",
+        "cup.and.saucer.fill",
+        "bolt.fill",
+        "moon.stars.fill",
+        "alarm.fill",
+        "figure.run",
+        "book.fill",
+        "heart.fill",
+        "graduationcap.fill",
+        "dumbbell.fill"
+    ]
+
+    static let defaults: [AlarmQuickPreset] = [
+        AlarmQuickPreset(id: UUID(), icon: "sunrise.fill", colorKey: "orange", name: "Early Bird", emoji: "🌅", hour: 5, minute: 30),
+        AlarmQuickPreset(id: UUID(), icon: "sun.max.fill", colorKey: "yellow", name: "Morning", emoji: "☀️", hour: 7, minute: 0),
+        AlarmQuickPreset(id: UUID(), icon: "briefcase.fill", colorKey: "brown", name: "Work Start", emoji: "💼", hour: 8, minute: 0),
+        AlarmQuickPreset(id: UUID(), icon: "cup.and.saucer.fill", colorKey: "teal", name: "Lunch Break", emoji: "🍱", hour: 12, minute: 0),
+        AlarmQuickPreset(id: UUID(), icon: "bolt.fill", colorKey: "cyan", name: "Power Nap", emoji: "⚡️", hour: 14, minute: 30),
+        AlarmQuickPreset(id: UUID(), icon: "moon.stars.fill", colorKey: "indigo", name: "Night Owl", emoji: "🌙", hour: 23, minute: 0)
+    ]
+}
+
+struct AlarmQuickPresetDraft {
+    var name: String = ""
+    var emoji: String = "⏰"
+    var icon: String = "alarm.fill"
+    var colorKey: String = "teal"
+    var time: Date = Calendar.current.date(bySettingHour: 7, minute: 0, second: 0, of: Date()) ?? Date()
+
+    init() {}
+
+    init(preset: AlarmQuickPreset) {
+        self.name = preset.name
+        self.emoji = preset.emoji
+        self.icon = preset.icon
+        self.colorKey = preset.colorKey
+        self.time = Calendar.current.date(bySettingHour: preset.hour, minute: preset.minute, second: 0, of: Date()) ?? Date()
+    }
+
+    func toPreset(id: UUID) -> AlarmQuickPreset {
+        let comps = Calendar.current.dateComponents([.hour, .minute], from: time)
+        let hour = comps.hour ?? 7
+        let minute = comps.minute ?? 0
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return AlarmQuickPreset(
+            id: id,
+            icon: icon,
+            colorKey: colorKey,
+            name: trimmed.isEmpty ? "Custom Alarm" : trimmed,
+            emoji: emoji.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "⏰" : emoji,
+            hour: hour,
+            minute: minute
+        )
+    }
+}
+
+struct QuickAlarmPresetEditorSheet: View {
+    @Binding var draft: AlarmQuickPresetDraft
+    let isEditing: Bool
+    let onCancel: () -> Void
+    let onSave: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                LinearGradient(
+                    colors: [Colors.bgSecondary, Colors.bgPrimary],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 14) {
+                        QSCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Preset Name")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(Colors.textTertiary)
+                                TextField("e.g. Gym", text: $draft.name)
+                                    .textInputAutocapitalization(.words)
+                                    .autocorrectionDisabled()
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.06)))
+                                    .foregroundColor(Colors.textPrimary)
+
+                                Text("Emoji (optional)")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(Colors.textTertiary)
+                                TextField("⏰", text: $draft.emoji)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.06)))
+                                    .foregroundColor(Colors.textPrimary)
+                            }
+                        }
+
+                        QSCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Time")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(Colors.textTertiary)
+                                DatePicker("", selection: $draft.time, displayedComponents: .hourAndMinute)
+                                    .datePickerStyle(.wheel)
+                                    .labelsHidden()
+                                    .colorScheme(.dark)
+                                    .frame(maxWidth: .infinity, maxHeight: 170)
+                            }
+                        }
+
+                        QSCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Icon")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(Colors.textTertiary)
+                                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 8) {
+                                    ForEach(AlarmQuickPreset.iconChoices, id: \.self) { icon in
+                                        Button {
+                                            draft.icon = icon
+                                        } label: {
+                                            Image(systemName: icon)
+                                                .font(.system(size: 15, weight: .bold))
+                                                .foregroundColor(draft.icon == icon ? .black : Colors.textSecondary)
+                                                .frame(width: 34, height: 34)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 8)
+                                                        .fill(draft.icon == icon ? Colors.accentTeal : Color.white.opacity(0.06))
+                                                )
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                        }
+
+                        QSCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Color")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(Colors.textTertiary)
+                                HStack(spacing: 10) {
+                                    ForEach(AlarmQuickPreset.colorChoices, id: \.key) { item in
+                                        Button {
+                                            draft.colorKey = item.key
+                                        } label: {
+                                            Circle()
+                                                .fill(item.color)
+                                                .frame(width: 24, height: 24)
+                                                .overlay(
+                                                    Circle()
+                                                        .stroke(draft.colorKey == item.key ? Color.white : Color.clear, lineWidth: 2)
+                                                        .padding(-4)
+                                                )
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(20)
+                    .padding(.bottom, 20)
+                }
+            }
+            .navigationTitle(isEditing ? "Edit Preset" : "New Preset")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel)
+                        .foregroundColor(Colors.textSecondary)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save", action: onSave)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(Colors.accentTeal)
+                }
+            }
+        }
+        .presentationDetents([.fraction(0.72), .large])
     }
 }

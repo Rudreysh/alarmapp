@@ -25,6 +25,7 @@ struct SunRayTimePickerView: View {
     
     // New state for smooth ring dragging
     @State private var dragAngle: Double?
+    @State private var lastRawDragAngle: Double?
     
     // New state for precision picker
     @State private var showWheelPicker: Bool = false
@@ -55,6 +56,14 @@ struct SunRayTimePickerView: View {
         } else {
             return hour
         }
+    }
+
+    private var hourDialDivisions: Int {
+        is12HourFormat ? 12 : 24
+    }
+
+    private var accentSunYellow: Color {
+        Color(red: 0.98, green: 0.84, blue: 0.30)
     }
     
     var body: some View {
@@ -100,7 +109,18 @@ struct SunRayTimePickerView: View {
                     ZStack {
                         // Outer ambient glow circle (subtle)
                         Circle()
-                            .stroke(Colors.accentTeal.opacity(0.06 + ringGlowPulse * 0.04), lineWidth: 8)
+                            .stroke(
+                                AngularGradient(
+                                    colors: [
+                                        Colors.accentBlue.opacity(0.10 + ringGlowPulse * 0.05),
+                                        Colors.accentTeal.opacity(0.12 + ringGlowPulse * 0.06),
+                                        accentSunYellow.opacity(0.09 + ringGlowPulse * 0.04),
+                                        Colors.accentBlue.opacity(0.10 + ringGlowPulse * 0.05)
+                                    ],
+                                    center: .center
+                                ),
+                                lineWidth: 8
+                            )
                             .blur(radius: 6)
                             .frame(width: size + 14, height: size + 14)
                         
@@ -121,17 +141,20 @@ struct SunRayTimePickerView: View {
                                 .animation(.easeInOut(duration: 0.2), value: activeComponent) // Smooth transition
                         }
                         
-                        // Hour markers (visual aid when in hour mode)
+                        // Hour markers switch between 12h and 24h layouts.
                         if activeComponent == .hour {
-                            ForEach(0..<12) { i in
-                                // Always show 1-12 clock face similar to standard analog clock
-                                let label = i == 0 ? 12 : i
-                                Text("\(label)")
-                                    .font(.system(size: 14, weight: .heavy, design: .monospaced))
+                            ForEach(0..<hourDialDivisions, id: \.self) { i in
+                                let angleStep = 360.0 / Double(hourDialDivisions)
+                                let label = is12HourFormat
+                                    ? (i == 0 ? "12" : "\(i)")
+                                    : String(format: "%02d", i)
+
+                                Text(label)
+                                    .font(.system(size: is12HourFormat ? 14 : 10, weight: .heavy, design: .monospaced))
                                     .foregroundColor(isHourMatch(i) ? Colors.accentTeal : Colors.textSecondary)
                                     .shadow(color: isHourMatch(i) ? Colors.accentTeal.opacity(0.5) : .clear, radius: 4)
-                                    .offset(y: -(size/2 - 25))
-                                    .rotationEffect(.degrees(Double(i) * 30))
+                                    .offset(y: -(size / 2 - (is12HourFormat ? 25 : 22)))
+                                    .rotationEffect(.degrees(Double(i) * angleStep))
                             }
                         }
                     }
@@ -142,7 +165,12 @@ struct SunRayTimePickerView: View {
                         .trim(from: 0.0, to: activeProgress())
                         .stroke(
                             AngularGradient(
-                                colors: [Colors.accentTeal.opacity(0.3), Colors.accentTeal, Colors.accentTeal],
+                                colors: [
+                                    Colors.accentBlue.opacity(0.45),
+                                    Colors.accentTeal,
+                                    accentSunYellow.opacity(0.75),
+                                    Colors.accentBlue.opacity(0.7)
+                                ],
                                 center: .center,
                                 startAngle: .degrees(0),
                                 endAngle: .degrees(360 * activeProgress())
@@ -152,7 +180,7 @@ struct SunRayTimePickerView: View {
                         .frame(width: size + 10, height: size + 10)
                         .rotationEffect(.degrees(-90))
                         .shadow(color: Colors.accentTeal.opacity(isInteracting ? 0.6 : Double(0.25 + ringGlowPulse * 0.15)), radius: isInteracting ? 10 : 5)
-                        .animation(.interactiveSpring(response: 0.22, dampingFraction: 0.88), value: activeProgress())
+                        .animation(isInteracting ? .none : .interactiveSpring(response: 0.22, dampingFraction: 0.88), value: activeProgress())
                     
                     // User Interaction Layer (Transparent)
                     ZStack {
@@ -165,6 +193,8 @@ struct SunRayTimePickerView: View {
                             .onChanged { value in
                                 if !isInteracting {
                                     isInteracting = true
+                                    dragAngle = nil
+                                    lastRawDragAngle = nil
                                     feedback.prepare()
                                 }
                                 updateTimeFromDrag(value)
@@ -173,9 +203,37 @@ struct SunRayTimePickerView: View {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                     isInteracting = false
                                     dragAngle = nil // Snap back to nearest tick visually
+                                    lastRawDragAngle = nil
                                 }
                             }
                     )
+
+                    // Rotating hand to make radial selection direction explicit.
+                    ZStack {
+                        Rectangle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.92),
+                                        Colors.accentTeal.opacity(0.9),
+                                        accentSunYellow.opacity(0.7)
+                                    ],
+                                    startPoint: .bottom,
+                                    endPoint: .top
+                                )
+                            )
+                            .frame(width: 3, height: size * 0.35)
+                            .offset(y: -(size * 0.175))
+                            .shadow(color: Colors.accentTeal.opacity(0.45), radius: 5)
+
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: 12, height: 12)
+                            .shadow(color: Color.white.opacity(0.8), radius: 4)
+                    }
+                    .rotationEffect(.degrees(lineRotationDegrees))
+                    .animation(isInteracting ? .none : .interactiveSpring(response: 0.22, dampingFraction: 0.88), value: lineRotationDegrees)
+                    .allowsHitTesting(false)
                     
                     // Digital Time Display (Center)
                     VStack(spacing: second != nil ? 6 : 10) {
@@ -192,9 +250,6 @@ struct SunRayTimePickerView: View {
                             isActive: activeComponent == .hour,
                             highlightColor: Colors.accentTeal,
                             onTap: {
-                                activeComponent = .hour
-                            },
-                            onDoubleTap: {
                                 activeComponent = .hour
                                 showWheelPicker = true
                             },
@@ -228,9 +283,6 @@ struct SunRayTimePickerView: View {
                             highlightColor: Colors.accentTeal,
                             onTap: {
                                 activeComponent = .minute
-                            },
-                            onDoubleTap: {
-                                activeComponent = .minute
                                 showWheelPicker = true
                             },
                             onScroll: { delta in
@@ -257,9 +309,6 @@ struct SunRayTimePickerView: View {
                                 isActive: activeComponent == .second,
                                 highlightColor: Colors.accentTeal,
                                 onTap: {
-                                    activeComponent = .second
-                                },
-                                onDoubleTap: {
                                     activeComponent = .second
                                     showWheelPicker = true
                                 },
@@ -473,14 +522,17 @@ struct SunRayTimePickerView: View {
     private func activeProgress() -> CGFloat {
         // If actively dragging the ring, show smooth progress
         if isInteracting, let angle = dragAngle {
-             return angle / 360.0
+             return CGFloat(normalizedDegrees(angle) / 360.0)
         }
         
         // Otherwise show snapped progress
         switch activeComponent {
             case .hour:
-                // Map 0-11 for 12h cycle
-                return CGFloat(hour % 12) / 12.0
+                if is12HourFormat {
+                    return CGFloat(hour % 12) / 12.0
+                } else {
+                    return CGFloat(hour) / 24.0
+                }
             case .minute:
                 return CGFloat(minute) / 60.0
             case .second:
@@ -491,11 +543,10 @@ struct SunRayTimePickerView: View {
     private func isTickActive(index: Int) -> Bool {
         switch activeComponent {
             case .hour:
-                // Map 0-11 hour to 0-60 ticks. 1 hour = 5 ticks.
-                // 12 -> 0.
-                let h = hour % 12
-                // Light up the main tick corresponding to hour
-                return index == (h * 5)
+                let currentHourIndex = is12HourFormat ? (hour % 12) : hour
+                let markerFraction = Double(currentHourIndex) / Double(hourDialDivisions)
+                let markerTick = Int(round(markerFraction * 60.0)) % 60
+                return index == markerTick
             case .minute:
                 return index == minute
             case .second:
@@ -504,8 +555,11 @@ struct SunRayTimePickerView: View {
     }
     
     private func isHourMatch(_ i: Int) -> Bool {
-        // i is 0..11 label
-        return (hour % 12) == (i == 0 ? 0 : i) // Handle 12 vs 0 wraparound if labels are 0-11 vs 1-12
+        if is12HourFormat {
+            return (hour % 12) == i
+        } else {
+            return hour == i
+        }
     }
     
     private func updateTimeFromDrag(_ value: DragGesture.Value) {
@@ -517,31 +571,50 @@ struct SunRayTimePickerView: View {
         var angle = atan2(vector.y, vector.x) * 180 / .pi
         if angle < 0 { angle += 360 }
         
-        // Convert to clock-wise degrees starting from 12 o'clock
+        // Convert to clockwise degrees starting from 12 o'clock.
         var clockAngle = angle + 90
         if clockAngle >= 360 { clockAngle -= 360 }
+
+        // Keep a continuous drag angle so crossing 359 -> 0 does not create a reverse jump.
+        if let previousAngle = lastRawDragAngle {
+            var delta = clockAngle - previousAngle
+            if delta > 180 { delta -= 360 }
+            if delta < -180 { delta += 360 }
+            dragAngle = (dragAngle ?? previousAngle) + delta
+        } else {
+            dragAngle = clockAngle
+        }
+        lastRawDragAngle = clockAngle
+
+        let selectionAngle = normalizedDegrees(dragAngle ?? clockAngle)
         
         // Update based on Active Component
         switch activeComponent {
         case .hour:
-            // 30 degrees per hour (360 / 12)
-            // Determine closest hour index (0-11)
-            let newH12 = Int((clockAngle / 30).rounded()) % 12
-            
-            // Current hour in 24h format
-            let currentH24 = hour
-            let isPM = currentH24 >= 12
-            // Construct new hour maintaining phase
-            let newH24 = newH12 + (isPM ? 12 : 0)
-            
-            if newH24 != hour {
-                hour = newH24
-                triggerFeedback()
+            if is12HourFormat {
+                // Keep AM/PM state while selecting within a 12-hour dial.
+                let newH12 = Int((selectionAngle / 30).rounded()) % 12
+                let currentH24 = hour
+                let isPM = currentH24 >= 12
+                let newH24 = newH12 + (isPM ? 12 : 0)
+
+                if newH24 != hour {
+                    hour = newH24
+                    triggerFeedback()
+                }
+            } else {
+                // 24-hour dial: full 0...23 mapping around the circle.
+                let stepAngle = 360.0 / 24.0
+                let newH24 = Int((selectionAngle / stepAngle).rounded()) % 24
+                if newH24 != hour {
+                    hour = newH24
+                    triggerFeedback()
+                }
             }
             
         case .minute:
             // 6 degrees per minute (360 / 60)
-            let newM = Int((clockAngle / 6).rounded()) % 60
+            let newM = Int((selectionAngle / 6).rounded()) % 60
             if newM != minute && newM <= bottomMax {
                 minute = newM
                 triggerFeedback()
@@ -549,16 +622,25 @@ struct SunRayTimePickerView: View {
             
         case .second:
             if let secondBinding = second {
-                let newS = Int((clockAngle / 6).rounded()) % 60
+                let newS = Int((selectionAngle / 6).rounded()) % 60
                 if newS != secondBinding.wrappedValue && newS <= tertiaryMax {
                     secondBinding.wrappedValue = newS
                     triggerFeedback()
                 }
             }
         }
-        
-        // Update smooth angle for visualization
-        self.dragAngle = clockAngle
+    }
+
+    private var lineRotationDegrees: Double {
+        if isInteracting, let angle = dragAngle {
+            return angle
+        }
+        return Double(activeProgress()) * 360.0
+    }
+
+    private func normalizedDegrees(_ angle: Double) -> Double {
+        let remainder = angle.truncatingRemainder(dividingBy: 360)
+        return remainder >= 0 ? remainder : remainder + 360
     }
 }
 
@@ -606,7 +688,6 @@ struct UnitSelector: View {
     var isActive: Bool
     var highlightColor: Color
     var onTap: () -> Void
-    var onDoubleTap: () -> Void
     var onScroll: (Int) -> Void
     var onUnitTap: (() -> Void)? = nil
     
@@ -643,14 +724,6 @@ struct UnitSelector: View {
                     }
             }
             .contentShape(Rectangle())
-            .onTapGesture {
-                onTap()
-                feedback.selectionChanged()
-            }
-            .onTapGesture(count: 2) {
-                onDoubleTap()
-                feedback.selectionChanged()
-            }
             
             Image(systemName: "chevron.down")
                 .font(.system(size: 12, weight: .bold))
@@ -684,6 +757,12 @@ struct UnitSelector: View {
                     }
                 }
                 .onEnded { _ in
+                    // DragGesture(minimumDistance: 0) captures taps too.
+                    // Treat near-zero movement as a tap so the numeric selector always responds.
+                    if dragStepIndex == 0 && abs(offset) < 4 {
+                        onTap()
+                        feedback.selectionChanged()
+                    }
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                         isInteracting = false
                         offset = 0

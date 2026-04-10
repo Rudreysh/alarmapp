@@ -237,34 +237,47 @@ struct PomoTimerView: View {
                         )
                         
                         VStack(spacing: 8) {
-                            Text(timeString(from: engine.state.remainingSeconds))
-                                .font(.system(size: diameter * 0.22, weight: .heavy, design: .monospaced))
-                                .kerning(2)
-                                .foregroundColor(Colors.textPrimary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.5)
-                                .onTapGesture {
-                                    if showTimerTimeIntegerCoachMark {
-                                        showTimerTimeIntegerCoachMark = false
-                                        viewModel.preferences.hasSeenTimerTimeIntegerTooltip = true
-                                        triggerNextTimerStep()
+                            ZStack(alignment: .trailing) {
+                                Text(timeString(from: engine.state.remainingSeconds))
+                                    .font(.system(size: diameter * 0.22, weight: .heavy, design: .monospaced))
+                                    .kerning(2)
+                                    .foregroundColor(Colors.textPrimary)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.5)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .onTapGesture {
+                                        if showTimerTimeIntegerCoachMark {
+                                            showTimerTimeIntegerCoachMark = false
+                                            viewModel.preferences.hasSeenTimerTimeIntegerTooltip = true
+                                            triggerNextTimerStep()
+                                        }
+                                        // only allow edit if running or paused
+                                        editingSeconds = engine.state.remainingSeconds
+                                        showTimerEditSheet = true
                                     }
-                                    // only allow edit if running or paused
-                                    editingSeconds = engine.state.remainingSeconds
-                                    showTimerEditSheet = true
+                                    .coachMark(
+                                        title: "Keypad",
+                                        subtitle: "Tap to set precisely.",
+                                        isVisible: $showTimerTimeIntegerCoachMark,
+                                        alignment: .top,
+                                        pointDirection: .bottom,
+                                        arrowAlignment: .center,
+                                        arrowOffsetX: 0,
+                                        bubbleOffsetX: 0,
+                                        bubbleOffsetY: -120,
+                                        color: .red
+                                    )
+
+                                Button(action: resetTimerDisplay) {
+                                    Image(systemName: "arrow.counterclockwise.circle.fill")
+                                        .font(.system(size: 26, weight: .semibold))
+                                        .foregroundColor(TimerPalette.accent.opacity(engine.isRunning ? 0.45 : 0.95))
                                 }
-                                .coachMark(
-                                    title: "Keypad",
-                                    subtitle: "Tap to set precisely.",
-                                    isVisible: $showTimerTimeIntegerCoachMark,
-                                    alignment: .top,
-                                    pointDirection: .bottom,
-                                    arrowAlignment: .center,
-                                    arrowOffsetX: 0,
-                                    bubbleOffsetX: 0,
-                                    bubbleOffsetY: -120,
-                                    color: .red
-                                )
+                                .buttonStyle(.plain)
+                                .disabled(engine.isRunning)
+                                .accessibilityLabel("Reset timer")
+                            }
+                            .padding(.horizontal, Spacing.l)
                             
                             // Expected End Time / Schedule
                             let endTime = Date().addingTimeInterval(TimeInterval(engine.state.remainingSeconds))
@@ -634,8 +647,8 @@ struct PomoTimerView: View {
                 HStack(spacing: 6) {
                     Image(systemName: blockEnabled ? "lock.fill" : "lock.open.fill")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(blockEnabled ? .red : Colors.textSecondary)
-                    Text(listName ?? "Block Apps")
+                        .foregroundColor(blockEnabled ? .red : .green)
+                    Text(listName ?? "App Block List")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(blockEnabled ? Colors.textPrimary : Colors.textSecondary)
                 }
@@ -692,6 +705,18 @@ struct PomoTimerView: View {
         }
     }
 
+    private func resetTimerDisplay() {
+        guard !engine.isRunning else { return }
+        if case .idle = engine.state.phase {
+            var updated = engine.config
+            updated.focusSeconds = 0
+            engine.updateConfig(updated)
+        } else {
+            engine.adjustRemainingTime(to: 0)
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
     var isOverlayVisible: Bool {
         if case .finishedSegment = engine.state.phase { return true }
         if case .finishedCycle = engine.state.phase { return true }
@@ -710,7 +735,7 @@ struct PomoTimerView: View {
     // MARK: - Blocking Status Pill
     
     private var blockingStatusPill: some View {
-        let listName = selectedBlockList?.name ?? "Block Apps"
+        let listName = selectedBlockList?.name ?? "App Block List"
         let appCount = selectedBlockListAppCount
         
         let isRunningFocus = engine.isBlockingActive
@@ -719,7 +744,7 @@ struct PomoTimerView: View {
             HStack(spacing: 8) {
                 Image(systemName: isRunningFocus ? "lock.fill" : "lock.open.fill")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(isRunningFocus ? .red : Colors.textSecondary)
+                    .foregroundColor(isRunningFocus ? .red : .green)
                 
                 Text(listName)
                     .font(.system(size: 13, weight: .semibold))

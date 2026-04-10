@@ -72,6 +72,8 @@ struct AppListsView: View {
                                 .foregroundColor(Colors.textSecondary)
                         }
                         .listRowBackground(Color.white.opacity(0.08))
+                    }
+
                     Section {
                         ForEach(blockLists) { list in
                             listRow(list: list)
@@ -173,7 +175,6 @@ struct AppListsView: View {
                 Text("This action cannot be undone.")
             }
         }
-    }
 
     @ViewBuilder
     private func listRow(list: AppList) -> some View {
@@ -466,6 +467,10 @@ struct BlockListDetailView: View {
 struct EngineSettingsSection: View {
     @ObservedObject var engine: PomodoroEngine
     
+    private var hasSelectedBlockList: Bool {
+        !engine.config.selectedBlockListId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    
     var body: some View {
         Group {
             Divider().background(Colors.cardStroke)
@@ -473,6 +478,9 @@ struct EngineSettingsSection: View {
             Toggle(isOn: Binding(
                 get: { engine.config.blockAppsEnabled },
                 set: {
+                    if $0 && !hasSelectedBlockList {
+                        return
+                    }
                     var c = engine.config
                     c.blockAppsEnabled = $0
                     engine.updateConfig(c)
@@ -482,12 +490,20 @@ struct EngineSettingsSection: View {
                     Text("Block During Focus")
                         .font(.system(size: 16, weight: .medium))
                         .foregroundColor(Colors.textPrimary)
-                    Text("Apps are shielded when the timer runs")
+                    Text("Apps are blocked when the timer runs")
                         .font(.system(size: 13))
                         .foregroundColor(Colors.textSecondary)
                 }
             }
             .tint(Colors.accentRed)
+            .disabled(!hasSelectedBlockList && !engine.config.blockAppsEnabled)
+            
+            if !hasSelectedBlockList {
+                Text("Select an active block list above to enable focus blocking.")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Colors.textTertiary)
+                    .padding(.top, 6)
+            }
             
             if engine.config.blockAppsEnabled {
                 Divider().background(Colors.cardStroke)
@@ -504,7 +520,7 @@ struct EngineSettingsSection: View {
                         Text("Keep Blocked During Breaks")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(Colors.textPrimary)
-                        Text("Apps stay shielded during short and long breaks")
+                        Text("Apps stay blocked during short and long breaks")
                             .font(.system(size: 13))
                             .foregroundColor(Colors.textSecondary)
                     }

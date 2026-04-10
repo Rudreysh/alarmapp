@@ -1,20 +1,12 @@
 import SwiftUI
 
 struct PlanFloatingMenu: View {
-    let onSelectTask: () -> Void
     let onSelectHabit: () -> Void
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 10) {
-            
-            // Task and Habit Group
+            // Task row intentionally hidden for now; plus button creates habits directly.
             VStack(spacing: 0) {
-                PlanMenuRow(icon: "checkmark.circle.fill", title: "Task", tint: Color.blue) {
-                    onSelectTask()
-                }
-                
-                Divider().background(Color.white.opacity(0.15))
-                
                 PlanMenuRow(icon: "list.bullet.rectangle.portrait.fill", title: "Habit", tint: Color.cyan) {
                     onSelectHabit()
                 }

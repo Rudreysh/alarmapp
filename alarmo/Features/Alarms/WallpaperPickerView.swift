@@ -229,15 +229,18 @@ private struct WallpaperItemView: View {
                             Group {
                                 if item.category == "motivation" {
                                     VStack {
-                                        Text("\"\(MotivationQuotes.dailyQuotes().first?.text ?? "Stay Motivated")\"")
-                                            .font(.system(size: 8, weight: .bold, design: .serif))
-                                            .italic()
+                                        AdaptiveQuoteText(
+                                            quote: MotivationQuotes.dailyQuotes().first?.text ?? "Stay Motivated",
+                                            maxWidth: max(proxy.size.width - 12, 80),
+                                            maxLines: 3,
+                                            maxFontSize: 8,
+                                            minFontSize: 6,
+                                            weight: .bold,
+                                            truncateToMaxLines: true
+                                        )
                                             .foregroundColor(.white)
                                             .shadow(color: .black, radius: 2)
-                                            .multilineTextAlignment(.center)
                                             .padding(4)
-                                            .lineLimit(3)
-                                            .minimumScaleFactor(0.5)
                                     }
                                 }
                             }

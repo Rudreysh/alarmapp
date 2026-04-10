@@ -1,94 +1,167 @@
 import Foundation
 import SwiftUI
 import Combine
+import UserNotifications
 
-// MARK: - Points Configuration
+// MARK: - Points Configuration (Discipline v1)
 
-/// Defines the point values for each action in the app.
-/// Inspired by Alarmy's engagement model: reward discipline, penalize snoozing.
 enum PointsConfig {
     // Alarm
-    static let alarmDismissedClean     = 10   // Dismissed without snoozing
-    static let alarmDismissedWithMission = 15 // Dismissed after completing a mission
-    static let alarmSnoozePenalty      = -2   // Per snooze tap
-    static let alarmMissedPenalty      = -5   // Alarm fired but never dismissed (missed)
-    
+    static let alarmDismissedClean = 20
+    static let alarmDismissedWithMission = 20
+    static let alarmDismissedAfterSnooze = 5
+    static let alarmSnoozePenalty = 0
+    static let alarmMissedPenalty = -20
+
     // Habits
-    static let habitCompleted          = 5    // Marked a habit complete for the day
-    static let habitStreakBonus         = 3    // Per consecutive day in current streak
-    static let habitStreakMilestone7    = 20   // Bonus at 7-day streak
-    static let habitStreakMilestone30   = 100  // Bonus at 30-day streak
-    
+    static let habitCompleted = 15
+    static let habitSkippedPenalty = -5
+    static let habitStreakMilestone = 50
+
     // Tasks
-    static let taskCompleted           = 3    // Completed a task
-    
-    // Focus / Pomodoro
-    static let focusPerFiveMinutes     = 1    // Per 5 minutes of completed focus
-    static let focusSessionComplete    = 2    // Bonus for completing full session without skip
-    
+    static let taskCompleted = 10
+    static let taskCompletedEarly = 15
+    static let taskMissedPenalty = -10
+
+    // Pomodoro / Focus
+    static let focusSessionCompleted = 10
+    static let focusSessionInterruptedPenalty = -5
+    static let focusFourSessionBonus = 40
+
+    // Backward-compatible names used by existing UI copy
+    static let focusPerFiveMinutes = focusSessionCompleted
+    static let focusSessionComplete = focusSessionCompleted
+
+    // Stopwatch
+    static let stopwatch20Min = 5
+    static let stopwatch60Min = 10
+
     // Daily
-    static let dailyLogin              = 1    // First app open of the day
-    
-    // Levels: points needed per level (cumulative)
-    static let pointsPerLevel          = 100
+    static let dailyLogin = 1
+
+    // Discipline Levels (cumulative points)
+    static let levelThresholds: [Int] = [0, 200, 500, 1000, 2000, 5000]
+    static let levelTitles: [String] = [
+        "Beginner",
+        "Focused",
+        "Consistent",
+        "Disciplined",
+        "Elite",
+        "Monk Mode"
+    ]
 }
 
-// MARK: - Points Reason (for transaction log)
+// MARK: - Points Reason (transaction log)
 
 enum PointsReason: String, Codable {
     // Alarm
-    case alarmDismissedClean       = "alarm_dismissed_clean"
+    case alarmDismissedClean = "alarm_dismissed_clean"
     case alarmDismissedWithMission = "alarm_dismissed_mission"
-    case alarmSnoozed              = "alarm_snoozed"
-    case alarmMissed               = "alarm_missed"
-    
+    case alarmDismissedAfterSnooze = "alarm_dismissed_after_snooze"
+    case alarmSnoozed = "alarm_snoozed"
+    case alarmMissed = "alarm_missed"
+
     // Habit
-    case habitCompleted            = "habit_completed"
-    case habitStreakBonus           = "habit_streak_bonus"
-    case habitStreakMilestone       = "habit_streak_milestone"
-    
+    case habitCompleted = "habit_completed"
+    case habitSkipped = "habit_skipped"
+    case habitStreakMilestone = "habit_streak_milestone"
+
     // Task
-    case taskCompleted             = "task_completed"
-    
-    // Focus
-    case focusSession              = "focus_session"
-    case focusSessionComplete      = "focus_session_complete"
-    
-    // Daily
-    case dailyLogin                = "daily_login"
-    
-    // Manual / Admin
-    case manual                    = "manual"
-    
+    case taskCompleted = "task_completed"
+    case taskCompletedEarly = "task_completed_early"
+    case taskMissed = "task_missed"
+
+    // Focus / Pomodoro
+    case focusSessionComplete = "focus_session_complete"
+    case focusInterrupted = "focus_interrupted"
+    case focusFourSessionBonus = "focus_4_session_bonus"
+
+    // Stopwatch
+    case stopwatchSession20 = "stopwatch_session_20"
+    case stopwatchSession60 = "stopwatch_session_60"
+
+    // Daily / Manual
+    case dailyLogin = "daily_login"
+    case manual = "manual"
+
     var displayTitle: String {
         switch self {
         case .alarmDismissedClean: return "Alarm Dismissed"
         case .alarmDismissedWithMission: return "Mission Complete"
+        case .alarmDismissedAfterSnooze: return "Alarm After Snooze"
         case .alarmSnoozed: return "Snoozed"
         case .alarmMissed: return "Alarm Missed"
         case .habitCompleted: return "Habit Done"
-        case .habitStreakBonus: return "Streak Bonus"
-        case .habitStreakMilestone: return "Streak Milestone"
+        case .habitSkipped: return "Habit Skipped"
+        case .habitStreakMilestone: return "Habit Milestone"
         case .taskCompleted: return "Task Done"
-        case .focusSession: return "Focus Time"
+        case .taskCompletedEarly: return "Task Early"
+        case .taskMissed: return "Task Missed"
         case .focusSessionComplete: return "Focus Complete"
+        case .focusInterrupted: return "Focus Interrupted"
+        case .focusFourSessionBonus: return "Focus Bonus"
+        case .stopwatchSession20: return "Stopwatch 20m"
+        case .stopwatchSession60: return "Stopwatch 60m"
         case .dailyLogin: return "Daily Check-in"
         case .manual: return "Adjustment"
         }
     }
-    
+
     var icon: String {
         switch self {
-        case .alarmDismissedClean, .alarmDismissedWithMission: return "alarm.fill"
-        case .alarmSnoozed: return "zzz"
-        case .alarmMissed: return "alarm.waves.left.and.right"
-        case .habitCompleted: return "checkmark.circle.fill"
-        case .habitStreakBonus, .habitStreakMilestone: return "flame.fill"
-        case .taskCompleted: return "checkmark.square.fill"
-        case .focusSession, .focusSessionComplete: return "timer"
-        case .dailyLogin: return "sun.max.fill"
-        case .manual: return "gearshape.fill"
+        case .alarmDismissedClean, .alarmDismissedWithMission, .alarmDismissedAfterSnooze:
+            return "alarm.fill"
+        case .alarmSnoozed:
+            return "zzz"
+        case .alarmMissed:
+            return "alarm.waves.left.and.right"
+        case .habitCompleted:
+            return "checkmark.circle.fill"
+        case .habitSkipped:
+            return "minus.circle.fill"
+        case .habitStreakMilestone:
+            return "flame.fill"
+        case .taskCompleted, .taskCompletedEarly:
+            return "checkmark.square.fill"
+        case .taskMissed:
+            return "xmark.square.fill"
+        case .focusSessionComplete, .focusInterrupted, .focusFourSessionBonus:
+            return "timer"
+        case .stopwatchSession20, .stopwatchSession60:
+            return "stopwatch.fill"
+        case .dailyLogin:
+            return "sun.max.fill"
+        case .manual:
+            return "gearshape.fill"
         }
+    }
+}
+
+// MARK: - Streaks
+
+enum DisciplineStreakType: String, CaseIterable, Codable {
+    case wakeUp
+    case focus
+    case habit
+    case task
+}
+
+struct DisciplineStreakState: Codable {
+    var current: Int = 0
+    var longest: Int = 0
+    var lastActivityLocalDate: String?
+}
+
+struct DailyDisciplineBreakdown {
+    var alarm: Int = 0
+    var pomodoro: Int = 0
+    var habit: Int = 0
+    var task: Int = 0
+    var stopwatch: Int = 0
+    var penalties: Int = 0
+
+    var total: Int {
+        alarm + pomodoro + habit + task + stopwatch + penalties
     }
 }
 
@@ -99,10 +172,10 @@ struct PointsTransaction: Codable, Identifiable {
     let date: Date
     let reason: PointsReason
     let amount: Int
-    let entityId: UUID?      // Optional: alarm/habit/task ID
-    let entityName: String?  // Display name
+    let entityId: UUID?
+    let entityName: String?
     let note: String?
-    
+
     init(
         id: UUID = UUID(),
         date: Date = Date(),
@@ -122,60 +195,122 @@ struct PointsTransaction: Codable, Identifiable {
     }
 }
 
+// MARK: - Discipline Event Input
+
+struct DisciplineEventInput {
+    enum Kind {
+        case alarmDismissed(snoozeCount: Int, hadMission: Bool)
+        case alarmSnoozed
+        case alarmMissed
+        case habitCompleted(streakDays: Int)
+        case habitSkipped
+        case taskCompleted(beforeDeadline: Bool)
+        case taskMissed
+        case pomodoroCompleted(durationSeconds: Int, interrupted: Bool)
+        case stopwatchCompleted(durationSeconds: Int)
+    }
+
+    var kind: Kind
+    var entityId: UUID?
+    var entityName: String?
+}
+
 // MARK: - Points Service
 
 final class PointsService: ObservableObject {
     static let shared = PointsService()
-    
+
     private let settings = SettingsStore.shared
     private let transactionsKey = "points.transactions"
     private let lastLoginDateKey = "points.lastLoginDate"
-    
+    private let streaksKey = "discipline.streaks"
+
     @Published var recentTransactions: [PointsTransaction] = []
-    
+
     var totalPoints: Int {
         get { settings.points }
         set { settings.points = newValue }
     }
-    
+
+    var disciplineScore: Int { totalPoints }
+
+    private var streaks: [String: DisciplineStreakState] = [:]
+
     var currentLevel: Int {
-        max(1, (totalPoints / PointsConfig.pointsPerLevel) + 1)
+        let idx = PointsConfig.levelThresholds.lastIndex(where: { totalPoints >= $0 }) ?? 0
+        return idx + 1
     }
-    
-    var pointsInCurrentLevel: Int {
-        totalPoints % PointsConfig.pointsPerLevel
-    }
-    
-    var pointsToNextLevel: Int {
-        PointsConfig.pointsPerLevel - pointsInCurrentLevel
-    }
-    
-    var levelProgress: Double {
-        Double(pointsInCurrentLevel) / Double(PointsConfig.pointsPerLevel)
-    }
-    
+
     var levelTitle: String {
-        switch currentLevel {
-        case 1: return "Beginner"
-        case 2: return "Early Bird"
-        case 3: return "Rising Star"
-        case 4: return "Disciplined"
-        case 5: return "Focused"
-        case 6: return "Committed"
-        case 7: return "Champion"
-        case 8: return "Master"
-        case 9: return "Elite"
-        case 10...: return "Legend"
-        default: return "Beginner"
-        }
+        let idx = max(0, min(currentLevel - 1, PointsConfig.levelTitles.count - 1))
+        return PointsConfig.levelTitles[idx]
     }
-    
+
+    var pointsInCurrentLevel: Int {
+        guard let currentThreshold = PointsConfig.levelThresholds[safe: currentLevel - 1] else { return 0 }
+        return max(0, totalPoints - currentThreshold)
+    }
+
+    var pointsToNextLevel: Int {
+        guard let nextThreshold = PointsConfig.levelThresholds[safe: currentLevel] else { return 0 }
+        return max(0, nextThreshold - totalPoints)
+    }
+
+    var levelProgress: Double {
+        guard let currentThreshold = PointsConfig.levelThresholds[safe: currentLevel - 1],
+              let nextThreshold = PointsConfig.levelThresholds[safe: currentLevel],
+              nextThreshold > currentThreshold else {
+            return 1
+        }
+        let span = nextThreshold - currentThreshold
+        let progressed = totalPoints - currentThreshold
+        return min(1, max(0, Double(progressed) / Double(span)))
+    }
+
+    var todayTransactions: [PointsTransaction] {
+        let calendar = Calendar.current
+        return recentTransactions.filter { calendar.isDateInToday($0.date) }
+    }
+
+    var todayPoints: Int {
+        todayTransactions.reduce(0) { $0 + $1.amount }
+    }
+
+    var todayBreakdown: DailyDisciplineBreakdown {
+        var breakdown = DailyDisciplineBreakdown()
+        for tx in todayTransactions {
+            switch tx.reason {
+            case .alarmDismissedClean, .alarmDismissedWithMission, .alarmDismissedAfterSnooze:
+                breakdown.alarm += tx.amount
+            case .focusSessionComplete, .focusFourSessionBonus, .focusInterrupted:
+                breakdown.pomodoro += tx.amount
+            case .habitCompleted, .habitStreakMilestone, .habitSkipped:
+                breakdown.habit += tx.amount
+            case .taskCompleted, .taskCompletedEarly, .taskMissed:
+                breakdown.task += tx.amount
+            case .stopwatchSession20, .stopwatchSession60:
+                breakdown.stopwatch += tx.amount
+            case .alarmMissed, .alarmSnoozed:
+                breakdown.penalties += tx.amount
+            case .dailyLogin, .manual:
+                break
+            }
+        }
+        return breakdown
+    }
+
+    var wakeUpStreak: Int { streak(for: .wakeUp).current }
+    var focusStreak: Int { streak(for: .focus).current }
+    var habitStreak: Int { streak(for: .habit).current }
+    var taskStreak: Int { streak(for: .task).current }
+
     private init() {
         loadTransactions()
+        loadStreaks()
     }
-    
-    // MARK: - Core Award/Deduct
-    
+
+    // MARK: - Core award/deduct
+
     @discardableResult
     func award(
         reason: PointsReason,
@@ -184,6 +319,7 @@ final class PointsService: ObservableObject {
         entityName: String? = nil,
         note: String? = nil
     ) -> PointsTransaction {
+        let oldLevel = currentLevel
         let tx = PointsTransaction(
             reason: reason,
             amount: amount,
@@ -191,229 +327,380 @@ final class PointsService: ObservableObject {
             entityName: entityName,
             note: note
         )
-        
+
         totalPoints = max(0, totalPoints + amount)
         recentTransactions.insert(tx, at: 0)
-        
-        // Keep only last 200 transactions in memory
-        if recentTransactions.count > 200 {
-            recentTransactions = Array(recentTransactions.prefix(200))
+
+        if recentTransactions.count > 500 {
+            recentTransactions = Array(recentTransactions.prefix(500))
         }
-        
+
         saveTransactions()
-        
-        print("[PointsService] \(amount >= 0 ? "+" : "")\(amount) pts (\(reason.rawValue)) → Total: \(totalPoints)")
+
+        let newLevel = currentLevel
+        if newLevel > oldLevel {
+            scheduleAchievementNotification(
+                title: "Discipline level up",
+                body: "You reached level \(newLevel): \(levelTitle)."
+            )
+        }
+
         return tx
     }
-    
-    // MARK: - Alarm Events
-    
-    /// Called when an alarm is successfully dismissed.
-    /// `snoozeCount`: how many times the user snoozed before dismissing.
-    /// `hadMission`: whether the alarm required a mission to dismiss.
+
+    // MARK: - Event router
+
+    func record(event: DisciplineEventInput) {
+        switch event.kind {
+        case .alarmDismissed(let snoozeCount, let hadMission):
+            guard let id = event.entityId else { return }
+            alarmDismissed(alarmId: id, alarmName: event.entityName ?? "Alarm", snoozeCount: snoozeCount, hadMission: hadMission)
+        case .alarmSnoozed:
+            guard let id = event.entityId else { return }
+            alarmSnoozed(alarmId: id, alarmName: event.entityName ?? "Alarm")
+        case .alarmMissed:
+            guard let id = event.entityId else { return }
+            alarmMissed(alarmId: id, alarmName: event.entityName ?? "Alarm")
+        case .habitCompleted(let streakDays):
+            guard let id = event.entityId else { return }
+            habitCompleted(habitId: id, habitName: event.entityName ?? "Habit", streakDays: streakDays)
+        case .habitSkipped:
+            guard let id = event.entityId else { return }
+            habitSkipped(habitId: id, habitName: event.entityName ?? "Habit")
+        case .taskCompleted(let beforeDeadline):
+            guard let id = event.entityId else { return }
+            taskCompleted(taskId: id, taskName: event.entityName ?? "Task", completedBeforeDeadline: beforeDeadline)
+        case .taskMissed:
+            guard let id = event.entityId else { return }
+            taskMissed(taskId: id, taskName: event.entityName ?? "Task")
+        case .pomodoroCompleted(let durationSeconds, let interrupted):
+            pomodoroSessionEnded(taskId: event.entityId, taskName: event.entityName, durationSeconds: durationSeconds, interrupted: interrupted)
+        case .stopwatchCompleted(let durationSeconds):
+            stopwatchSessionCompleted(durationSeconds: durationSeconds, sessionLabel: event.entityName)
+        }
+    }
+
+    // MARK: - Alarm events
+
     func alarmDismissed(alarmId: UUID, alarmName: String, snoozeCount: Int, hadMission: Bool) {
-        // Guard: only award once per alarm ring session
-        guard !hasTransactionToday(reason: .alarmDismissedClean, entityId: alarmId) &&
-              !hasTransactionToday(reason: .alarmDismissedWithMission, entityId: alarmId) else {
-            print("[PointsService] Already awarded points for alarm \(alarmName) today")
+        guard !hasAnyTransactionToday(
+            reasons: [.alarmDismissedClean, .alarmDismissedWithMission, .alarmDismissedAfterSnooze],
+            entityId: alarmId
+        ) else {
             return
         }
-        
-        // Award dismissal points
-        if hadMission {
+
+        if snoozeCount == 0 {
+            let reason: PointsReason = hadMission ? .alarmDismissedWithMission : .alarmDismissedClean
             award(
-                reason: .alarmDismissedWithMission,
-                amount: PointsConfig.alarmDismissedWithMission,
-                entityId: alarmId,
-                entityName: alarmName,
-                note: "Mission completed"
-            )
-        } else if snoozeCount == 0 {
-            award(
-                reason: .alarmDismissedClean,
+                reason: reason,
                 amount: PointsConfig.alarmDismissedClean,
                 entityId: alarmId,
                 entityName: alarmName,
-                note: "No snooze — great discipline!"
+                note: hadMission ? "Dismissed after mission" : "Dismissed on first ring"
             )
+            _ = updateStreak(.wakeUp)
         } else {
-            // Snoozed but eventually dismissed  → reduced points
-            let basePoints = max(1, PointsConfig.alarmDismissedClean + (snoozeCount * PointsConfig.alarmSnoozePenalty))
             award(
-                reason: .alarmDismissedClean,
-                amount: basePoints,
+                reason: .alarmDismissedAfterSnooze,
+                amount: PointsConfig.alarmDismissedAfterSnooze,
                 entityId: alarmId,
                 entityName: alarmName,
                 note: "Dismissed after \(snoozeCount) snooze(s)"
             )
+            resetStreak(.wakeUp)
         }
     }
-    
-    /// Called each time the user presses snooze.
+
     func alarmSnoozed(alarmId: UUID, alarmName: String) {
+        resetStreak(.wakeUp)
+    }
+
+    func alarmMissed(alarmId: UUID, alarmName: String) {
+        guard !hasTransactionToday(reason: .alarmMissed, entityId: alarmId) else { return }
         award(
-            reason: .alarmSnoozed,
-            amount: PointsConfig.alarmSnoozePenalty,
+            reason: .alarmMissed,
+            amount: PointsConfig.alarmMissedPenalty,
             entityId: alarmId,
             entityName: alarmName,
-            note: "Snoozed alarm"
+            note: "Alarm was not dismissed"
         )
+        resetStreak(.wakeUp)
     }
-    
-    // MARK: - Habit Events
-    
-    /// Called when a habit is marked complete for the day.
-    /// `streakDays`: current consecutive day streak for this habit.
+
+    // MARK: - Habit events
+
     func habitCompleted(habitId: UUID, habitName: String, streakDays: Int) {
-        // Guard: only award once per habit per day
-        guard !hasTransactionToday(reason: .habitCompleted, entityId: habitId) else {
-            print("[PointsService] Already awarded habit points for \(habitName) today")
-            return
-        }
-        
+        guard !hasTransactionToday(reason: .habitCompleted, entityId: habitId) else { return }
+
         award(
             reason: .habitCompleted,
             amount: PointsConfig.habitCompleted,
             entityId: habitId,
             entityName: habitName
         )
-        
-        // Streak bonus (only if streak > 1)
-        if streakDays > 1 {
-            let streakBonus = min(streakDays, 30) * PointsConfig.habitStreakBonus / 10  // Scale: 1pt per 3 days roughly
-            if streakBonus > 0 {
-                award(
-                    reason: .habitStreakBonus,
-                    amount: streakBonus,
-                    entityId: habitId,
-                    entityName: habitName,
-                    note: "\(streakDays)-day streak"
-                )
-            }
-        }
-        
-        // Milestone bonuses
-        if streakDays == 7 {
+
+        let updatedStreak = max(streakDays, updateStreak(.habit).current)
+
+        if updatedStreak == 7 || updatedStreak == 30 {
             award(
                 reason: .habitStreakMilestone,
-                amount: PointsConfig.habitStreakMilestone7,
+                amount: PointsConfig.habitStreakMilestone,
                 entityId: habitId,
                 entityName: habitName,
-                note: "🔥 7-day streak milestone!"
+                note: "\(updatedStreak)-day streak milestone"
             )
-        } else if streakDays == 30 {
-            award(
-                reason: .habitStreakMilestone,
-                amount: PointsConfig.habitStreakMilestone30,
-                entityId: habitId,
-                entityName: habitName,
-                note: "🏆 30-day streak milestone!"
+            scheduleAchievementNotification(
+                title: "Habit streak milestone",
+                body: "\(updatedStreak)-day streak reached for \(habitName)."
             )
         }
     }
-    
-    // MARK: - Task Events
-    
-    func taskCompleted(taskId: UUID, taskName: String) {
-        guard !hasTransactionToday(reason: .taskCompleted, entityId: taskId) else {
-            print("[PointsService] Already awarded task points for \(taskName) today")
+
+    func habitSkipped(habitId: UUID, habitName: String) {
+        award(
+            reason: .habitSkipped,
+            amount: PointsConfig.habitSkippedPenalty,
+            entityId: habitId,
+            entityName: habitName,
+            note: "Habit skipped"
+        )
+        resetStreak(.habit)
+    }
+
+    // MARK: - Task events
+
+    func taskCompleted(taskId: UUID, taskName: String, completedBeforeDeadline: Bool = false) {
+        guard !hasAnyTransactionToday(
+            reasons: [.taskCompleted, .taskCompletedEarly],
+            entityId: taskId
+        ) else {
             return
         }
-        
-        award(
-            reason: .taskCompleted,
-            amount: PointsConfig.taskCompleted,
-            entityId: taskId,
-            entityName: taskName
-        )
-    }
-    
-    // MARK: - Focus Events
-    
-    /// Called when a focus/pomodoro session completes.
-    /// `durationSeconds`: actual focus duration.
-    /// `wasSkipped`: whether the user skipped the session.
-    func focusSessionEnded(taskId: UUID?, taskName: String?, durationSeconds: Int, wasSkipped: Bool) {
-        guard durationSeconds >= 60 else { return } // Minimum 1 minute
-        
-        let fiveMinBlocks = durationSeconds / 300
-        let focusPoints = max(1, fiveMinBlocks * PointsConfig.focusPerFiveMinutes)
-        
-        award(
-            reason: .focusSession,
-            amount: focusPoints,
-            entityId: taskId,
-            entityName: taskName ?? "Focus",
-            note: "\(durationSeconds / 60) min focused"
-        )
-        
-        // Bonus for completing without skipping
-        if !wasSkipped && durationSeconds >= 300 { // At least 5 min
+
+        if completedBeforeDeadline {
             award(
-                reason: .focusSessionComplete,
-                amount: PointsConfig.focusSessionComplete,
+                reason: .taskCompletedEarly,
+                amount: PointsConfig.taskCompletedEarly,
+                entityId: taskId,
+                entityName: taskName,
+                note: "Completed before deadline"
+            )
+        } else {
+            award(
+                reason: .taskCompleted,
+                amount: PointsConfig.taskCompleted,
+                entityId: taskId,
+                entityName: taskName
+            )
+        }
+
+        _ = updateStreak(.task)
+    }
+
+    func taskMissed(taskId: UUID, taskName: String) {
+        award(
+            reason: .taskMissed,
+            amount: PointsConfig.taskMissedPenalty,
+            entityId: taskId,
+            entityName: taskName,
+            note: "Task missed"
+        )
+        resetStreak(.task)
+    }
+
+    // MARK: - Focus / Pomodoro events
+
+    func focusSessionEnded(taskId: UUID?, taskName: String?, durationSeconds: Int, wasSkipped: Bool) {
+        pomodoroSessionEnded(taskId: taskId, taskName: taskName, durationSeconds: durationSeconds, interrupted: wasSkipped)
+    }
+
+    func pomodoroSessionEnded(taskId: UUID?, taskName: String?, durationSeconds: Int, interrupted: Bool) {
+        guard durationSeconds >= 60 else { return }
+
+        if interrupted {
+            award(
+                reason: .focusInterrupted,
+                amount: PointsConfig.focusSessionInterruptedPenalty,
                 entityId: taskId,
                 entityName: taskName ?? "Focus",
-                note: "Full session completed"
+                note: "Focus interrupted at \(durationSeconds / 60)m"
             )
+            resetStreak(.focus)
+            return
         }
-    }
-    
-    // MARK: - Daily Login
-    
-    func checkDailyLogin() {
-        let today = Calendar.current.startOfDay(for: Date())
-        let lastLoginStr = UserDefaults.standard.string(forKey: lastLoginDateKey) ?? ""
-        
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        let todayStr = formatter.string(from: today)
-        
-        if lastLoginStr != todayStr {
-            UserDefaults.standard.set(todayStr, forKey: lastLoginDateKey)
+
+        award(
+            reason: .focusSessionComplete,
+            amount: PointsConfig.focusSessionCompleted,
+            entityId: taskId,
+            entityName: taskName ?? "Focus",
+            note: "Completed \(durationSeconds / 60)m focus"
+        )
+
+        _ = updateStreak(.focus)
+
+        let completedFocusSessionsToday = todayTransactions.filter { $0.reason == .focusSessionComplete }.count
+        if completedFocusSessionsToday > 0, completedFocusSessionsToday % 4 == 0 {
             award(
-                reason: .dailyLogin,
-                amount: PointsConfig.dailyLogin,
-                note: "Daily check-in"
+                reason: .focusFourSessionBonus,
+                amount: PointsConfig.focusFourSessionBonus,
+                entityId: taskId,
+                entityName: taskName ?? "Focus",
+                note: "4-session completion bonus"
             )
         }
     }
-    
-    // MARK: - Helpers
-    
-    private func hasTransactionToday(reason: PointsReason, entityId: UUID?) -> Bool {
-        let calendar = Calendar.current
-        return recentTransactions.contains { tx in
-            tx.reason == reason &&
-            tx.entityId == entityId &&
-            calendar.isDateInToday(tx.date)
+
+    // MARK: - Stopwatch events
+
+    func stopwatchSessionCompleted(durationSeconds: Int, sessionLabel: String? = nil) {
+        guard durationSeconds >= 20 * 60 else { return }
+
+        let reason: PointsReason
+        let amount: Int
+        if durationSeconds >= 60 * 60 {
+            reason = .stopwatchSession60
+            amount = PointsConfig.stopwatch60Min
+        } else {
+            reason = .stopwatchSession20
+            amount = PointsConfig.stopwatch20Min
+        }
+
+        award(
+            reason: reason,
+            amount: amount,
+            entityName: sessionLabel ?? "Stopwatch",
+            note: "\(durationSeconds / 60)m session"
+        )
+    }
+
+    // MARK: - Daily login
+
+    func checkDailyLogin() {
+        let today = localDateString(for: Date())
+        let last = UserDefaults.standard.string(forKey: lastLoginDateKey) ?? ""
+        if last != today {
+            UserDefaults.standard.set(today, forKey: lastLoginDateKey)
+            award(reason: .dailyLogin, amount: PointsConfig.dailyLogin, note: "Daily check-in")
         }
     }
-    
-    /// Get today's transactions.
-    var todayTransactions: [PointsTransaction] {
-        let calendar = Calendar.current
-        return recentTransactions.filter { calendar.isDateInToday($0.date) }
+
+    // MARK: - Streak helpers
+
+    func streak(for type: DisciplineStreakType) -> DisciplineStreakState {
+        streaks[type.rawValue] ?? DisciplineStreakState()
     }
-    
-    /// Get today's earned points.
-    var todayPoints: Int {
-        todayTransactions.reduce(0) { $0 + $1.amount }
+
+    @discardableResult
+    func updateStreak(_ type: DisciplineStreakType, on date: Date = Date()) -> DisciplineStreakState {
+        let today = localDateString(for: date)
+        let yesterday = localDateString(for: Calendar.current.date(byAdding: .day, value: -1, to: date) ?? date)
+
+        var state = streak(for: type)
+        if state.lastActivityLocalDate == today {
+            return state
+        }
+
+        if state.lastActivityLocalDate == yesterday {
+            state.current += 1
+        } else {
+            state.current = 1
+        }
+
+        state.longest = max(state.longest, state.current)
+        state.lastActivityLocalDate = today
+        streaks[type.rawValue] = state
+        saveStreaks()
+        objectWillChange.send()
+        return state
     }
-    
+
+    func resetStreak(_ type: DisciplineStreakType) {
+        var state = streak(for: type)
+        guard state.current != 0 else { return }
+        state.current = 0
+        state.lastActivityLocalDate = nil
+        streaks[type.rawValue] = state
+        saveStreaks()
+        objectWillChange.send()
+    }
+
     // MARK: - Persistence
-    
+
     private func saveTransactions() {
-        if let data = try? JSONEncoder().encode(Array(recentTransactions.prefix(500))) {
+        if let data = try? JSONEncoder().encode(recentTransactions) {
             UserDefaults.standard.set(data, forKey: transactionsKey)
         }
     }
-    
+
     private func loadTransactions() {
         guard let data = UserDefaults.standard.data(forKey: transactionsKey),
               let decoded = try? JSONDecoder().decode([PointsTransaction].self, from: data) else {
             return
         }
         recentTransactions = decoded
+    }
+
+    private func saveStreaks() {
+        if let data = try? JSONEncoder().encode(streaks) {
+            UserDefaults.standard.set(data, forKey: streaksKey)
+        }
+    }
+
+    private func loadStreaks() {
+        guard let data = UserDefaults.standard.data(forKey: streaksKey),
+              let decoded = try? JSONDecoder().decode([String: DisciplineStreakState].self, from: data) else {
+            return
+        }
+        streaks = decoded
+    }
+
+    // MARK: - Internal helpers
+
+    private func hasTransactionToday(reason: PointsReason, entityId: UUID?) -> Bool {
+        let calendar = Calendar.current
+        return recentTransactions.contains { tx in
+            tx.reason == reason && tx.entityId == entityId && calendar.isDateInToday(tx.date)
+        }
+    }
+
+    private func hasAnyTransactionToday(reasons: [PointsReason], entityId: UUID?) -> Bool {
+        let reasonSet = Set(reasons)
+        let calendar = Calendar.current
+        return recentTransactions.contains { tx in
+            reasonSet.contains(tx.reason) && tx.entityId == entityId && calendar.isDateInToday(tx.date)
+        }
+    }
+
+    private func localDateString(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar.current
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
+    private func scheduleAchievementNotification(title: String, body: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let request = UNNotificationRequest(
+            identifier: "alarmo.discipline.achievement.\(UUID().uuidString)",
+            content: content,
+            trigger: trigger
+        )
+        UNUserNotificationCenter.current().add(request)
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        guard indices.contains(index) else { return nil }
+        return self[index]
     }
 }

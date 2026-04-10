@@ -57,6 +57,7 @@ final class HomeViewModelTests: XCTestCase {
 
 private final class MockAppPreferences: AppPreferencesProtocol {
     var onboardingCompleted: Bool = false
+    var forceShowOnboardingNextLaunch: Bool = false
     var hasShownFirstHomeDiscountFlow: Bool = false
     var hasTappedRemoveAdsBefore: Bool = false
     var hasSeenPaywallAtLeastOnce: Bool = false

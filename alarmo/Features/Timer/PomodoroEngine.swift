@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import SwiftData
+import UserNotifications
 
 @MainActor
 class PomodoroEngine: ObservableObject {
@@ -15,10 +16,16 @@ class PomodoroEngine: ObservableObject {
     private var timer: AnyCancellable?
     private var entitlementProvider: EntitlementProvider
     private let accountabilityManager = AccountabilityEnforcementManager.shared
+    private let notificationOrchestrator = NotificationOrchestrator.shared
+    private var pendingSegmentNotificationId: String?
+    private var didBindNotificationActions = false
     
-    /// Callback for when a segment (like Focus) is completed.
-    /// Parameters:TaskId, SegmentKind, DurationSeconds
-    var onSessionComplete: ((UUID?, SegmentKind, Int) -> Void)?
+    /// Callback for segment lifecycle events.
+    /// Parameters: taskId, segment, durationSeconds
+    var onSegmentStarted: ((UUID?, SegmentKind, Int) -> Void)?
+    var onSegmentInterrupted: ((UUID?, SegmentKind, Int) -> Void)?
+    /// Parameters: taskId, segment, durationSeconds, wasSkipped
+    var onSessionComplete: ((UUID?, SegmentKind, Int, Bool) -> Void)?
     
     // Quick accessors
     var isRunning: Bool {
@@ -54,6 +61,8 @@ class PomodoroEngine: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     func configure(with preferences: AppPreferences) {
+        bindNotificationActionsIfNeeded()
+
         // Initial Sync
         syncFromPreferences(preferences)
         
@@ -93,6 +102,27 @@ class PomodoroEngine: ObservableObject {
             self.updateConfig(newConfig)
         }
     }
+
+    private func bindNotificationActionsIfNeeded() {
+        guard !didBindNotificationActions else { return }
+        didBindNotificationActions = true
+
+        NotificationCenter.default.publisher(for: .focusStartRequestedFromNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.start()
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .focusSkipBreakRequestedFromNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                guard let current = self.state.currentSegment, current != .focus else { return }
+                self.skipSegment()
+            }
+            .store(in: &cancellables)
+    }
     
 
     // MARK: - Core Actions
@@ -120,6 +150,7 @@ class PomodoroEngine: ObservableObject {
     func pause() {
         guard case .running(let segment) = state.phase else { return }
         timer?.cancel()
+        cancelPendingSegmentNotification()
         state.phase = .paused(segment: segment)
         state.segmentEndDate = nil // Invalidate end date on pause
         
@@ -143,6 +174,7 @@ class PomodoroEngine: ObservableObject {
         let endDate = Date().addingTimeInterval(TimeInterval(state.remainingSeconds))
         state.segmentEndDate = endDate
         startTicker()
+        scheduleSegmentCompletionNotification(for: seg, seconds: state.remainingSeconds)
         
         let remaining = state.remainingSeconds
         let total = totalDuration(for: seg)
@@ -192,6 +224,7 @@ class PomodoroEngine: ObservableObject {
     
     /// Called ONLY after a challenge is completed. Actually stops and unblocks.
     func forceStop() {
+        notifyInterruptionIfNeeded()
         let shouldApplyEarlyPenalty =
             (state.currentSegment == .focus) &&
             (state.remainingSeconds > 0) &&
@@ -207,6 +240,7 @@ class PomodoroEngine: ObservableObject {
         showingIntervention = false
         LiveActivityManager.shared.end()
         timer?.cancel()
+        cancelPendingSegmentNotification()
         accountabilityManager.endFocusSession()
         state = PomodoroRuntimeState()
         state.remainingSeconds = config.focusSeconds
@@ -222,6 +256,10 @@ class PomodoroEngine: ObservableObject {
         // Deep Focus guard: prevent stopping during an active focus run
         if userInitiated && !canStopSession {
             return
+        }
+
+        if userInitiated {
+            notifyInterruptionIfNeeded()
         }
         
         let shouldApplyEarlyPenalty =
@@ -242,6 +280,7 @@ class PomodoroEngine: ObservableObject {
         
         LiveActivityManager.shared.end()
         timer?.cancel()
+        cancelPendingSegmentNotification()
         accountabilityManager.endFocusSession()
         if reset {
             state = PomodoroRuntimeState()
@@ -277,6 +316,9 @@ class PomodoroEngine: ObservableObject {
         state.remainingSeconds = duration
         let endDate = Date().addingTimeInterval(TimeInterval(duration))
         state.segmentEndDate = endDate
+        scheduleSegmentCompletionNotification(for: kind, seconds: duration)
+        publishSegmentStartNotification(for: kind)
+        onSegmentStarted?(state.selectedTaskId, kind, duration)
         
         startTicker()
         
@@ -308,22 +350,19 @@ class PomodoroEngine: ObservableObject {
     
     func setActiveBlockList(_ list: AppList?) {
         activeBlockList = list
-        if let id = list?.id.uuidString {
-            var c = config
-            c.selectedBlockListId = id
-            c.blockAppsEnabled = true
-            updateConfig(c)
-        } else {
-            var c = config
+        var c = config
+        c.selectedBlockListId = list?.id.uuidString ?? ""
+        if list == nil {
             c.blockAppsEnabled = false
-            c.selectedBlockListId = ""
-            updateConfig(c)
-            BlockingManager.shared.clearBlocking()
         }
+        updateConfig(c)
     }
     
     private func applyBlockingForSegment(_ kind: SegmentKind) {
-        guard config.blockAppsEnabled, let list = activeBlockList else { return }
+        guard config.blockAppsEnabled, let list = activeBlockList else {
+            BlockingManager.shared.clearBlocking()
+            return
+        }
         switch kind {
         case .focus:
             BlockingManager.shared.applyBlocking(blockList: list)
@@ -359,6 +398,7 @@ class PomodoroEngine: ObservableObject {
     
     private func completeSegment(wasSkipped: Bool = false) {
         timer?.cancel()
+        cancelPendingSegmentNotification()
         state.segmentEndDate = nil
         LiveActivityManager.shared.end()
         
@@ -378,8 +418,8 @@ class PomodoroEngine: ObservableObject {
         )
         eventStore.record(event: event)
         
-        // Notify listeners (e.g. to update habit progress)
-        onSessionComplete?(state.selectedTaskId, completedKind, event.actualSeconds)
+        // Notify listeners (e.g. progress / discipline score updates)
+        onSessionComplete?(state.selectedTaskId, completedKind, event.actualSeconds, wasSkipped)
         
         // Update Cycle Counts
         if completedKind == .focus {
@@ -413,6 +453,16 @@ class PomodoroEngine: ObservableObject {
                 handleNextTransition(to: .shortBreak, autoStart: config.autoStartBreak)
             }
         }
+    }
+
+    private func notifyInterruptionIfNeeded() {
+        guard let segment = state.currentSegment else { return }
+        guard state.remainingSeconds > 0 else { return }
+        guard isRunning || state.phase.isPaused else { return }
+
+        let total = totalDuration(for: segment)
+        let elapsed = max(0, total - state.remainingSeconds)
+        onSegmentInterrupted?(state.selectedTaskId, segment, elapsed)
     }
     
     private func handleNextTransition(to nextKind: SegmentKind, autoStart: Bool) {
@@ -499,12 +549,19 @@ class PomodoroEngine: ObservableObject {
     // MARK: - Config
     
     func updateConfig(_ newConfig: IntervalTimerConfig) {
+        let oldConfig = config
         config = newConfig
         configStore.update(newConfig)
         
         // If idle, reset time to match new focus duration
         if case .idle = state.phase {
             state.remainingSeconds = newConfig.focusSeconds
+        }
+
+        if oldConfig.blockAppsEnabled != newConfig.blockAppsEnabled ||
+            oldConfig.blockDuringBreaks != newConfig.blockDuringBreaks ||
+            oldConfig.selectedBlockListId != newConfig.selectedBlockListId {
+            refreshBlockingForCurrentPhase()
         }
     }
     
@@ -536,6 +593,9 @@ class PomodoroEngine: ObservableObject {
         state.remainingSeconds = seconds
         if case .running = state.phase {
             state.segmentEndDate = Date().addingTimeInterval(TimeInterval(seconds))
+            if let kind = state.currentSegment {
+                scheduleSegmentCompletionNotification(for: kind, seconds: seconds)
+            }
         }
     }
     
@@ -566,7 +626,29 @@ class PomodoroEngine: ObservableObject {
         
         updateConfig(newConfig)
     }
-} 
+
+    private func refreshBlockingForCurrentPhase() {
+        switch state.phase {
+        case .running(let segment), .paused(let segment):
+            guard config.blockAppsEnabled, let list = activeBlockList else {
+                BlockingManager.shared.clearBlocking()
+                return
+            }
+            switch segment {
+            case .focus:
+                BlockingManager.shared.applyBlocking(blockList: list)
+            case .shortBreak, .longBreak:
+                if config.blockDuringBreaks {
+                    BlockingManager.shared.applyBlocking(blockList: list)
+                } else {
+                    BlockingManager.shared.clearBlocking()
+                }
+            }
+        default:
+            break
+        }
+    }
+}
 
 extension PomodoroEngine {
     func totalDuration(for kind: SegmentKind) -> Int {
@@ -575,6 +657,48 @@ extension PomodoroEngine {
         case .shortBreak: return config.shortBreakSeconds
         case .longBreak: return config.longBreakSeconds
         }
+    }
+}
+
+private extension PomodoroEngine {
+    func scheduleSegmentCompletionNotification(for kind: SegmentKind, seconds: Int) {
+        cancelPendingSegmentNotification()
+        guard seconds > 0 else { return }
+
+        let scenario: AppNotificationScenario = (kind == .focus) ? .pomodoroFocusComplete : .pomodoroBreakComplete
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(seconds), repeats: false)
+        let id = "\(AppNotificationIdentifier.pomodoroSegmentEnd)-\(UUID().uuidString)"
+        pendingSegmentNotificationId = id
+
+        notificationOrchestrator.schedule(
+            identifier: id,
+            scenario: scenario,
+            trigger: trigger,
+            context: AppNotificationContext(),
+            categoryIdentifier: AppNotificationCategory.focusSession,
+            userInfo: ["scenario": scenario.rawValue],
+            sound: .default
+        )
+    }
+
+    func cancelPendingSegmentNotification() {
+        guard let id = pendingSegmentNotificationId else { return }
+        notificationOrchestrator.cancel(identifiers: [id])
+        pendingSegmentNotificationId = nil
+    }
+
+    func publishSegmentStartNotification(for kind: SegmentKind) {
+        let scenario: AppNotificationScenario = (kind == .focus) ? .pomodoroFocusStart : .pomodoroBreakStart
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        notificationOrchestrator.schedule(
+            identifier: "alarmo.pomodoro.segment-start-\(UUID().uuidString)",
+            scenario: scenario,
+            trigger: trigger,
+            context: AppNotificationContext(),
+            categoryIdentifier: AppNotificationCategory.focusSession,
+            userInfo: ["scenario": scenario.rawValue],
+            sound: .default
+        )
     }
 }
 

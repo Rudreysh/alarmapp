@@ -1,5 +1,7 @@
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
+import UIKit
 
 struct OnboardingWallpaperSelectionView: View {
     @ObservedObject var viewModel: OnboardingViewModel
@@ -12,7 +14,7 @@ struct OnboardingWallpaperSelectionView: View {
             Colors.bgPrimary.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                ProgressHeader(step: 3, total: AppConstants.onboardingTotalSteps)
+                ProgressHeader(step: 2, total: AppConstants.onboardingTotalSteps)
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.l)
                     .padding(.bottom, Spacing.m)
@@ -120,7 +122,10 @@ struct OnboardingWallpaperSelectionView: View {
                             HStack {
                                 Spacer()
                                 PhotosPicker(selection: $selectedItem, matching: .images) {
-                                    MyPhotosCard(isSelected: isUserPhotoSelected)
+                                    MyPhotosCard(
+                                        isSelected: isUserPhotoSelected,
+                                        thumbnail: selectedUserPhotoImage
+                                    )
                                 }
                                 Spacer()
                             }
@@ -151,9 +156,11 @@ struct OnboardingWallpaperSelectionView: View {
         .onChange(of: selectedItem) { _, newItem in
             guard let newItem else { return }
             Task {
+                let fileExtension = preferredFileExtension(for: newItem)
                 if let data = try? await newItem.loadTransferable(type: Data.self) {
-                    viewModel.saveUserPhoto(data: data, fileExtension: "jpg")
+                    await viewModel.saveUserPhoto(data: data, fileExtension: fileExtension)
                 }
+                await MainActor.run { selectedItem = nil }
             }
         }
     }
@@ -162,6 +169,24 @@ struct OnboardingWallpaperSelectionView: View {
         guard let selected = viewModel.state.selectedWallpaper else { return false }
         if case .userPhoto = selected.source { return true }
         return false
+    }
+
+    private var selectedUserPhotoImage: UIImage? {
+        guard let selected = viewModel.state.selectedWallpaper,
+              case .userPhoto = selected.source else {
+            return nil
+        }
+        return selected.image()
+    }
+
+    private func preferredFileExtension(for item: PhotosPickerItem) -> String {
+        for contentType in item.supportedContentTypes {
+            if let ext = contentType.preferredFilenameExtension,
+               !ext.isEmpty {
+                return ext
+            }
+        }
+        return UTType.jpeg.preferredFilenameExtension ?? "jpg"
     }
 }
 
@@ -245,22 +270,45 @@ private struct WallpaperCard: View {
 
 private struct MyPhotosCard: View {
     let isSelected: Bool
+    let thumbnail: UIImage?
 
     var body: some View {
-        VStack(spacing: Spacing.m) {
-            ZStack {
-                Circle()
-                    .fill(Colors.bgSecondary)
-                    .frame(width: 52, height: 52)
-                Image(systemName: "plus")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(Colors.textPrimary)
+        ZStack {
+            Group {
+                if let thumbnail {
+                    Image(uiImage: thumbnail)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Colors.cardSurface
+                }
+            }
+            .frame(width: 170, height: 220)
+            .clipped()
+
+            if thumbnail != nil {
+                LinearGradient(
+                    colors: [Color.black.opacity(0.2), Color.black.opacity(0.55)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
             }
 
-            Text("Choose\nfrom album")
-                .bodyText()
-                .foregroundColor(Colors.textPrimary)
-                .multilineTextAlignment(.center)
+            VStack(spacing: Spacing.m) {
+                ZStack {
+                    Circle()
+                        .fill(thumbnail == nil ? Colors.bgSecondary : Color.black.opacity(0.35))
+                        .frame(width: 52, height: 52)
+                    Image(systemName: "plus")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(thumbnail == nil ? Colors.textPrimary : .white)
+                }
+
+                Text("Choose\nfrom album")
+                    .bodyText()
+                    .foregroundColor(thumbnail == nil ? Colors.textPrimary : .white)
+                    .multilineTextAlignment(.center)
+            }
         }
         .frame(width: 170, height: 220)
         .background(Colors.cardSurface)

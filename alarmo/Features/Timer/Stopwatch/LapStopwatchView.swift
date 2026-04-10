@@ -82,16 +82,17 @@ struct LapStopwatchView: View {
 
             // MARK: Controls
             HStack(spacing: 44) {
-                // Lap / Reset
+                // Lap while running, Reset while paused
+                let isRunning = engine.state == .running
                 circleButton(
-                    icon: engine.state == .idle ? "arrow.counterclockwise" : "flag.fill",
-                    color: engine.state == .idle ? Colors.textSecondary : TimerPalette.accentSoft,
+                    icon: isRunning ? "flag.fill" : "arrow.counterclockwise",
+                    color: isRunning ? TimerPalette.accentSoft : Colors.textSecondary,
                     size: 56
                 ) {
-                    if engine.state == .idle {
-                        // No-op (reset already done on stop)
-                    } else {
+                    if isRunning {
                         engine.recordLap()
+                    } else if engine.state == .paused {
+                        engine.resetSession()
                     }
                 }
                 .disabled(engine.state == .idle)

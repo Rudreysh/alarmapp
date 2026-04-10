@@ -37,6 +37,7 @@ struct ReportView: View {
                             // Monthly Calendar (full month view for overall)
                             OverallMonthCalendarView(
                                 heatmap: viewModel.heatmap,
+                                period: viewModel.selectedPeriod,
                                 referenceDate: viewModel.referenceDate,
                                 onMove: { delta in viewModel.movePeriod(by: delta) },
                                 selectedDate: $selectedReportDate
@@ -78,17 +79,20 @@ struct ReportView: View {
                             // Monthly Calendar (full month view)
                             OverallMonthCalendarView(
                                 heatmap: viewModel.heatmap,
+                                period: viewModel.selectedPeriod,
                                 referenceDate: viewModel.referenceDate,
                                 onMove: { delta in viewModel.movePeriod(by: delta) },
                                 selectedDate: $selectedReportDate
                             )
                             
-                            // Yearly Status
-                            YearlyStatusView(
-                                heatmap: viewModel.heatmap,
-                                year: Calendar.current.component(.year, from: viewModel.referenceDate),
-                                referenceDate: viewModel.referenceDate
-                            )
+                            if viewModel.selectedPeriod == .year {
+                                // Yearly Status
+                                YearlyStatusView(
+                                    heatmap: viewModel.heatmap,
+                                    year: Calendar.current.component(.year, from: viewModel.referenceDate),
+                                    referenceDate: viewModel.referenceDate
+                                )
+                            }
                             
                             // Detailed KPI Grid (6-8 metrics)
                             if viewModel.selectedDomain == .alarms {
@@ -459,26 +463,29 @@ struct ReportView: View {
     private var habitSpecificKPIs: some View {
         if let selectedItem = viewModel.availableItems.first(where: { $0.id == viewModel.selectedItemId }) {
             let unit = selectedItem.goalUnit
+            let normalizedUnit = unit.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "count" : unit
             let isStepBased = unit.lowercased().contains("step")
             let isTimeBased = ["min", "minutes", "hr", "hours", "h"].contains(unit.lowercased())
             let isVolumeBased = ["ml", "oz", "l", "liters"].contains(unit.lowercased())
+            let periodTotal = viewModel.heatmap.values.reduce(0, +)
+            let activeDays = viewModel.heatmap.values.filter { $0 > 0 }.count
             
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                // Row 1: Success in Month, Total Success
+                // Row 1: Period completion summary
                 KPICard(
                     icon: "calendar.badge.checkmark",
                     iconColor: .blue,
                     value: "\(viewModel.metrics.perfectDays)",
-                    unit: "Day",
-                    label: "success in February"
+                    unit: "days",
+                    label: "Perfect \(periodSummaryLabel)"
                 )
                 
                 KPICard(
                     icon: "checkmark.circle.fill",
                     iconColor: .green,
                     value: "\(viewModel.metrics.totalDone)",
-                    unit: "Day",
-                    label: "Total Success"
+                    unit: "done",
+                    label: "Done \(periodSummaryLabel)"
                 )
                 
                 // Row 2: Current Streak, Best Streak
@@ -486,7 +493,7 @@ struct ReportView: View {
                     icon: "layers.fill",
                     iconColor: .purple,
                     value: "\(viewModel.metrics.currentStreak)",
-                    unit: "Day",
+                    unit: "days",
                     label: "Current Streak"
                 )
                 
@@ -494,84 +501,84 @@ struct ReportView: View {
                     icon: "medal.fill",
                     iconColor: .orange,
                     value: "\(viewModel.metrics.bestStreak)",
-                    unit: "Day",
+                    unit: "days",
                     label: "Best Streak"
                 )
                 
-                // Row 3: Volume/Count metrics
+                // Row 3: Period quantity + active days
                 if isStepBased {
                     KPICard(
                         icon: "chart.bar.fill",
                         iconColor: .green,
-                        value: String(format: "%.0f", viewModel.heatmap.values.reduce(0, +)),
+                        value: String(format: "%.0f", periodTotal),
                         unit: "steps",
-                        label: "Vol. in Feb"
+                        label: "Steps \(periodSummaryLabel)"
                     )
                     
                     KPICard(
                         icon: "chart.line.uptrend.xyaxis",
                         iconColor: .pink,
-                        value: String(format: "%.0f", viewModel.heatmap.values.reduce(0, +)),
-                        unit: "steps",
-                        label: "Vol. Total"
+                        value: "\(activeDays)",
+                        unit: "days",
+                        label: "Active Days"
                     )
                 } else if isTimeBased {
                     KPICard(
                         icon: "clock.fill",
                         iconColor: .green,
-                        value: String(format: "%.0f", viewModel.heatmap.values.reduce(0, +)),
-                        unit: unit,
-                        label: "Time in Feb"
+                        value: String(format: "%.0f", periodTotal),
+                        unit: normalizedUnit,
+                        label: "Time \(periodSummaryLabel)"
                     )
                     
                     KPICard(
                         icon: "hourglass",
                         iconColor: .pink,
-                        value: String(format: "%.0f", viewModel.heatmap.values.reduce(0, +)),
-                        unit: unit,
-                        label: "Time Total"
+                        value: "\(activeDays)",
+                        unit: "days",
+                        label: "Active Days"
                     )
                 } else if isVolumeBased {
                     KPICard(
                         icon: "drop.fill",
                         iconColor: .blue,
-                        value: String(format: "%.0f", viewModel.heatmap.values.reduce(0, +)),
-                        unit: unit,
-                        label: "Vol. in Feb"
+                        value: String(format: "%.0f", periodTotal),
+                        unit: normalizedUnit,
+                        label: "Volume \(periodSummaryLabel)"
                     )
                     
                     KPICard(
                         icon: "drop.triangle.fill",
                         iconColor: .cyan,
-                        value: String(format: "%.0f", viewModel.heatmap.values.reduce(0, +)),
-                        unit: unit,
-                        label: "Vol. Total"
+                        value: "\(activeDays)",
+                        unit: "days",
+                        label: "Active Days"
                     )
                 } else {
                     KPICard(
                         icon: "number",
                         iconColor: .green,
-                        value: String(format: "%.0f", viewModel.heatmap.values.reduce(0, +)),
-                        unit: unit,
-                        label: "Count in Feb"
+                        value: String(format: "%.0f", periodTotal),
+                        unit: normalizedUnit,
+                        label: "Count \(periodSummaryLabel)"
                     )
                     
                     KPICard(
                         icon: "sum",
                         iconColor: .pink,
-                        value: String(format: "%.0f", viewModel.heatmap.values.reduce(0, +)),
-                        unit: unit,
-                        label: "Count Total"
+                        value: "\(activeDays)",
+                        unit: "days",
+                        label: "Active Days"
                     )
                 }
                 
-                // Row 4: Daily Average, Overall Rate
+                // Row 4: Daily average + completion rate
                 KPICard(
                     icon: "chart.xyaxis.line",
                     iconColor: .purple,
                     value: String(format: "%.1f", viewModel.metrics.dailyAverage),
-                    unit: isStepBased ? "steps" : unit,
-                    label: "Daily Avg."
+                    unit: isStepBased ? "steps/day" : "\(normalizedUnit)/day",
+                    label: "Daily Average"
                 )
                 
                 KPICard(
@@ -579,9 +586,20 @@ struct ReportView: View {
                     iconColor: .blue,
                     value: String(format: "%.2f", viewModel.metrics.completionRate * 100),
                     unit: "%",
-                    label: "Overall Rate"
+                    label: "Completion Rate"
                 )
             }
+        }
+    }
+
+    private var periodSummaryLabel: String {
+        switch viewModel.selectedPeriod {
+        case .week:
+            return "this week"
+        case .month:
+            return "this month"
+        case .year:
+            return "this year"
         }
     }
     

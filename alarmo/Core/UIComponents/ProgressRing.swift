@@ -5,6 +5,10 @@ struct ProgressRing: View {
     let color: Color
     var showTicks: Bool = false
     
+    private var accentSunYellow: Color {
+        Color(red: 0.98, green: 0.84, blue: 0.30)
+    }
+    
     var body: some View {
         GeometryReader { geo in
             let size = min(geo.size.width, geo.size.height)
@@ -13,7 +17,18 @@ struct ProgressRing: View {
             ZStack {
                 // 1. Ambient Background Glow
                 Circle()
-                    .stroke(color.opacity(0.06), lineWidth: 8)
+                    .stroke(
+                        AngularGradient(
+                            colors: [
+                                Colors.accentBlue.opacity(0.10),
+                                color.opacity(0.12),
+                                accentSunYellow.opacity(0.08),
+                                Colors.accentBlue.opacity(0.10)
+                            ],
+                            center: .center
+                        ),
+                        lineWidth: 8
+                    )
                     .blur(radius: 6)
                     .frame(width: size * 1.05, height: size * 1.05)
                 
@@ -47,7 +62,12 @@ struct ProgressRing: View {
                     .trim(from: 0, to: progress)
                     .stroke(
                         AngularGradient(
-                            colors: [color.opacity(0.2), color],
+                            colors: [
+                                Colors.accentBlue.opacity(0.45),
+                                color,
+                                accentSunYellow.opacity(0.72),
+                                Colors.accentBlue.opacity(0.68)
+                            ],
                             center: .center,
                             startAngle: .degrees(0),
                             endAngle: .degrees(360 * progress)

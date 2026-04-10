@@ -536,7 +536,14 @@ struct OverlapAnalysisSheet: View {
     
     @ViewBuilder
     private var timeScrubberSection: some View {
+        let slots = store.bestMeetingSlots(for: Array(selectedCityIds))
+        let proposalRefMinutes = scrubMinutes.map(Int.init) ?? slots.first?.startMinutes
+        
         VStack(alignment: .leading, spacing: 12) {
+            if let proposalRefMinutes {
+                meetingPlannerCard(for: proposalRefMinutes)
+            }
+            
             HStack {
                 Image(systemName: "slider.horizontal.3")
                     .foregroundColor(Color(red: 0.0, green: 0.7, blue: 0.5))
@@ -582,8 +589,9 @@ struct OverlapAnalysisSheet: View {
             }
             
             if let mins = scrubMinutes {
-                // Interactive Summary Card to Copy
-                meetingPlannerCard(for: Int(mins))
+                Text("Precision tuning \(OverlapStore.formatMinutes(Int(mins)))")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Color(red: 0.0, green: 0.7, blue: 0.5))
             }
         }
     }

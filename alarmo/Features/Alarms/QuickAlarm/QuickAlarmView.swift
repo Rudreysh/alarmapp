@@ -13,6 +13,7 @@ struct QuickAlarmView: View {
     @State private var showWakeUpCheck = false
     @State private var showTimeZonePicker = false
     @State private var showPenaltySettings = false
+    @State private var showPresetEditor = false
     
     @StateObject private var soundPlayer = SoundPreviewPlayer()
     private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
@@ -98,16 +99,24 @@ struct QuickAlarmView: View {
                                     .font(.system(size: 16, weight: .bold))
                                     .foregroundColor(Colors.textPrimary)
                                 Spacer()
+                                Button("Edit") {
+                                    showPresetEditor = true
+                                }
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Colors.accentTeal)
                             }
                             .padding(.horizontal, 24)
                             
                             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                                QuickPresetTile(icon: "1.circle", color: .orange, title: "Super Fast", timeStr: "01:00", action: { viewModel.setPreset(minutes: 1, seconds: 0) })
-                                QuickPresetTile(icon: "5.circle", color: .yellow, title: "Short Nap", timeStr: "05:00", action: { viewModel.setPreset(minutes: 5, seconds: 0) })
-                                QuickPresetTile(icon: "10.circle", color: .green, title: "Coffee Break", timeStr: "10:00", action: { viewModel.setPreset(minutes: 10, seconds: 0) })
-                                QuickPresetTile(icon: "moon.zzz.fill", color: .teal, title: "Quick Rest", timeStr: "15:00", action: { viewModel.setPreset(minutes: 15, seconds: 0) })
-                                QuickPresetTile(icon: "book.fill", color: .blue, title: "Reading", timeStr: "30:00", action: { viewModel.setPreset(minutes: 30, seconds: 0) })
-                                QuickPresetTile(icon: "brain.head.profile", color: .indigo, title: "Deep Focus", timeStr: "1 hr", action: { viewModel.setPreset(minutes: 60, seconds: 0) })
+                                ForEach(viewModel.presets) { preset in
+                                    QuickPresetTile(
+                                        icon: preset.iconName,
+                                        color: colorForPreset(preset.colorKey),
+                                        title: preset.title,
+                                        timeStr: preset.timeLabel,
+                                        action: { viewModel.setPreset(preset) }
+                                    )
+                                }
                             }
                             .padding(.horizontal, 20)
                         }
@@ -306,6 +315,9 @@ struct QuickAlarmView: View {
                 seconds: $viewModel.seconds
             )
         }
+        .sheet(isPresented: $showPresetEditor) {
+            QuickPresetManagerSheet(viewModel: viewModel)
+        }
         .sheet(isPresented: $showAccountabilityInfo) {
             AccountabilityInfoView()
         }
@@ -340,6 +352,21 @@ struct QuickAlarmView: View {
             return nil
         }
         return Image(uiImage: uiImage)
+    }
+
+    private func colorForPreset(_ key: String) -> Color {
+        switch key {
+        case "orange": return .orange
+        case "yellow": return .yellow
+        case "green": return .green
+        case "teal": return .teal
+        case "blue": return .blue
+        case "indigo": return .indigo
+        case "purple": return .purple
+        case "pink": return .pink
+        case "red": return .red
+        default: return Colors.accentTeal
+        }
     }
 }
 
@@ -399,5 +426,157 @@ private struct QuickSettingsCardView<Content: View>: View {
                 .stroke(Colors.cardStroke, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+}
+
+private struct QuickPresetManagerSheet: View {
+    @ObservedObject var viewModel: QuickAlarmViewModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var editingPreset: QuickAlarmPreset?
+    @State private var showCreatePreset = false
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Your Presets") {
+                    ForEach(viewModel.presets) { preset in
+                        HStack(spacing: 12) {
+                            Image(systemName: preset.iconName)
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(width: 30, height: 30)
+                                .background(Circle().fill(Color.white.opacity(0.16)))
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(preset.title)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(Colors.textPrimary)
+                                Text(preset.timeLabel)
+                                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                    .foregroundColor(Colors.accentTeal)
+                            }
+
+                            Spacer()
+
+                            Button("Edit") {
+                                editingPreset = preset
+                            }
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Colors.accentTeal)
+                        }
+                        .padding(.vertical, 4)
+                        .listRowBackground(Colors.cardSurface)
+                    }
+                    .onDelete(perform: viewModel.deletePresets)
+                }
+
+                Section {
+                    Button {
+                        showCreatePreset = true
+                    } label: {
+                        Label("Add Custom Preset", systemImage: "plus.circle.fill")
+                            .foregroundColor(Colors.accentTeal)
+                    }
+                    .listRowBackground(Colors.cardSurface)
+                }
+
+                Section {
+                    Button(role: .destructive) {
+                        viewModel.resetPresetsToDefault()
+                    } label: {
+                        Label("Reset to Default Presets", systemImage: "arrow.counterclockwise")
+                    }
+                    .listRowBackground(Colors.cardSurface)
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(Colors.bgPrimary.ignoresSafeArea())
+            .navigationTitle("Edit Presets")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .sheet(item: $editingPreset) { preset in
+            QuickPresetEditor(
+                title: "Edit Preset",
+                initialName: preset.title,
+                initialMinutes: preset.minutes,
+                initialSeconds: preset.seconds
+            ) { name, minutes, seconds in
+                viewModel.updatePreset(id: preset.id, title: name, minutes: minutes, seconds: seconds)
+            }
+        }
+        .sheet(isPresented: $showCreatePreset) {
+            QuickPresetEditor(
+                title: "New Preset",
+                initialName: "",
+                initialMinutes: 10,
+                initialSeconds: 0
+            ) { name, minutes, seconds in
+                viewModel.addCustomPreset(title: name, minutes: minutes, seconds: seconds)
+            }
+        }
+    }
+}
+
+private struct QuickPresetEditor: View {
+    let title: String
+    let initialName: String
+    let initialMinutes: Int
+    let initialSeconds: Int
+    let onSave: (String, Int, Int) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    @State private var minutes: Int
+    @State private var seconds: Int
+
+    init(
+        title: String,
+        initialName: String,
+        initialMinutes: Int,
+        initialSeconds: Int,
+        onSave: @escaping (String, Int, Int) -> Void
+    ) {
+        self.title = title
+        self.initialName = initialName
+        self.initialMinutes = initialMinutes
+        self.initialSeconds = initialSeconds
+        self.onSave = onSave
+        _name = State(initialValue: initialName)
+        _minutes = State(initialValue: initialMinutes)
+        _seconds = State(initialValue: initialSeconds)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Preset Name") {
+                    TextField("Enter name", text: $name)
+                        .textInputAutocapitalization(.words)
+                }
+
+                Section("Time") {
+                    Stepper("Minutes: \(minutes)", value: $minutes, in: 0...180)
+                    Stepper("Seconds: \(seconds)", value: $seconds, in: 0...59)
+                }
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        onSave(name, minutes, seconds)
+                        dismiss()
+                    }
+                }
+            }
+        }
     }
 }

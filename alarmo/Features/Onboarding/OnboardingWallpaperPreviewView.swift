@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UIKit
 
 struct OnboardingWallpaperPreviewView: View {
     @ObservedObject var viewModel: OnboardingViewModel
@@ -50,13 +51,16 @@ struct OnboardingWallpaperPreviewView: View {
                     if !quotes.isEmpty {
                         let quote = quotes[quoteIndex % quotes.count]
                         VStack(spacing: 8) {
-                            Text("\"\(quote.text)\"")
-                                .font(.system(size: 24, weight: .bold, design: .serif))
-                                .italic()
-                                .multilineTextAlignment(.center)
+                            AdaptiveQuoteText(
+                                quote: quote.text,
+                                maxWidth: max(UIScreen.main.bounds.width - 56, 220),
+                                maxLines: 5,
+                                maxFontSize: 24,
+                                minFontSize: 11,
+                                weight: .bold
+                            )
                                 .foregroundColor(.white)
                                 .shadow(color: .black.opacity(0.8), radius: 4, x: 0, y: 2)
-                                .fixedSize(horizontal: false, vertical: true)
                                 .id("text-\(quote.id)")
                                 .transition(.opacity.combined(with: .scale(scale: 0.98)))
                             
@@ -64,6 +68,8 @@ struct OnboardingWallpaperPreviewView: View {
                                 .font(.system(size: 16, weight: .medium))
                                 .foregroundColor(.white.opacity(0.9))
                                 .shadow(color: .black.opacity(0.5), radius: 2)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.8)
                                 .id("author-\(quote.id)")
                                 .transition(.opacity)
                         }

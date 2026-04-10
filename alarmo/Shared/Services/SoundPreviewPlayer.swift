@@ -81,6 +81,14 @@ final class SoundPreviewPlayer: NSObject, ObservableObject, SoundPreviewPlayerPr
         return urlString.contains("open.spotify.com") || urlString.hasPrefix("spotify:")
     }
 
+    private func normalizedTitle(_ title: String) -> String {
+        title
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+            .lowercased()
+    }
+
     func play(resourceName: String, volume: Float) {
         stop()
         _ = beginPreviewRequest(reason: "play:\(resourceName)")
@@ -95,7 +103,8 @@ final class SoundPreviewPlayer: NSObject, ObservableObject, SoundPreviewPlayerPr
         print("[SoundPreviewPlayer] Playback requested at: \(now.formatted(date: .omitted, time: .complete))")
 
         let allSounds = repository.loadAllSounds()
-        guard let asset = allSounds.first(where: { $0.title == resourceName }) else {
+        let normalizedTarget = normalizedTitle(resourceName)
+        guard let asset = allSounds.first(where: { normalizedTitle($0.title) == normalizedTarget }) else {
             print("[SoundPreviewPlayer] Could not find sound asset for: \(resourceName)")
             return
         }
@@ -149,9 +158,7 @@ final class SoundPreviewPlayer: NSObject, ObservableObject, SoundPreviewPlayerPr
 
         // ── Device (or remote URL on Simulator): AVFoundation path ───────────
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
-            try session.setActive(true)
+            try AudioRouteManager.configurePlaybackSession(duckOthers: true)
         } catch {
             print("[SoundPreviewPlayer] ⚠️ AVAudioSession setup error: \(error.localizedDescription)")
         }
@@ -355,9 +362,7 @@ final class SoundPreviewPlayer: NSObject, ObservableObject, SoundPreviewPlayerPr
     @discardableResult
     private func playSimulatorPreviewWithAVAudioPlayer(_ url: URL, volume: Float, deleteTempAfterPlay: Bool) -> Bool {
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
-            try session.setActive(true)
+            try AudioRouteManager.configurePlaybackSession(duckOthers: true)
 
             let player = try AVAudioPlayer(contentsOf: url)
             player.delegate = self

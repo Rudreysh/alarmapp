@@ -340,7 +340,7 @@ struct OverlapView: View {
                             .padding(.top, 16)
                             .padding(.bottom, 12)
 
-                        ForEach(WorldCityDatabase.majorCities.prefix(30)) { entry in
+                        ForEach(WorldCityDatabase.suggestedCities.prefix(30)) { entry in
                             searchRow(for: entry)
                         }
                     }
@@ -355,7 +355,7 @@ struct OverlapView: View {
 
     private func searchRow(for entry: WorldCityDatabase.CityEntry) -> some View {
         let isAdded = addedIdentifiers.contains(entry.timeZoneIdentifier)
-        let flag = flagForTimezone(entry.timeZoneIdentifier)
+        let flag = flagForTimezone(entry.timeZoneIdentifier, country: entry.country)
 
         return VStack(spacing: 0) {
             Button {
@@ -408,29 +408,8 @@ struct OverlapView: View {
         }
     }
 
-    private func flagForTimezone(_ tz: String) -> String {
-        let map: [String: String] = [
-            "Asia/Kolkata": "🇮🇳", "Asia/Shanghai": "🇨🇳", "Asia/Tokyo": "🇯🇵",
-            "Asia/Seoul": "🇰🇷", "Asia/Dubai": "🇦🇪", "Asia/Singapore": "🇸🇬",
-            "Asia/Hong_Kong": "🇭🇰", "Asia/Bangkok": "🇹🇭", "Asia/Taipei": "🇹🇼",
-            "Asia/Manila": "🇵🇭", "Asia/Jakarta": "🇮🇩", "Asia/Ho_Chi_Minh": "🇻🇳",
-            "Asia/Kuala_Lumpur": "🇲🇾", "Asia/Qatar": "🇶🇦", "Asia/Riyadh": "🇸🇦",
-            "Europe/London": "🇬🇧", "Europe/Berlin": "🇩🇪", "Europe/Paris": "🇫🇷",
-            "Europe/Rome": "🇮🇹", "Europe/Madrid": "🇪🇸", "Europe/Amsterdam": "🇳🇱",
-            "Europe/Moscow": "🇷🇺", "Europe/Istanbul": "🇹🇷", "Europe/Dublin": "🇮🇪",
-            "Europe/Zurich": "🇨🇭", "Europe/Vienna": "🇦🇹", "Europe/Stockholm": "🇸🇪",
-            "Europe/Warsaw": "🇵🇱", "Europe/Prague": "🇨🇿", "Europe/Lisbon": "🇵🇹",
-            "America/New_York": "🇺🇸", "America/Chicago": "🇺🇸",
-            "America/Los_Angeles": "🇺🇸", "America/Denver": "🇺🇸",
-            "America/Toronto": "🇨🇦", "America/Vancouver": "🇨🇦",
-            "America/Sao_Paulo": "🇧🇷", "America/Argentina/Buenos_Aires": "🇦🇷",
-            "America/Mexico_City": "🇲🇽", "America/Bogota": "🇨🇴",
-            "Africa/Johannesburg": "🇿🇦", "Africa/Nairobi": "🇰🇪",
-            "Africa/Lagos": "🇳🇬", "Africa/Cairo": "🇪🇬",
-            "Australia/Sydney": "🇦🇺", "Australia/Melbourne": "🇦🇺",
-            "Pacific/Auckland": "🇳🇿",
-        ]
-        return map[tz] ?? "🌐"
+    private func flagForTimezone(_ tz: String, country: String? = nil) -> String {
+        WorldCityDatabase.flagEmoji(forTimeZone: tz, countryHint: country)
     }
 
     private func addCityFromSearch(_ entry: WorldCityDatabase.CityEntry) {

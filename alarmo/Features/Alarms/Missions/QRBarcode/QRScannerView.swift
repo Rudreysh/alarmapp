@@ -3,6 +3,7 @@ import AVFoundation
 
 struct QRScannerView: View {
     @ObservedObject var service: BarcodeScannerService
+    var autoEnableTorch: Bool = false
     var onCancel: () -> Void
     
     var body: some View {
@@ -58,6 +59,19 @@ struct QRScannerView: View {
                     .padding(.top, 50) 
                     
                     Spacer()
+
+                    if service.permissionStatus == .authorized, service.isTorchAvailable {
+                        Button(action: { service.toggleTorch() }) {
+                            Image(systemName: service.isTorchEnabled ? "bolt.fill" : "bolt.slash.fill")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(service.isTorchEnabled ? Colors.accentTeal : .white)
+                                .padding(12)
+                                .background(Color.black.opacity(0.5))
+                                .clipShape(Circle())
+                        }
+                        .padding(.trailing, 20)
+                        .padding(.top, 50)
+                    }
                 }
                 
                 Spacer()
@@ -77,13 +91,22 @@ struct QRScannerView: View {
             if service.permissionStatus == .authorized {
                 service.setupSession()
                 service.startSession()
+                if autoEnableTorch {
+                    service.setTorch(enabled: true)
+                }
             }
         }
         .onChange(of: service.permissionStatus) { _, status in
             if status == .authorized {
                 service.setupSession()
                 service.startSession()
+                if autoEnableTorch {
+                    service.setTorch(enabled: true)
+                }
             }
+        }
+        .onDisappear {
+            service.setTorch(enabled: false)
         }
     }
 }
@@ -126,12 +149,15 @@ struct ScannerOverlay: View {
             )
             
             ZStack {
-                // Dimmed background with hole
-                Color.black.opacity(0.6)
-                    .mask(
-                        HoleShape(holeRect: scanRect)
-                            .fill(style: FillStyle(eoFill: true))
+                // Dimmed background with transparent center window.
+                Color.black.opacity(0.45)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .frame(width: scanWidth, height: scanHeight)
+                            .position(x: width / 2, y: height / 2)
+                            .blendMode(.destinationOut)
                     )
+                    .compositingGroup()
                 
                 // Border frame
                 RoundedRectangle(cornerRadius: 12)
@@ -140,17 +166,5 @@ struct ScannerOverlay: View {
                     .position(x: width / 2, y: height / 2)
             }
         }
-    }
-}
-
-// Shape that fills the view but leaves a hole
-struct HoleShape: Shape {
-    let holeRect: CGRect
-    
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.addRect(rect)
-        path.addRoundedRect(in: holeRect, cornerSize: CGSize(width: 12, height: 12))
-        return path
     }
 }

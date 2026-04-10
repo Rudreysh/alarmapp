@@ -119,13 +119,11 @@ struct CreatePlanItemView: View {
                     ToolbarItem(placement: .cancellationAction) {
                         Button(action: { dismiss() }) {
                             Image(systemName: "xmark")
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.system(size: 18, weight: .bold))
                                 .foregroundColor(Colors.textPrimary)
-                                .frame(width: 32, height: 32)
-                                .planGlassPanel(cornerRadius: 16)
-                                .clipShape(Circle())
-                                .overlay(Circle().stroke(Colors.cardStroke, lineWidth: 1))
+                                .planGlassCircle(size: 42, fillOpacity: 0.20)
                         }
+                        .buttonStyle(.plain)
                     }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(action: {
@@ -171,34 +169,14 @@ struct CreatePlanItemView: View {
             Button("Connect") {
                 Task {
                     if let key = pendingHealthKey {
-                         _ = await HealthKitManager.shared.requestAuthorization(for: key)
+                        pendingHealthPermissionGranted = await HealthKitManager.shared.requestAuthorization(for: key)
                     }
                     await completeSave(shouldDismiss: pendingShouldDismiss, onComplete: pendingOnComplete)
                 }
             }
             Button("Cancel", role: .cancel) {
                 Task {
-                    await completeSave(shouldDismiss: pendingShouldDismiss, onComplete: pendingOnComplete)
-                }
-            }
-        } message: {
-            if let key = pendingHealthKey {
-                Text("Would you like to sync your \(key) data from Apple Health?")
-            } else {
-                Text("Would you like to sync your data from Apple Health?")
-            }
-        }
-        .alert("Connect Apple Health?", isPresented: $showHealthAlert) {
-            Button("Connect") {
-                Task {
-                    if let key = pendingHealthKey {
-                         _ = await HealthKitManager.shared.requestAuthorization(for: key)
-                    }
-                    await completeSave(shouldDismiss: pendingShouldDismiss, onComplete: pendingOnComplete)
-                }
-            }
-            Button("Cancel", role: .cancel) {
-                Task {
+                    pendingHealthPermissionGranted = false
                     await completeSave(shouldDismiss: pendingShouldDismiss, onComplete: pendingOnComplete)
                 }
             }
@@ -437,6 +415,7 @@ struct CreatePlanItemView: View {
     // HealthKit Alert States
     @State private var showHealthAlert = false
     @State private var pendingHealthKey: String? = nil
+    @State private var pendingHealthPermissionGranted: Bool? = nil
     @State private var pendingShouldDismiss = true
     @State private var pendingOnComplete: (() -> Void)? = nil
     
@@ -489,6 +468,7 @@ struct CreatePlanItemView: View {
     }
 
     private func initiateSave(shouldDismiss: Bool = true, onComplete: (() -> Void)? = nil) {
+        pendingHealthPermissionGranted = nil
         if let key = detectHealthKey() {
             pendingHealthKey = key
             pendingShouldDismiss = shouldDismiss
@@ -501,10 +481,27 @@ struct CreatePlanItemView: View {
         }
     }
 
+    private func resolvedHealthTracking(for existingItem: PlanItem?) -> String? {
+        let candidateKey = pendingHealthKey ?? detectHealthKey()
+        guard let candidateKey else { return existingItem?.autoHealthTracking }
+
+        if let permissionGranted = pendingHealthPermissionGranted {
+            return permissionGranted ? candidateKey : existingItem?.autoHealthTracking
+        }
+
+        return HealthKitManager.shared.isAuthorized(for: candidateKey)
+            ? candidateKey
+            : existingItem?.autoHealthTracking
+    }
+
     // ... existing saveItem ...
     private func completeSave(shouldDismiss: Bool = true, onComplete: (() -> Void)? = nil) async {
-        // Use pending key or re-detect
-        let detectedHealthKey = pendingHealthKey ?? detectHealthKey()
+        defer {
+            pendingHealthKey = nil
+            pendingHealthPermissionGranted = nil
+            pendingShouldDismiss = true
+            pendingOnComplete = nil
+        }
         
         // Note: Authorization Request is handled by Alert in initiateSave flow
 
@@ -550,7 +547,7 @@ struct CreatePlanItemView: View {
                 existing.ringtone = reminderRingtone
                 
                 // Update Health Tracking
-                existing.autoHealthTracking = detectedHealthKey
+                existing.autoHealthTracking = resolvedHealthTracking(for: existing)
                 
                 // Focus Settings
                 if isFocusMode {
@@ -633,8 +630,6 @@ struct CreatePlanItemView: View {
               }
               
               // Schedule Notification for existing item
-              PlanNotificationScheduler.shared.schedule(existing)
-
             PlanNotificationScheduler.shared.schedule(existing)
             do {
                 try modelContext.save()
@@ -689,7 +684,7 @@ struct CreatePlanItemView: View {
                 newItem.goalUnit = goalUnit
                 
                 // Update Health Tracking
-                newItem.autoHealthTracking = detectedHealthKey
+                newItem.autoHealthTracking = resolvedHealthTracking(for: nil)
                 
                 if isFocusMode {
                     newItem.defaultDurationSeconds = focusMinutes * 60
@@ -765,6 +760,13 @@ struct CreatePlanItemView: View {
             // Top-level create must persist here to avoid silent loss.
             if parentTask == nil || onSave == nil {
                 modelContext.insert(newItem)
+                modelContext.insert(
+                    ActivityEvent(
+                        domain: activityDomain(for: newItem.type),
+                        entityId: newItem.id,
+                        status: .created
+                    )
+                )
                 
                 // Schedule Notification
                 PlanNotificationScheduler.shared.schedule(newItem)
@@ -835,6 +837,17 @@ struct CreatePlanItemView: View {
     }
     private func possibleColor(for key: String) -> Color {
         return presetColors.first(where: { $0.1 == key })?.0 ?? PlanPalette.accent
+    }
+
+    private func activityDomain(for type: PlanItemType) -> ActivityDomain {
+        switch type {
+        case .habit:
+            return .habit
+        case .focusSession:
+            return .pomodoro
+        case .task, .note:
+            return .task
+        }
     }
     // MARK: - Sub-View Sections
 

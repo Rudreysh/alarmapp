@@ -118,42 +118,49 @@ class HealthKitManager: ObservableObject {
     
     // Fetch Steps for a specific date (usually today)
     func fetchSteps(for date: Date) async -> Double {
+        guard canQueryHealthData else { return 0 }
         let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount)!
         return await fetchSum(for: stepType, date: date, unit: .count())
     }
     
     // Fetch Walking/Running Distance in Meters
     func fetchDistance(for date: Date) async -> Double {
+        guard canQueryHealthData else { return 0 }
         let distanceType = HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning)!
         return await fetchSum(for: distanceType, date: date, unit: .meter())
     }
     
     // Fetch Cycling Distance in Meters
     func fetchCyclingDistance(for date: Date) async -> Double {
+        guard canQueryHealthData else { return 0 }
         let distanceType = HKQuantityType.quantityType(forIdentifier: .distanceCycling)!
         return await fetchSum(for: distanceType, date: date, unit: .meter())
     }
     
     // Fetch Stand Time in Minutes
     func fetchStandMinutes(for date: Date) async -> Double {
+        guard canQueryHealthData else { return 0 }
         let type = HKQuantityType.quantityType(forIdentifier: .appleStandTime)!
         return await fetchSum(for: type, date: date, unit: .minute())
     }
     
     // Fetch Sleep in Hours
     func fetchSleep(for date: Date) async -> Double {
+        guard canQueryHealthData else { return 0 }
         let sleepType = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis)!
         return await fetchTime(for: sleepType, date: date)
     }
     
     // Fetch Mindful Minutes
     func fetchMindfulMinutes(for date: Date) async -> Double {
+        guard canQueryHealthData else { return 0 }
         let mindfulType = HKCategoryType.categoryType(forIdentifier: .mindfulSession)!
         return await fetchTime(for: mindfulType, date: date)
     }
     
     // Generic Sum Query for Quantities
     private func fetchSum(for type: HKQuantityType, date: Date, unit: HKUnit) async -> Double {
+        guard canQueryHealthData else { return 0 }
         return await withCheckedContinuation { continuation in
             let calendar = Calendar.current
             let startOfDay = calendar.startOfDay(for: date)
@@ -179,6 +186,7 @@ class HealthKitManager: ObservableObject {
     
     // Generic Query for Categories (Time based: Sleep, Mindfulness)
     private func fetchTime(for type: HKCategoryType, date: Date) async -> Double {
+        guard canQueryHealthData else { return 0 }
         return await withCheckedContinuation { continuation in
             let calendar = Calendar.current
             let startOfDay = calendar.startOfDay(for: date)
@@ -203,5 +211,9 @@ class HealthKitManager: ObservableObject {
             
             healthStore.execute(query)
         }
+    }
+
+    private var canQueryHealthData: Bool {
+        isHealthDataAvailable
     }
 }

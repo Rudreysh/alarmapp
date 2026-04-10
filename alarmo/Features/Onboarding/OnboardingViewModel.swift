@@ -3,10 +3,12 @@ import Combine
 
 final class OnboardingViewModel: ObservableObject {
     @Published private(set) var state = OnboardingState()
+    @Published var navigationPath: [OnboardingStep] = []
 
     private let permissionService: NotificationPermissionService
     private let wallpaperLoader: WallpaperCatalogLoader
     private let fileStorage: FileStorageService
+    private let recoveryKey = "alarmo.onboarding.recoveryStepRaw"
 
     init(permissionService: NotificationPermissionService = SystemNotificationPermissionService(),
          wallpaperLoader: WallpaperCatalogLoader = BundleWallpaperCatalogLoader(),
@@ -14,6 +16,43 @@ final class OnboardingViewModel: ObservableObject {
         self.permissionService = permissionService
         self.wallpaperLoader = wallpaperLoader
         self.fileStorage = fileStorage
+        
+        restoreRecoveryStep()
+        
+        $navigationPath
+            .dropFirst()
+            .sink { [weak self] newPath in
+                guard let self = self else { return }
+                let newStep = newPath.last ?? .intro
+                if newStep != self.state.currentStep {
+                    self.state.currentStep = newStep
+                    UserDefaults.standard.set(newStep.rawValue, forKey: self.recoveryKey)
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func restoreRecoveryStep() {
+        let savedRaw = UserDefaults.standard.integer(forKey: recoveryKey)
+        if savedRaw > OnboardingStep.intro.rawValue, let step = OnboardingStep(rawValue: savedRaw) {
+            state.currentStep = step
+            rebuildPath(upTo: step)
+        }
+    }
+    
+    private func rebuildPath(upTo current: OnboardingStep) {
+        var rebuilt: [OnboardingStep] = []
+        let allSteps: [OnboardingStep] = [
+            .setTime, .wallpaper, .wallpaperPreview, .notifications, 
+            .screenTimeAccess, .motionAccess, .liveActivities, .healthAccess, 
+            .soundSelection, .soundVolume, .missionStub, .trackingExplainer, .paywall
+        ]
+        for step in allSteps {
+            if step.rawValue <= current.rawValue {
+                rebuilt.append(step)
+            }
+        }
+        self.navigationPath = rebuilt
     }
 
     var selectedHour: Int {
@@ -45,11 +84,12 @@ final class OnboardingViewModel: ObservableObject {
 
     func nextStep() {
         guard let next = state.currentStep.next() else { return }
-        state.currentStep = next
+        setStep(next)
     }
 
     func setStep(_ step: OnboardingStep) {
         state.currentStep = step
+        UserDefaults.standard.set(step.rawValue, forKey: recoveryKey)
     }
 
     private var cancellables = Set<AnyCancellable>()
@@ -157,6 +197,7 @@ final class OnboardingViewModel: ObservableObject {
 
     func completeOnboarding() {
         state.onboardingCompleted = true
+        UserDefaults.standard.removeObject(forKey: recoveryKey)
     }
 
     @MainActor
@@ -172,15 +213,17 @@ final class OnboardingViewModel: ObservableObject {
         nextStep()
     }
 
+    @MainActor
     func saveUserPhoto(data: Data, fileExtension: String) {
         do {
             let url = try fileStorage.saveImageData(data, fileExtension: fileExtension)
             state.selectedWallpaper = WallpaperRef(
-                id: url.lastPathComponent,
+                id: WallpaperSelectionID.makeUserPhotoID(from: url),
                 title: "My Photo",
                 source: .userPhoto(url: url)
             )
         } catch {
+            print("Failed to save selected wallpaper photo: \(error)")
             return
         }
     }

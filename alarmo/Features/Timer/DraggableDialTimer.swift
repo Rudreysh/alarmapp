@@ -8,127 +8,165 @@ struct DraggableDialTimer: View {
     var color: Color
     var maxSeconds: Int = 180 * 60 // 3 hours max
 
-    @State private var dragAngle: Double = 0
     @State private var isDragging: Bool = false
+    
+    private var accentSunYellow: Color {
+        Color(red: 0.98, green: 0.84, blue: 0.30)
+    }
+
+    private var totalMinutes: Int {
+        max(0, totalSeconds / 60)
+    }
+
+    private var remainderMinutes: Int {
+        totalMinutes % 60
+    }
+
+    private var completedHours: Int {
+        totalMinutes / 60
+    }
+
+    // For full-hour values in idle mode, render a full ring like the alarm sunray dial.
+    private var ringFraction: Double {
+        if isRunning {
+            return min(max(progress, 0), 1)
+        }
+        if totalMinutes > 0 && remainderMinutes == 0 {
+            return 1
+        }
+        return Double(remainderMinutes) / 60.0
+    }
 
     var body: some View {
         GeometryReader { geo in
             let size = min(geo.size.width, geo.size.height)
             let radius = size / 2
             let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
-            
-            // Calculate display values
-            let displaySeconds = !isRunning ? totalSeconds : Int(progress * Double(totalSeconds))
-            let displayMinutes = displaySeconds / 60
-            let rounds = displayMinutes / 60
-            let remainderMinutes = displayMinutes % 60
-            
-            // Calculate fractions
-            // 0.0 to 1.0 (where 1.0 is full circle = 60 mins)
-            let fraction = !isRunning ? Double(remainderMinutes) / 60.0 : progress
-            let isFullRound = displayMinutes > 0 && remainderMinutes == 0 && !isRunning
-            
-            let sectorRadius = radius * 0.70
-            
+
+            let dialSize = size * 0.92
+            let innerRadius = radius * 0.70
+            let currentTickIndex = Int(round(ringFraction * 60)) % 60
+
             ZStack {
-                // 1. Ambient Background Glow
+                // Sunray-style ambient ring glow.
                 Circle()
-                    .stroke(color.opacity(0.06), lineWidth: 8)
+                    .stroke(
+                        AngularGradient(
+                            colors: [
+                                Colors.accentBlue.opacity(isDragging ? 0.14 : 0.10),
+                                color.opacity(isDragging ? 0.20 : 0.14),
+                                accentSunYellow.opacity(isDragging ? 0.12 : 0.08),
+                                Colors.accentBlue.opacity(isDragging ? 0.14 : 0.10)
+                            ],
+                            center: .center
+                        ),
+                        lineWidth: 8
+                    )
                     .blur(radius: 6)
-                    .frame(width: size * 0.92, height: size * 0.92)
-                
+                    .frame(width: dialSize + 14, height: dialSize + 14)
+
                 Circle()
                     .stroke(Color.white.opacity(0.05), lineWidth: 1)
-                    .frame(width: size * 0.9, height: size * 0.9)
+                    .frame(width: dialSize, height: dialSize)
 
-                // 2. Sun Ray Dial Ticks
+                // Sunray ticks around the dial.
                 ForEach(0..<60) { i in
                     let isStep = i % 5 == 0
                     let tickFraction = Double(i) / 60.0
-                    let isActive = tickFraction <= (fraction + 0.005) // Include current tick
-                    
-                    // "Head Tick" logic: find the closest tick to current progress
-                    let currentTickIndex = Int(round(fraction * 60)) % 60
-                    let isHead = i == currentTickIndex && fraction > 0
-                    
+                    let isActive = tickFraction <= (ringFraction + 0.005)
+                    let isHead = i == currentTickIndex && ringFraction > 0
+
                     Capsule()
-                        .fill(isActive ? color : Color.white.opacity(isStep ? 0.3 : 0.1))
-                        .frame(width: isHead ? 3.5 : (isStep ? 2.5 : 1.2), 
-                               height: isHead ? size * 0.07 : (isStep ? size * 0.05 : size * 0.03))
-                        .offset(y: -(radius * 0.9))
+                        .fill(isActive ? color : Color.white.opacity(isStep ? 0.30 : 0.10))
+                        .frame(
+                            width: isHead ? 3.5 : (isStep ? 2.2 : 1.1),
+                            height: isHead ? size * 0.073 : (isStep ? size * 0.050 : size * 0.028)
+                        )
+                        .offset(y: -(dialSize / 2))
                         .rotationEffect(.degrees(Double(i) * 6))
-                        .shadow(color: isHead ? color : (isActive ? color.opacity(0.5) : .clear), 
-                                radius: isHead ? 8 : 4)
-                        .scaleEffect(isHead ? 1.15 : 1.0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: fraction)
+                        .shadow(
+                            color: isHead ? color.opacity(0.8) : (isActive ? color.opacity(0.5) : .clear),
+                            radius: isHead ? 8 : 4
+                        )
+                        .scaleEffect(isHead ? 1.12 : 1.0)
+                        .animation(.spring(response: 0.26, dampingFraction: 0.8), value: ringFraction)
                 }
-                
-                // 3. Active Progress Ring (Outer)
+
+                // Active outer ring like alarm editor style.
                 Circle()
-                    .trim(from: 0.0, to: fraction)
+                    .trim(from: 0.0, to: ringFraction)
                     .stroke(
                         AngularGradient(
-                            colors: [color.opacity(0.3), color, color],
+                            colors: [
+                                Colors.accentBlue.opacity(0.45),
+                                color,
+                                accentSunYellow.opacity(0.74),
+                                Colors.accentBlue.opacity(0.70)
+                            ],
                             center: .center,
                             startAngle: .degrees(0),
-                            endAngle: .degrees(360 * fraction)
+                            endAngle: .degrees(360 * ringFraction)
                         ),
-                        style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                        style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
                     )
-                    .frame(width: size * 0.82, height: size * 0.82)
+                    .frame(width: dialSize + 10, height: dialSize + 10)
                     .rotationEffect(.degrees(-90))
-                    .shadow(color: color.opacity(0.3), radius: 5)
-                    .animation(.interactiveSpring(response: 0.25, dampingFraction: 0.8), value: fraction)
+                    .shadow(color: color.opacity(0.4), radius: 6)
+                    .animation(.interactiveSpring(response: 0.24, dampingFraction: 0.86), value: ringFraction)
 
-                // Track Background for full rounds
-                if rounds > 0 && !isFullRound {
-                    Circle()
-                        .fill(color.opacity(0.15))
-                        .frame(width: sectorRadius * 2, height: sectorRadius * 2)
-                }
-
-                // Active Sector
-                if isFullRound || (rounds > 0 && isRunning && fraction == 1) {
-                    Circle()
-                        .fill(
-                            LinearGradient(colors: [color.opacity(0.2), color.opacity(0.5)], startPoint: .top, endPoint: .bottom)
-                        )
-                        .frame(width: sectorRadius * 2, height: sectorRadius * 2)
-                } else if fraction > 0 {
-                    SectorShape(angle: .degrees(fraction * 360))
-                        .fill(
-                            LinearGradient(colors: [color.opacity(0.2), color.opacity(0.5)], startPoint: .top, endPoint: .bottom)
-                        )
-                        .frame(width: sectorRadius * 2, height: sectorRadius * 2)
-                        .rotationEffect(.degrees(-90))
-                }
-                
-                // Active outline / inner rim
+                // Glass-like center to match alarm dial style.
                 Circle()
-                    .stroke(color.opacity(0.3), lineWidth: 1)
-                    .frame(width: sectorRadius * 2, height: sectorRadius * 2)
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.white.opacity(0.05), Color.black.opacity(0.22)],
+                            center: .center,
+                            startRadius: 10,
+                            endRadius: innerRadius
+                        )
+                    )
+                    .frame(width: innerRadius * 2, height: innerRadius * 2)
+                    .overlay(
+                        Circle()
+                            .stroke(color.opacity(0.28), lineWidth: 1)
+                    )
 
-                // Dragging Hand (Only when not running)
+                // Keep pointer movement behavior unchanged (visual only restyled).
                 if !isRunning {
-                    let handAngle = Angle.degrees(fraction * 360)
-                    
+                    let handAngle = Angle.degrees(ringFraction * 360)
+
                     ZStack {
-                        // The line spanning from center outwards
                         Rectangle()
-                            .fill(Color.white)
-                            .frame(width: 3, height: sectorRadius)
-                            .offset(y: -sectorRadius / 2)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.96),
+                                        color.opacity(0.92),
+                                        accentSunYellow.opacity(0.68)
+                                    ],
+                                    startPoint: .bottom,
+                                    endPoint: .top
+                                )
+                            )
+                            .frame(width: 3, height: innerRadius)
+                            .offset(y: -innerRadius / 2)
                             .shadow(color: .white.opacity(0.8), radius: 4)
 
-                        // Center dot
                         Circle()
                             .fill(Color.white)
                             .frame(width: 14, height: 14)
                             .shadow(color: .white.opacity(0.8), radius: 4)
-                        
-                        // Hand tip (Invisible, for drag area enhancement if needed, but we drag anywhere)
                     }
                     .rotationEffect(handAngle)
+                }
+
+                if completedHours > 0 {
+                    Text("\(completedHours)h")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundColor(Colors.textSecondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.white.opacity(0.08)))
+                        .offset(y: -size * 0.23)
                 }
             }
             .frame(width: size, height: size)
@@ -147,22 +185,22 @@ struct DraggableDialTimer: View {
             )
         }
     }
-    
+
     private func handleDrag(location: CGPoint, center: CGPoint) {
         let dx = location.x - center.x
         let dy = location.y - center.y
-        
+
         // Calculate raw angle from 0 at top, clockwise
         var angle = atan2(dy, dx) + .pi / 2
         if angle < 0 { angle += 2 * .pi }
-        
+
         let targetFraction = angle / (2 * .pi)
         var targetMinutes = Int(round(targetFraction * 60))
         if targetMinutes == 60 { targetMinutes = 0 }
-        
+
         let currentTotalMinutes = totalSeconds / 60
         let currentRemMinutes = currentTotalMinutes % 60
-        
+
         // Find smallest difference
         var diff = targetMinutes - currentRemMinutes
         if diff > 30 {
@@ -170,42 +208,17 @@ struct DraggableDialTimer: View {
         } else if diff < -30 {
             diff += 60
         }
-        
+
         let newTotalMinutes = currentTotalMinutes + diff
         let newTotalSeconds = newTotalMinutes * 60
-        
+
         // Minimum 1 minute (60s), Maximum maxSeconds
         let clampedSeconds = max(60, min(newTotalSeconds, maxSeconds))
-        
+
         if clampedSeconds != totalSeconds {
             totalSeconds = clampedSeconds
             UISelectionFeedbackGenerator().selectionChanged()
             AudioServicesPlaySystemSound(1104) // Tick sound
         }
-    }
-}
-
-struct SectorShape: Shape {
-    var angle: Angle
-    
-    var animatableData: Double {
-        get { angle.degrees }
-        set { angle = Angle(degrees: newValue) }
-    }
-    
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        let radius = min(rect.width, rect.height) / 2
-        
-        path.move(to: center)
-        // 0 degrees is right side. We rotate -90 at view level, so start at 0
-        path.addArc(center: center,
-                    radius: radius,
-                    startAngle: .degrees(0),
-                    endAngle: angle,
-                    clockwise: false)
-        path.closeSubpath()
-        return path
     }
 }

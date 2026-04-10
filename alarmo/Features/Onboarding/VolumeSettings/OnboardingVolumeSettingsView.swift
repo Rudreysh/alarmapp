@@ -22,7 +22,7 @@ struct OnboardingVolumeSettingsView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                ProgressHeader(step: 3, total: AppConstants.onboardingTotalSteps)
+                ProgressHeader(step: 9, total: AppConstants.onboardingTotalSteps)
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.m)
                     .padding(.bottom, Spacing.m)

@@ -14,8 +14,8 @@ struct AccountabilityShieldSettingsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Deep dark background with subtle radial glow
-                Color.black.ignoresSafeArea()
+                // Reuse Settings background so this flow matches the rest of Settings.
+                SettingsGlassBackground()
                 
                 // Ambient glow when shield is active
                 if store.accountabilityEnabled {
@@ -132,7 +132,7 @@ struct AccountabilityShieldSettingsView: View {
                     .shadow(color: store.accountabilityEnabled ? Colors.accentTeal.opacity(0.4) : .clear, radius: 20, x: 0, y: 8)
             }
             
-            Text(store.accountabilityEnabled ? "SHIELD ACTIVE" : "SHIELD OFF")
+            Text(store.accountabilityEnabled ? "FINE ACTIVE" : "FINE OFF")
                 .font(.system(size: 12, weight: .heavy, design: .monospaced))
                 .kerning(3)
                 .foregroundColor(store.accountabilityEnabled ? Colors.accentTeal : Color.gray)
@@ -462,7 +462,12 @@ struct PenaltyEditSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.black.ignoresSafeArea()
+                LinearGradient(
+                    colors: [Colors.bgSecondary, Colors.bgPrimary],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
                 
                 VStack(spacing: 0) {
                     
@@ -696,7 +701,12 @@ struct AddPaymentCardView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.black.ignoresSafeArea()
+                LinearGradient(
+                    colors: [Colors.bgSecondary, Colors.bgPrimary],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
                 
                 VStack(spacing: 28) {
                     // Card Visual

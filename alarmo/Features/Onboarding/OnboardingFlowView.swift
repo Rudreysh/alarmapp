@@ -5,20 +5,22 @@ struct OnboardingFlowView: View {
     @ObservedObject var appPreferences: AppPreferences
     @ObservedObject var alarmStore: AlarmStore
     @EnvironmentObject private var navStore: NavigationStore
-    @State private var path: [OnboardingStep] = []
 
     var body: some View {
-        NavigationStack(path: $path) {
+                NavigationStack(path: $viewModel.navigationPath) {
             OnboardingIntroView(onNext: {
                 withAnimation(.easeInOut) {
                     viewModel.nextStep()
-                    path.append(.setTime)
+                    viewModel.navigationPath.append(.setTime)
                 }
             }, onSkip: {
                 // Skip directly to main app
                 withAnimation(.easeInOut) {
                     appPreferences.devAlwaysShowOnboarding = false
                     appPreferences.onboardingCompleted = true
+                    appPreferences.forceShowOnboardingNextLaunch = false
+                    // Ensure the first Home open after onboarding can show the intro discount flow.
+                    appPreferences.hasShownFirstHomeDiscountFlow = false
                     appPreferences.onboardingAlarmEnabled = true
                     
                     // Create a default alarm if none exists, using current defaults
@@ -63,67 +65,97 @@ struct OnboardingFlowView: View {
                             appPreferences.onboardingAlarmMinute = viewModel.selectedMinute
                             appPreferences.onboardingAlarmSecond = viewModel.selectedSecond
                             viewModel.nextStep()
-                            path.append(.permissions)
+                            viewModel.navigationPath.append(.wallpaper)
                         }
                     }
-                case .permissions:
-                    OnboardingPermissionsView(viewModel: viewModel) {
-                        withAnimation(.easeInOut) {
-                            path.append(.wallpaper)
-                        }
-                    }
+
                 case .wallpaper:
                     OnboardingWallpaperSelectionView(viewModel: viewModel) {
                         withAnimation(.easeInOut) {
                             viewModel.nextStep()
-                            path.append(.wallpaperPreview)
+                            viewModel.navigationPath.append(.wallpaperPreview)
                         }
                     }
                 case .wallpaperPreview:
                     OnboardingWallpaperPreviewView(viewModel: viewModel) {
                         withAnimation(.easeInOut) {
-                            if !path.isEmpty {
-                                path.removeLast()
+                            if !viewModel.navigationPath.isEmpty {
+                                viewModel.navigationPath.removeLast()
                             }
                             viewModel.setStep(.wallpaper)
                         }
                     } onSelect: {
                         withAnimation(.easeInOut) {
-                            viewModel.nextStep()
-                            path.append(.soundSelection)
+                            viewModel.setStep(.notifications)
+                            viewModel.navigationPath.append(.notifications)
+                        }
+                    }
+                case .notifications:
+                    OnboardingReportsInsightsView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.screenTimeAccess)
+                            viewModel.navigationPath.append(.screenTimeAccess)
+                        }
+                    }
+                case .screenTimeAccess:
+                    OnboardingScreenTimeAccessView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.motionAccess)
+                            viewModel.navigationPath.append(.motionAccess)
+                        }
+                    }
+                case .motionAccess:
+                    OnboardingMotionAccessView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.liveActivities)
+                            viewModel.navigationPath.append(.liveActivities)
+                        }
+                    }
+                case .liveActivities:
+                    OnboardingLiveActivitiesView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.healthAccess)
+                            viewModel.navigationPath.append(.healthAccess)
+                        }
+                    }
+                case .healthAccess:
+                    OnboardingHealthAccessView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.soundSelection)
+                            viewModel.navigationPath.append(.soundSelection)
                         }
                     }
                 case .soundSelection:
                     OnboardingSoundSelectionView(onboardingViewModel: viewModel) {
                         withAnimation(.easeInOut) {
                             viewModel.nextStep()
-                            path.append(.soundVolume)
+                            viewModel.navigationPath.append(.soundVolume)
                         }
                     }
                 case .soundVolume:
                     OnboardingVolumeSettingsView(onboardingViewModel: viewModel) {
                         withAnimation(.easeInOut) {
                             viewModel.nextStep()
-                            path.append(.missionStub)
+                            viewModel.navigationPath.append(.missionStub)
                         }
                     }
                 case .missionStub:
                     OnboardingMissionView(onboardingViewModel: viewModel) {
                         withAnimation(.easeInOut) {
-                            if !path.isEmpty {
-                                path.removeLast()
+                            if !viewModel.navigationPath.isEmpty {
+                                viewModel.navigationPath.removeLast()
                             }
                             viewModel.setStep(.soundVolume)
                         }
                     } onDone: {
                         withAnimation(.easeInOut) {
-                            path.append(.trackingExplainer)
+                            viewModel.navigationPath.append(.trackingExplainer)
                         }
                     }
                 case .trackingExplainer:
                     TrackingExplainerView {
                         withAnimation(.easeInOut) {
-                            path.append(.paywall)
+                            viewModel.navigationPath.append(.paywall)
                         }
                     }
                 case .paywall:
@@ -132,6 +164,9 @@ struct OnboardingFlowView: View {
                         withAnimation(.easeInOut) {
                             appPreferences.devAlwaysShowOnboarding = false
                             appPreferences.onboardingCompleted = true
+                            appPreferences.forceShowOnboardingNextLaunch = false
+                            // Reset so Home shows the 50% + discount sheet once after onboarding completes.
+                            appPreferences.hasShownFirstHomeDiscountFlow = false
                             appPreferences.onboardingAlarmHour = viewModel.selectedHour
                             appPreferences.onboardingAlarmMinute = viewModel.selectedMinute
                             appPreferences.onboardingAlarmSecond = viewModel.selectedSecond
@@ -178,6 +213,9 @@ struct OnboardingFlowView: View {
                         withAnimation(.easeInOut) {
                             appPreferences.devAlwaysShowOnboarding = false
                             appPreferences.onboardingCompleted = true
+                            appPreferences.forceShowOnboardingNextLaunch = false
+                            // Reset so Home shows the 50% + discount sheet once after onboarding completes.
+                            appPreferences.hasShownFirstHomeDiscountFlow = false
                             appPreferences.onboardingAlarmHour = viewModel.selectedHour
                             appPreferences.onboardingAlarmMinute = viewModel.selectedMinute
                             appPreferences.onboardingAlarmSecond = viewModel.selectedSecond

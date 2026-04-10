@@ -147,8 +147,8 @@ struct SoundCatalogRepository: SoundCatalogRepositoryProtocol {
             return []
         }
         
-        // Filter for MP3s (standard for remote assets)
-        return fileURLs.filter { $0.pathExtension == "mp3" }.compactMap { url in
+        let supportedRemoteExtensions: Set<String> = ["mp3", "caf", "wav", "aiff", "m4a"]
+        return fileURLs.filter { supportedRemoteExtensions.contains($0.pathExtension.lowercased()) }.compactMap { url in
             let filename = url.lastPathComponent
             
             // Try to match with RemoteSound metadata for better titles/categories
@@ -238,4 +238,3 @@ struct SoundCatalogRepository: SoundCatalogRepositoryProtocol {
         print("[SoundCatalogRepository] \(message)")
     }
 }
-

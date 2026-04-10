@@ -41,7 +41,7 @@ struct MultiTimerView: View {
                         if store.anyRunning {
                             store.pauseAll()
                         } else {
-                            store.resumeAll()
+                            store.startOrResumeAll()
                         }
                     }) {
                         Label(store.anyRunning ? "Pause All" : "Start All", 
@@ -133,6 +133,12 @@ struct MultiTimerView: View {
 struct ParallelTimerRow: View {
     @ObservedObject var timer: ParallelTimer
     var onRemove: () -> Void
+    @State private var showRenameAlert = false
+    @State private var renameText = ""
+    
+    private var accentSunYellow: Color {
+        Color(red: 0.98, green: 0.84, blue: 0.30)
+    }
     
     var body: some View {
         HStack(spacing: 16) {
@@ -142,7 +148,18 @@ struct ParallelTimerRow: View {
                     .stroke(timer.colorHex.color.opacity(0.15), lineWidth: 3)
                 Circle()
                     .trim(from: 0, to: timer.elapsed.truncatingRemainder(dividingBy: 60) / 60)
-                    .stroke(timer.colorHex.color, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .stroke(
+                        AngularGradient(
+                            colors: [
+                                Colors.accentBlue.opacity(0.45),
+                                timer.colorHex.color,
+                                accentSunYellow.opacity(0.70),
+                                Colors.accentBlue.opacity(0.65)
+                            ],
+                            center: .center
+                        ),
+                        style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                    )
                     .rotationEffect(.degrees(-90))
                     .animation(.linear(duration: 0.1), value: timer.elapsed)
                 
@@ -153,9 +170,25 @@ struct ParallelTimerRow: View {
             .frame(width: 44, height: 44)
             
             VStack(alignment: .leading, spacing: 2) {
-                Text(timer.name)
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(Colors.textPrimary)
+                HStack(spacing: 8) {
+                    Text(timer.name)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundColor(Colors.textPrimary)
+                        .lineLimit(1)
+
+                    Button {
+                        renameText = timer.name
+                        showRenameAlert = true
+                    } label: {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(Colors.textTertiary)
+                            .padding(6)
+                            .background(Circle().fill(Color.white.opacity(0.08)))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Edit timer name")
+                }
                 
                 Text(timer.timeDisplay)
                     .font(.system(size: 15, weight: .medium, design: .monospaced))
@@ -203,8 +236,8 @@ struct ParallelTimerRow: View {
         )
         .contextMenu {
             Button {
-                // Implementation for rename would go here
-                // For now, let's just allow deleting
+                renameText = timer.name
+                showRenameAlert = true
             } label: {
                 Label("Edit Name", systemImage: "pencil")
             }
@@ -212,6 +245,18 @@ struct ParallelTimerRow: View {
             Button(role: .destructive, action: onRemove) {
                 Label("Delete Timer", systemImage: "trash")
             }
+        }
+        .alert("Edit Timer Name", isPresented: $showRenameAlert) {
+            TextField("Timer Name", text: $renameText)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") {
+                let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    timer.name = trimmed
+                }
+            }
+        } message: {
+            Text("Update the timer label.")
         }
     }
 }

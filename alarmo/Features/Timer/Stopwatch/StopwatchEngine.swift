@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UserNotifications
 
 // MARK: - Lap Entry
 
@@ -40,15 +41,24 @@ class StopwatchEngine: ObservableObject {
     @Published var state: State = .idle
     @Published var laps: [LapEntry] = []
     @Published var sessions: [StopwatchSession] = []
+    var onSessionStarted: ((Date) -> Void)?
+    var onSessionCompleted: ((TimeInterval, StopwatchSession) -> Void)?
 
     var recordMode: StopwatchRecordMode = .lap
 
     // Target / interval alerts
-    var targetTime: TimeInterval? = nil
+    var targetTime: TimeInterval? = nil {
+        didSet {
+            if state == .running {
+                scheduleTargetNotificationIfNeeded()
+            }
+        }
+    }
     var alertInterval: TimeInterval? = nil
-    
+
     private let preferences: AppPreferences
     private let soundPlayer = SoundPlayer()
+    private let notificationOrchestrator = NotificationOrchestrator.shared
 
     private var startDate: Date?
     private var accumulatedTime: TimeInterval = 0
@@ -56,6 +66,8 @@ class StopwatchEngine: ObservableObject {
     private var timerCancellable: AnyCancellable?
     private var firedAlerts: Set<Double> = []
     private var sessionStartDate: Date?
+    private var vibrationTask: Task<Void, Never>?
+    private var pendingTargetNotificationId: String?
 
     init(preferences: AppPreferences = AppPreferences()) {
         self.preferences = preferences
@@ -83,11 +95,14 @@ class StopwatchEngine: ObservableObject {
     func start() {
         guard state != .running else { return }
         if state == .idle {
-            sessionStartDate = Date()
+            let startedAt = Date()
+            sessionStartDate = startedAt
             firedAlerts = []
+            onSessionStarted?(startedAt)
         }
         startDate = Date()
         state = .running
+        scheduleTargetNotificationIfNeeded()
         startTick()
     }
 
@@ -96,17 +111,20 @@ class StopwatchEngine: ObservableObject {
         accumulatedTime = elapsed
         state = .paused
         timerCancellable?.cancel()
+        cancelTargetNotification()
     }
 
     func resume() {
         guard state == .paused else { return }
         startDate = Date()
         state = .running
+        scheduleTargetNotificationIfNeeded()
         startTick()
     }
 
     func stop() {
         timerCancellable?.cancel()
+        cancelTargetNotification()
         if elapsed > 1 {
             let session = StopwatchSession(
                 label: "Stopwatch",
@@ -118,12 +136,13 @@ class StopwatchEngine: ObservableObject {
             )
             sessions.insert(session, at: 0)
             persistSessions()
+            onSessionCompleted?(elapsed, session)
         }
         reset()
     }
 
     func recordLap() {
-        guard state == .running || state == .paused else { return }
+        guard state == .running else { return }
         let lapTime = elapsed - lastLapElapsed
         let entry = LapEntry(
             number: laps.count + 1,
@@ -136,6 +155,16 @@ class StopwatchEngine: ObservableObject {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 
+    func resetSession() {
+        guard state != .running else { return }
+        reset()
+    }
+
+    func deleteSessions(at offsets: IndexSet) {
+        sessions.remove(atOffsets: offsets)
+        persistSessions()
+    }
+
     func clearHistory() {
         sessions = []
         persistSessions()
@@ -144,6 +173,8 @@ class StopwatchEngine: ObservableObject {
     // MARK: - Private
 
     private func reset() {
+        timerCancellable?.cancel()
+        cancelTargetNotification()
         elapsed = 0
         accumulatedTime = 0
         lastLapElapsed = 0
@@ -151,6 +182,8 @@ class StopwatchEngine: ObservableObject {
         laps = []
         state = .idle
         firedAlerts = []
+        vibrationTask?.cancel()
+        vibrationTask = nil
     }
 
     private func startTick() {
@@ -168,8 +201,10 @@ class StopwatchEngine: ObservableObject {
     private func checkAlerts() {
         if let target = targetTime, elapsed >= target, !firedAlerts.contains(target) {
             firedAlerts.insert(target)
+            cancelTargetNotification()
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             soundPlayer.playOnce(resourceName: preferences.stopwatchSoundName, volume: 1.0)
+            triggerConfiguredVibration()
             print("[StopwatchEngine] 🔔 Target Alert Fired: \(target)s")
         }
         if let interval = alertInterval, interval > 0 {
@@ -178,7 +213,24 @@ class StopwatchEngine: ObservableObject {
                 firedAlerts.insert(bucket)
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 soundPlayer.playOnce(resourceName: preferences.stopwatchSoundName, volume: 0.8)
+                triggerConfiguredVibration()
                 print("[StopwatchEngine] 🔔 Interval Alert Fired: \(bucket)s")
+            }
+        }
+    }
+
+    private func triggerConfiguredVibration() {
+        let seconds = max(0, preferences.stopwatchVibrationSeconds)
+        guard seconds > 0 else { return }
+
+        vibrationTask?.cancel()
+        vibrationTask = Task { @MainActor in
+            let endDate = Date().addingTimeInterval(TimeInterval(seconds))
+            let generator = UIImpactFeedbackGenerator(style: .medium)
+            while Date() < endDate {
+                if Task.isCancelled { return }
+                generator.impactOccurred()
+                try? await Task.sleep(nanoseconds: 350_000_000)
             }
         }
     }
@@ -196,6 +248,32 @@ class StopwatchEngine: ObservableObject {
            let decoded = try? JSONDecoder().decode([StopwatchSession].self, from: data) {
             sessions = decoded
         }
+    }
+
+    private func scheduleTargetNotificationIfNeeded() {
+        cancelTargetNotification()
+        guard let targetTime, targetTime > elapsed else { return }
+        let remainingToTarget = targetTime - elapsed
+        guard remainingToTarget > 0 else { return }
+
+        let id = "\(AppNotificationIdentifier.stopwatchTarget)-\(UUID().uuidString)"
+        pendingTargetNotificationId = id
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: remainingToTarget, repeats: false)
+        notificationOrchestrator.schedule(
+            identifier: id,
+            scenario: .stopwatchTargetReached,
+            trigger: trigger,
+            context: AppNotificationContext(itemName: "Stopwatch"),
+            categoryIdentifier: AppNotificationCategory.countdown,
+            userInfo: ["scenario": AppNotificationScenario.stopwatchTargetReached.rawValue],
+            sound: .default
+        )
+    }
+
+    private func cancelTargetNotification() {
+        guard let id = pendingTargetNotificationId else { return }
+        notificationOrchestrator.cancel(identifiers: [id])
+        pendingTargetNotificationId = nil
     }
 }
 

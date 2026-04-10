@@ -4,6 +4,8 @@ import SwiftUI
 import Combine
 
 class PlanViewModel: ObservableObject {
+    static let habitGoalReachedNotification = Notification.Name("PlanHabitGoalReached")
+
     private let pointsService = PointsService.shared
     @Published var selectedDate: Date = Date()
     @Published var isListView: Bool = false
@@ -86,14 +88,15 @@ class PlanViewModel: ObservableObject {
             context.delete(log)
         } else {
             // Toggle on
-            let newLog = CompletionLog(date: selectedDate, completed: true)
+            let completionDate = calendar.isDateInToday(selectedDate) ? Date() : selectedDate
+            let newLog = CompletionLog(date: completionDate, completed: true)
             item.completionLogs.append(newLog)
             
             let event = ActivityEvent(
                 domain: item.type == .habit ? .habit : .task,
                 entityId: item.id,
-                timestampUTC: Date(),
-                status: .success
+                timestampUTC: completionDate,
+                status: .completed
             )
             context.insert(event)
             
@@ -105,10 +108,12 @@ class PlanViewModel: ObservableObject {
                     habitName: item.title,
                     streakDays: streak
                 )
+                postHabitGoalReached(item)
             } else {
                 pointsService.taskCompleted(
                     taskId: item.id,
-                    taskName: item.title
+                    taskName: item.title,
+                    completedBeforeDeadline: didCompleteBeforeDeadline(item, at: completionDate)
                 )
             }
         }
@@ -137,6 +142,7 @@ class PlanViewModel: ObservableObject {
 
     func incrementHabit(_ item: PlanItem, value: Double? = nil, context: ModelContext) -> Double {
         let calendar = Calendar.current
+        let wasGoalMetBefore = item.isGoalMet()
         let amount: Double = {
             if let v = value, v > 0 { return v }
             let unit = item.goalUnit.lowercased()
@@ -169,17 +175,18 @@ class PlanViewModel: ObservableObject {
             log.completed = item.isGoalMet()
         }
 
+        let isGoalMetNow = item.isGoalMet()
         let event = ActivityEvent(
             domain: item.type == .habit ? .habit : .task,
             entityId: item.id,
             timestampUTC: Date(),
-            status: .success,
+            status: isGoalMetNow && !wasGoalMetBefore ? .completed : .started,
             value: amount
         )
         context.insert(event)
         
         // Award points if goal is now met (first time today)
-        if item.isGoalMet() {
+        if isGoalMetNow && !wasGoalMetBefore {
             if item.type == .habit {
                 let streak = calculateStreak(for: item)
                 pointsService.habitCompleted(
@@ -187,6 +194,7 @@ class PlanViewModel: ObservableObject {
                     habitName: item.title,
                     streakDays: streak
                 )
+                postHabitGoalReached(item)
             }
         }
         
@@ -197,13 +205,20 @@ class PlanViewModel: ObservableObject {
 
     func updateHabitValue(_ item: PlanItem, delta: Double, context: ModelContext) {
         let calendar = Calendar.current
+        let wasGoalMetBefore = item.isGoalMet(on: Date())
+        var appliedDelta: Double = 0
+
         if let existingLog = item.completionLogs.first(where: { calendar.isDateInToday($0.date) }) {
             if item.metricKind == .time {
                 let current = Double(existingLog.durationSeconds ?? 0) / 60.0
                 let newVal = max(0, current + delta)
                 existingLog.durationSeconds = Int(newVal * 60)
+                appliedDelta = newVal - current
             } else {
-                existingLog.value = max(0, (existingLog.value ?? 0) + delta)
+                let current = existingLog.value ?? 0
+                let newVal = max(0, current + delta)
+                existingLog.value = newVal
+                appliedDelta = newVal - current
             }
             existingLog.completed = item.isGoalMet()
         } else if delta > 0 {
@@ -215,10 +230,59 @@ class PlanViewModel: ObservableObject {
             }
             item.completionLogs.append(log)
             log.completed = item.isGoalMet()
+            appliedDelta = max(0, delta)
         }
-        
+
+        guard appliedDelta != 0 else { return }
+
+        let isGoalMetNow = item.isGoalMet(on: Date())
+        let status: ActivityStatus = {
+            if isGoalMetNow && !wasGoalMetBefore { return .completed }
+            if appliedDelta < 0 && wasGoalMetBefore && !isGoalMetNow { return .interrupted }
+            return .started
+        }()
+
+        context.insert(
+            ActivityEvent(
+                domain: item.type == .habit ? .habit : .task,
+                entityId: item.id,
+                timestampUTC: Date(),
+                status: status,
+                value: appliedDelta
+            )
+        )
+
+        if item.type == .habit && isGoalMetNow && !wasGoalMetBefore {
+            let streak = calculateStreak(for: item)
+            pointsService.habitCompleted(
+                habitId: item.id,
+                habitName: item.title,
+                streakDays: streak
+            )
+            postHabitGoalReached(item)
+        }
+
         item.updatedAt = Date()
         try? context.save()
+    }
+
+    private func didCompleteBeforeDeadline(_ item: PlanItem, at completionDate: Date) -> Bool {
+        guard let dueDate = item.scheduledDate else { return false }
+        let calendar = Calendar.current
+        let dateComponents = calendar.dateComponents([.year, .month, .day], from: dueDate)
+        let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: item.scheduledTime ?? dueDate)
+        var mergedComponents = DateComponents()
+        mergedComponents.year = dateComponents.year
+        mergedComponents.month = dateComponents.month
+        mergedComponents.day = dateComponents.day
+        mergedComponents.hour = timeComponents.hour ?? 23
+        mergedComponents.minute = timeComponents.minute ?? 59
+        mergedComponents.second = timeComponents.second ?? 59
+
+        guard let deadline = calendar.date(from: mergedComponents) else {
+            return completionDate <= dueDate
+        }
+        return completionDate <= deadline
     }
     
     // MARK: - Streak Calculation
@@ -270,16 +334,22 @@ class PlanViewModel: ObservableObject {
     }
     
     // MARK: - HealthKit Sync
-    // MARK: - HealthKit Sync
     @MainActor
-    func syncHealthData() async {
+    func syncHealthData(from items: [PlanItem]? = nil) async {
         guard let context = modelContext else { return }
-        
+        guard HealthKitManager.shared.isHealthDataAvailable else {
+            return
+        }
+        let sourceItems = items ?? allItems
+        if let items {
+            allItems = items
+        }
+
         // Find habits with health tracking enabled
-        let healthHabits = allItems.filter { $0.type == .habit && $0.autoHealthTracking != nil }
+        let healthHabits = sourceItems.filter { $0.type == .habit }
         
         for habit in healthHabits {
-            guard let trackingType = habit.autoHealthTracking else { continue }
+            guard let trackingType = inferredTrackingType(for: habit) else { continue }
             
             var fetchedValue: Double = 0.0
             
@@ -321,6 +391,47 @@ class PlanViewModel: ObservableObject {
             
             updateHabitLog(habit, value: fetchedValue, context: context)
         }
+
+        try? context.save()
+    }
+
+    private func inferredTrackingType(for item: PlanItem) -> String? {
+        if let explicit = item.autoHealthTracking, !explicit.isEmpty {
+            return explicit
+        }
+
+        guard item.type == .habit else { return nil }
+        let title = item.title.lowercased()
+        let unit = item.goalUnit.lowercased()
+
+        if unit.contains("step") {
+            if title.contains("run") || title.contains("jog") || title.contains("marathon") || title.contains("sprint") {
+                return "running"
+            }
+            return "steps"
+        }
+
+        let distanceUnits = ["km", "mi", "m", "meter", "metre", "mile", "kilometer", "kilometre"]
+        let isDistance = distanceUnits.contains { unit.hasPrefix($0) || unit == "\($0)s" }
+        if isDistance {
+            if title.contains("cycle") || title.contains("bike") || title.contains("ride") || title.contains("spin") {
+                return "cycling"
+            }
+            if title.contains("run") || title.contains("jog") || title.contains("marathon") || title.contains("sprint") {
+                return "running"
+            }
+            return "distance"
+        }
+
+        if (unit.contains("hour") || unit == "h" || unit == "hr"), (title.contains("sleep") || title.contains("nap")) {
+            return "sleep"
+        }
+
+        if (unit.contains("min") || unit == "m"), (title.contains("meditat") || title.contains("mindful") || title.contains("breath")) {
+            return "mindfulness"
+        }
+
+        return nil
     }
 
     private func convertDistance(_ meters: Double, to unit: String) -> Double {
@@ -397,5 +508,16 @@ class PlanViewModel: ObservableObject {
         
         guard totalPossible > 0 else { return 0 }
         return Double(totalCompletions) / Double(totalPossible)
+    }
+
+    private func postHabitGoalReached(_ item: PlanItem) {
+        NotificationCenter.default.post(
+            name: Self.habitGoalReachedNotification,
+            object: nil,
+            userInfo: [
+                "habitId": item.id.uuidString,
+                "habitTitle": item.title
+            ]
+        )
     }
 }

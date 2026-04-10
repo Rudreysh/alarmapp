@@ -9,12 +9,17 @@ protocol NotificationPermissionService {
 struct SystemNotificationPermissionService: NotificationPermissionService {
     func isAuthorized() async -> Bool {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
-        return settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            return true
+        default:
+            return false
+        }
     }
 
     func requestAuthorization() async -> Bool {
         do {
-            let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
+            let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge, .timeSensitive])
             return granted
         } catch {
             return false

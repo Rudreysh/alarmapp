@@ -260,210 +260,210 @@
   "sounds": [
     {
       "id": "818f7779-b7ea-5570-b5cc-fa49d457fa35",
-      "filename": "Autumn Smile Medium.mp3",
+      "filename": "Autumn Smile Medium.caf",
       "title": "Autumn Smile Medium",
       "category": "Uplifting",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Uplifting/Autumn%20Smile%20Medium.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Uplifting/Autumn%20Smile%20Medium.caf",
       "isPremium": false
     },
     {
       "id": "6feaa068-ff26-50c5-85a7-9cac29748b3e",
-      "filename": "Calm Music.mp3",
+      "filename": "Calm Music.caf",
       "title": "Calm Music",
       "category": "Uplifting",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Uplifting/Calm%20Music.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Uplifting/Calm%20Music.caf",
       "isPremium": false
     },
     {
       "id": "b2335635-c855-58ed-8045-2c1f54c9fed3",
-      "filename": "Autumn Smile.mp3",
+      "filename": "Autumn Smile.caf",
       "title": "Autumn Smile",
       "category": "Uplifting",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Uplifting/Autumn%20Smile.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Uplifting/Autumn%20Smile.caf",
       "isPremium": false
     },
     {
       "id": "c67e59ec-af36-5937-bbc3-abb34b271ad1",
-      "filename": "Free Soul Gayatri Mantra Melodious Chanting.mp3",
+      "filename": "Free Soul Gayatri Mantra Melodious Chanting.caf",
       "title": "Free Soul Gayatri Mantra Melodious Chanting",
       "category": "Sleep",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Free%20Soul%20Gayatri%20Mantra%20Melodious%20Chanting.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Free%20Soul%20Gayatri%20Mantra%20Melodious%20Chanting.caf",
       "isPremium": false
     },
     {
       "id": "8e4424c5-8e81-58d2-aa2c-b11b18674cad",
-      "filename": "Big Bellburmese.mp3",
+      "filename": "Big Bellburmese.caf",
       "title": "Big Bellburmese",
       "category": "Sleep",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Big%20Bellburmese.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Big%20Bellburmese.caf",
       "isPremium": false
     },
     {
       "id": "437f7060-3535-5d05-9d0c-5dc553852af4",
-      "filename": "Soft Piano Bpm.mp3",
+      "filename": "Soft Piano Bpm.caf",
       "title": "Soft Piano Bpm",
       "category": "Sleep",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Soft%20Piano%20Bpm.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Soft%20Piano%20Bpm.caf",
       "isPremium": false
     },
     {
       "id": "bb6c6901-35d0-57f9-b342-01823e7d63af",
-      "filename": "Indian Tanpura.mp3",
+      "filename": "Indian Tanpura.caf",
       "title": "Indian Tanpura",
       "category": "Sleep",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Indian%20Tanpura.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Indian%20Tanpura.caf",
       "isPremium": false
     },
     {
       "id": "98bf0f53-6a20-5c9d-99b4-fde58b3fe368",
-      "filename": "Arabic Intro.mp3",
+      "filename": "Arabic Intro.caf",
       "title": "Arabic Intro",
       "category": "Sleep",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Arabic%20Intro.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Arabic%20Intro.caf",
       "isPremium": false
     },
     {
       "id": "52207aec-8394-5ae6-8315-ea81ca0f9ebb",
-      "filename": "Tears Of Joy.mp3",
+      "filename": "Tears Of Joy.caf",
       "title": "Tears Of Joy",
       "category": "Sleep",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Tears%20Of%20Joy.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Tears%20Of%20Joy.caf",
       "isPremium": false
     },
     {
       "id": "164bc277-d575-5b6e-8a09-d396d3826789",
-      "filename": "Indian Scale Tanpura And Guitar.mp3",
+      "filename": "Indian Scale Tanpura And Guitar.caf",
       "title": "Indian Scale Tanpura And Guitar",
       "category": "Sleep",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Indian%20Scale%20Tanpura%20And%20Guitar.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Indian%20Scale%20Tanpura%20And%20Guitar.caf",
       "isPremium": false
     },
     {
       "id": "b2c7d342-e746-55d1-8fe4-d202df2d5f52",
-      "filename": "Tibetan Buddhist Drum.mp3",
+      "filename": "Tibetan Buddhist Drum.caf",
       "title": "Tibetan Buddhist Drum",
       "category": "Sleep",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Tibetan%20Buddhist%20Drum.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Tibetan%20Buddhist%20Drum.caf",
       "isPremium": false
     },
     {
       "id": "5e00324e-1e20-5361-8d87-e3c4bec41998",
-      "filename": "Maadal And Manjeera 85Bpm.mp3",
+      "filename": "Maadal And Manjeera 85Bpm.caf",
       "title": "Maadal And Manjeera 85Bpm",
       "category": "Sleep",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Maadal%20And%20Manjeera%2085Bpm.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Maadal%20And%20Manjeera%2085Bpm.caf",
       "isPremium": false
     },
     {
       "id": "e9e9cdec-a974-5ac3-88e6-5a75f569cad0",
-      "filename": "Classical Vibes.mp3",
+      "filename": "Classical Vibes.caf",
       "title": "Classical Vibes",
       "category": "Relaxing",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Classical%20Vibes.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Classical%20Vibes.caf",
       "isPremium": false
     },
     {
       "id": "0cdcacae-1db5-5c3c-aabd-57b162a50d4d",
-      "filename": "Soft Piano Music.mp3",
+      "filename": "Soft Piano Music.caf",
       "title": "Soft Piano Music",
       "category": "Relaxing",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Soft%20Piano%20Music.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Soft%20Piano%20Music.caf",
       "isPremium": false
     },
     {
       "id": "02a6eaa9-a9f7-512d-9001-50bb27489a37",
-      "filename": "Morning In The Forest 1.mp3",
+      "filename": "Morning In The Forest 1.caf",
       "title": "Morning In The Forest 1",
       "category": "Relaxing",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Morning%20In%20The%20Forest%201.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Morning%20In%20The%20Forest%201.caf",
       "isPremium": false
     },
     {
       "id": "2604ab0e-21f4-565f-8372-0ae0c1ee3578",
-      "filename": "Sleep Meditation Background Music.mp3",
+      "filename": "Sleep Meditation Background Music.caf",
       "title": "Sleep Meditation Background Music",
       "category": "Relaxing",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Sleep%20Meditation%20Background%20Music.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Sleep%20Meditation%20Background%20Music.caf",
       "isPremium": false
     },
     {
       "id": "205cb25e-7f13-5150-9fad-a820738b613c",
-      "filename": "Silent Evening Calm Piano.mp3",
+      "filename": "Silent Evening Calm Piano.caf",
       "title": "Silent Evening Calm Piano",
       "category": "Relaxing",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Silent%20Evening%20Calm%20Piano.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Silent%20Evening%20Calm%20Piano.caf",
       "isPremium": false
     },
     {
       "id": "8bb85bda-63e6-56ad-9629-4f05540ca7b1",
-      "filename": "Harp Relax.mp3",
+      "filename": "Harp Relax.caf",
       "title": "Harp Relax",
       "category": "Relaxing",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Harp%20Relax.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Harp%20Relax.caf",
       "isPremium": false
     },
     {
       "id": "e3446c3a-0556-57d5-85b0-259bf62c8fc1",
-      "filename": "Meditative Meditation.mp3",
+      "filename": "Meditative Meditation.caf",
       "title": "Meditative Meditation",
       "category": "Relaxing",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Meditative%20Meditation.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Meditative%20Meditation.caf",
       "isPremium": false
     },
     {
       "id": "1e638805-c937-5b57-9a0e-dd191840c728",
-      "filename": "Morning In The Forest.mp3",
+      "filename": "Morning In The Forest.caf",
       "title": "Morning In The Forest",
       "category": "Relaxing",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Morning%20In%20The%20Forest.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Morning%20In%20The%20Forest.caf",
       "isPremium": false
     },
     {
       "id": "cd333429-bb27-5b8d-89ac-9d6d52df5443",
-      "filename": "Ambient Piano Music Inspirational Loop.mp3",
+      "filename": "Ambient Piano Music Inspirational Loop.caf",
       "title": "Ambient Piano Music Inspirational Loop",
       "category": "Relaxing",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Ambient%20Piano%20Music%20Inspirational%20Loop.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Ambient%20Piano%20Music%20Inspirational%20Loop.caf",
       "isPremium": false
     },
     {
       "id": "1c3b06e5-586b-51c3-bdee-2f776e7ee0e6",
-      "filename": "Forest Ambience.mp3",
+      "filename": "Forest Ambience.caf",
       "title": "Forest Ambience",
       "category": "Nature",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Nature/Forest%20Ambience.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Nature/Forest%20Ambience.caf",
       "isPremium": false
     },
     {
       "id": "5a26310f-4a6c-5d40-9036-f1b27511c23f",
-      "filename": "Birds Chirping.mp3",
+      "filename": "Birds Chirping.caf",
       "title": "Birds Chirping",
       "category": "Nature",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Nature/Birds%20Chirping.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Nature/Birds%20Chirping.caf",
       "isPremium": false
     },
     {
       "id": "09953306-00c6-508d-adb0-a1d0887105d0",
-      "filename": "Birds Sound Dawn Time.mp3",
+      "filename": "Birds Sound Dawn Time.caf",
       "title": "Birds Sound Dawn Time",
       "category": "Nature",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Nature/Birds%20Sound%20Dawn%20Time.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Nature/Birds%20Sound%20Dawn%20Time.caf",
       "isPremium": false
     },
     {
       "id": "0685f160-89df-5505-b9d9-8129519a6a07",
-      "filename": "Rain Sound.mp3",
+      "filename": "Rain Sound.caf",
       "title": "Rain Sound",
       "category": "Nature",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Nature/Rain%20Sound.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Nature/Rain%20Sound.caf",
       "isPremium": false
     },
     {
       "id": "9246b303-26ab-53cf-8938-6df0ddd153c4",
-      "filename": "432HZ Liborio Conti.mp3",
+      "filename": "432HZ Liborio Conti.caf",
       "title": "432Hz Liborio Conti",
       "category": "Focus",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Focus/432HZ%20Liborio%20Conti.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Focus/432HZ%20Liborio%20Conti.caf",
       "isPremium": false
     },
     {
@@ -492,34 +492,34 @@
     },
     {
       "id": "39533e8a-8b56-501b-9741-753696671ab7",
-      "filename": "Alarm.mp3",
+      "filename": "Alarm.caf",
       "title": "Alarm",
       "category": "Alarm",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/Alarm.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/Alarm.caf",
       "isPremium": false
     },
     {
       "id": "9b40da06-0a65-53f5-9f6b-d919d999eef8",
-      "filename": "bbc_electronic.mp3",
+      "filename": "bbc_electronic.caf",
       "title": "Bbc_Electronic",
       "category": "Alarm",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/bbc_electronic.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/bbc_electronic.caf",
       "isPremium": false
     },
     {
       "id": "4bed7d13-06d0-51e9-921c-bd8b1a844caa",
-      "filename": "Clock Alarm.mp3",
+      "filename": "Clock Alarm.caf",
       "title": "Clock Alarm",
       "category": "Alarm",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/Clock%20Alarm.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/Clock%20Alarm.caf",
       "isPremium": false
     },
     {
       "id": "807248e2-3f60-5108-88da-11c752d97f09",
-      "filename": "Dial-tone.mp3",
+      "filename": "Dial-tone.caf",
       "title": "Dial Tone",
       "category": "Alarm",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/Dial-tone.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/Dial-tone.caf",
       "isPremium": false
     },
     {
@@ -532,10 +532,10 @@
     },
     {
       "id": "1eaf168a-425f-521b-bd4c-3a5d0d1dae08",
-      "filename": "bang.mp3",
+      "filename": "bang.caf",
       "title": "Bang",
       "category": "Alarm",
-      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/bang.mp3",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/bang.caf",
       "isPremium": false
     }
   ]

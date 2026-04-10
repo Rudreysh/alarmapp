@@ -9,7 +9,7 @@ struct CitySearchSheet: View {
 
     private var filteredCities: [WorldCityDatabase.CityEntry] {
         if searchText.isEmpty {
-            return WorldCityDatabase.majorCities
+            return WorldCityDatabase.suggestedCities
         }
         return WorldCityDatabase.search(searchText)
     }
@@ -22,7 +22,12 @@ struct CitySearchSheet: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Color.black.ignoresSafeArea()
+                LinearGradient(
+                    colors: [Colors.bgSecondary, Colors.bgPrimary],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     // Search Bar
@@ -50,6 +55,14 @@ struct CitySearchSheet: View {
                     // Results
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
+                            if searchText.isEmpty {
+                                Text("Suggested Popular Cities")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(Colors.textTertiary)
+                                    .padding(.horizontal, 20)
+                                    .padding(.top, 12)
+                                    .padding(.bottom, 8)
+                            }
                             ForEach(filteredCities) { entry in
                                 let isAdded = addedIdentifiers.contains(entry.timeZoneIdentifier)
 

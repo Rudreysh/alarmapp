@@ -19,6 +19,7 @@ struct BarcodeRecord: Identifiable, Codable, Equatable {
 // Config stored in the AlarmMission.config dictionary
 struct QRBarcodeMissionConfig: Codable, Equatable {
     var selectedBarcodeId: UUID?
-    var selectedRawValueFallback: String? 
+    var selectedRawValueFallback: String?
+    var selectedSymbologyFallback: String?
     var soundEnabledDuringMission: Bool = true
 }

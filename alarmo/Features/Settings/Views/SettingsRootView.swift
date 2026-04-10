@@ -132,7 +132,7 @@ struct SettingsRootView: View {
                                 
                                 Divider().background(Colors.cardStroke)
                                 
-                                // Shield
+                                // Penalty
                                 Button(action: { 
                                     if subManager.isPro {
                                         showPenalty = true 
@@ -144,7 +144,7 @@ struct SettingsRootView: View {
                                         HStack(spacing: 4) {
                                             Image(systemName: "shield.fill")
                                                 .foregroundColor(.green)
-                                            Text("Shield")
+                                            Text("Penalty")
                                                 .font(.system(size: 12, weight: .semibold))
                                                 .foregroundColor(Colors.textSecondary)
                                         }
@@ -179,9 +179,6 @@ struct SettingsRootView: View {
                                 }
                                 ModularSettingsRow(title: "Sound Output Matrix", icon: "hifispeaker.fill", trailing: store.soundOutputMode.rawValue, isLast: false) {
                                     coordinator.navigate(to: .soundOutput)
-                                }
-                                ModularSettingsRow(title: "Appearance & Theme", icon: "paintpalette.fill", isLast: false) {
-                                    coordinator.navigate(to: .theme)
                                 }
                                 ModularSettingsRow(title: "System Notifications", icon: "bell.badge.fill", isLast: false) {
                                     coordinator.navigate(to: .notification)
@@ -293,7 +290,7 @@ struct SettingsRootView: View {
                 case .permissions:
                     PermissionsView()
                 case .notice:
-                    SimplePlaceholderView(title: "Notice")
+                    NoticeView()
                 }
             }
         }

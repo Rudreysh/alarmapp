@@ -222,7 +222,7 @@ struct iOSLimitationsView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             GuideBullet(icon: "checkmark.circle.fill", color: .green, text: "Play very loud critical alarms even in silent mode (when configured).")
                             GuideBullet(icon: "checkmark.circle.fill", color: .green, text: "Detect if you attempt to force close the app.")
-                            GuideBullet(icon: "checkmark.circle.fill", color: .green, text: "Apply penalties via the Accountability Shield.")
+                            GuideBullet(icon: "checkmark.circle.fill", color: .green, text: "Apply penalties via the Accountability Penalty.")
                             GuideBullet(icon: "checkmark.circle.fill", color: .green, text: "Keep the screen awake when the app is active.")
                         }
                     }

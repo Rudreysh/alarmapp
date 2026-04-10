@@ -31,7 +31,7 @@ class CreateHabitAlarmViewModel: ObservableObject {
     @Published var wakeUpCheckEnabled: Bool = false
     @Published var missions: [AlarmMission] = []
     
-    // Accountability Shield
+    // Accountability Penalty
     @Published var accountabilityEnabled: Bool = false
     @Published var blockAppsEnabled: Bool = false
     @Published var penaltyEnabled: Bool = false

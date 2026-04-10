@@ -8,7 +8,6 @@ struct PlanView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showCoachMark = false          // FAB
     @State private var showQuickLogCoachMark = false
-    @State private var showPlanHabitVsTaskCoachMark = false  // Floating menu choice
     @State private var showPlanSwipeCoachMark = false        // Swipe-to-delete
     @State private var showPlanCalendarCoachMark = false     // Calendar navigation
     @State private var showHabitCelebration = false
@@ -24,8 +23,6 @@ struct PlanView: View {
     var allItems: [PlanItem]
     
     // Sheets
-    @State private var showingCreateSheet = false
-    @State private var showingAddMenu = false
     @State private var showingHabitSheet = false
     @State private var showUpsell = false
     @State private var showShieldSettings = false
@@ -92,82 +89,74 @@ struct PlanView: View {
                 if viewModel.isListView {
                     // Timeline List View
                     List {
-                         let filtered = viewModel.items(from: allItems)
-                         let firstVisibleItemId = filtered.first?.id
-                         // Separate "All Day" (Anytime) vs "Scheduled"
-                         
-                         // All Day / Anytime Section
-                         let anytimeItems = filtered.filter { $0.anytime || $0.scheduledTime == nil }
-                         if !anytimeItems.isEmpty {
-                             Section(header: timelineSectionHeader(title: "All Day", count: anytimeItems.count, icon: "sun.max.fill")) {
-                                 ForEach(Array(anytimeItems.enumerated()), id: \.element.id) { index, item in
-                                     PlanItemTimelineRow(item: item, timeString: "", isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
-                                         viewModel.toggleComplete(item, context: modelContext)
-                                     } onPlay: {
-                                         startTimer(for: item)
-                                     }
-                                     .coachMark(
-                                         title: "Manage",
-                                         subtitle: "Swipe to edit or delete.",
-                                         isVisible: Binding(get: { item.id == firstVisibleItemId ? showPlanSwipeCoachMark : false }, set: { showPlanSwipeCoachMark = $0 }),
-                                         alignment: .top,
-                                         pointDirection: .bottom,
-                                         arrowAlignment: .center,
-                                         arrowOffsetX: 0,
-                                         bubbleOffsetX: 0,
-                                         bubbleOffsetY: -60,
-                                         color: .red
-                                     )
-                                     .listRowBackground(Color.clear)
-                                     .listRowSeparator(.hidden)
-                                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                                     .contentShape(Rectangle())
-                                     .onTapGesture {
-                                         selectedItem = item
-                                     }
-                                     .id(item.updatedAt) // Force Refresh
-                                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                        Button(role: .destructive) { 
+                        let filtered = viewModel.items(from: allItems)
+                        let habits = filtered.filter { $0.type == .habit }
+                            .sorted { ($0.scheduledTime ?? Date.distantPast) < ($1.scheduledTime ?? Date.distantPast) }
+                        let firstVisibleItemId = habits.first?.id
+
+                        if !habits.isEmpty {
+                            Section(header: timelineSectionHeader(title: "Habits", count: habits.count, icon: "heart.fill")) {
+                                ForEach(Array(habits.enumerated()), id: \.element.id) { index, item in
+                                    let timeStr = item.anytime ? "" : formatTime(item.scheduledTime)
+                                    PlanItemTimelineRow(item: item, timeString: timeStr, selectedDate: viewModel.selectedDate, isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
+                                        viewModel.toggleComplete(item, context: modelContext)
+                                    } onPlay: {
+                                        startTimer(for: item)
+                                    } onQuickAdd: { _, position in
+                                        if index == 0 && !preferences.hasSeenQuickLogTooltip {
+                                            preferences.hasSeenQuickLogTooltip = true
+                                            showQuickLogCoachMark = false
+                                        }
+                                        let amount = viewModel.incrementHabit(item, value: nil, context: modelContext)
+                                        addFloatingBubble(value: "+\(Int(amount))", at: position)
+                                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                    } onAdjust: { delta in
+                                        viewModel.updateHabitValue(item, delta: delta, context: modelContext)
+                                    }
+                                    .coachMark(
+                                        title: "Manage",
+                                        subtitle: "Swipe to edit or delete.",
+                                        isVisible: Binding(get: { item.id == firstVisibleItemId ? showPlanSwipeCoachMark : false }, set: { showPlanSwipeCoachMark = $0 }),
+                                        alignment: .top,
+                                        pointDirection: .bottom,
+                                        arrowAlignment: .center,
+                                        arrowOffsetX: 0,
+                                        bubbleOffsetX: 0,
+                                        bubbleOffsetY: -60,
+                                        color: .red
+                                    )
+                                    .coachMark(
+                                        title: "Quick Log",
+                                        subtitle: "Tap + to log progress.",
+                                        isVisible: Binding(get: { index == 0 ? showQuickLogCoachMark : false }, set: { showQuickLogCoachMark = $0 }),
+                                        alignment: .bottomTrailing,
+                                        pointDirection: .top,
+                                        arrowAlignment: .trailing,
+                                        arrowOffsetX: -50,
+                                        bubbleOffsetX: -10,
+                                        bubbleOffsetY: 12
+                                    )
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        selectedItem = item
+                                    }
+                                    .id(item.updatedAt) // Force Refresh
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                        Button(role: .destructive) {
                                             dismissSwipeCoachMark()
-                                            deleteItem(item) 
+                                            deleteItem(item)
                                         } label: { Label("Delete", systemImage: "trash") }
-                                        Button { 
+                                        Button {
                                             dismissSwipeCoachMark()
-                                            startEditing(item) 
+                                            startEditing(item)
                                         } label: { Label("Edit", systemImage: "pencil") }.tint(.blue)
                                     }
-                                 }
-                             }
-                         }
-                         
-                         // Scheduled items sorted by time
-                         let scheduledItems = filtered.filter { !$0.anytime && $0.scheduledTime != nil }
-                             .sorted { ($0.scheduledTime ?? Date()) < ($1.scheduledTime ?? Date()) }
-                             
-                         if !scheduledItems.isEmpty {
-                             Section(header: timelineSectionHeader(title: "Scheduled", count: scheduledItems.count, icon: "clock.fill")) {
-                                 ForEach(scheduledItems) { item in
-                                     let timeStr = formatTime(item.scheduledTime)
-                                     PlanItemTimelineRow(item: item, timeString: timeStr, isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
-                                         viewModel.toggleComplete(item, context: modelContext)
-                                     } onPlay: {
-                                         startTimer(for: item)
-                                     }
-                                     .listRowBackground(Color.clear)
-                                     .listRowSeparator(.hidden)
-                                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                                     .contentShape(Rectangle())
-                                     .onTapGesture {
-                                         selectedItem = item
-                                     }
-                                     .id(item.updatedAt) // Force Refresh
-                                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                        Button(role: .destructive) { deleteItem(item) } label: { Label("Delete", systemImage: "trash") }
-                                        Button { startEditing(item) } label: { Label("Edit", systemImage: "pencil") }.tint(.blue)
-                                    }
-                                 }
-                             }
-                         }
+                                }
+                            }
+                        }
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
@@ -184,72 +173,8 @@ struct PlanView: View {
                     List {
                         // Items List
                         let filtered = viewModel.items(from: allItems)
-                        let firstVisibleItemId = filtered.first?.id
-                        let anytimeItems = filtered.filter { $0.anytime }
-                        let scheduledItems = filtered.filter { !$0.anytime }
-                        
-                        let habits = scheduledItems.filter { $0.type == .habit }
-                        let tasks = scheduledItems.filter { $0.type != .habit }
-                        
-                        // Anytime Section
-                        if !anytimeItems.isEmpty {
-                             Section(header: 
-                                Button(action: { withAnimation { viewModel.isAnytimeExpanded.toggle() } }) {
-                                    HStack {
-                                        Text("Anytime (\(anytimeItems.count))")
-                                            .font(.system(size: 14, weight: .medium))
-                                            .foregroundColor(PlanPalette.textSecondary)
-                                        Image(systemName: "chevron.right")
-                                            .font(.caption)
-                                            .foregroundColor(PlanPalette.textSecondary)
-                                            .rotationEffect(.degrees(viewModel.isAnytimeExpanded ? 90 : 0))
-                                        Spacer()
-                                    }
-                                    .padding(.leading, -16) 
-                                }
-                                .buttonStyle(.plain)
-                            ) {
-                                if viewModel.isAnytimeExpanded {
-                                    ForEach(anytimeItems) { item in
-                                        PlanItemRow(item: item, selectedDate: viewModel.selectedDate, isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
-                                            viewModel.toggleComplete(item, context: modelContext)
-                                        } onPlay: {
-                                            startTimer(for: item)
-                                        } onQuickAdd: { _, position in
-                                            let amount = viewModel.incrementHabit(item, value: nil, context: modelContext)
-                                            addFloatingBubble(value: "+\(Int(amount))", at: position)
-                                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                        } onAdjust: { delta in
-                                            viewModel.updateHabitValue(item, delta: delta, context: modelContext)
-                                        }
-                                        .coachMark(
-                                            title: "Manage",
-                                            subtitle: "Long press to edit or delete.",
-                                            isVisible: Binding(get: { item.id == firstVisibleItemId ? showPlanSwipeCoachMark : false }, set: { showPlanSwipeCoachMark = $0 }),
-                                            alignment: .top,
-                                            pointDirection: .bottom,
-                                            arrowAlignment: .center,
-                                            arrowOffsetX: 0,
-                                            bubbleOffsetX: 0,
-                                            bubbleOffsetY: -60,
-                                            color: .red
-                                        )
-                                        .listRowBackground(Color.clear)
-                                        .listRowSeparator(.hidden)
-                                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                                        .contentShape(Rectangle())
-                                        .onTapGesture {
-                                            selectedItem = item
-                                        }
-                                        .id(item.updatedAt) // Force Refresh
-                                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                            Button(role: .destructive) { deleteItem(item) } label: { Label("Delete", systemImage: "trash") }
-                                            Button { startEditing(item) } label: { Label("Edit", systemImage: "pencil") }.tint(.blue)
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        let habits = filtered.filter { $0.type == .habit }
+                        let firstVisibleItemId = habits.first?.id
                         
                          // Habits Section
                         if !habits.isEmpty {
@@ -334,66 +259,6 @@ struct PlanView: View {
                                 }
                             }
                         }
-                                            
-                        // Daily Tasks Section
-                        if !tasks.isEmpty {
-                             Section(header: 
-                                Button(action: { withAnimation { viewModel.isTasksExpanded.toggle() } }) {
-                                    HStack {
-                                        Text("Tasks (\(tasks.count))")
-                                           .font(.system(size: 14, weight: .medium))
-                                           .foregroundColor(PlanPalette.textSecondary)
-                                        Image(systemName: "chevron.right")
-                                            .font(.caption)
-                                            .foregroundColor(PlanPalette.textSecondary)
-                                            .rotationEffect(.degrees(viewModel.isTasksExpanded ? 90 : 0))
-                                        Spacer()
-                                    }
-                                    .padding(.leading, -16)
-                                }
-                                .buttonStyle(.plain)
-                            ) {
-                                 if viewModel.isTasksExpanded {
-                                    ForEach(tasks) { item in
-                                        PlanItemRow(item: item, selectedDate: viewModel.selectedDate, isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
-                                            viewModel.toggleComplete(item, context: modelContext)
-                                        } onPlay: {
-                                            startTimer(for: item)
-                                        } onQuickAdd: { _, position in
-                                            let amount = viewModel.incrementHabit(item, value: nil, context: modelContext)
-                                            addFloatingBubble(value: "+\(Int(amount))", at: position)
-                                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                        } onAdjust: { delta in
-                                            viewModel.updateHabitValue(item, delta: delta, context: modelContext)
-                                        }
-                                        .coachMark(
-                                            title: "Manage",
-                                            subtitle: "Swipe to edit or delete.",
-                                            isVisible: Binding(get: { item.id == firstVisibleItemId ? showPlanSwipeCoachMark : false }, set: { showPlanSwipeCoachMark = $0 }),
-                                            alignment: .top,
-                                            pointDirection: .bottom,
-                                            arrowAlignment: .center,
-                                            arrowOffsetX: 0,
-                                            bubbleOffsetX: 0,
-                                            bubbleOffsetY: -60,
-                                            color: .red
-                                        )
-                                        .listRowBackground(Color.clear)
-                                        .listRowSeparator(.hidden)
-                                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                                        .contentShape(Rectangle())
-                                        .onTapGesture {
-                                            selectedItem = item
-                                        }
-                                        .id(item.updatedAt) // Force Refresh
-                                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                            Button(role: .destructive) { deleteItem(item) } label: { Label("Delete", systemImage: "trash") }
-                                            Button { startEditing(item) } label: { Label("Edit", systemImage: "pencil") }.tint(.blue)
-                                        }
-                                    }
-                                }
-                            }
-                        }
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
@@ -422,84 +287,29 @@ struct PlanView: View {
             }
             .allowsHitTesting(false)
             
-            // Dimmed Background when menu is open
-            if showingAddMenu {
-                Color.black.opacity(0.4)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        withAnimation { showingAddMenu = false }
-                    }
-                    .zIndex(1)
-            }
-            
-            // Floating Add Menu (Top Level ZStack)
-            if showingAddMenu {
-                VStack {
-                    Spacer()
-                    HStack {
-                        PlanFloatingMenu(
-                            onSelectTask: {
-                                preferences.hasSeenPlanHabitVsTaskTooltip = true
-                                showPlanHabitVsTaskCoachMark = false
-                                withAnimation { showingAddMenu = false }
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                    showingCreateSheet = true
-                                }
-                            },
-                            onSelectHabit: {
-                                let habitCount = allItems.filter { $0.type == .habit }.count
-                                preferences.hasSeenPlanHabitVsTaskTooltip = true
-                                showPlanHabitVsTaskCoachMark = false
-                                withAnimation { showingAddMenu = false }
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                    if !subManager.isPro && habitCount >= 2 {
-                                        showUpsell = true
-                                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                    } else {
-                                        showingHabitSheet = true
-                                    }
-                                }
-                            }
-                        )
-                        .coachMark(
-                            title: "Plan Type",
-                            subtitle: "Streaks vs tasks.",
-                            isVisible: $showPlanHabitVsTaskCoachMark,
-                            alignment: .topLeading,
-                            pointDirection: .bottom,
-                            arrowAlignment: .leading,
-                            arrowOffsetX: 24,
-                            bubbleOffsetX: 0,
-                            bubbleOffsetY: -80,
-                            color: .red
-                        )
-                        .padding(.leading, 20)
-                        .padding(.bottom, 160) // Position above FAB (90 + 56 + 14)
-                        Spacer()
-                    }
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(3)
-            }
-            
             // FAB
             Button(action: {
-                withAnimation(.spring()) {
-                    showingAddMenu.toggle()
-                }
+                let habitCount = allItems.filter { $0.type == .habit }.count
+                preferences.hasSeenPlanHabitVsTaskTooltip = true
                 if preferences.hasSeenPlanTooltip == false {
                     preferences.hasSeenPlanTooltip = true
                     showCoachMark = false
                 }
+                if !subManager.isPro && habitCount >= 2 {
+                    showUpsell = true
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                } else {
+                    showingHabitSheet = true
+                }
             }) {
-                Image(systemName: showingAddMenu ? "xmark" : "plus")
+                Image(systemName: "plus")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
                     .planGlassCircle(size: 56, fillOpacity: 0.13)
                     .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
                     .coachMark(
-                        title: "Create Plan",
-                        subtitle: "Tap to add item.",
+                        title: "Create Habit",
+                        subtitle: "Tap to add habit.",
                         isVisible: $showCoachMark,
                         alignment: .topLeading,
                         pointDirection: .bottom,
@@ -523,7 +333,7 @@ struct PlanView: View {
         .onAppear {
             viewModel.setContext(modelContext)
             viewModel.allItems = allItems
-            checkDefaultTasks()
+            cleanupLegacyAnytimeDefaults()
             
             Task {
                 await viewModel.syncHealthData(from: allItems)
@@ -531,10 +341,6 @@ struct PlanView: View {
             if !preferences.hasSeenPlanTooltip {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                     withAnimation { showCoachMark = true }
-                }
-            } else if !preferences.hasSeenPlanHabitVsTaskTooltip && !allItems.isEmpty {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    withAnimation { showPlanHabitVsTaskCoachMark = true }
                 }
             } else if !preferences.hasSeenPlanSwipeTooltip && !allItems.isEmpty {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
@@ -556,11 +362,6 @@ struct PlanView: View {
                 await viewModel.syncHealthData(from: allItems)
             }
         }
-        .sheet(isPresented: $showingCreateSheet) {
-            CreatePlanItemView()
-        }
-        // Notes quick-create from '+' menu is intentionally disabled for now.
-        // TODO: Re-enable this sheet when Notes is brought back to the add menu.
         .sheet(item: $editingItem) { item in
              CreatePlanItemView(editingItem: item)
         }
@@ -602,14 +403,6 @@ struct PlanView: View {
         .onChange(of: showCoachMark) { _, isVisible in
             if !isVisible && !preferences.hasSeenPlanTooltip {
                 preferences.hasSeenPlanTooltip = true
-                if !allItems.isEmpty {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showPlanHabitVsTaskCoachMark = true }
-                }
-            }
-        }
-        .onChange(of: showPlanHabitVsTaskCoachMark) { _, isVisible in
-            if !isVisible && !preferences.hasSeenPlanHabitVsTaskTooltip {
-                preferences.hasSeenPlanHabitVsTaskTooltip = true
                 if !allItems.isEmpty {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { showPlanSwipeCoachMark = true }
                 }
@@ -721,28 +514,20 @@ struct PlanView: View {
         return f.string(from: date)
     }
     
-    private func checkDefaultTasks() {
-        // Logic to ensure "Study" and "Working" anytime tasks exist
-        let defaults = ["Study", "Working"]
-        var insertedAny = false
-        
-        for title in defaults {
-            if !allItems.contains(where: { $0.title == title && $0.anytime == true && !$0.isArchived }) {
-                let newItem = PlanItem(
-                    title: title,
-                    iconName: title == "Study" ? "graduationcap.fill" : "briefcase.fill",
-                    tintKey: title == "Study" ? "red" : "orange", // Matching image roughly
-                    type: .task,
-                    anytime: true
-                )
-                modelContext.insert(newItem)
-                insertedAny = true
-            }
+    private func cleanupLegacyAnytimeDefaults() {
+        let defaultTitles: Set<String> = ["Study", "Working"]
+        let legacyDefaults = allItems.filter {
+            !$0.isArchived &&
+            $0.type == .task &&
+            $0.anytime &&
+            defaultTitles.contains($0.title)
         }
-        
-        if insertedAny {
-            try? modelContext.save()
+
+        guard !legacyDefaults.isEmpty else { return }
+        for item in legacyDefaults {
+            item.isArchived = true
         }
+        try? modelContext.save()
     }
     
     private func formatTime(_ date: Date?) -> String {
@@ -769,11 +554,23 @@ struct PlanView: View {
 }
 
 struct PlanItemTimelineRow: View {
-    let item: PlanItem
+    @Bindable var item: PlanItem
     let timeString: String
+    let selectedDate: Date
     let isCompleted: Bool
     let onToggle: () -> Void
     var onPlay: (() -> Void)? = nil
+    var onQuickAdd: ((Double, CGPoint) -> Void)? = nil
+    var onAdjust: ((Double) -> Void)? = nil
+    
+    @State private var quickAddScale: CGFloat = 1.0
+    @State private var isDragging: Bool = false
+    @State private var dragPreviewValue: Double?
+    @State private var dragStartValue: Double?
+    @State private var rowWidth: CGFloat = 320
+    @State private var rowHeight: CGFloat = 80
+    @State private var lastHapticStep: Int = -1
+    @State private var dragIntent: DragIntent?
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -783,130 +580,451 @@ struct PlanItemTimelineRow: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Colors.textSecondary)
                     .frame(width: 50, alignment: .trailing)
-                    .padding(.top, 14) // Align with text roughly
+                    .padding(.top, 14)
             }
             
             // Content Card
             if item.type == .note {
-                // Note Item
-                HStack(spacing: 12) {
-                    // Indicator
-                    ZStack {
-                        if isCompleted {
-                             Image(systemName: "checkmark.circle.fill") // or just circle fill
-                                 .foregroundColor(PlanPalette.accent)
-                                 .font(.system(size: 14))
-                        } else {
-                            if item.iconName.allSatisfy({ !$0.isASCII }) {
-                                // Emoji
-                                Text(item.iconName)
-                                    .font(.system(size: 14))
-                            } else if item.iconName != "circle" {
-                                // SF Symbol
-                                Image(systemName: item.iconName)
-                                    .font(.system(size: 14))
-                                    .foregroundColor(tintColor)
-                            } else {
-                                // Default Circle
-                                Circle().stroke(tintColor, lineWidth: 1.5).frame(width: 14, height: 14)
-                            }
-                        }
-                    }
-                    .padding(.leading, 4)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(item.title)
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(Colors.textPrimary)
-                            .strikethrough(isCompleted)
-                        
-                        if let subtitle = item.subtitle {
-                            Text(subtitle)
-                                .font(.caption)
-                                .foregroundColor(Colors.textSecondary)
-                        }
-                    }
-                    Spacer()
-                }
-                .padding(12)
-                .planGlassPanel(cornerRadius: 12, fillOpacity: 0.12)
-                .contentShape(Rectangle())
-                .onTapGesture(count: 2, perform: onToggle)
+                noteItemContent
+            } else if item.type == .habit {
+                habitItemContent
             } else {
-                // Task / Habit
-                HStack(spacing: 12) {
-                    // Checkbox Button
-                    Button(action: onToggle) {
-                        ZStack {
-                            if isCompleted {
-                                Circle()
-                                    .fill(tintColor)
-                                    .frame(width: 18, height: 18)
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundColor(.white)
-                            } else {
-                                // Unchecked
-                                let isSF = item.iconName.allSatisfy { $0.isASCII }
-                                
-                                if isSF {
-                                    Circle()
-                                        .stroke(tintColor, lineWidth: 2)
-                                        .frame(width: 18, height: 18)
-                                    
-                                    if item.iconName == "circle" {
-                                        Circle().fill(tintColor).frame(width: 6, height: 6)
-                                    } else {
-                                        Image(systemName: item.iconName)
-                                            .font(.system(size: 9))
-                                            .foregroundColor(tintColor)
-                                    }
-                                } else {
-                                    Text(item.iconName)
-                                        .font(.system(size: 18))
-                                }
-                            }
-                        }
-                        .contentShape(Rectangle()) // Expand hit area slightly?
-                        .frame(width: 24, height: 24)
-                    }
-                    .buttonStyle(.plain)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(item.title)
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(Colors.textPrimary)
-                            .strikethrough(isCompleted)
-                        
-                        if let subtitle = item.subtitle {
-                            Text(subtitle)
-                                .font(.caption)
-                                .foregroundColor(Colors.textSecondary)
-                        }
-                    }
-                    Spacer()
-                    
-                    if let duration = item.defaultDurationSeconds, duration > 0 {
-                        Button(action: { onPlay?() }) {
-                            Image(systemName: "play.circle")
-                                .font(.system(size: 18))
-                                .foregroundColor(Colors.textPrimary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(12)
-                .planGlassPanel(cornerRadius: 12, fillOpacity: 0.12)
+                taskItemContent
             }
         }
         .padding(.vertical, 4)
+    }
+    
+    // MARK: - Note Item
+    
+    @ViewBuilder
+    private var noteItemContent: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                if isCompleted {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(PlanPalette.accent)
+                        .font(.system(size: 14))
+                } else {
+                    if item.iconName.allSatisfy({ !$0.isASCII }) {
+                        Text(item.iconName)
+                            .font(.system(size: 14))
+                    } else if item.iconName != "circle" {
+                        Image(systemName: item.iconName)
+                            .font(.system(size: 14))
+                            .foregroundColor(noteTintColor)
+                    } else {
+                        Circle().stroke(noteTintColor, lineWidth: 1.5).frame(width: 14, height: 14)
+                    }
+                }
+            }
+            .padding(.leading, 4)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(Colors.textPrimary)
+                    .strikethrough(isCompleted)
+                
+                if let subtitle = item.subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundColor(Colors.textSecondary)
+                }
+            }
+            Spacer()
+        }
+        .padding(12)
+        .planGlassPanel(cornerRadius: 12, fillOpacity: 0.12)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2, perform: onToggle)
+    }
+    
+    // MARK: - Habit Item (with slide-to-update + plus button)
+    
+    @ViewBuilder
+    private var habitItemContent: some View {
+        ZStack {
+            // Background card
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.04, green: 0.08, blue: 0.12).opacity(0.92),
+                            Color(red: 0.06, green: 0.11, blue: 0.17).opacity(0.86),
+                            Color(red: 0.03, green: 0.05, blue: 0.09).opacity(0.92)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            
+            // Left tint strip
+            HStack(spacing: 0) {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                habitTintColor.opacity(0.38),
+                                habitTintColor.opacity(0.18),
+                                Color.black.opacity(0.02)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 86)
+                    .padding(.leading, 6)
+                    .padding(.vertical, 6)
+                Spacer(minLength: 0)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            
+            // Progress fill
+            habitProgressBackground
+            
+            // Content
+            HStack(spacing: 12) {
+                // Icon
+                ZStack {
+                    if isHabitSFIcon {
+                        Image(systemName: item.iconName)
+                            .font(.system(size: 22.8, weight: .bold))
+                            .foregroundColor(habitTintColor)
+                            .frame(width: 50.4, height: 50.4)
+                            .background(habitTintColor.opacity(0.14))
+                            .clipShape(Circle())
+                    } else {
+                        Text(item.iconName)
+                            .font(.system(size: 28.8))
+                            .frame(width: 50.4, height: 50.4)
+                    }
+                }
+                
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(item.title)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(PlanPalette.textPrimary)
+                        .strikethrough(isCompleted)
+                    
+                    if let goalText = habitGoalText {
+                        Text(goalText)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(PlanPalette.textSecondary)
+                    }
+                }
+                
+                Spacer()
+                
+                if !isCompleted {
+                    GeometryReader { geo in
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 24))
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundColor(habitTintColor)
+                            .scaleEffect(quickAddScale)
+                            .onTapGesture {
+                                let frame = geo.frame(in: .global)
+                                let center = CGPoint(x: frame.midX, y: frame.midY)
+                                onQuickAdd?(1, center)
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                    quickAddScale = 1.2
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    quickAddScale = 1.0
+                                }
+                            }
+                    }
+                    .frame(width: 24, height: 24)
+                    .padding(.trailing, 4)
+                }
+                
+                if isCompleted {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(PlanPalette.accent)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(isCompleted ? PlanPalette.accent.opacity(0.32) : (isDragging ? habitTintColor.opacity(0.5) : Color.white.opacity(0.20)), lineWidth: isDragging ? 2 : 1)
+        )
+        .shadow(color: isCompleted ? PlanPalette.accent.opacity(0.20) : (isDragging ? habitTintColor.opacity(0.3) : Color.black.opacity(0.16)), radius: isDragging ? 15 : 10, x: 0, y: isDragging ? 6 : 4)
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .preference(key: PlanItemRowSizePreferenceKey.self, value: geo.size)
+            }
+        )
+        .onPreferenceChange(PlanItemRowSizePreferenceKey.self) { size in
+            rowWidth = max(1, size.width)
+            rowHeight = max(1, size.height)
+        }
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            dragAdjustGesture,
+            including: supportsInlineDragAdjust ? .gesture : .none
+        )
+    }
+    
+    private var dragAdjustGesture: some Gesture {
+        DragGesture(minimumDistance: 24, coordinateSpace: .local)
+            .onChanged { value in
+                let horizontal = abs(value.translation.width)
+                let vertical = abs(value.translation.height)
+
+                if dragIntent == nil {
+                    guard horizontal > (vertical * 1.8) else { return }
+                    dragIntent = .horizontal
+                    isDragging = true
+                    dragStartValue = item.currentValue(on: selectedDate)
+                    let startRatio = item.goalValue > 0 ? max(0, min(1, (dragStartValue ?? 0) / item.goalValue)) : 0
+                    lastHapticStep = Int((startRatio * 20).rounded(.down))
+                }
+
+                guard dragIntent == .horizontal, isDragging else { return }
+
+                let startValue = dragStartValue ?? item.currentValue(on: selectedDate)
+                let effectiveWidth = max(rowWidth - 56, 220)
+                let deltaRatio = Double(value.translation.width / effectiveWidth)
+                let rawValue = startValue + (deltaRatio * item.goalValue)
+                let nextValue = max(0, min(item.goalValue, rawValue))
+                dragPreviewValue = nextValue
+
+                let progressRatio = item.goalValue > 0 ? max(0, min(1, nextValue / item.goalValue)) : 0
+                let newStep = Int((progressRatio * 20).rounded(.down))
+                if newStep != lastHapticStep {
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    lastHapticStep = newStep
+                }
+            }
+            .onEnded { _ in
+                if dragIntent == .horizontal {
+                    commitDraggedAdjustment()
+                } else {
+                    isDragging = false
+                    dragPreviewValue = nil
+                    dragStartValue = nil
+                    lastHapticStep = -1
+                }
+                dragIntent = nil
+            }
+    }
+    
+    private func commitDraggedAdjustment() {
+        defer {
+            isDragging = false
+            dragPreviewValue = nil
+            dragStartValue = nil
+            lastHapticStep = -1
+        }
+        
+        guard isDragging else { return }
+        
+        let current = item.currentValue(on: selectedDate)
+        let rawTarget = dragPreviewValue ?? current
+        let forceGoalCompletion = item.goalValue > 0 && (rawTarget / item.goalValue) >= 0.995
+        let target = snapDraggedValue(rawTarget, forceGoalCompletion: forceGoalCompletion)
+        let delta = target - current
+        guard abs(delta) > 0.0001 else { return }
+        onAdjust?(delta)
+    }
+    
+    private func snapDraggedValue(_ value: Double, forceGoalCompletion: Bool = false) -> Double {
+        let unit = item.goalUnit.lowercased()
+        let step: Double
+        
+        if unit == "ml" {
+            step = 10
+        } else if unit == "oz" {
+            step = 0.5
+        } else if unit.contains("cup") {
+            step = 0.1
+        } else if unit.contains("step") {
+            step = 50
+        } else if unit == "m" || unit.contains("meter") {
+            step = 10
+        } else if unit == "km" || unit.contains("kilometer") {
+            step = 0.1
+        } else if unit.contains("min") {
+            step = 1
+        } else if unit.contains("hr") || unit.contains("hour") {
+            step = 0.05
+        } else {
+            step = 1
+        }
+
+        if forceGoalCompletion {
+            return item.goalValue
+        }
+
+        let clamped = max(0, min(item.goalValue, value))
+        let snapped = floor(clamped / step) * step
+        return max(0, min(item.goalValue, snapped))
+    }
+    
+    @ViewBuilder
+    private var habitProgressBackground: some View {
+        GeometryReader { geo in
+            let p = habitDisplayedProgress
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            (isWaterHabit ? Color.blue : habitTintColor).opacity(isDragging ? 0.35 : 0.24),
+                            (isWaterHabit ? Color.cyan : habitTintColor).opacity(isDragging ? 0.20 : 0.10)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(width: max(0, geo.size.width * p))
+                .animation(isDragging ? .none : .spring(), value: p)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+    }
+    
+    private var supportsInlineDragAdjust: Bool {
+        item.type == .habit && !isCompleted
+    }
+    
+    private var isHabitSFIcon: Bool {
+        item.iconName.allSatisfy { $0.isASCII }
+    }
+    
+    private var isWaterHabit: Bool {
+        item.title.lowercased().contains("water") || item.iconName.contains("drop")
+    }
+    
+    private var habitProgress: Double {
+        item.progressFraction(on: selectedDate)
+    }
+    
+    private var habitDisplayedProgress: Double {
+        guard item.goalValue > 0 else { return 0 }
+        if isDragging, let dragPreviewValue {
+            return max(0, min(1, dragPreviewValue / item.goalValue))
+        }
+        return habitProgress
+    }
+    
+    private var habitGoalText: String? {
+        let current = (isDragging ? dragPreviewValue : nil) ?? item.currentValue(on: selectedDate)
+        let total = item.goalValue
+        let unit = item.goalUnit
+        let currentStr = current.formatted(.number.precision(.fractionLength(0...2)))
+        let totalStr = total.formatted(.number.precision(.fractionLength(0...2)))
+        return "\(currentStr)/\(totalStr)\(unit)"
+    }
+    
+    private var habitTintColor: Color {
+        switch item.tintKey {
+        case "red": return .red
+        case "blue": return .blue
+        case "green": return .green
+        case "orange": return .orange
+        case "purple": return .purple
+        case "pink": return .pink
+        case "yellow": return .yellow
+        case "teal": return .teal
+        case "indigo": return .indigo
+        case "mint": return .mint
+        case "gray": return .gray
+        default: return .blue
+        }
+    }
+    
+    // MARK: - Task Item
+    
+    @ViewBuilder
+    private var taskItemContent: some View {
+        HStack(spacing: 12) {
+            // Checkbox Button
+            Button(action: onToggle) {
+                ZStack {
+                    if isCompleted {
+                        Circle()
+                            .fill(taskTintColor)
+                            .frame(width: 18, height: 18)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.white)
+                    } else {
+                        let isSF = item.iconName.allSatisfy { $0.isASCII }
+                        
+                        if isSF {
+                            Circle()
+                                .stroke(taskTintColor, lineWidth: 2)
+                                .frame(width: 18, height: 18)
+                            
+                            if item.iconName == "circle" {
+                                Circle().fill(taskTintColor).frame(width: 6, height: 6)
+                            } else {
+                                Image(systemName: item.iconName)
+                                    .font(.system(size: 9))
+                                    .foregroundColor(taskTintColor)
+                            }
+                        } else {
+                            Text(item.iconName)
+                                .font(.system(size: 18))
+                        }
+                    }
+                }
+                .contentShape(Rectangle())
+                .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.plain)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(Colors.textPrimary)
+                    .strikethrough(isCompleted)
+                
+                if let subtitle = item.subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundColor(Colors.textSecondary)
+                }
+            }
+            Spacer()
+            
+            if let duration = item.defaultDurationSeconds, duration > 0, !isCompleted {
+                Button(action: { onPlay?() }) {
+                    Image(systemName: "play.circle")
+                        .font(.system(size: 18))
+                        .foregroundColor(Colors.textPrimary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .planGlassPanel(cornerRadius: 12, fillOpacity: 0.12)
     }
     
     private var showsTimeColumn: Bool {
         !timeString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
     
-    var tintColor: Color {
+    var noteTintColor: Color {
+        switch item.tintKey {
+        case "red": return .red
+        case "blue": return .blue
+        case "green": return .green
+        case "orange": return .orange
+        case "purple": return .purple
+        case "pink": return .pink
+        case "gray": return .gray
+        default: return .blue
+        }
+    }
+    
+    var taskTintColor: Color {
         switch item.tintKey {
         case "red": return .red
         case "blue": return .blue

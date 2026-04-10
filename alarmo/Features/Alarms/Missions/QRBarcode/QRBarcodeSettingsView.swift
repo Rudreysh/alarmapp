@@ -1,13 +1,21 @@
 import SwiftUI
 
 struct QRBarcodeSettingsView: View {
-    @StateObject private var viewModel = QRBarcodeMissionViewModel()
+    @StateObject private var viewModel: QRBarcodeMissionViewModel
     @State private var previewTargetCode: PreviewItem?
     @State private var showNoCodeAlert = false 
     @State private var showAlarmPreview = false
     @State private var showGamePreview = false
     var onSave: (QRBarcodeMissionConfig) -> Void
     @Environment(\.dismiss) var dismiss
+
+    init(
+        initialConfig: QRBarcodeMissionConfig = QRBarcodeMissionConfig(),
+        onSave: @escaping (QRBarcodeMissionConfig) -> Void
+    ) {
+        _viewModel = StateObject(wrappedValue: QRBarcodeMissionViewModel(initialConfig: initialConfig))
+        self.onSave = onSave
+    }
     
     var body: some View {
         ZStack {
@@ -121,6 +129,11 @@ struct QRBarcodeSettingsView: View {
                     }
                     
                     Button(action: {
+                        guard let selectedCode = viewModel.missionConfig.selectedRawValueFallback?.trimmingCharacters(in: .whitespacesAndNewlines),
+                              !selectedCode.isEmpty else {
+                            showNoCodeAlert = true
+                            return
+                        }
                         onSave(viewModel.missionConfig)
                         dismiss()
                     }) {
@@ -175,14 +188,18 @@ struct QRBarcodeSettingsView: View {
                 name: $viewModel.tempDraftName
             ) {
                 if let code = viewModel.newScannedCode {
-                    viewModel.saveBarcode(code, name: viewModel.tempDraftName)
+                    viewModel.saveBarcode(code, name: viewModel.tempDraftName, symbology: viewModel.newScannedSymbology)
                 }
                 viewModel.showingNameSheet = false
             }
         }
         .onAppear {
-            // Load initial config if needed, usually passed in logic would populate VM
-            // Here assuming clean start or VM persists its own simple state
+            viewModel.reconcileSelectionWithSavedBarcodes()
+        }
+        .alert("Scan or select a code first", isPresented: $showNoCodeAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("This mission needs one QR or barcode target.")
         }
     }
 }

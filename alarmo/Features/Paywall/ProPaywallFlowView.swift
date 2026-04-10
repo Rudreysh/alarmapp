@@ -38,12 +38,11 @@ struct ProPaywallFlowView: View {
         ZStack {
             LinearGradient(
                 colors: [
-                    Color(red: 0.05, green: 0.12, blue: 0.24),
-                    Color(red: 0.03, green: 0.08, blue: 0.16),
-                    Color(red: 0.02, green: 0.04, blue: 0.10)
+                    Colors.bgSecondary,
+                    Colors.bgPrimary
                 ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                startPoint: .top,
+                endPoint: .bottom
             )
                 .ignoresSafeArea()
 

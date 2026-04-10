@@ -51,6 +51,9 @@ final class AlarmRingCoordinator: ObservableObject {
              return
         }
 
+        // Once user engages with the ring flow, clear one-shot/snooze follow-up notifications.
+        scheduler.cancelRuntimeRingNotifications(for: alarm)
+
         print("[AlarmRingCoordinator] 🔔 START RINGING: \(alarm.name) (Source: \(source)) wallpaperId=\(alarm.wallpaperId) sound=\(alarm.soundName)")
         
         activeAlarm = alarm
@@ -170,6 +173,14 @@ final class AlarmRingCoordinator: ObservableObject {
                         hadMission: hadMission
                     )
                 }
+            }
+
+            // Re-arm repeating alarms so the next runtime follow-up chain is always present.
+            if !preserveSession,
+               let refreshed = alarmStore?.alarm(by: alarm.id),
+               refreshed.enabled,
+               refreshed.repeatMask > 0 {
+                scheduler.schedule(alarm: refreshed)
             }
         }
         

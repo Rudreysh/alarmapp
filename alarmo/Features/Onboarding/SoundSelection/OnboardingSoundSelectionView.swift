@@ -35,7 +35,8 @@ struct OnboardingSoundSelectionView: View {
 
     @ObservedObject var onboardingViewModel: OnboardingViewModel
     @StateObject private var viewModel = OnboardingSoundSelectionViewModel()
-    @State private var playbackRenderTick: Int = 0
+    @ObservedObject private var soundPlayer = SoundPreviewPlayer.shared
+
     let onNext: () -> Void
 
     private var downloadableSections: [(category: String, sounds: [RemoteSound])] {
@@ -74,21 +75,21 @@ struct OnboardingSoundSelectionView: View {
     }
 
     private func isCurrentPlayingResource(named title: String) -> Bool {
-        guard let playing = viewModel.soundPlayer.playingResourceName else { return false }
+        guard let playing = soundPlayer.playingResourceName else { return false }
         return normalizedTitle(playing) == normalizedTitle(title)
     }
 
     private func isSoundPlaying(named title: String) -> Bool {
-        viewModel.soundPlayer.isPlaying && isCurrentPlayingResource(named: title)
+        soundPlayer.isPlaying && isCurrentPlayingResource(named: title)
     }
 
     private func isSoundBuffering(named title: String) -> Bool {
-        viewModel.soundPlayer.isBuffering && isCurrentPlayingResource(named: title)
+        soundPlayer.isBuffering && isCurrentPlayingResource(named: title)
     }
 
     private func isPlayingInCategory(_ tab: TopTab) -> Bool {
-        guard viewModel.soundPlayer.isPlaying else { return false }
-        guard let playing = viewModel.soundPlayer.playingResourceName else { return false }
+        guard soundPlayer.isPlaying else { return false }
+        guard let playing = soundPlayer.playingResourceName else { return false }
         
         switch tab {
         case .category(let category):
@@ -127,7 +128,7 @@ struct OnboardingSoundSelectionView: View {
 
             VStack(spacing: 0) {
                 // ─── Progress header ──────────────────────────────────────
-                ProgressHeader(step: 3, total: AppConstants.onboardingTotalSteps)
+                ProgressHeader(step: 8, total: AppConstants.onboardingTotalSteps)
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.l)
                     .padding(.bottom, Spacing.s)
@@ -187,11 +188,7 @@ struct OnboardingSoundSelectionView: View {
                 onboardingViewModel.setSelectedSound(first)
             }
         }
-        .onReceive(viewModel.soundPlayer.objectWillChange) { _ in
-            // Keep play/stop buttons and category indicators synced with preview playback state.
-            playbackRenderTick += 1
-        }
-        .onDisappear { viewModel.stopPlayback() }
+        .onDisappear { soundPlayer.stop() }
     }
 
     // MARK: - Sound list body (mirrors SoundPickerView exactly)
@@ -267,9 +264,9 @@ struct OnboardingSoundSelectionView: View {
                         },
                         onPreview: {
                             if isSoundPlaying(named: sound.title) {
-                                viewModel.soundPlayer.stop()
+                                soundPlayer.stop()
                             } else {
-                                viewModel.soundPlayer.playStreamURL(sound.fileURL, resourceName: sound.title, volume: onboardingViewModel.state.selectedVolume)
+                                soundPlayer.playStreamURL(sound.fileURL, resourceName: sound.title, volume: onboardingViewModel.state.selectedVolume)
                             }
                         },
                         onToggleStar: {
@@ -357,9 +354,9 @@ struct OnboardingSoundSelectionView: View {
             },
             onPreview: {
                 if isSoundPlaying(named: remoteSound.title) {
-                    viewModel.soundPlayer.stop()
+                    soundPlayer.stop()
                 } else {
-                    viewModel.soundPlayer.playStreamURL(remoteSound.url, resourceName: remoteSound.title, volume: onboardingViewModel.state.selectedVolume)
+                    soundPlayer.playStreamURL(remoteSound.url, resourceName: remoteSound.title, volume: onboardingViewModel.state.selectedVolume)
                 }
             },
             onToggleStar: {

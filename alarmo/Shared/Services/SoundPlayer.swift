@@ -5,9 +5,45 @@ final class SoundPlayer {
     private var player: AVAudioPlayer?
     private var spotifyPlaybackActive = false
     private var spotifyTrackUri: String?
+    private var observers: [NSObjectProtocol] = []
+    private var shouldResumeLoopAfterInterruption = false
+    private var stopRequested = false
+    private var loopContext: LoopContext?
+
+    private struct LoopContext {
+        let url: URL
+        let volume: Float
+        let fadeDuration: TimeInterval
+    }
+
+    init() {
+        let center = NotificationCenter.default
+        let interruptionObserver = center.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            self?.handleInterruption(notification)
+        }
+        let mediaResetObserver = center.addObserver(
+            forName: AVAudioSession.mediaServicesWereResetNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.resumeLoopIfNeeded(reason: "media-services-reset")
+        }
+        observers = [interruptionObserver, mediaResetObserver]
+    }
+
+    deinit {
+        for observer in observers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
 
     func playLooping(resourceName: String, volume: Float, fadeDuration: TimeInterval = 0) {
         stop()
+        stopRequested = false
         
         // Check if this is a Spotify track
         let spotifyInfo = resolveSpotifyTrack(resourceName: resourceName)
@@ -59,6 +95,10 @@ final class SoundPlayer {
     }
 
     func playOnce(resourceName: String, volume: Float) {
+        stopRequested = true
+        shouldResumeLoopAfterInterruption = false
+        loopContext = nil
+
         // Find sound URL exactly as playLooping does
         guard let url = findSoundURL(for: resourceName) else {
             print("[SoundPlayer] ❌ Could not find sound file for: \(resourceName)")
@@ -66,9 +106,7 @@ final class SoundPlayer {
         }
 
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
-            try session.setActive(true)
+            try AudioRouteManager.configurePlaybackSession(duckOthers: true)
             
             // Note: We use a separate player instance for 'playOnce' if we don't want to interrupt a looping one,
             // but for simple alerts, reusing or stopping the current player is usually acceptable.
@@ -92,6 +130,10 @@ final class SoundPlayer {
     }
 
     func stop() {
+        stopRequested = true
+        shouldResumeLoopAfterInterruption = false
+        loopContext = nil
+
         if player?.isPlaying == true {
            print("[SoundPlayer] ⏹️ Audio Stopped")
         }
@@ -155,12 +197,12 @@ final class SoundPlayer {
     
     private func playLocalFile(url: URL, volume: Float, fadeDuration: TimeInterval) {
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
-            try session.setActive(true)
+            try AudioRouteManager.configurePlaybackSession(duckOthers: false)
             
             player = try AVAudioPlayer(contentsOf: url)
             player?.numberOfLoops = -1
+            loopContext = LoopContext(url: url, volume: volume, fadeDuration: fadeDuration)
+            shouldResumeLoopAfterInterruption = true
             
             if fadeDuration > 0 {
                 player?.volume = 0
@@ -248,5 +290,34 @@ final class SoundPlayer {
         
         print("[SoundPlayer] ❌ CRITICAL: No audio files found anywhere in app bundle!")
         return nil
+    }
+
+    private func handleInterruption(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let raw = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: raw) else {
+            return
+        }
+
+        switch type {
+        case .began:
+            shouldResumeLoopAfterInterruption = (player?.isPlaying == true) && loopContext != nil && !stopRequested
+        case .ended:
+            resumeLoopIfNeeded(reason: "interruption-ended")
+        @unknown default:
+            break
+        }
+    }
+
+    private func resumeLoopIfNeeded(reason: String) {
+        guard shouldResumeLoopAfterInterruption,
+              !stopRequested,
+              player?.isPlaying != true,
+              let context = loopContext else {
+            return
+        }
+
+        print("[SoundPlayer] ▶️ Resuming looping audio after \(reason)")
+        playLocalFile(url: context.url, volume: context.volume, fadeDuration: 0)
     }
 }

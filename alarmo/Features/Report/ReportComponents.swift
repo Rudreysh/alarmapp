@@ -370,15 +370,18 @@ struct HeatmapGridView: View {
 
 struct OverallMonthCalendarView: View {
     let heatmap: [Date: Double]
+    let period: ReportPeriod
     let referenceDate: Date
     let onMove: (Int) -> Void
     @Binding var selectedDate: Date?
     
     private let calendar = Calendar.current
+    private let monthColumns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
+    private let yearColumns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 2)
     
     var body: some View {
         VStack(spacing: 20) {
-            // Week Navigation Header
+            // Period Navigation Header
             HStack {
                 Button { onMove(-1) } label: {
                     Image(systemName: "chevron.left")
@@ -388,7 +391,7 @@ struct OverallMonthCalendarView: View {
                 
                 Spacer()
                 
-                Text(weekRangeText)
+                Text(periodTitle)
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
                 
@@ -402,65 +405,155 @@ struct OverallMonthCalendarView: View {
             }
             .padding(.horizontal, 10)
             
-            // Weekday Headers
-            HStack(spacing: 0) {
-                ForEach(["M", "T", "W", "T", "F", "S", "S"], id: \.self) { day in
-                    Text(day)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(Colors.textPrimary)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            
-            // Week Days with Progress Rings
-            HStack(spacing: 4) {
-                ForEach(generateWeekDays(), id: \.self) { date in
-                    let isToday = calendar.isDateInToday(date)
-                    let value = heatmap[calendar.startOfDay(for: date)] ?? 0
-                    let isSelected = selectedDate != nil && calendar.isDate(date, inSameDayAs: selectedDate!)
-                    let progress = min(value, 1.0) // Normalize to 0-1 range
-                    
-                    VStack(spacing: 4) {
-                        ZStack {
-                            // Background circle
-                            Circle()
-                                .stroke(Colors.textTertiary.opacity(0.2), lineWidth: 2)
-                                .frame(width: 44, height: 44)
-                            
-                            // Progress ring
-                            if progress > 0 {
-                                Circle()
-                                    .trim(from: 0, to: progress)
-                                    .stroke(
-                                        ReportPalette.accent,
-                                        style: StrokeStyle(lineWidth: 3, lineCap: .round)
-                                    )
-                                    .frame(width: 44, height: 44)
-                                    .rotationEffect(.degrees(-90))
-                            }
-                            
-                            // Selection indicator
-                            if isSelected {
-                                Circle()
-                                    .fill(ReportPalette.accent.opacity(0.14))
-                                    .frame(width: 44, height: 44)
-                            }
-                            
-                            // Day number
-                            Text("\(calendar.component(.day, from: date))")
-                                .font(.system(size: 16, weight: isToday ? .bold : .medium))
+            switch period {
+            case .week:
+                VStack(spacing: 12) {
+                    HStack(spacing: 0) {
+                        ForEach(Array(orderedWeekdaySymbols.enumerated()), id: \.offset) { _, day in
+                            Text(day)
+                                .font(.system(size: 12, weight: .bold))
                                 .foregroundColor(Colors.textPrimary)
+                                .frame(maxWidth: .infinity)
                         }
-                        .onTapGesture {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                selectedDate = date
+                    }
+
+                    HStack(spacing: 4) {
+                        ForEach(generateWeekDays(), id: \.self) { date in
+                            let isToday = calendar.isDateInToday(date)
+                            let value = heatmap[calendar.startOfDay(for: date)] ?? 0
+                            let isSelected = selectedDate != nil && calendar.isDate(date, inSameDayAs: selectedDate!)
+                            let progress = min(max(value, 0), 1.0)
+
+                            VStack(spacing: 4) {
+                                ZStack {
+                                    Circle()
+                                        .stroke(Colors.textTertiary.opacity(0.2), lineWidth: 2)
+                                        .frame(width: 44, height: 44)
+
+                                    if progress > 0 {
+                                        Circle()
+                                            .trim(from: 0, to: progress)
+                                            .stroke(
+                                                ReportPalette.accent,
+                                                style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                                            )
+                                            .frame(width: 44, height: 44)
+                                            .rotationEffect(.degrees(-90))
+                                    }
+
+                                    if isSelected {
+                                        Circle()
+                                            .fill(ReportPalette.accent.opacity(0.14))
+                                            .frame(width: 44, height: 44)
+                                    }
+
+                                    Text("\(calendar.component(.day, from: date))")
+                                        .font(.system(size: 16, weight: isToday ? .bold : .medium))
+                                        .foregroundColor(Colors.textPrimary)
+                                }
+                                .onTapGesture {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        selectedDate = date
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+            case .month:
+                VStack(spacing: 12) {
+                    HStack(spacing: 0) {
+                        ForEach(Array(orderedWeekdaySymbols.enumerated()), id: \.offset) { _, symbol in
+                            Text(symbol)
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(Colors.textPrimary)
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+
+                    LazyVGrid(columns: monthColumns, spacing: 6) {
+                        ForEach(monthCells.indices, id: \.self) { index in
+                            if let date = monthCells[index] {
+                                let isToday = calendar.isDateInToday(date)
+                                let isSelected = selectedDate != nil && calendar.isDate(date, inSameDayAs: selectedDate!)
+                                let value = heatmap[calendar.startOfDay(for: date)] ?? 0
+
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(colorForValue(value))
+                                        .frame(height: 36)
+
+                                    if isToday {
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(ReportPalette.accent.opacity(0.65), lineWidth: 1.2)
+                                            .frame(height: 36)
+                                    }
+
+                                    if isSelected {
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color.white.opacity(0.85), lineWidth: 1.6)
+                                            .frame(height: 36)
+                                    }
+
+                                    Text("\(calendar.component(.day, from: date))")
+                                        .font(.system(size: 14, weight: isToday ? .bold : .medium))
+                                        .foregroundColor(Colors.textPrimary)
+                                }
+                                .onTapGesture {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        selectedDate = date
+                                    }
+                                }
+                            } else {
+                                Color.clear
+                                    .frame(height: 36)
                             }
                         }
                     }
-                    .frame(maxWidth: .infinity)
+                }
+            case .year:
+                LazyVGrid(columns: yearColumns, spacing: 12) {
+                    ForEach(yearMonths, id: \.self) { monthStart in
+                        let rate = monthAverage(for: monthStart)
+                        let activeDays = monthActiveDays(for: monthStart)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(monthTitle(for: monthStart))
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(Colors.textPrimary)
+                                Spacer()
+                                Text("\(Int(rate * 100))%")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(Colors.textSecondary)
+                            }
+
+                            GeometryReader { proxy in
+                                ZStack(alignment: .leading) {
+                                    Capsule()
+                                        .fill(Colors.textTertiary.opacity(0.18))
+                                    Capsule()
+                                        .fill(ReportPalette.accentGradient)
+                                        .frame(width: proxy.size.width * min(max(rate, 0), 1))
+                                }
+                            }
+                            .frame(height: 8)
+
+                            Text("\(activeDays) active day\(activeDays == 1 ? "" : "s")")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(Colors.textSecondary)
+                        }
+                        .padding(12)
+                        .background(Colors.bgPrimary.opacity(0.45))
+                        .cornerRadius(14)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(Colors.cardStroke, lineWidth: 1)
+                        )
+                    }
                 }
             }
-            .padding(.horizontal, 8)
         }
         .padding(24)
         .background(Colors.cardSurface)
@@ -468,14 +561,31 @@ struct OverallMonthCalendarView: View {
         .overlay(RoundedRectangle(cornerRadius: 32).stroke(Colors.cardStroke, lineWidth: 1))
     }
     
-    private var weekRangeText: String {
-        let weekDays = generateWeekDays()
-        guard let first = weekDays.first, let last = weekDays.last else { return "" }
+    private var periodTitle: String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "MM.yyyy"
-        return formatter.string(from: first)
+        switch period {
+        case .week:
+            let weekDays = generateWeekDays()
+            guard let first = weekDays.first, let last = weekDays.last else { return "" }
+            formatter.dateFormat = "MMM d"
+            return "\(formatter.string(from: first)) - \(formatter.string(from: last))"
+        case .month:
+            formatter.dateFormat = "MMMM yyyy"
+            return formatter.string(from: referenceDate)
+        case .year:
+            formatter.dateFormat = "yyyy"
+            return formatter.string(from: referenceDate)
+        }
     }
     
+    private var orderedWeekdaySymbols: [String] {
+        let symbols = calendar.shortStandaloneWeekdaySymbols
+        return (0..<7).map { index in
+            let actual = (calendar.firstWeekday - 1 + index) % 7
+            return String(symbols[actual].prefix(1))
+        }
+    }
+
     private func generateWeekDays() -> [Date] {
         var comps = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: referenceDate)
         comps.weekday = calendar.firstWeekday
@@ -484,6 +594,70 @@ struct OverallMonthCalendarView: View {
         return (0..<7).compactMap { offset in
             calendar.date(byAdding: .day, value: offset, to: weekStart)
         }
+    }
+
+    private var monthCells: [Date?] {
+        let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: referenceDate))!
+        let firstWeekdayOfMonth = calendar.component(.weekday, from: monthStart)
+        let leadingPadding = (firstWeekdayOfMonth - calendar.firstWeekday + 7) % 7
+        let dayRange = calendar.range(of: .day, in: .month, for: monthStart) ?? 1..<2
+
+        var cells = Array<Date?>(repeating: nil, count: leadingPadding)
+        for dayOffset in 0..<dayRange.count {
+            if let date = calendar.date(byAdding: .day, value: dayOffset, to: monthStart) {
+                cells.append(date)
+            }
+        }
+        while cells.count % 7 != 0 {
+            cells.append(nil)
+        }
+        return cells
+    }
+
+    private var yearMonths: [Date] {
+        let yearStart = calendar.date(from: calendar.dateComponents([.year], from: referenceDate))!
+        return (0..<12).compactMap { offset in
+            calendar.date(byAdding: .month, value: offset, to: yearStart)
+        }
+    }
+
+    private func monthAverage(for monthStart: Date) -> Double {
+        guard let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) else { return 0 }
+        var cursor = monthStart
+        var values: [Double] = []
+        while cursor < monthEnd {
+            let value = heatmap[calendar.startOfDay(for: cursor)] ?? 0
+            values.append(min(max(value, 0), 1))
+            cursor = calendar.date(byAdding: .day, value: 1, to: cursor)!
+        }
+        guard !values.isEmpty else { return 0 }
+        return values.reduce(0, +) / Double(values.count)
+    }
+
+    private func monthActiveDays(for monthStart: Date) -> Int {
+        guard let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) else { return 0 }
+        var cursor = monthStart
+        var active = 0
+        while cursor < monthEnd {
+            if (heatmap[calendar.startOfDay(for: cursor)] ?? 0) > 0 {
+                active += 1
+            }
+            cursor = calendar.date(byAdding: .day, value: 1, to: cursor)!
+        }
+        return active
+    }
+
+    private func monthTitle(for monthStart: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM"
+        return formatter.string(from: monthStart)
+    }
+
+    private func colorForValue(_ value: Double) -> Color {
+        if value <= 0 { return Color.white.opacity(0.06) }
+        if value < 0.34 { return ReportPalette.accent.opacity(0.28) }
+        if value < 0.67 { return ReportPalette.accent.opacity(0.55) }
+        return ReportPalette.accent.opacity(0.85)
     }
 }
 
@@ -643,11 +817,24 @@ struct YearlyStatusView: View {
     let referenceDate: Date
     
     @State private var viewMode: ViewMode = .yearly
+    @State private var isYearlyExpanded = false
     @Namespace private var modeNamespace
     
     enum ViewMode: String, CaseIterable {
         case yearly = "Yearly"
         case monthly = "Monthly"
+    }
+
+    private struct MonthStat: Identifiable {
+        let month: Int
+        let monthDate: Date
+        let availableDays: Int
+        let activeDays: Int
+        let completionRate: Double
+        let totalIntensity: Double
+        let isCurrentMonth: Bool
+
+        var id: Int { month }
     }
     
     private let calendar = Calendar.current
@@ -721,24 +908,56 @@ struct YearlyStatusView: View {
     }
     
     private var yearlyGrid: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 3) {
-                ForEach(0..<53, id: \.self) { week in
-                    VStack(spacing: 3) {
-                        ForEach(0..<7, id: \.self) { day in
-                            if let d = dateFor(week: week, day: day), calendar.component(.year, from: d) == year {
-                                let value = heatmap[calendar.startOfDay(for: d)] ?? 0
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(colorForValue(value))
-                                    .frame(width: 10, height: 10)
-                            } else {
-                                Color.clear.frame(width: 10, height: 10)
-                            }
-                        }
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                summaryChip(
+                    title: "Active Days",
+                    value: "\(yearlyActiveDays)"
+                )
+                summaryChip(
+                    title: "Consistency",
+                    value: "\(Int(yearlyConsistency * 100))%"
+                )
+                summaryChip(
+                    title: "Best Month",
+                    value: bestMonthLabel
+                )
+            }
+
+            HStack(spacing: 10) {
+                Text(isYearlyExpanded ? "All months" : "Current month")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Colors.textSecondary)
+
+                Spacer()
+
+                Button {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+                        isYearlyExpanded.toggle()
                     }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: isYearlyExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 11, weight: .bold))
+                        Text(isYearlyExpanded ? "Collapse" : "Expand")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .foregroundColor(ReportPalette.accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(ReportPalette.accent.opacity(0.12))
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
+                ForEach(displayedMonthStats) { stat in
+                    monthCard(for: stat)
                 }
             }
-            .padding(.horizontal, 4)
         }
     }
     
@@ -820,18 +1039,218 @@ struct YearlyStatusView: View {
         }
     }
     
-    private func dateFor(week: Int, day: Int) -> Date? {
-        var comps = DateComponents()
-        comps.year = year
-        comps.weekOfYear = week + 1
-        comps.weekday = (calendar.firstWeekday + day - 1) % 7 + 1
-        return calendar.date(from: comps)
+    private var monthStats: [MonthStat] {
+        let now = Date()
+        let currentYear = calendar.component(.year, from: now)
+        let currentMonth = calendar.component(.month, from: now)
+        let endOfToday = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now
+
+        return (1...12).compactMap { month in
+            guard
+                let monthStart = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
+                let monthInterval = calendar.dateInterval(of: .month, for: monthStart)
+            else {
+                return nil
+            }
+
+            let availableEnd: Date
+            if year < currentYear {
+                availableEnd = monthInterval.end
+            } else if year > currentYear {
+                availableEnd = monthInterval.start
+            } else {
+                availableEnd = min(monthInterval.end, endOfToday)
+            }
+
+            let availableDays = max(
+                0,
+                calendar.dateComponents([.day], from: monthInterval.start, to: max(monthInterval.start, availableEnd)).day ?? 0
+            )
+
+            var activeDays = 0
+            var totalIntensity = 0.0
+
+            if availableDays > 0 {
+                var cursor = monthInterval.start
+                while cursor < availableEnd {
+                    let value = heatmap[calendar.startOfDay(for: cursor)] ?? 0
+                    if value > 0 {
+                        activeDays += 1
+                    }
+                    totalIntensity += value
+                    guard let nextDay = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+                    cursor = nextDay
+                }
+            }
+
+            let completionRate = availableDays > 0 ? Double(activeDays) / Double(availableDays) : 0
+            let isCurrentMonth = (year == currentYear && month == currentMonth)
+
+            return MonthStat(
+                month: month,
+                monthDate: monthStart,
+                availableDays: availableDays,
+                activeDays: activeDays,
+                completionRate: completionRate,
+                totalIntensity: totalIntensity,
+                isCurrentMonth: isCurrentMonth
+            )
+        }
     }
-    
-    private func colorForValue(_ value: Double) -> Color {
-        if value <= 0 { return Color.white.opacity(0.05) }
-        if value < 1 { return Colors.accentBlue.opacity(0.3) }
-        if value < 2 { return Colors.accentBlue.opacity(0.6) }
-        return Colors.accentBlue
+
+    private var yearlyActiveDays: Int {
+        monthStats.reduce(0) { $0 + $1.activeDays }
+    }
+
+    private var yearlyAvailableDays: Int {
+        monthStats.reduce(0) { $0 + $1.availableDays }
+    }
+
+    private var yearlyConsistency: Double {
+        guard yearlyAvailableDays > 0 else { return 0 }
+        return Double(yearlyActiveDays) / Double(yearlyAvailableDays)
+    }
+
+    private var bestMonthLabel: String {
+        guard let best = monthStats.max(by: { $0.completionRate < $1.completionRate }), best.activeDays > 0 else {
+            return "--"
+        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM"
+        return formatter.string(from: best.monthDate)
+    }
+
+    private var displayedMonthStats: [MonthStat] {
+        if isYearlyExpanded {
+            return monthStats
+        }
+
+        guard let focused = focusedMonthStat else {
+            return []
+        }
+        return [focused]
+    }
+
+    private var focusedMonthStat: MonthStat? {
+        if let current = monthStats.first(where: { $0.isCurrentMonth }) {
+            return current
+        }
+
+        let selectedMonth = calendar.component(.month, from: referenceDate)
+        if let selected = monthStats.first(where: { $0.month == selectedMonth }) {
+            return selected
+        }
+
+        return monthStats.first
+    }
+
+    private func monthLabel(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM"
+        return formatter.string(from: date)
+    }
+
+    private func summaryChip(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(Colors.textSecondary)
+            Text(value)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(Colors.textPrimary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Colors.bgPrimary.opacity(0.55))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Colors.cardStroke, lineWidth: 1)
+        )
+    }
+
+    private func monthCard(for stat: MonthStat) -> some View {
+        let isFuture = stat.availableDays == 0
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Text(monthLabel(for: stat.monthDate))
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(Colors.textPrimary)
+
+                if stat.isCurrentMonth {
+                    Text("Now")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(ReportPalette.accent)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(ReportPalette.accent.opacity(0.16))
+                        .clipShape(Capsule())
+                }
+            }
+
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(0.10), lineWidth: 3)
+
+                Circle()
+                    .trim(from: 0, to: stat.completionRate)
+                    .stroke(
+                        LinearGradient(
+                            colors: [ReportPalette.accent, ReportPalette.glow],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+
+                Text(isFuture ? "--" : "\(Int(stat.completionRate * 100))")
+                    .font(.system(size: 12, weight: .heavy))
+                    .foregroundColor(Colors.textPrimary)
+            }
+            .frame(width: 42, height: 42)
+
+            VStack(alignment: .leading, spacing: 2) {
+                if isFuture {
+                    Text("Upcoming")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Colors.textSecondary)
+                } else {
+                    Text("\(stat.activeDays)/\(stat.availableDays) days")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Colors.textPrimary)
+                    Text(String(format: "%.0f total", stat.totalIntensity))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(Colors.textSecondary)
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 122, alignment: .topLeading)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Colors.bgPrimary.opacity(0.90),
+                            Colors.cardSurface.opacity(0.90)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(
+                    stat.isCurrentMonth ? ReportPalette.accent.opacity(0.45) : Colors.cardStroke,
+                    lineWidth: stat.isCurrentMonth ? 1.2 : 1
+                )
+        )
+        .opacity(isFuture ? 0.62 : 1)
     }
 }

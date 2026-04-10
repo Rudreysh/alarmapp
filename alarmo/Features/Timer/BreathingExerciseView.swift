@@ -435,24 +435,35 @@ struct BreathingExerciseView: View {
     // MARK: - Music
     private func startMusic() {
         var musicUrl: URL?
+        let preferredExtensions = ["caf", "mp3", "wav", "aiff", "m4a"]
         
         // 1. Check folder reference path first
-        if let url = Bundle.main.url(forResource: "Rain Sound", withExtension: "mp3", subdirectory: "sounds/Nature") {
-            musicUrl = url
+        for ext in preferredExtensions {
+            if let url = Bundle.main.url(forResource: "Rain Sound", withExtension: ext, subdirectory: "sounds/Nature") {
+                musicUrl = url
+                break
+            }
         }
         // 2. Check flat bundle (fallback)
-        else if let url = Bundle.main.url(forResource: "Rain Sound", withExtension: "mp3") {
-            musicUrl = url
+        if musicUrl == nil {
+            for ext in preferredExtensions {
+                if let url = Bundle.main.url(forResource: "Rain Sound", withExtension: ext) {
+                    musicUrl = url
+                    break
+                }
+            }
         }
         // 3. Fallback to Documents/AppSupport if downloaded dynamically
-        else if let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
-            if let bundleId = Bundle.main.bundleIdentifier {
+        if musicUrl == nil,
+           let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first,
+           let bundleId = Bundle.main.bundleIdentifier {
+            for ext in preferredExtensions where musicUrl == nil {
                 let hostedPath = appSupport.appendingPathComponent(bundleId)
-                    .appendingPathComponent("HostedAssets/sounds/Nature/Rain Sound.mp3")
+                    .appendingPathComponent("HostedAssets/sounds/Nature/Rain Sound.\(ext)")
                 if FileManager.default.fileExists(atPath: hostedPath.path) {
                     musicUrl = hostedPath
                 } else {
-                    let fallbackPath = appSupport.appendingPathComponent("HostedAssets/sounds/Nature/Rain Sound.mp3")
+                    let fallbackPath = appSupport.appendingPathComponent("HostedAssets/sounds/Nature/Rain Sound.\(ext)")
                     if FileManager.default.fileExists(atPath: fallbackPath.path) {
                         musicUrl = fallbackPath
                     }

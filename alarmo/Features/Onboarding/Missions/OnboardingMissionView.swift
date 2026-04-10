@@ -36,7 +36,7 @@ struct OnboardingMissionView: View {
                 .padding(.horizontal, Spacing.l)
                 .padding(.top, Spacing.l)
 
-                ProgressHeader(step: 4, total: AppConstants.onboardingTotalSteps)
+                ProgressHeader(step: 10, total: AppConstants.onboardingTotalSteps)
                     .padding(.horizontal, Spacing.l)
 
                 Text("Choose a wakeup mission")
@@ -152,6 +152,7 @@ private struct MissionPreviewSheet: View {
         case .ticTacToe: return "Win or draw a game of Tic-Tac-Toe to wake up."
         case .step: return "Take a certain number of steps to dismiss the alarm."
         case .qrBarcode: return "Scan a specific QR or Barcode to turn the alarm off."
+        case .householdItemHunt: return "Save a household item, then take a matching photo when the alarm rings."
         case .squat: return "Do a set of squats to dismiss the alarm and energize your body."
         case .breathing: return "Take deep breaths to center your mind and wake up peacefully."
         case .off: return "Turn off the alarm normally."
@@ -321,6 +322,20 @@ private struct MissionAnimationView: View {
                     .frame(width: 140, height: 60)
                     .background(Colors.cardSurface)
                     .cornerRadius(12)
+            case .householdItemHunt:
+                HStack(spacing: 10) {
+                    Image(systemName: "camera.macro")
+                        .foregroundColor(Colors.accentTeal)
+                    Text("Match")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Colors.accentTeal)
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(Colors.accentTeal)
+                        .opacity(animate ? 1 : 0.35)
+                }
+                .frame(width: 140, height: 60)
+                .background(Colors.cardSurface)
+                .cornerRadius(12)
             case .squat:
                 HStack {
                     Image(systemName: "figure.strengthtraining.traditional")
@@ -465,6 +480,20 @@ private struct MissionAnimationView: View {
                     .frame(width: 140, height: 60)
                     .background(Colors.cardSurface)
                     .cornerRadius(12)
+            case .householdItemHunt:
+                HStack(spacing: 10) {
+                    Image(systemName: "camera.macro")
+                        .foregroundColor(Colors.textSecondary)
+                    Text("No match")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Colors.accentRed)
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(Colors.accentRed)
+                        .opacity(animate ? 1 : 0.35)
+                }
+                .frame(width: 140, height: 60)
+                .background(Colors.cardSurface)
+                .cornerRadius(12)
             case .squat:
                 HStack {
                     Image(systemName: "figure.cooldown")

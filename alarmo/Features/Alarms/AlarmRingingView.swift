@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UIKit
 
 struct AlarmRingingView: View {
     @ObservedObject var ringCoordinator: AlarmRingCoordinator
@@ -35,13 +36,16 @@ struct AlarmRingingView: View {
                     if !quotes.isEmpty {
                         let quote = quotes[quoteIndex % quotes.count]
                         VStack(spacing: 8) {
-                            Text("\"\(quote.text)\"")
-                                .font(.system(size: 24, weight: .medium, design: .serif))
-                                .italic()
-                                .multilineTextAlignment(.center)
+                            AdaptiveQuoteText(
+                                quote: quote.text,
+                                maxWidth: max(UIScreen.main.bounds.width - 56, 220),
+                                maxLines: 5,
+                                maxFontSize: 24,
+                                minFontSize: 11,
+                                weight: .medium
+                            )
                                 .foregroundColor(.white)
                                 .shadow(color: .black.opacity(0.8), radius: 4, x: 0, y: 2)
-                                .fixedSize(horizontal: false, vertical: true)
                                 .id("text-\(quote.id)")
                                 .transition(.opacity.combined(with: .scale(scale: 0.95)))
                             
@@ -49,6 +53,8 @@ struct AlarmRingingView: View {
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.white.opacity(0.9))
                                 .shadow(color: .black.opacity(0.8), radius: 2, x: 0, y: 1)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.8)
                                 .id("author-\(quote.id)")
                                 .transition(.opacity)
                         }
@@ -154,13 +160,39 @@ struct AlarmRingingView: View {
             Group {
                 switch mission.type {
                 case .qrBarcode:
-                    QRBarcodeMissionView(
-                        targetCode: mission.customData["barcodeVal"] ?? "",
-                        onSuccess: {
-                            ringCoordinator.completeMission(success: true)
-                            currentMission = nil
+                    if let target = resolvedBarcodeTarget(for: mission) {
+                        QRBarcodeMissionView(
+                            targetCode: target.code,
+                            targetSymbology: target.symbology,
+                            onSuccess: {
+                                ringCoordinator.completeMission(success: true)
+                                currentMission = nil
+                            }
+                        )
+                    } else {
+                        VStack(spacing: 16) {
+                            Text("QR/Barcode")
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundColor(.white)
+                            Text("Mission is not configured. Edit this alarm and select a barcode target.")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(Colors.textSecondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 28)
+                            Button("Complete (Debug)") {
+                                ringCoordinator.completeMission(success: true)
+                                currentMission = nil
+                            }
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 28)
+                            .padding(.vertical, 14)
+                            .background(Colors.accentTeal)
+                            .cornerRadius(14)
                         }
-                    )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Colors.bgPrimary.ignoresSafeArea())
+                    }
                 case .math:
                     MathMissionPlayView(
                         viewModel: MathMissionViewModel(
@@ -207,6 +239,39 @@ struct AlarmRingingView: View {
                             }
                         )
                     )
+                case .householdItemHunt:
+                    if let filename = mission.customData["referenceImageFilename"], !filename.isEmpty {
+                        HouseholdItemHuntMissionView(
+                            referenceImageFilename: filename,
+                            onSuccess: {
+                                ringCoordinator.completeMission(success: true)
+                                currentMission = nil
+                            }
+                        )
+                    } else {
+                        VStack(spacing: 16) {
+                            Text("Household Item Hunt")
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundColor(.white)
+                            Text("Mission is not configured. Edit this alarm and set a reference image.")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(Colors.textSecondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 28)
+                            Button("Complete (Debug)") {
+                                ringCoordinator.completeMission(success: true)
+                                currentMission = nil
+                            }
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 28)
+                            .padding(.vertical, 14)
+                            .background(Colors.accentTeal)
+                            .cornerRadius(14)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Colors.bgPrimary.ignoresSafeArea())
+                    }
                 case .squat:
                     SquatMissionView(
                         viewModel: SquatMissionViewModel(
@@ -303,5 +368,24 @@ struct AlarmRingingView: View {
         guard lastLoggedAlarmId != alarm.id else { return }
         lastLoggedAlarmId = alarm.id
         print("[AlarmRingingView] alarmId=\(alarm.id.uuidString) wallpaperId=\(alarm.wallpaperId)")
+    }
+
+    private func resolvedBarcodeTarget(for mission: AlarmMission) -> (code: String, symbology: String?)? {
+        let rawFromCustomData = mission.customData["barcodeVal"]?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let symbologyFromCustomData = mission.customData["barcodeSym"]?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let rawFromCustomData, !rawFromCustomData.isEmpty {
+            return (code: rawFromCustomData, symbology: symbologyFromCustomData)
+        }
+
+        guard let barcodeIdString = mission.customData["barcodeId"],
+              let barcodeId = UUID(uuidString: barcodeIdString),
+              let raw = QRBarcodeMissionViewModel.rawValue(for: barcodeId)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty else {
+            return nil
+        }
+
+        let symbology = symbologyFromCustomData ?? QRBarcodeMissionViewModel.symbology(for: barcodeId)
+        return (code: raw, symbology: symbology)
     }
 }

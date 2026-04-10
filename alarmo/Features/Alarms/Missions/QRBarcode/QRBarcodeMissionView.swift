@@ -9,11 +9,18 @@ struct QRBarcodeMissionView: View {
     
     // Target code to match
     let targetCode: String
+    let targetSymbology: String?
     
-    init(viewModel: QRBarcodeMissionViewModel? = nil, targetCode: String, onSuccess: (() -> Void)?) {
+    init(
+        viewModel: QRBarcodeMissionViewModel? = nil,
+        targetCode: String,
+        targetSymbology: String? = nil,
+        onSuccess: (() -> Void)?
+    ) {
         // If VM is passed reuse it (e.g. from coordinator), else create new
         _viewModel = StateObject(wrappedValue: viewModel ?? QRBarcodeMissionViewModel())
         self.targetCode = targetCode
+        self.targetSymbology = targetSymbology
         self.onMissionSuccess = onSuccess
     }
     
@@ -72,6 +79,16 @@ struct QRBarcodeMissionView: View {
                         .minimumScaleFactor(0.5)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
+                    
+                    if let targetSymbology, !targetSymbology.isEmpty, targetCode != "PREVIEW_DUMMY_MODE" {
+                        Text(targetSymbology.uppercased())
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            .foregroundColor(Colors.textSecondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.08))
+                            .cornerRadius(8)
+                    }
                 }
                 
                 Spacer()
@@ -94,7 +111,7 @@ struct QRBarcodeMissionView: View {
             // Use fullScreenCover for Scanner to ensure it goes over everything
             .fullScreenCover(isPresented: $viewModel.isScanning) {
                 ZStack {
-                    QRScannerView(service: viewModel.scannerService) {
+                    QRScannerView(service: viewModel.scannerService, autoEnableTorch: true) {
                         viewModel.isScanning = false 
                         viewModel.scannerService.stopSession()
                     }
@@ -118,7 +135,7 @@ struct QRBarcodeMissionView: View {
             }
         }
         .onAppear {
-            viewModel.startRuntimeMission(targetCode: targetCode)
+            viewModel.startRuntimeMission(targetCode: targetCode, targetSymbology: targetSymbology)
             viewModel.onMissionCompleted = {
                 self.onMissionSuccess?()
             }

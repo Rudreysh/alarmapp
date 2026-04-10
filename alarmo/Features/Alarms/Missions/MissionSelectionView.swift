@@ -44,7 +44,7 @@ struct MissionSelectionView: View {
                         .padding(.horizontal, 20)
 
                         missionSection(title: "Popular mission") {
-                            missionRow(title: "Household Item Hunt", subtitle: "AI", icon: "magnifyingglass", iconBg: Color.red.opacity(0.3), type: .off)
+                            missionRow(title: "Household Item Hunt", subtitle: "AI", icon: "magnifyingglass", iconBg: Color.red.opacity(0.3), type: .householdItemHunt)
                             missionRow(title: "Tap for Lucky ticket", subtitle: "REWARD", icon: "hand.tap.fill", iconBg: Color.red.opacity(0.3), type: .off)
                         }
                         

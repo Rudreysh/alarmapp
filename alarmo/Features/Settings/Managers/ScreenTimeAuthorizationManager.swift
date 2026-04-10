@@ -32,6 +32,12 @@ final class ScreenTimeAuthorizationManager: ObservableObject {
             ? "Simulator mock mode is active. App/category selections are simulated."
             : "Simulator mock mode: tap Enable Screen Time Access to test blocking flows."
         #elseif canImport(FamilyControls)
+        guard EntitlementInspector.hasFamilyControlsAccess else {
+            state = .notAvailable
+            statusMessage = "Screen Time capability is missing in this build. Enable Family Controls entitlement."
+            return
+        }
+
         let status = AuthorizationCenter.shared.authorizationStatus
         switch status {
         case .approved:
@@ -59,6 +65,12 @@ final class ScreenTimeAuthorizationManager: ObservableObject {
         state = .approved
         statusMessage = "Simulator mock mode is active. App/category selections are simulated."
         #elseif canImport(FamilyControls)
+        guard EntitlementInspector.hasFamilyControlsAccess else {
+            state = .notAvailable
+            statusMessage = "Screen Time capability is missing in this build. Enable Family Controls entitlement."
+            return
+        }
+
         do {
             try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
             statusMessage = nil
