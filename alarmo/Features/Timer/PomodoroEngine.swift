@@ -36,8 +36,8 @@ class PomodoroEngine: ObservableObject {
     }
 
     var parallelSessions: [ParallelFocusSession] {
+        // Keep insertion order stable for UI so session emoji chips do not jump/swap every tick.
         state.parallelSessions
-            .sorted { $0.updatedAt > $1.updatedAt }
     }
     
     var currentProgress: Double {

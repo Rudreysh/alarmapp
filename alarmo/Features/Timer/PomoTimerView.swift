@@ -28,9 +28,18 @@ struct PomoTimerView: View {
     @Query(sort: \AppList.updatedAt, order: .reverse)
     private var allAppLists: [AppList]
     private let settingsStore = SettingsStore.shared
+
+    private var activeParallelSession: ParallelFocusSession? {
+        guard let activeId = engine.state.activeParallelSessionId else { return nil }
+        return engine.state.parallelSessions.first(where: { $0.id == activeId })
+    }
+
+    private var activeTaskId: UUID? {
+        activeParallelSession?.taskId ?? engine.state.selectedTaskId
+    }
     
     var habitProgressText: String? {
-        guard let taskId = engine.state.selectedTaskId else { return nil }
+        guard let taskId = activeTaskId else { return nil }
         guard let item = planItems.first(where: { $0.id == taskId }) else { return nil }
         
         let current = item.currentValue(on: Date())
@@ -794,7 +803,7 @@ struct PomoTimerView: View {
     }
 
     private var selectedPlanItem: PlanItem? {
-        guard let taskId = engine.state.selectedTaskId else { return nil }
+        guard let taskId = activeTaskId else { return nil }
         return planItems.first(where: { $0.id == taskId })
     }
 
@@ -806,7 +815,7 @@ struct PomoTimerView: View {
     }
 
     private var middleRingSymbol: String {
-        let fallbackName = engine.state.overriddenTaskName ?? taskStore.selectedTask?.name ?? ""
+        let fallbackName = activeParallelSession?.focusName ?? engine.state.overriddenTaskName ?? taskStore.selectedTask?.name ?? ""
         return focusEmoji(for: selectedPlanItem, fallbackName: fallbackName)
     }
 
