@@ -14,11 +14,7 @@ enum EntitlementInspector {
         }
 
         guard let value = entitlements[key] else { return false }
-        if let boolValue = value as? Bool { return boolValue }
-        if let stringValue = value as? String { return !stringValue.isEmpty }
-        if let arrayValue = value as? [Any] { return !arrayValue.isEmpty }
-        if let dictionaryValue = value as? [String: Any] { return !dictionaryValue.isEmpty }
-        return true
+        return normalizeEntitlementValue(value)
     }
 
     static var hasHealthKitAccess: Bool {
@@ -40,14 +36,17 @@ enum EntitlementInspector {
 
     private static func loadEmbeddedEntitlements() -> [String: Any]? {
         guard let path = Bundle.main.path(forResource: "embedded", ofType: "mobileprovision"),
-              let content = try? String(contentsOfFile: path, encoding: .ascii),
-              let plistStart = content.range(of: "<plist"),
-              let plistEnd = content.range(of: "</plist>") else {
+              let rawData = try? Data(contentsOf: URL(fileURLWithPath: path)),
+              let plistStart = rawData.range(of: Data("<plist".utf8)),
+              let plistEndTagRange = rawData.range(of: Data("</plist>".utf8)) else {
             return nil
         }
 
-        let plistString = String(content[plistStart.lowerBound...plistEnd.upperBound])
-        guard let plistData = plistString.data(using: .utf8),
+        let plistEnd = plistEndTagRange.upperBound
+        guard plistStart.lowerBound < plistEnd else { return nil }
+
+        let plistData = rawData.subdata(in: plistStart.lowerBound..<plistEnd)
+        guard
               let plist = try? PropertyListSerialization.propertyList(
                 from: plistData,
                 options: [],
@@ -58,5 +57,13 @@ enum EntitlementInspector {
         }
 
         return entitlements
+    }
+
+    private static func normalizeEntitlementValue(_ value: Any) -> Bool {
+        if let boolValue = value as? Bool { return boolValue }
+        if let stringValue = value as? String { return !stringValue.isEmpty }
+        if let arrayValue = value as? [Any] { return !arrayValue.isEmpty }
+        if let dictionaryValue = value as? [String: Any] { return !dictionaryValue.isEmpty }
+        return true
     }
 }

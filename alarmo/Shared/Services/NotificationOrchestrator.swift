@@ -41,6 +41,10 @@ final class NotificationOrchestrator {
         }
 
         let content = NotificationTemplateBuilder.content(for: scenario, context: context)
+        // Group notifications by feature in Notification Center for cleaner stacked cards.
+        content.threadIdentifier = "alarmo.\(rule.domain.rawValue)"
+        content.summaryArgument = summaryArgument(for: scenario, context: context)
+        content.summaryArgumentCount = 1
         content.interruptionLevel = rule.urgency.interruptionLevel
         if rule.isCritical && EntitlementInspector.hasCriticalAlertsAccess {
             content.interruptionLevel = .critical
@@ -245,6 +249,21 @@ final class NotificationOrchestrator {
             return prefs.pomodoro
         case .stopwatchTargetReached, .countdownFinished, .countdownCycleRepeat:
             return prefs.stopwatch
+        }
+    }
+
+    private func summaryArgument(for scenario: AppNotificationScenario, context: AppNotificationContext) -> String {
+        switch scenario {
+        case .habitReminder:
+            let fallback = "Habit"
+            let name = (context.itemName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return name.isEmpty ? fallback : name
+        case .taskReminder, .taskOverdue:
+            let fallback = "Task"
+            let name = (context.itemName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return name.isEmpty ? fallback : name
+        default:
+            return "Alarmo"
         }
     }
 }

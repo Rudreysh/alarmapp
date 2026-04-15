@@ -483,7 +483,6 @@ struct CreateWakeUpAlarmView: View {
                         // Group F: Wallpaper
                         SectionHeader(title: "Wallpaper")
                         GroupedSettingsCard {
-                            // Wallpaper
                             MenuRow(
                                 icon: "photo.fill",
                                 title: "Wallpaper",
@@ -924,6 +923,10 @@ private extension CreateWakeUpAlarmView {
                 snoozeCount: viewModel.draft.snoozeCount,
                 wallpaperId: viewModel.draft.wallpaperId,
                 dailyMotivationEnabled: viewModel.draft.dailyMotivationEnabled,
+                visualOutputSettings: AlarmVisualOutputSettings.migratedFromLegacy(
+                    wallpaperId: viewModel.draft.wallpaperId,
+                    dailyMotivationEnabled: viewModel.draft.dailyMotivationEnabled
+                ),
                 createdAt: Date(),
                 missions: viewModel.draft.missions,
                 enforcementMode: penaltyEnabled ? .penaltyOnly : .none,

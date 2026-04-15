@@ -237,6 +237,25 @@ struct CreateHabitAlarmView: View {
                         )
                         .padding(.horizontal, 4)
 
+                        // Group C2: Notes
+                        SectionHeader(title: "Notes")
+                        GroupedSettingsCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Add notes about this habit")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(Colors.textSecondary)
+
+                                TextEditor(text: $viewModel.notes)
+                                    .frame(minHeight: 110)
+                                    .scrollContentBackground(.hidden)
+                                    .padding(8)
+                                    .background(Colors.bgSecondary.opacity(0.7))
+                                    .cornerRadius(12)
+                                    .foregroundColor(Colors.textPrimary)
+                            }
+                            .padding(16)
+                        }
+
                         // Group D: Sound & Behavior
                         SectionHeader(title: "Sound & Behavior")
                         GroupedSettingsCard {
@@ -744,82 +763,74 @@ struct CreateHabitAlarmView: View {
     }
     
     private func saveAlarm(ignoreDeliveryWarnings: Bool = false) {
-        Task { @MainActor in
-            let granted = await notificationManager.ensureAuthorization()
-            let delivery = await notificationManager.currentAlarmDeliveryStatus()
-            if !ignoreDeliveryWarnings && (!granted || !delivery.notificationsAuthorized) {
-                alarmAccessAlertMessage = "Alarm notifications are not authorized. Turn on notifications for Alarmo."
-                showAlarmAccessAlert = true
-                return
-            }
-            if !ignoreDeliveryWarnings && !delivery.soundEnabled {
-                alarmAccessAlertMessage = "Notification sounds are turned off for Alarmo. Turn sounds on so alarms ring audibly."
-                showAlarmAccessAlert = true
-                return
-            }
-            if !ignoreDeliveryWarnings && !delivery.timeSensitiveEnabled {
-                alarmAccessAlertMessage = "Time Sensitive notifications are off. Enable them to keep alarm alerts audible during Focus modes."
-                showAlarmAccessAlert = true
-                return
-            }
-            var alarmPenaltyRules = settingsStore.penaltyRules
-            // Alarm penalty in this mode is snooze-threshold based.
-            alarmPenaltyRules.alarmMissionFailTriggersPenalty = false
-            
-            let alarm = Alarm(
-                id: existingAlarm?.id ?? UUID(),
-                type: .habit,
-                name: viewModel.name,
-                emoji: viewModel.emoji,
-                hour: viewModel.hour,
-                minute: viewModel.minute,
-                second: viewModel.second,
-                isDaily: viewModel.isDaily,
-                repeatMask: viewModel.repeatMask(),
-                enabled: true,
-                wakeUpCheckEnabled: viewModel.wakeUpCheckEnabled,
-                soundName: viewModel.soundName,
-                soundVolume: viewModel.soundVolume,
-                vibrateEnabled: viewModel.vibrateEnabled,
-                gentleWakeUpSeconds: viewModel.gentleWakeUpSeconds,
-                timeReminderEnabled: viewModel.timeReminderEnabled,
-                weatherReminderEnabled: viewModel.weatherReminderEnabled,
-                labelReminderEnabled: viewModel.labelReminderEnabled,
-                extraLoudEnabled: viewModel.extraLoudEnabled,
-                bypassSilentMode: viewModel.bypassSilentMode,
-                timeZoneMode: viewModel.timeZoneMode,
-                timeZoneIdentifier: viewModel.timeZoneIdentifier,
-                timeZoneCity: viewModel.timeZoneCity,
-                snoozeMinutes: viewModel.snoozeMinutes,
-                snoozeSeconds: viewModel.snoozeSeconds,
-                snoozeCount: viewModel.snoozeCount,
+        var alarmPenaltyRules = settingsStore.penaltyRules
+        // Alarm penalty in this mode is snooze-threshold based.
+        alarmPenaltyRules.alarmMissionFailTriggersPenalty = false
+
+        let alarm = Alarm(
+            id: existingAlarm?.id ?? UUID(),
+            type: .habit,
+            name: viewModel.name,
+            emoji: viewModel.emoji,
+            hour: viewModel.hour,
+            minute: viewModel.minute,
+            second: viewModel.second,
+            isDaily: viewModel.isDaily,
+            repeatMask: viewModel.repeatMask(),
+            enabled: true,
+            wakeUpCheckEnabled: viewModel.wakeUpCheckEnabled,
+            soundName: viewModel.soundName,
+            soundVolume: viewModel.soundVolume,
+            vibrateEnabled: viewModel.vibrateEnabled,
+            gentleWakeUpSeconds: viewModel.gentleWakeUpSeconds,
+            timeReminderEnabled: viewModel.timeReminderEnabled,
+            weatherReminderEnabled: viewModel.weatherReminderEnabled,
+            labelReminderEnabled: viewModel.labelReminderEnabled,
+            extraLoudEnabled: viewModel.extraLoudEnabled,
+            bypassSilentMode: viewModel.bypassSilentMode,
+            timeZoneMode: viewModel.timeZoneMode,
+            timeZoneIdentifier: viewModel.timeZoneIdentifier,
+            timeZoneCity: viewModel.timeZoneCity,
+            snoozeMinutes: viewModel.snoozeMinutes,
+            snoozeSeconds: viewModel.snoozeSeconds,
+            snoozeCount: viewModel.snoozeCount,
+            wallpaperId: viewModel.wallpaperId,
+            dailyMotivationEnabled: viewModel.dailyMotivationEnabled,
+            visualOutputSettings: AlarmVisualOutputSettings.migratedFromLegacy(
                 wallpaperId: viewModel.wallpaperId,
-                createdAt: existingAlarm?.createdAt ?? Date(),
-                missions: viewModel.missions,
-                enforcementMode: viewModel.penaltyEnabled ? .penaltyOnly : .none,
-                blockAppsEnabled: false,
-                blockedSelectionData: settingsStore.blockedAppsSelectionData,
-                penaltyEnabled: viewModel.penaltyEnabled,
-                penaltyAmountEuro: settingsStore.penaltyAmountEuro,
-                penaltyStrategy: .credits,
-                penaltyRules: alarmPenaltyRules,
-                shutdownProtectionEnabled: viewModel.penaltyEnabled,
-                habitReminderEnabled: viewModel.reminderEnabled,
-                habitReminderInterval: viewModel.reminderIntervalMinutes,
-                habitReminderDuration: viewModel.reminderDurationSeconds,
-                habitReminderStartTime: viewModel.reminderStartTime,
-                habitReminderEndTime: viewModel.reminderEndTime
-            )
-            
-            print("[HabitAlarm] Saving habit: \(alarm.name) at \(alarm.hour):\(alarm.minute)")
-            if existingAlarm != nil {
-                alarmStore.update(alarm)
-            } else {
-                alarmStore.add(alarm)
-            }
+                dailyMotivationEnabled: viewModel.dailyMotivationEnabled
+            ),
+            createdAt: existingAlarm?.createdAt ?? Date(),
+            missions: viewModel.missions,
+            enforcementMode: viewModel.penaltyEnabled ? .penaltyOnly : .none,
+            blockAppsEnabled: false,
+            blockedSelectionData: settingsStore.blockedAppsSelectionData,
+            penaltyEnabled: viewModel.penaltyEnabled,
+            penaltyAmountEuro: settingsStore.penaltyAmountEuro,
+            penaltyStrategy: .credits,
+            penaltyRules: alarmPenaltyRules,
+            shutdownProtectionEnabled: viewModel.penaltyEnabled,
+            habitReminderEnabled: viewModel.reminderEnabled,
+            habitReminderInterval: viewModel.reminderIntervalMinutes,
+            habitReminderDuration: viewModel.reminderDurationSeconds,
+            habitReminderStartTime: viewModel.reminderStartTime,
+            habitReminderEndTime: viewModel.reminderEndTime,
+            habitNotes: viewModel.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+
+        print("[HabitAlarm] Saving habit: \(alarm.name) at \(alarm.hour):\(alarm.minute)")
+        if existingAlarm != nil {
+            alarmStore.update(alarm)
+        } else {
+            alarmStore.add(alarm)
+        }
+
+        // Close immediately for a responsive save UX, then refresh schedule.
+        onClose()
+
+        Task { @MainActor in
             scheduler.cancel(alarmId: alarm.id)
             scheduler.schedule(alarm: alarm)
-            onClose()
         }
     }
     

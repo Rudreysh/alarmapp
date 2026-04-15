@@ -22,11 +22,21 @@ class HealthKitManager: ObservableObject {
         
         if let category = category {
             switch category {
+            case "activity":
+                let steps = HKObjectType.quantityType(forIdentifier: .stepCount)!
+                let walkDistance = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!
+                let cyclingDistance = HKObjectType.quantityType(forIdentifier: .distanceCycling)!
+                let standTime = HKObjectType.quantityType(forIdentifier: .appleStandTime)!
+                let calories = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
+                readTypes.formUnion([steps, walkDistance, cyclingDistance, standTime, calories])
+                shareTypes.formUnion([steps, walkDistance, cyclingDistance, standTime, calories])
             case "steps":
-                let t1 = HKObjectType.quantityType(forIdentifier: .stepCount)!
-                let t2 = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
-                readTypes.insert(t1); shareTypes.insert(t1)
-                readTypes.insert(t2); shareTypes.insert(t2)
+                let stepCount = HKObjectType.quantityType(forIdentifier: .stepCount)!
+                let walkDistance = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!
+                let calories = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
+                readTypes.insert(stepCount); shareTypes.insert(stepCount)
+                readTypes.insert(walkDistance); shareTypes.insert(walkDistance)
+                readTypes.insert(calories); shareTypes.insert(calories)
             case "distance":
                  let t1 = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!
                  let t2 = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
@@ -93,6 +103,8 @@ class HealthKitManager: ObservableObject {
         
         let type: HKObjectType?
         switch category {
+        case "activity":
+            type = HKObjectType.quantityType(forIdentifier: .stepCount)
         case "steps":
             type = HKObjectType.quantityType(forIdentifier: .stepCount)
         case "distance", "running", "cycling":

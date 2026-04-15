@@ -59,3 +59,41 @@ class PomodoroEventStore {
         print("📊 [PomodoroEvent] \(event.segment.rawValue) finished. Actual: \(event.actualSeconds)s")
     }
 }
+
+// MARK: - Runtime State Store
+@MainActor
+final class PomodoroRuntimeStateStore {
+    private let fileURL: URL
+
+    init() {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let domainDir = appSupport.appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.alarmo.app", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: domainDir.path) {
+            try? FileManager.default.createDirectory(at: domainDir, withIntermediateDirectories: true)
+        }
+        self.fileURL = domainDir.appendingPathComponent("interval_timer_runtime_state.json")
+    }
+
+    func save(_ state: PomodoroRuntimeState) {
+        do {
+            let data = try JSONEncoder().encode(state)
+            try data.write(to: fileURL, options: .atomic)
+        } catch {
+            print("[PomodoroRuntimeStateStore] Save failed: \(error)")
+        }
+    }
+
+    func load() -> PomodoroRuntimeState? {
+        guard let data = try? Data(contentsOf: fileURL) else { return nil }
+        do {
+            return try JSONDecoder().decode(PomodoroRuntimeState.self, from: data)
+        } catch {
+            print("[PomodoroRuntimeStateStore] Load failed: \(error)")
+            return nil
+        }
+    }
+
+    func clear() {
+        try? FileManager.default.removeItem(at: fileURL)
+    }
+}

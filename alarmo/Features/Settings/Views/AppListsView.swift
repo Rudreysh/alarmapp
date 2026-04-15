@@ -18,10 +18,15 @@ struct AppListsView: View {
     private var appLists: [AppList]
 
     @State private var selectedDetailList: AppList?
+    @State private var presentCompactBlockListEditor = false
     @State private var listPendingDelete: AppList?
+    @State private var showDifficultyMenu = false
+    @State private var showMissionsMenu = false
 
     private var blockLists: [AppList] { appLists.filter { $0.type == .block } }
     private var allowLists: [AppList] { appLists.filter { $0.type == .allow } }
+    private var isFocusBlockingLocked: Bool { engine?.isFocusBlockingControlsLocked ?? false }
+    private var isBlockDuringFocusEnabled: Bool { engine?.config.blockAppsEnabled ?? false }
     
     // Access to the currently selected list ID to show active state
     private let settings = SettingsStore.shared
@@ -37,6 +42,7 @@ struct AppListsView: View {
                         Section {
                             let activeId = settings.selectedBlockListId
                             let activeName = blockLists.first(where: { $0.id.uuidString == activeId })?.name
+                            let isFocusArmed = activeName != nil && isBlockDuringFocusEnabled
                             
                             // Active list status row
                             HStack(spacing: 12) {
@@ -44,9 +50,9 @@ struct AppListsView: View {
                                     Circle()
                                         .fill(Color.red.opacity(0.15))
                                         .frame(width: 38, height: 38)
-                                    Image(systemName: activeName != nil ? "lock.fill" : "lock.open.fill")
+                                    Image(systemName: isFocusArmed ? "lock.fill" : "lock.open.fill")
                                         .font(.system(size: 16))
-                                        .foregroundColor(activeName != nil ? .red : Colors.textTertiary)
+                                        .foregroundColor(isFocusArmed ? .red : Colors.textTertiary)
                                 }
                                 
                                 VStack(alignment: .leading, spacing: 3) {
@@ -55,16 +61,26 @@ struct AppListsView: View {
                                         .foregroundColor(Colors.textPrimary)
                                     Text(activeName ?? "Tap a list below to activate")
                                         .font(.system(size: 13))
-                                        .foregroundColor(activeName != nil ? Colors.accentRed : Colors.textTertiary)
+                                        .foregroundColor(isFocusArmed ? Colors.accentRed : Colors.textTertiary)
                                 }
                                 
                                 Spacer()
                             }
                             .padding(.vertical, 4)
+
+                            if isFocusBlockingLocked {
+                                Text("Blocking is locked for this active focus session.")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(Colors.accentRed)
+                            }
                             
                             // ---- Engine Settings (Toggles) ----
                             if let engine {
-                                EngineSettingsSection(engine: engine)
+                                EngineSettingsSection(
+                                    engine: engine,
+                                    onOpenDifficulty: { showDifficultyMenu = true },
+                                    onOpenMissions: { showMissionsMenu = true }
+                                )
                             }
                         } header: {
                             Text("FOR FOCUS SESSIONS")
@@ -86,6 +102,7 @@ struct AppListsView: View {
 
                         Button(action: { 
                             if let created = viewModel.createList(type: .block, context: modelContext) {
+                                presentCompactBlockListEditor = true
                                 selectedDetailList = created
                             }
                         }) {
@@ -112,6 +129,7 @@ struct AppListsView: View {
 
                         Button(action: { 
                             if let created = viewModel.createList(type: .allow, context: modelContext) {
+                                presentCompactBlockListEditor = false
                                 selectedDetailList = created
                             }
                         }) {
@@ -148,12 +166,34 @@ struct AppListsView: View {
                         .foregroundColor(Colors.textPrimary)
                 }
             }
-            .sheet(item: $selectedDetailList) { list in
-                BlockListDetailView(list: list, appListsViewModel: viewModel)
+            .sheet(item: $selectedDetailList, onDismiss: {
+                presentCompactBlockListEditor = false
+            }) { list in
+                BlockListDetailView(
+                    list: list,
+                    appListsViewModel: viewModel,
+                    startsCompact: list.type == .block && presentCompactBlockListEditor,
+                    isFocusBlockingLocked: isFocusBlockingLocked,
+                    activeLockedListID: settings.selectedBlockListId
+                )
             }
             .sheet(isPresented: $viewModel.showProPaywall) {
                 ProPaywallFlowView(startStep: .intro) {
                     viewModel.showProPaywall = false
+                }
+            }
+            .sheet(isPresented: $showDifficultyMenu) {
+                if let engine {
+                    NavigationStack {
+                        SessionDifficultyPickerView(engine: engine)
+                    }
+                }
+            }
+            .sheet(isPresented: $showMissionsMenu) {
+                if let engine {
+                    NavigationStack {
+                        MissionsPickerView(engine: engine)
+                    }
                 }
             }
             .alert("Delete this block list?", isPresented: Binding(
@@ -162,6 +202,10 @@ struct AppListsView: View {
             )) {
                 Button("Delete", role: .destructive) {
                     guard let target = listPendingDelete else { return }
+                    if isFocusBlockingLocked && target.id.uuidString == settings.selectedBlockListId {
+                        listPendingDelete = nil
+                        return
+                    }
                     if let detailList = selectedDetailList, detailList.id == target.id {
                         selectedDetailList = nil
                     }
@@ -178,45 +222,47 @@ struct AppListsView: View {
 
     @ViewBuilder
     private func listRow(list: AppList) -> some View {
-        let isSelected = viewModel.selectedListID == list.id
         let isActiveForFocus = settings.selectedBlockListId == list.id.uuidString
+        let isArmedForFocus = list.type == .block && isActiveForFocus && isBlockDuringFocusEnabled
         let summary = listSelectionSummary(for: list)
 
         HStack {
-            Button(action: {
-                if list.type == .block {
-                    viewModel.setSelectedList(list, context: modelContext)
-                } else {
-                    selectedDetailList = list
+            HStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(list.name)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(Colors.textPrimary)
+                    Text(summary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Colors.textSecondary)
                 }
-            }) {
-                HStack(spacing: 0) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(list.name)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(Colors.textPrimary)
-                        Text(summary)
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(Colors.textSecondary)
-                    }
-                    Spacer()
-                    if list.type == .block && isActiveForFocus {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(Colors.accentBlue)
-                            .padding(.trailing, 4)
-                    }
+                Spacer()
+                if list.type == .block && isActiveForFocus {
+                    Image(systemName: isArmedForFocus ? "lock.fill" : "checkmark")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(isArmedForFocus ? .red : Colors.accentBlue)
+                        .padding(.trailing, 4)
                 }
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if list.type == .block && !isFocusBlockingLocked {
+                    viewModel.setSelectedList(list, context: modelContext)
+                }
+                presentCompactBlockListEditor = false
+                selectedDetailList = list
+            }
             
             if list.type == .block {
-                Button(action: {
-                    selectedDetailList = list
-                }) {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 22))
+                    Button(action: {
+                        if !isFocusBlockingLocked {
+                            viewModel.setSelectedList(list, context: modelContext)
+                        }
+                        presentCompactBlockListEditor = false
+                        selectedDetailList = list
+                    }) {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 22))
                         .foregroundColor(Colors.accentBlue)
                         .padding(.leading, 8)
                 }
@@ -259,11 +305,16 @@ struct BlockListDetailView: View {
 
     let list: AppList
     @ObservedObject var appListsViewModel: AppListsViewModel
+    let isFocusBlockingLocked: Bool
+    let activeLockedListID: String
     @StateObject private var viewModel: BlockListDetailViewModel
     @StateObject private var authManager = ScreenTimeAuthorizationManager.shared
     @State private var isRequestingAccess = false
     @State private var showPickerUnavailableAlert = false
     @State private var pickerUnavailableMessage = "Could not open app/category picker."
+    @State private var isEditing = false
+    @State private var showDetailedEditor: Bool
+    @FocusState private var isNameFieldFocused: Bool
     #if canImport(FamilyControls)
     @State private var showSystemActivityPicker = false
     #endif
@@ -271,127 +322,46 @@ struct BlockListDetailView: View {
     @State private var showMockActivityPicker = false
     #endif
 
-    init(list: AppList, appListsViewModel: AppListsViewModel) {
+    init(
+        list: AppList,
+        appListsViewModel: AppListsViewModel,
+        startsCompact: Bool = false,
+        isFocusBlockingLocked: Bool = false,
+        activeLockedListID: String = ""
+    ) {
         self.list = list
         self.appListsViewModel = appListsViewModel
+        self.isFocusBlockingLocked = isFocusBlockingLocked
+        self.activeLockedListID = activeLockedListID
         self._viewModel = StateObject(wrappedValue: BlockListDetailViewModel(list: list))
+        self._showDetailedEditor = State(initialValue: !startsCompact)
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                SettingsGlassBackground()
-
-                List {
-                    Section {
-                        TextField("List Name", text: $viewModel.name)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(Colors.textPrimary)
-                    } header: {
-                        Text("List Identity")
-                            .foregroundColor(Colors.textSecondary)
+        ZStack {
+            SettingsGlassBackground()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    detailHeader
+                    blockListDescription
+                    screenTimeAccessPrompt
+                    if showDetailedEditor {
+                        categoriesSection
+                        appsSection
+                    } else {
+                        compactSelectAppsSection
                     }
-                    .listRowBackground(Color.white.opacity(0.08))
-
-                    if !authManager.isAuthorized {
-                        Section {
-                            Button {
-                                requestAccessAndOpenPicker()
-                            } label: {
-                                HStack {
-                                    if isRequestingAccess {
-                                        ProgressView().tint(Colors.accentTeal).padding(.trailing, 8)
-                                    }
-                                    Text("Enable Screen Time Access")
-                                        .font(.body.bold())
-                                        .foregroundColor(Colors.accentTeal)
-                                }
-                            }
-                        } footer: {
-                            if let msg = authManager.statusMessage, !msg.isEmpty {
-                                Text(msg)
-                            } else {
-                                Text("Required to block apps and categories.")
-                            }
-                        }
-                        .listRowBackground(Color.white.opacity(0.08))
+                    adultBlockingSection
+                    saveButton
+                    if showDetailedEditor {
+                        deleteButton
                     }
-
-                    Section {
-                        Button {
-                            openPickerWithAuthorizationCheck()
-                        } label: {
-                            HStack {
-                                Text("Restricted Apps")
-                                    .foregroundColor(Colors.textPrimary)
-                                Spacer()
-                                Text("\(viewModel.selectedAppsCount) Apps")
-                                    .foregroundColor(Colors.textSecondary)
-                                Image(systemName: "chevron.right")
-                                    .font(.caption.bold())
-                                    .foregroundColor(Colors.textTertiary)
-                            }
-                        }
-                        
-                        Button {
-                            openPickerWithAuthorizationCheck()
-                        } label: {
-                            HStack {
-                                Text("Restricted Categories")
-                                    .foregroundColor(Colors.textPrimary)
-                                Spacer()
-                                Text("\(viewModel.selectedCategoriesCount) Categories")
-                                    .foregroundColor(Colors.textSecondary)
-                                Image(systemName: "chevron.right")
-                                    .font(.caption.bold())
-                                    .foregroundColor(Colors.textTertiary)
-                            }
-                        }
-                    } header: {
-                        Text("Rules & Restrictions")
-                            .foregroundColor(Colors.textSecondary)
-                    }
-                    .listRowBackground(Color.white.opacity(0.08))
-
-                    Section {
-                        Toggle("Adult Content Blocking", isOn: $viewModel.adultBlockingEnabled)
-                            .tint(Colors.accentBlue)
-                    } footer: {
-                        Text("This acts as a safety hook for stricter browser restrictions in future updates.")
-                    }
-                    .listRowBackground(Color.white.opacity(0.08))
-
-                    Section {
-                        Button {
-                            viewModel.showDeleteConfirmation = true
-                        } label: {
-                            Text("Delete List")
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .foregroundColor(Colors.accentRed)
-                                .font(.body.weight(.semibold))
-                        }
-                    }
-                    .listRowBackground(Color.white.opacity(0.08))
                 }
-                .listStyle(.insetGrouped)
-                .scrollContentBackground(.hidden)
+                .padding(.horizontal, 22)
+                .padding(.top, 24)
+                .padding(.bottom, 28)
             }
-            .navigationTitle("Block List Details")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundColor(Colors.textPrimary)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Save") {
-                        viewModel.save(to: list, context: modelContext, appListsViewModel: appListsViewModel)
-                        dismiss()
-                    }
-                    .font(.headline)
-                    .foregroundColor(Colors.accentBlue)
-                }
-            }
+        }
             #if canImport(FamilyControls)
             .familyActivityPicker(
                 isPresented: $showSystemActivityPicker,
@@ -424,7 +394,351 @@ struct BlockListDetailView: View {
             .onAppear {
                 authManager.refreshStatus()
             }
+    }
+
+    private var isLockedActiveList: Bool {
+        isFocusBlockingLocked &&
+        list.type == .block &&
+        activeLockedListID == list.id.uuidString
+    }
+
+    private var detailHeader: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            if isEditing {
+                TextField("🛑 App Block List", text: $viewModel.name)
+                    .font(.system(size: 34, weight: .bold))
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                    .foregroundColor(Colors.textPrimary)
+                    .textInputAutocapitalization(.words)
+                    .focused($isNameFieldFocused)
+            } else {
+                Text(viewModel.name)
+                    .font(.system(size: 34, weight: .bold))
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                    .foregroundColor(Colors.textPrimary)
+            }
+
+            Spacer(minLength: 8)
+
+            Button(showDetailedEditor ? (isEditing ? "Done" : "Edit") : "Edit") {
+                if isLockedActiveList {
+                    return
+                }
+                if showDetailedEditor {
+                    isEditing.toggle()
+                    isNameFieldFocused = isEditing
+                } else {
+                    showDetailedEditor = true
+                    isEditing = true
+                    isNameFieldFocused = true
+                }
+            }
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundColor(isLockedActiveList ? Colors.textTertiary : Colors.accentBlue)
+            .disabled(isLockedActiveList)
         }
+    }
+
+    private var blockListDescription: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("🛡️ Block List: only selected apps and categories will be blocked during your session.")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(Colors.textSecondary)
+                .lineSpacing(3)
+            if isLockedActiveList {
+                Text("Editing is locked while this focus session is active.")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Colors.accentRed)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var screenTimeAccessPrompt: some View {
+        if !authManager.isAuthorized {
+            Button {
+                requestAccessAndOpenPicker()
+            } label: {
+                HStack(spacing: 10) {
+                    if isRequestingAccess {
+                        ProgressView()
+                            .tint(Colors.accentTeal)
+                    }
+                    Text("Enable Screen Time Access")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(Colors.accentTeal)
+                    Spacer()
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 16)
+                .background(Color.white.opacity(0.10))
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            }
+            .buttonStyle(.plain)
+
+            if let msg = authManager.statusMessage, !msg.isEmpty {
+                Text(msg)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Colors.textTertiary)
+            }
+        }
+    }
+
+    private var compactSelectAppsSection: some View {
+        Button {
+            guard !isLockedActiveList else { return }
+            openPickerWithAuthorizationCheck()
+        } label: {
+            HStack(spacing: 10) {
+                Text("Select Apps")
+                    .font(.system(size: 30, weight: .heavy))
+                    .minimumScaleFactor(0.7)
+                    .foregroundColor(Colors.textPrimary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(Colors.textTertiary)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 18)
+            .background(Color.white.opacity(0.10))
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(isLockedActiveList)
+    }
+
+    private var categoriesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "square.grid.2x2")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(Colors.textSecondary)
+                Text("Categories")
+                    .font(.system(size: 34, weight: .heavy))
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                    .foregroundColor(Colors.textPrimary)
+                Text("\(selectedCategoriesCount)")
+                    .font(.system(size: 22, weight: .heavy))
+                    .foregroundColor(Colors.textSecondary)
+                Spacer()
+                Button("Add / Remove") {
+                    openPickerWithAuthorizationCheck()
+                }
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor((isEditing && !isLockedActiveList) ? Colors.accentBlue : Colors.textTertiary)
+                .disabled(!isEditing || isLockedActiveList)
+            }
+
+            if selectedCategoriesCount == 0 {
+                Text("No categories selected")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(Colors.textTertiary)
+                    .padding(.top, 2)
+            } else {
+                selectedCategoriesList
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 18)
+        .background(Color.white.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+    }
+
+    private var appsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "iphone")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(Colors.textSecondary)
+                Text("Apps")
+                    .font(.system(size: 34, weight: .heavy))
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                    .foregroundColor(Colors.textPrimary)
+                Spacer()
+                Button("Add / Remove") {
+                    openPickerWithAuthorizationCheck()
+                }
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor((isEditing && !isLockedActiveList) ? Colors.accentBlue : Colors.textTertiary)
+                .disabled(!isEditing || isLockedActiveList)
+            }
+
+            Text("\(selectedAppsCount) apps selected")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(Colors.textSecondary)
+
+            if selectedAppsCount == 0 {
+                Text("No apps selected")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(Colors.textTertiary)
+                    .padding(.top, 2)
+            } else {
+                selectedAppsList
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 18)
+        .background(Color.white.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+    }
+
+    private var adultBlockingSection: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "18.circle")
+                .font(.system(size: 30, weight: .medium))
+                .foregroundColor(Colors.textSecondary)
+            Text("Adult Content Blocking")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(Colors.textPrimary)
+            Spacer()
+            Toggle("", isOn: $viewModel.adultBlockingEnabled)
+                .labelsHidden()
+                .tint(Colors.accentBlue)
+                .disabled(isLockedActiveList)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 18)
+        .background(Color.white.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+    }
+
+    private var saveButton: some View {
+        Button {
+            viewModel.save(to: list, context: modelContext, appListsViewModel: appListsViewModel)
+            dismiss()
+        } label: {
+            Text("Save")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    LinearGradient(
+                        colors: [Color(red: 0.62, green: 0.76, blue: 1.0), Color(red: 0.63, green: 0.9, blue: 0.93)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var deleteButton: some View {
+        Button {
+            viewModel.showDeleteConfirmation = true
+        } label: {
+            Text("Delete Block List")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(Colors.accentRed)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 2)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var selectedAppsCount: Int {
+        #if targetEnvironment(simulator)
+        return viewModel.mockSelectedAppIDs.count
+        #elseif canImport(FamilyControls)
+        return viewModel.selection.applicationTokens.count
+        #else
+        return 0
+        #endif
+    }
+
+    private var selectedCategoriesCount: Int {
+        #if targetEnvironment(simulator)
+        return viewModel.mockSelectedCategoryIDs.count
+        #elseif canImport(FamilyControls)
+        return viewModel.selection.categoryTokens.count
+        #else
+        return 0
+        #endif
+    }
+
+    @ViewBuilder
+    private var selectedCategoriesList: some View {
+        #if targetEnvironment(simulator)
+        let categories = viewModel.mockSelectedCategoryIDs.sorted()
+        ForEach(categories, id: \.self) { categoryID in
+            selectionBadgeRow(
+                title: MockActivityPickerSheet.categoryDisplayName(for: categoryID),
+                symbol: "square.grid.2x2"
+            )
+        }
+        #elseif canImport(FamilyControls)
+        ForEach(Array(viewModel.selection.categoryTokens), id: \.self) { token in
+            tokenBadgeRow(symbol: "square.grid.2x2") {
+                Label(token)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Colors.textPrimary)
+            }
+        }
+        #else
+        EmptyView()
+        #endif
+    }
+
+    @ViewBuilder
+    private var selectedAppsList: some View {
+        #if targetEnvironment(simulator)
+        let apps = viewModel.mockSelectedAppIDs.sorted()
+        ForEach(apps, id: \.self) { appID in
+            selectionBadgeRow(
+                title: MockActivityPickerSheet.appDisplayName(for: appID),
+                symbol: "app.fill"
+            )
+        }
+        #elseif canImport(FamilyControls)
+        ForEach(Array(viewModel.selection.applicationTokens), id: \.self) { token in
+            tokenBadgeRow(symbol: "app.fill") {
+                Label(token)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Colors.textPrimary)
+            }
+        }
+        #else
+        EmptyView()
+        #endif
+    }
+
+    private func selectionBadgeRow(title: String, symbol: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(Colors.textSecondary)
+            Text(title)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(Colors.textPrimary)
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(Color.white.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func tokenBadgeRow<Content: View>(
+        symbol: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(Colors.textSecondary)
+            content()
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(Color.white.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private func openPickerWithAuthorizationCheck() {
@@ -466,9 +780,19 @@ struct BlockListDetailView: View {
 
 struct EngineSettingsSection: View {
     @ObservedObject var engine: PomodoroEngine
+    let onOpenDifficulty: () -> Void
+    let onOpenMissions: () -> Void
     
     private var hasSelectedBlockList: Bool {
         !engine.config.selectedBlockListId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var selectedMissionsCount: Int {
+        engine.config.enabledChallenges.filter { $0 != .off }.count
+    }
+
+    private var isBlockToggleLocked: Bool {
+        engine.isFocusBlockingControlsLocked
     }
     
     var body: some View {
@@ -478,6 +802,9 @@ struct EngineSettingsSection: View {
             Toggle(isOn: Binding(
                 get: { engine.config.blockAppsEnabled },
                 set: {
+                    if isBlockToggleLocked {
+                        return
+                    }
                     if $0 && !hasSelectedBlockList {
                         return
                     }
@@ -496,9 +823,14 @@ struct EngineSettingsSection: View {
                 }
             }
             .tint(Colors.accentRed)
-            .disabled(!hasSelectedBlockList && !engine.config.blockAppsEnabled)
+            .disabled(isBlockToggleLocked || (!hasSelectedBlockList && !engine.config.blockAppsEnabled))
             
-            if !hasSelectedBlockList {
+            if isBlockToggleLocked {
+                Text("Block During Focus is locked until the current focus session ends.")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Colors.accentRed)
+                    .padding(.top, 6)
+            } else if !hasSelectedBlockList {
                 Text("Select an active block list above to enable focus blocking.")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Colors.textTertiary)
@@ -527,105 +859,173 @@ struct EngineSettingsSection: View {
                 }
                 .tint(Colors.accentBlue)
                 
-                // ---- Session Difficulty (Break Mode) ----
-                Section {
-                    ForEach(SessionBreakMode.allCases, id: \.self) { mode in
-                        let isSelected = engine.config.breakMode == mode
-                        HStack(spacing: 14) {
-                            Image(systemName: mode.icon)
-                                .font(.system(size: 18))
-                                .foregroundColor(mode == .hardcore ? .red : Colors.accentBlue)
-                                .frame(width: 28)
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(mode.title)
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(Colors.textPrimary)
-                                Text(mode.subtitle)
-                                    .font(.system(size: 13))
-                                    .foregroundColor(Colors.textSecondary)
-                            }
-                            
-                            Spacer()
-                            
-                            Toggle("", isOn: Binding(
-                                get: { isSelected },
-                                set: { newValue in
-                                    // Only allow turning ON (radio-style selection)
-                                    if newValue {
-                                        var c = engine.config
-                                        c.breakMode = mode
-                                        engine.updateConfig(c)
-                                    }
-                                }
-                            ))
-                            .labelsHidden()
-                            .tint(mode == .hardcore ? .red : Colors.accentBlue)
-                        }
-                        .padding(.vertical, 6)
-                    }
-                } header: {
-                    Text("SESSION DIFFICULTY")
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("SESSION RULES")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(Colors.textSecondary)
                         .padding(.top, 10)
-                }
-                .listRowBackground(Color.white.opacity(0.08))
-                
-                // ---- Unlock Challenges ----
-                Section {
-                    ForEach(UnblockChallenge.allCases.filter { $0 != .off }) { challenge in
-                        let isEnabled = engine.config.enabledChallenges.contains(challenge)
 
-                        HStack(spacing: 14) {
-                            Image(systemName: challenge.iconForFocus)
-                                .font(.system(size: 18))
-                                .foregroundColor(isEnabled ? Colors.accentBlue : Colors.textTertiary)
-                                .frame(width: 28)
-                            
+                    Button(action: onOpenDifficulty) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "gauge.with.needle")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(Colors.accentBlue)
+                                .frame(width: 24)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(challenge.titleForFocus)
+                                Text("Session Difficulty")
                                     .font(.system(size: 16, weight: .semibold))
                                     .foregroundColor(Colors.textPrimary)
-                                Text(challenge.subtitleForFocus)
+                                Text(engine.config.breakMode.subtitle)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(Colors.textSecondary)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                            Text(engine.config.breakMode.title)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(engine.config.breakMode == .hardcore ? .red : Colors.accentBlue)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(Colors.textTertiary)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: onOpenMissions) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "target")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(Colors.accentBlue)
+                                .frame(width: 24)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Unlock Missions")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(Colors.textPrimary)
+                                Text(selectedMissionsCount == 0 ? "No mission selected" : "\(selectedMissionsCount) selected")
                                     .font(.system(size: 13))
                                     .foregroundColor(Colors.textSecondary)
                             }
-
-                            
                             Spacer()
-                            
-                            Toggle("", isOn: Binding(
-                                get: { isEnabled },
-                                set: { newValue in
-                                    var c = engine.config
-                                    if newValue {
-                                        if !c.enabledChallenges.contains(challenge) {
-                                            c.enabledChallenges.append(challenge)
-                                        }
-                                    } else {
-                                        c.enabledChallenges.removeAll { $0 == challenge }
-                                    }
-                                    engine.updateConfig(c)
-                                }
-                            ))
-                            .labelsHidden()
-                            .tint(Colors.accentBlue)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(Colors.textTertiary)
                         }
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
-                } header: {
-                    Text("UNLOCK CHALLENGES")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Colors.textSecondary)
-                        .padding(.top, 10)
-                } footer: {
-                    Text("Users must complete the selected challenge to stop or take a break during a locked session.")
+                    .buttonStyle(.plain)
+
+                    Text("Users must complete selected missions to stop or take a break during locked sessions.")
                         .font(.system(size: 12))
                         .foregroundColor(Colors.textTertiary)
+                        .padding(.horizontal, 4)
                 }
-                .listRowBackground(Color.white.opacity(0.08))
             }
         }
+    }
+}
+
+private struct SessionDifficultyPickerView: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var engine: PomodoroEngine
+
+    var body: some View {
+        List {
+            ForEach(SessionBreakMode.allCases, id: \.self) { mode in
+                Button {
+                    var config = engine.config
+                    config.breakMode = mode
+                    engine.updateConfig(config)
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: mode.icon)
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(mode == .hardcore ? .red : Colors.accentBlue)
+                            .frame(width: 24)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(mode.title)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(Colors.textPrimary)
+                            Text(mode.subtitle)
+                                .font(.system(size: 13))
+                                .foregroundColor(Colors.textSecondary)
+                        }
+                        Spacer()
+                        if engine.config.breakMode == mode {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(Colors.accentBlue)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .navigationTitle("Session Difficulty")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Done") { dismiss() }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(SettingsGlassBackground())
+    }
+}
+
+private struct MissionsPickerView: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var engine: PomodoroEngine
+
+    var body: some View {
+        List {
+            ForEach(UnblockChallenge.allCases.filter { $0 != .off }) { challenge in
+                let isEnabled = engine.config.enabledChallenges.contains(challenge)
+                Toggle(isOn: Binding(
+                    get: { isEnabled },
+                    set: { newValue in
+                        var config = engine.config
+                        if newValue {
+                            if !config.enabledChallenges.contains(challenge) {
+                                config.enabledChallenges.append(challenge)
+                            }
+                        } else {
+                            config.enabledChallenges.removeAll { $0 == challenge }
+                        }
+                        engine.updateConfig(config)
+                    }
+                )) {
+                    HStack(spacing: 12) {
+                        Image(systemName: challenge.iconForFocus)
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(isEnabled ? Colors.accentBlue : Colors.textTertiary)
+                            .frame(width: 24)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(challenge.titleForFocus)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(Colors.textPrimary)
+                            Text(challenge.subtitleForFocus)
+                                .font(.system(size: 13))
+                                .foregroundColor(Colors.textSecondary)
+                        }
+                    }
+                }
+                .tint(Colors.accentBlue)
+            }
+        }
+        .navigationTitle("Unlock Missions")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Done") { dismiss() }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(SettingsGlassBackground())
     }
 }

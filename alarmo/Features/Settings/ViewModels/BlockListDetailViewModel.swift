@@ -70,10 +70,12 @@ final class BlockListDetailViewModel: ObservableObject {
         list.touch()
 
         // Keep runtime settings synced with the currently selected block list.
-        if appListsViewModel.selectedListID == list.id {
+        if appListsViewModel.selectedListID == list.id ||
+            SettingsStore.shared.selectedBlockListId == list.id.uuidString {
             SettingsStore.shared.blockedAppsSelectionData = list.selectionData
             SettingsStore.shared.blockedMockApps = list.mockAppIDs
             SettingsStore.shared.blockedMockCategories = list.mockCategoryIDs
+            SettingsStore.shared.blockedAdultContentEnabled = list.adultBlockingEnabled
         }
 
         try? context.save()

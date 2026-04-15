@@ -347,52 +347,83 @@ class PlanViewModel: ObservableObject {
 
         // Find habits with health tracking enabled
         let healthHabits = sourceItems.filter { $0.type == .habit }
-        
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let historyDays = 180
+
         for habit in healthHabits {
             guard let trackingType = inferredTrackingType(for: habit) else { continue }
-            
-            var fetchedValue: Double = 0.0
-            
-            if trackingType == "steps" {
-                fetchedValue = await HealthKitManager.shared.fetchSteps(for: Date())
-            } else if trackingType == "distance" {
-                let meters = await HealthKitManager.shared.fetchDistance(for: Date())
-                fetchedValue = convertDistance(meters, to: habit.goalUnit)
-            } else if trackingType == "running" {
-                if habit.goalUnit.lowercased() == "steps" {
-                    fetchedValue = await HealthKitManager.shared.fetchSteps(for: Date())
-                } else {
-                    let meters = await HealthKitManager.shared.fetchDistance(for: Date())
-                    fetchedValue = convertDistance(meters, to: habit.goalUnit)
-                }
-            } else if trackingType == "cycling" {
-                let meters = await HealthKitManager.shared.fetchCyclingDistance(for: Date())
-                fetchedValue = convertDistance(meters, to: habit.goalUnit)
-            } else if trackingType == "sleep" {
-                let seconds = await HealthKitManager.shared.fetchSleep(for: Date())
-                // Convert seconds to hours if unit is hours
-                if ["hr", "hours", "h"].contains(habit.goalUnit.lowercased()) {
-                    fetchedValue = seconds / 3600.0
-                } else {
-                    fetchedValue = seconds / 60.0 // Default min
-                }
-            } else if trackingType == "standing" {
-                let minutes = await HealthKitManager.shared.fetchStandMinutes(for: Date())
-                if ["hr", "hours", "h"].contains(habit.goalUnit.lowercased()) {
-                    fetchedValue = minutes / 60.0
-                } else {
-                    fetchedValue = minutes
-                }
-            } else if trackingType == "mindfulness" {
-                let seconds = await HealthKitManager.shared.fetchMindfulMinutes(for: Date())
-                // Convert to minutes
-                fetchedValue = seconds / 60.0
+            guard isAuthorizedForTracking(trackingType, habit: habit) else { continue }
+
+            // Backfill HealthKit values so heatmap/charts for walking/running/etc. are populated.
+            for offset in 0..<historyDays {
+                guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
+                let fetchedValue = await fetchHealthValue(for: habit, trackingType: trackingType, date: date)
+                updateHabitLog(habit, value: fetchedValue, for: date, context: context)
             }
-            
-            updateHabitLog(habit, value: fetchedValue, context: context)
         }
 
         try? context.save()
+    }
+
+    private func fetchHealthValue(for habit: PlanItem, trackingType: String, date: Date) async -> Double {
+        switch trackingType {
+        case "steps":
+            return await HealthKitManager.shared.fetchSteps(for: date)
+        case "distance":
+            let meters = await HealthKitManager.shared.fetchDistance(for: date)
+            return convertDistance(meters, to: habit.goalUnit)
+        case "running":
+            if habit.goalUnit.lowercased().contains("step") {
+                return await HealthKitManager.shared.fetchSteps(for: date)
+            }
+            let meters = await HealthKitManager.shared.fetchDistance(for: date)
+            return convertDistance(meters, to: habit.goalUnit)
+        case "cycling":
+            let meters = await HealthKitManager.shared.fetchCyclingDistance(for: date)
+            return convertDistance(meters, to: habit.goalUnit)
+        case "sleep":
+            let seconds = await HealthKitManager.shared.fetchSleep(for: date)
+            if ["hr", "hours", "h"].contains(habit.goalUnit.lowercased()) {
+                return seconds / 3600.0
+            }
+            return seconds / 60.0
+        case "standing":
+            let minutes = await HealthKitManager.shared.fetchStandMinutes(for: date)
+            if ["hr", "hours", "h"].contains(habit.goalUnit.lowercased()) {
+                return minutes / 60.0
+            }
+            return minutes
+        case "mindfulness":
+            let seconds = await HealthKitManager.shared.fetchMindfulMinutes(for: date)
+            return seconds / 60.0
+        default:
+            return 0
+        }
+    }
+
+    private func isAuthorizedForTracking(_ trackingType: String, habit: PlanItem) -> Bool {
+        switch trackingType {
+        case "steps":
+            return HealthKitManager.shared.isAuthorized(for: "steps")
+        case "distance":
+            return HealthKitManager.shared.isAuthorized(for: "distance")
+        case "running":
+            if habit.goalUnit.lowercased().contains("step") {
+                return HealthKitManager.shared.isAuthorized(for: "steps")
+            }
+            return HealthKitManager.shared.isAuthorized(for: "distance")
+        case "cycling":
+            return HealthKitManager.shared.isAuthorized(for: "cycling")
+        case "sleep":
+            return HealthKitManager.shared.isAuthorized(for: "sleep")
+        case "standing":
+            return HealthKitManager.shared.isAuthorized(for: "standing")
+        case "mindfulness":
+            return HealthKitManager.shared.isAuthorized(for: "mindfulness")
+        default:
+            return false
+        }
     }
 
     private func inferredTrackingType(for item: PlanItem) -> String? {
@@ -445,24 +476,23 @@ class PlanViewModel: ObservableObject {
         }
     }
     
-    private func updateHabitLog(_ item: PlanItem, value: Double, context: ModelContext) {
+    private func updateHabitLog(_ item: PlanItem, value: Double, for date: Date, context: ModelContext) {
         let calendar = Calendar.current
-        if !calendar.isDateInToday(Date()) { return }
-        
-        let existingLog = item.completionLogs.first(where: { calendar.isDateInToday($0.date) })
+        let targetDay = calendar.startOfDay(for: date)
+        let existingLog = item.completionLogs.first(where: { calendar.isDate($0.date, inSameDayAs: targetDay) })
         
         if let existingLog = existingLog {
              // Smart Update: Only update if new value is higher (preserves manual entries)
              if value > (existingLog.value ?? 0) {
                  existingLog.value = value
-                 existingLog.completed = item.isGoalMet()
+                 existingLog.completed = item.isGoalMet(on: targetDay)
                  item.updatedAt = Date()
              }
         } else if value > 0 {
-            let log = CompletionLog(date: Date(), completed: false)
+            let log = CompletionLog(date: targetDay, completed: false)
             log.value = value
             item.completionLogs.append(log)
-            log.completed = item.isGoalMet()
+            log.completed = item.isGoalMet(on: targetDay)
             item.updatedAt = Date()
         }
     }

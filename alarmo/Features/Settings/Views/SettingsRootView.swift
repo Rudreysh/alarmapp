@@ -70,10 +70,10 @@ struct SettingsRootView: View {
                                     }
                                     
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text(store.isSignedIn ? "User_62831" : "Sign in to profile")
+                                        Text(store.profileDisplayName)
                                             .font(.system(size: 20, weight: .bold))
                                             .foregroundColor(Colors.textPrimary)
-                                        Text("Manage account & sync")
+                                        Text(store.isSignedIn ? "Manage Apple account session" : "Manage account & sync")
                                             .font(.system(size: 13, weight: .medium))
                                             .foregroundColor(Colors.textSecondary)
                                     }
@@ -174,11 +174,17 @@ struct SettingsRootView: View {
                                 .padding(.bottom, -8)
                             
                             VStack(spacing: 0) {
-                                ModularSettingsRow(title: "Advanced Alarm Options", icon: "slider.horizontal.3", isLast: false) {
-                                    coordinator.navigate(to: .advanced)
+                                ModularSettingsRow(title: "Alarm", icon: "alarm.fill", isLast: false) {
+                                    coordinator.navigate(to: .alarm)
                                 }
-                                ModularSettingsRow(title: "Sound Output Matrix", icon: "hifispeaker.fill", trailing: store.soundOutputMode.rawValue, isLast: false) {
-                                    coordinator.navigate(to: .soundOutput)
+                                ModularSettingsRow(title: "Habit", icon: "repeat", isLast: false) {
+                                    coordinator.navigate(to: .habit)
+                                }
+                                ModularSettingsRow(title: "Timer", icon: "timer", isLast: false) {
+                                    coordinator.navigate(to: .timer)
+                                }
+                                ModularSettingsRow(title: "Overlap", icon: "square.on.square", isLast: false) {
+                                    coordinator.navigate(to: .overlap)
                                 }
                                 ModularSettingsRow(title: "System Notifications", icon: "bell.badge.fill", isLast: false) {
                                     coordinator.navigate(to: .notification)
@@ -273,6 +279,14 @@ struct SettingsRootView: View {
             }
             .navigationDestination(for: SettingsRoute.self) { route in
                 switch route {
+                case .alarm:
+                    AlarmSettingsView()
+                case .habit:
+                    SimplePlaceholderView(title: "Habit")
+                case .timer:
+                    SimplePlaceholderView(title: "Timer")
+                case .overlap:
+                    SimplePlaceholderView(title: "Overlap")
                 case .advanced:
                     AdvancedSettingsView()
                 case .theme:
@@ -308,6 +322,7 @@ struct SettingsRootView: View {
         }
         .onAppear {
             animateItems = true
+            store.validateAppleCredentialStateIfNeeded()
         }
     }
 }

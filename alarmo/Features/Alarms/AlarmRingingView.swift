@@ -31,7 +31,7 @@ struct AlarmRingingView: View {
                         .foregroundColor(Colors.textPrimary)
                 }
 
-                if ringCoordinator.activeAlarm?.dailyMotivationEnabled == true {
+                if shouldShowMotivationQuote {
                     let quotes = MotivationQuotes.dailyQuotes()
                     if !quotes.isEmpty {
                         let quote = quotes[quoteIndex % quotes.count]
@@ -204,6 +204,19 @@ struct AlarmRingingView: View {
                             }
                         )
                     )
+                case .typing:
+                    let settings = typingSettings(for: mission)
+                    TypingMissionGameplayView(
+                        viewModel: TypingGameplayViewModel(
+                            settings: settings,
+                            phrases: typingPhrases(settings: settings),
+                            isPreviewMode: false,
+                            onComplete: {
+                                ringCoordinator.completeMission(success: true)
+                                currentMission = nil
+                            }
+                        )
+                    )
                 case .findColorTiles:
                     FindColorTilesMissionView(
                         viewModel: FindColorTilesViewModel(
@@ -217,6 +230,28 @@ struct AlarmRingingView: View {
                                 ringCoordinator.completeMission(success: true)
                                 currentMission = nil
                             }
+                        )
+                    )
+                case .memoryMatch:
+                    MemoryMatchGameView(
+                        viewModel: MemoryMatchViewModel(
+                            difficulty: memoryDifficulty(from: mission.difficulty),
+                            rounds: max(1, mission.rounds),
+                            isPreviewMode: false,
+                            onComplete: {
+                                ringCoordinator.completeMission(success: true)
+                                currentMission = nil
+                            }
+                        )
+                    )
+                case .ticTacToe:
+                    let size = TTTBoardSize(rawValue: mission.config["size"] ?? 3) ?? .threeByThree
+                    let difficulty = TTTDifficulty(rawValue: mission.difficulty) ?? .medium
+                    TicTacToeGameView(
+                        viewModel: makeTicTacToeViewModel(
+                            size: size,
+                            difficulty: difficulty,
+                            rounds: mission.rounds
                         )
                     )
                 case .shake:
@@ -342,6 +377,14 @@ struct AlarmRingingView: View {
         return AnyView(LinearGradient(colors: [Colors.bgSecondary, Colors.bgPrimary], startPoint: .top, endPoint: .bottom))
     }
 
+    private var shouldShowMotivationQuote: Bool {
+        guard let alarm = ringCoordinator.activeAlarm else { return false }
+        if alarm.dailyMotivationEnabled { return true }
+        return alarm.visualOutputSettings.alarmScreen.enabled &&
+            (alarm.visualOutputSettings.alarmScreen.mode == .quotes ||
+             alarm.visualOutputSettings.alarmScreen.mode == .both)
+    }
+
     private func wallpaperImage() -> UIImage? {
         guard let alarm = ringCoordinator.activeAlarm else { return nil }
         if let image = WallpaperImageResolver.resolveImage(for: alarm.wallpaperId) {
@@ -387,5 +430,42 @@ struct AlarmRingingView: View {
 
         let symbology = symbologyFromCustomData ?? QRBarcodeMissionViewModel.symbology(for: barcodeId)
         return (code: raw, symbology: symbology)
+    }
+
+    private func typingSettings(for mission: AlarmMission) -> TypingSettings {
+        var settings = TypingMissionStore.shared.loadSettings(for: "default")
+        settings.repeatCount = max(1, mission.rounds)
+        return settings
+    }
+
+    private func typingPhrases(settings: TypingSettings) -> [Phrase] {
+        let selected = TypingMissionStore.shared.allPhrases
+            .filter { settings.selectedPhraseIDs.contains($0.id) }
+        return selected.isEmpty ? TypingSettings.defaultPhrases : selected
+    }
+
+    private func memoryDifficulty(from storedRows: Int) -> MemoryDifficulty {
+        switch storedRows {
+        case 3: return .threeByThree
+        case 5: return .fiveByFive
+        case 6: return .sixBySix
+        default: return .fourByFour
+        }
+    }
+
+    private func makeTicTacToeViewModel(
+        size: TTTBoardSize,
+        difficulty: TTTDifficulty,
+        rounds: Int
+    ) -> TicTacToeViewModel {
+        let viewModel = TicTacToeViewModel(
+            rounds: max(1, rounds),
+            isPreviewMode: false
+        ) {
+            ringCoordinator.completeMission(success: true)
+            currentMission = nil
+        }
+        viewModel.newGame(size: size, difficulty: difficulty)
+        return viewModel
     }
 }

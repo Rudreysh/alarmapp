@@ -17,6 +17,13 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
             defaultSoundVolume: defaultSoundVolume,
             defaultWallpaperId: defaultWallpaperId
         )
+        let settings = SettingsStore.shared
+        if !settings.alarmWallpaperId.isEmpty {
+            draft.wallpaperId = settings.alarmWallpaperId
+        }
+        draft.bypassSilentMode = settings.alarmRingInSilentModeEnabled
+        draft.dailyMotivationEnabled = settings.alarmDailyMotivationEnabled
+        draft.visualOutputSettings = settings.alarmVisualOutputSettings
         if draft.timeZoneMode == .custom {
             startCycling()
         }
@@ -33,6 +40,7 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
             defaultWallpaperId: alarm.wallpaperId
         )
         draft.dailyMotivationEnabled = alarm.dailyMotivationEnabled
+        draft.visualOutputSettings = alarm.visualOutputSettings
         draft.name = alarm.name
         draft.emoji = alarm.emoji
         draft.enabled = alarm.enabled
@@ -150,6 +158,7 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
             snoozeCount: draft.snoozeCount,
             wallpaperId: draft.wallpaperId,
             dailyMotivationEnabled: draft.dailyMotivationEnabled,
+            visualOutputSettings: draft.visualOutputSettings,
             createdAt: Date()
         )
         

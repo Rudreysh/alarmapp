@@ -37,7 +37,7 @@ final class AppListsViewModel: ObservableObject {
         switch type {
         case .block:
             let count = listCount(of: .block, context: context)
-            nextName = count == 0 ? "Block List" : "Block List \(count + 1)"
+            nextName = count == 0 ? "🛑 App Block List" : "🛑 App Block List \(count + 1)"
         case .allow:
             let count = listCount(of: .allow, context: context)
             nextName = count == 0 ? "Allow List" : "Allow List \(count + 1)"
@@ -61,6 +61,7 @@ final class AppListsViewModel: ObservableObject {
             settings.blockedAppsSelectionData = list.selectionData
             settings.blockedMockApps = list.mockAppIDs
             settings.blockedMockCategories = list.mockCategoryIDs
+            settings.blockedAdultContentEnabled = list.adultBlockingEnabled
         }
         try? context.save()
     }
@@ -76,6 +77,7 @@ final class AppListsViewModel: ObservableObject {
             settings.blockedAppsSelectionData = Data()
             settings.blockedMockApps = []
             settings.blockedMockCategories = []
+            settings.blockedAdultContentEnabled = false
         }
     }
 

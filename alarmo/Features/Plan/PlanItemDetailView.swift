@@ -1,6 +1,30 @@
 import SwiftUI
 import SwiftData
 
+private enum HabitDetailTab: String, CaseIterable, Identifiable {
+    case overview
+    case statistics
+    case notes
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .overview: return "Overview"
+        case .statistics: return "Statistics"
+        case .notes: return "Notes"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .overview: return "gauge.with.needle"
+        case .statistics: return "chart.bar.xaxis"
+        case .notes: return "note.text"
+        }
+    }
+}
+
 struct PlanItemDetailView: View {
     @Bindable var item: PlanItem
     
@@ -11,15 +35,19 @@ struct PlanItemDetailView: View {
     
     @State private var showingEditSheet = false
     @State private var showingAddProgress = false
-    @State private var tempProgressValue: Double = 0
     @State private var showCelebration = false
     @State private var celebrationHideTask: Task<Void, Never>?
+    @State private var activeTab: HabitDetailTab = .overview
     
     var body: some View {
-        ZStack {
-            PlanGlassBackground()
-            
-            VStack(spacing: 0) {
+        GeometryReader { geometry in
+            ZStack {
+                PlanGlassBackground()
+                
+                VStack(spacing: 0) {
+                    Color.clear
+                        .frame(height: max(8, geometry.safeAreaInsets.top + 4))
+
                 // Header
                 HStack {
                     Button(action: { dismiss() }) {
@@ -42,74 +70,22 @@ struct PlanItemDetailView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 12)
                 .padding(.bottom, 8)
-                
-                if isWaterHabit {
-                    WaterProgressView(item: item)
-                } else if isMindfulHabit {
-                    MindfulHabitProgressView(item: item)
-                } else {
-                    GenericHabitProgressView(item: item)
-                }
-                
-                Spacer()
-                
-                // Bottom Actions
-                VStack(spacing: 12) {
-                    if let duration = item.defaultDurationSeconds, duration > 0 {
-                        PrimaryButton(title: "Start Focus", iconName: "play.fill", style: .blueGlass) {
-                            startFocus()
-                        }
-                        .padding(.horizontal, 24)
-                    }
 
-                    Button(action: {
-                        showingAddProgress = true
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 16, weight: .bold))
-                            Text("Add Progress")
-                                .font(.system(size: 18, weight: .bold))
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [itemColor.opacity(0.78), itemColor],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                        )
-                        .overlay(
-                            Capsule()
-                                .stroke(itemColor.opacity(0.35), lineWidth: 1)
-                        )
-                        .shadow(color: itemColor.opacity(0.35), radius: 12, x: 0, y: 8)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 24)
-                    
-                    Button(action: { showingEditSheet = true }) {
-                        Text("Edit Habit")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(Colors.textPrimary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(
-                                Capsule()
-                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                            )
-                    }
-                    .padding(.horizontal, 40)
-                    .padding(.bottom, 24)
+                HabitDetailTabPicker(activeTab: $activeTab)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 10)
+
+                switch activeTab {
+                case .overview:
+                    overviewContent(bottomInset: geometry.safeAreaInsets.bottom)
+                case .statistics:
+                    HabitStatisticsTabView(item: item, itemColor: itemColor)
+                case .notes:
+                    HabitNotesTabView(item: item, itemColor: itemColor)
                 }
             }
+        }
         }
         .sheet(isPresented: $showingAddProgress) {
              AddHabitProgressSheet(item: item)
@@ -184,6 +160,76 @@ struct PlanItemDetailView: View {
             }
         }
     }
+
+    @ViewBuilder
+    private func overviewContent(bottomInset: CGFloat) -> some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 0) {
+                if isWaterHabit {
+                    WaterProgressView(item: item)
+                } else if isMindfulHabit {
+                    MindfulHabitProgressView(item: item)
+                } else {
+                    GenericHabitProgressView(item: item)
+                }
+
+                // Bottom Actions
+                VStack(spacing: 10) {
+                    if let duration = item.defaultDurationSeconds, duration > 0 {
+                        PrimaryButton(title: "Start Focus", iconName: "play.fill", style: .blueGlass) {
+                            startFocus()
+                        }
+                        .padding(.horizontal, 24)
+                    }
+
+                    Button(action: {
+                        showingAddProgress = true
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 16, weight: .bold))
+                            Text("Add Progress")
+                                .font(.system(size: 18, weight: .bold))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [itemColor.opacity(0.78), itemColor],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(itemColor.opacity(0.35), lineWidth: 1)
+                        )
+                        .shadow(color: itemColor.opacity(0.35), radius: 12, x: 0, y: 8)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 24)
+
+                    Button(action: { showingEditSheet = true }) {
+                        Text("Edit Habit")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(Colors.textPrimary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(
+                                Capsule()
+                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                            )
+                    }
+                    .padding(.horizontal, 40)
+                }
+                .padding(.bottom, max(10, bottomInset + 4))
+            }
+        }
+    }
 }
 
 // MARK: - Subviews
@@ -195,24 +241,24 @@ struct MindfulHabitProgressView: View {
     private let progressUpdater = PlanViewModel()
     
     var body: some View {
-        VStack(spacing: 40) {
-            Spacer()
+        VStack(spacing: 24) {
+            Spacer(minLength: 6)
             
             ZStack {
                 // Breathing Pulse
                 Circle()
                     .fill(itemColor.opacity(0.1))
-                    .frame(width: pulse ? 280 : 200, height: pulse ? 280 : 200)
+                    .frame(width: pulse ? 240 : 176, height: pulse ? 240 : 176)
                 
                 Circle()
                     .stroke(itemColor.opacity(0.2), lineWidth: 2)
-                    .frame(width: 240, height: 240)
+                    .frame(width: 208, height: 208)
                 
                 // Progress
                 Circle()
                     .trim(from: 0, to: progress)
                     .stroke(itemColor, style: StrokeStyle(lineWidth: 12, lineCap: .round))
-                    .frame(width: 200, height: 200)
+                    .frame(width: 176, height: 176)
                     .rotationEffect(.degrees(-90))
                 
                 VStack(spacing: 8) {
@@ -220,9 +266,12 @@ struct MindfulHabitProgressView: View {
                         .font(.largeTitle)
                         .foregroundColor(itemColor)
                     
-                    Text("\(currentValue.formatted(.number.precision(.fractionLength(0...2))))/\(item.goalValue.formatted(.number.precision(.fractionLength(0...2)))) \(item.goalUnit)")
-                        .font(.system(size: 24, weight: .regular, design: .monospaced))
+                    Text("\(formattedCurrentValue)/\(formattedGoalValue) \(displayUnit)")
+                        .font(.system(size: 20, weight: .regular, design: .monospaced))
                         .kerning(1.2)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                        .frame(width: 148)
                 }
                 
                 // Plus and Minus buttons inside the circle
@@ -251,7 +300,7 @@ struct MindfulHabitProgressView: View {
                     }
                     .padding(.bottom, 20)
                 }
-                .frame(width: 200, height: 200)
+                .frame(width: 176, height: 176)
             }
             .onAppear {
                 withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true)) {
@@ -270,7 +319,7 @@ struct MindfulHabitProgressView: View {
             }
             .padding(.horizontal, 40)
             
-            Spacer()
+            Spacer(minLength: 6)
         }
     }
     
@@ -280,6 +329,18 @@ struct MindfulHabitProgressView: View {
     
     private var progress: Double {
         item.progressFraction(on: Date())
+    }
+
+    private var displayUnit: String {
+        item.goalUnit.lowercased() == "ml" ? "L" : item.goalUnit
+    }
+
+    private var formattedCurrentValue: String {
+        formatDisplayMetric(currentValue)
+    }
+
+    private var formattedGoalValue: String {
+        formatDisplayMetric(item.goalValue)
     }
     
     private func incrementProgress() {
@@ -295,6 +356,13 @@ struct MindfulHabitProgressView: View {
         if unit.contains("min") { return 5 }
         if unit.contains("hr") || unit.contains("hour") { return 0.25 }
         return 1
+    }
+
+    private func formatDisplayMetric(_ value: Double) -> String {
+        if item.goalUnit.lowercased() == "ml" {
+            return (value / 1000).formatted(.number.precision(.fractionLength(0...2)))
+        }
+        return value.formatted(.number.precision(.fractionLength(0...2)))
     }
     
     private var itemColor: Color {
@@ -318,7 +386,7 @@ struct WaterProgressView: View {
     @Environment(\.modelContext) var modelContext
     @State private var dragValue: Double?
     private let progressUpdater = PlanViewModel()
-    private let circleSize: CGFloat = 300
+    private let circleSize: CGFloat = 252
     
     var body: some View {
         VStack(spacing: 24) {
@@ -367,14 +435,25 @@ struct WaterProgressView: View {
                     .animation(.interactiveSpring(response: 0.2, dampingFraction: 0.82), value: displayedProgress)
                 
                 VStack(spacing: 8) {
-                    Text("\(formatMetric(displayedValue))/\(formatMetric(item.goalValue)) \(item.goalUnit)")
-                        .font(.system(size: 32, weight: .regular, design: .monospaced))
+                    Text("\(formatMetric(displayedValue))/\(formatMetric(item.goalValue))")
+                        .font(.system(size: 30, weight: .regular, design: .monospaced))
                         .kerning(1.5)
                         .foregroundColor(Colors.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.45)
+                        .frame(width: circleSize * 0.74)
+
+                    Text(displayUnit)
+                        .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                        .foregroundColor(Colors.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                     
                     Text("Slide on circle to adjust")
                         .font(.subheadline)
                         .foregroundColor(Colors.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
             }
             .padding(.horizontal, 20)
@@ -479,10 +558,17 @@ struct WaterProgressView: View {
 
     private func formatMetric(_ value: Double) -> String {
         let unit = item.goalUnit.lowercased()
-        if unit == "ml" || unit.contains("step") {
+        if unit == "ml" {
+            return (value / 1000).formatted(.number.precision(.fractionLength(0...2)))
+        }
+        if unit.contains("step") {
             return Int(value.rounded()).formatted(.number.grouping(.automatic))
         }
         return value.formatted(.number.precision(.fractionLength(0...2)))
+    }
+
+    private var displayUnit: String {
+        item.goalUnit.lowercased() == "ml" ? "L" : item.goalUnit
     }
 }
 
@@ -492,13 +578,13 @@ struct GenericHabitProgressView: View {
     private let progressUpdater = PlanViewModel()
     
     var body: some View {
-        VStack(spacing: 24) {
-            Spacer().frame(height: 18)
+        VStack(spacing: 18) {
+            Spacer().frame(height: 6)
 
             ZStack {
                 Circle()
                     .stroke(itemColor.opacity(0.18), lineWidth: 18)
-                    .frame(width: 222, height: 222)
+                    .frame(width: 194, height: 194)
 
                 Circle()
                     .trim(from: 0, to: progress)
@@ -508,44 +594,50 @@ struct GenericHabitProgressView: View {
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        style: StrokeStyle(lineWidth: 18, lineCap: .round, lineJoin: .round)
+                        style: StrokeStyle(lineWidth: 16, lineCap: .round, lineJoin: .round)
                     )
-                    .frame(width: 222, height: 222)
+                    .frame(width: 194, height: 194)
                     .rotationEffect(.degrees(-90))
                     .shadow(color: itemColor.opacity(0.28), radius: 16, x: 0, y: 8)
 
                 VStack(spacing: 6) {
                     Image(systemName: ringSymbol)
-                        .font(.system(size: 26, weight: .semibold))
+                        .font(.system(size: 22, weight: .semibold))
                         .foregroundColor(itemColor)
 
                     Text("\(Int((progress * 100).rounded()))%")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
                         .foregroundColor(Colors.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .frame(width: 132)
 
                     Text("completed")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .frame(width: 132)
                 }
             }
 
             VStack(spacing: 8) {
                 Text(formattedProgressValue)
-                    .font(.system(size: 46, weight: .heavy, design: .rounded))
+                    .font(.system(size: 40, weight: .heavy, design: .rounded))
                     .foregroundColor(Colors.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
 
-                Text("\(item.goalUnit) • of \(formattedGoalValue) goal")
+                Text("\(displayUnit) • of \(formattedGoalValue) goal")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(Colors.textSecondary)
 
                 Text(progressStatusText)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 7, weight: .medium))
                     .foregroundColor(progress >= 1 ? itemColor : Colors.textSecondary)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 18)
+            .padding(.vertical, 14)
             .padding(.horizontal, 20)
             .background(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -563,7 +655,7 @@ struct GenericHabitProgressView: View {
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(Colors.textPrimary)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
+                        .padding(.vertical, 12)
                         .background(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .fill(Color.white.opacity(0.10))
@@ -577,7 +669,7 @@ struct GenericHabitProgressView: View {
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.black.opacity(0.92))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
+                        .padding(.vertical, 12)
                         .background(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .fill(itemColor)
@@ -588,19 +680,19 @@ struct GenericHabitProgressView: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 Text(item.title)
-                    .font(.title2)
+                    .font(.title3)
                     .fontWeight(.bold)
                 
                 if let subtitle = item.subtitle {
                     Text(subtitle)
-                        .font(.body)
+                        .font(.subheadline)
                         .foregroundColor(Colors.textSecondary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 32)
             
-            Spacer()
+            Spacer(minLength: 4)
         }
     }
     
@@ -625,7 +717,7 @@ struct GenericHabitProgressView: View {
         if progress >= 1 {
             return "Goal reached today"
         }
-        return "\(formattedRemainingValue) \(item.goalUnit) remaining"
+        return "\(formattedRemainingValue) \(displayUnit) remaining"
     }
 
     private var formattedProgressValue: String {
@@ -659,10 +751,17 @@ struct GenericHabitProgressView: View {
     }
 
     private func formatMetric(_ value: Double) -> String {
+        if item.goalUnit.lowercased() == "ml" {
+            return (value / 1000).formatted(.number.precision(.fractionLength(0...2)))
+        }
         if item.goalUnit.lowercased().contains("step") {
             return Int(value.rounded()).formatted(.number.grouping(.automatic))
         }
         return value.formatted(.number.precision(.fractionLength(0...2)))
+    }
+
+    private var displayUnit: String {
+        item.goalUnit.lowercased() == "ml" ? "L" : item.goalUnit
     }
     
     private var itemColor: Color {
@@ -674,6 +773,841 @@ struct GenericHabitProgressView: View {
         case "purple": return .purple
         case "pink": return .pink
         default: return .blue
+        }
+    }
+}
+
+private struct HabitDetailTabPicker: View {
+    @Binding var activeTab: HabitDetailTab
+
+    var body: some View {
+        Picker("Habit Tab", selection: $activeTab) {
+            ForEach(HabitDetailTab.allCases) { tab in
+                Label(tab.title, systemImage: tab.iconName)
+                    .tag(tab)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .tint(Color.white.opacity(0.28))
+        .padding(8)
+        .planGlassPanel(cornerRadius: 16, fillOpacity: 0.09)
+    }
+}
+
+private struct HabitDailySnapshot: Identifiable {
+    let date: Date
+    let value: Double
+    let hasLog: Bool
+    let goalMet: Bool
+    let intensity: Double
+
+    var id: Date { date }
+}
+
+private enum HabitTrendGranularity: String, CaseIterable, Identifiable {
+    case day = "D"
+    case week = "W"
+    case month = "M"
+
+    var id: String { rawValue }
+}
+
+private struct HabitTrendPoint: Identifiable {
+    let startDate: Date
+    let endDate: Date
+    let value: Double
+    let hasLog: Bool
+    let goalMet: Bool
+    let intensity: Double
+    let label: String
+
+    var id: Date { startDate }
+}
+
+struct HabitStatisticsTabView: View {
+    @Bindable var item: PlanItem
+    let itemColor: Color
+
+    @State private var selectedGranularity: HabitTrendGranularity = .month
+    @State private var selectedTrendPoint: HabitTrendPoint?
+    @State private var cachedValueByDay: [Date: Double] = [:]
+    private let calendar = Calendar.current
+
+    var body: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 14) {
+                topSummaryCard
+                streakHeroCard
+                metricGrid
+                trendGranularityPicker
+                trendChartCard
+                heatMapCard
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 24)
+        }
+        .onAppear {
+            rebuildValueByDayCache()
+        }
+        .onChange(of: item.completionLogs.count) { _, _ in
+            rebuildValueByDayCache()
+        }
+        .onChange(of: item.updatedAt) { _, _ in
+            rebuildValueByDayCache()
+        }
+    }
+
+    private var topSummaryCard: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(item.title)
+                    .font(.headline)
+                    .foregroundColor(Colors.textPrimary)
+                Text("Goal: \(formatMetric(item.goalValue)) \(item.goalUnit) / day")
+                    .font(.subheadline)
+                    .foregroundColor(Colors.textSecondary)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 6) {
+                Text("Consistency")
+                    .font(.caption)
+                    .foregroundColor(Colors.textSecondary)
+                Text("\(Int((consistency * 100).rounded()))%")
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                    .foregroundColor(itemColor)
+            }
+        }
+        .padding(16)
+        .planGlassPanel(cornerRadius: 20, fillOpacity: 0.10)
+    }
+
+    private var streakHeroCard: some View {
+        VStack(spacing: 14) {
+            VStack(spacing: 6) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundColor(Color(red: 0.98, green: 0.58, blue: 0.24))
+                Text("\(currentStreak) day streak!")
+                    .font(.system(size: 36, weight: .heavy, design: .rounded))
+                    .foregroundColor(Colors.textPrimary)
+                Text(streakMotivation)
+                    .font(.subheadline)
+                    .foregroundColor(Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            HStack(alignment: .top, spacing: 12) {
+                ForEach(recentWeekSnapshots) { day in
+                    VStack(spacing: 8) {
+                        ZStack {
+                            Circle()
+                                .fill(day.hasLog ? Color.white.opacity(0.16) : Color.white.opacity(0.10))
+                                .frame(width: 38, height: 38)
+                            Circle()
+                                .trim(from: 0, to: max(0.03, day.intensity))
+                                .stroke(
+                                    day.goalMet ? Color(red: 0.98, green: 0.58, blue: 0.24) : itemColor.opacity(0.8),
+                                    style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
+                                )
+                                .rotationEffect(.degrees(-90))
+                                .frame(width: 38, height: 38)
+                            Text(dayLabelText(day))
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(Colors.textPrimary)
+                        }
+                        Text(shortDayLabel(day.date))
+                            .font(.caption)
+                            .foregroundColor(Colors.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .padding(16)
+        .planGlassPanel(cornerRadius: 18, fillOpacity: 0.08)
+    }
+
+    private var metricGrid: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
+            metricCard(title: "Success", value: "\(successDays) days", detail: "Goal met", icon: "checkmark", tint: .green)
+            metricCard(title: "Failed", value: "\(failedDays) days", detail: "Tracked below goal", icon: "xmark", tint: .red)
+            metricCard(title: "Skipped", value: "\(skippedDays) days", detail: "No log", icon: "arrow.right", tint: .orange)
+            metricCard(title: "Current Streak", value: "\(currentStreak) days", detail: "Consecutive success", icon: "flame.fill", tint: itemColor)
+        }
+    }
+
+    private func metricCard(title: String, value: String, detail: String, icon: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .bold))
+                Text(title.uppercased())
+                    .font(.caption)
+                    .fontWeight(.bold)
+            }
+            .foregroundColor(tint)
+            Text(value)
+                .font(.system(size: 28, weight: .heavy, design: .rounded))
+                .foregroundColor(Colors.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(detail)
+                .font(.caption)
+                .foregroundColor(Colors.textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .planGlassPanel(cornerRadius: 16, fillOpacity: 0.08)
+    }
+
+    private var trendGranularityPicker: some View {
+        HStack(spacing: 8) {
+            ForEach(HabitTrendGranularity.allCases) { granularity in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selectedGranularity = granularity
+                        selectedTrendPoint = nil
+                    }
+                } label: {
+                    Text(granularity.rawValue)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(selectedGranularity == granularity ? Colors.textPrimary : Colors.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(
+                            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                .fill(selectedGranularity == granularity ? itemColor.opacity(0.22) : Color.white.opacity(0.06))
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(6)
+        .planGlassPanel(cornerRadius: 15, fillOpacity: 0.08)
+    }
+
+    private var trendChartCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Trend")
+                    .font(.headline)
+                    .foregroundColor(Colors.textPrimary)
+                Spacer()
+                if let selected = selectedTrendPoint {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Total \(formatMetric(selected.value)) \(item.goalUnit)")
+                            .font(.caption)
+                            .foregroundColor(Colors.textSecondary)
+                        Text(trendDateLabel(for: selected))
+                            .font(.caption2)
+                            .foregroundColor(Colors.textSecondary)
+                    }
+                } else {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Avg \(formatMetric(averageValue)) \(item.goalUnit)")
+                            .font(.caption)
+                            .foregroundColor(Colors.textSecondary)
+                        Text(deltaFromAverageText)
+                            .font(.caption2)
+                            .foregroundColor(deltaFromAverageColor)
+                    }
+                }
+            }
+
+            HStack(alignment: .bottom, spacing: 8) {
+                VStack(spacing: 0) {
+                    ForEach(chartTickValues.reversed(), id: \.self) { tick in
+                        Text(formatMetric(tick))
+                            .font(.caption2)
+                            .foregroundColor(Colors.textSecondary)
+                            .frame(height: chartDrawingHeight / CGFloat(chartTickValues.count - 1), alignment: .top)
+                    }
+                }
+                .frame(width: 56, alignment: .trailing)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    ZStack(alignment: .bottomLeading) {
+                        VStack(spacing: 0) {
+                            ForEach(chartTickValues.reversed(), id: \.self) { _ in
+                                Rectangle()
+                                    .fill(Color.white.opacity(0.09))
+                                    .frame(height: chartDrawingHeight / CGFloat(chartTickValues.count - 1))
+                            }
+                        }
+                        .frame(width: chartContentWidth, height: chartDrawingHeight, alignment: .bottom)
+
+                        // Average line
+                        Rectangle()
+                            .fill(itemColor.opacity(0.45))
+                            .frame(width: chartContentWidth, height: 1)
+                            .offset(y: -averageLineOffsetY)
+
+                        HStack(alignment: .bottom, spacing: 8) {
+                            ForEach(trendPoints) { point in
+                                VStack(spacing: 6) {
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(barColor(for: point))
+                                        .frame(width: barWidth, height: barHeight(for: point))
+                                    Text(point.label)
+                                        .font(.caption2)
+                                        .foregroundColor(Colors.textSecondary)
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    selectedTrendPoint = point
+                                }
+                                .onLongPressGesture(minimumDuration: 0.08) {
+                                    selectedTrendPoint = point
+                                }
+                            }
+                        }
+                        .frame(height: chartDrawingHeight + 22, alignment: .bottom)
+                        .padding(.horizontal, 4)
+                    }
+                    .frame(width: chartContentWidth, height: chartDrawingHeight + 22, alignment: .bottom)
+                }
+            }
+        }
+        .padding(14)
+        .planGlassPanel(cornerRadius: 18, fillOpacity: 0.08)
+    }
+
+    private var heatMapCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Consistency Heatmap")
+                .font(.headline)
+                .foregroundColor(Colors.textPrimary)
+            HabitHeatMapGrid(
+                endDate: Date(),
+                valueByDay: valueByDay,
+                goalValue: item.goalValue,
+                habitIntent: item.habitIntent ?? .build
+            )
+            Text("Each square is one day from the last 12 weeks.")
+                .font(.caption)
+                .foregroundColor(Colors.textSecondary)
+        }
+        .padding(14)
+        .planGlassPanel(cornerRadius: 18, fillOpacity: 0.08)
+    }
+
+    private var dailySnapshots: [HabitDailySnapshot] {
+        let today = calendar.startOfDay(for: Date())
+        return (0..<30).compactMap { dayOffset -> HabitDailySnapshot? in
+            guard let date = calendar.date(byAdding: .day, value: -(30 - 1 - dayOffset), to: today) else { return nil }
+            let dayKey = calendar.startOfDay(for: date)
+            let value = valueByDay[dayKey] ?? 0
+            let hasLog = valueByDay.keys.contains(dayKey)
+            let goalMet = didMeetGoal(value: value, hasLog: hasLog)
+            return HabitDailySnapshot(
+                date: dayKey,
+                value: value,
+                hasLog: hasLog,
+                goalMet: goalMet,
+                intensity: intensity(value: value, hasLog: hasLog)
+            )
+        }
+    }
+
+    private var trendPoints: [HabitTrendPoint] {
+        switch selectedGranularity {
+        case .day:
+            return dailyTrendPoints()
+        case .week:
+            return weeklyTrendPoints()
+        case .month:
+            return monthlyTrendPoints()
+        }
+    }
+
+    private var recentWeekSnapshots: [HabitDailySnapshot] {
+        let today = calendar.startOfDay(for: Date())
+        return (0..<7).compactMap { offset -> HabitDailySnapshot? in
+            guard let date = calendar.date(byAdding: .day, value: -(6 - offset), to: today) else { return nil }
+            let dayKey = calendar.startOfDay(for: date)
+            let value = valueByDay[dayKey] ?? 0
+            let hasLog = valueByDay.keys.contains(dayKey)
+            let goalMet = didMeetGoal(value: value, hasLog: hasLog)
+            return HabitDailySnapshot(
+                date: dayKey,
+                value: value,
+                hasLog: hasLog,
+                goalMet: goalMet,
+                intensity: intensity(value: value, hasLog: hasLog)
+            )
+        }
+    }
+
+    private var valueByDay: [Date: Double] {
+        cachedValueByDay
+    }
+
+    private var successDays: Int {
+        dailySnapshots.filter(\.goalMet).count
+    }
+
+    private var failedDays: Int {
+        dailySnapshots.filter { $0.hasLog && !$0.goalMet }.count
+    }
+
+    private var skippedDays: Int {
+        dailySnapshots.filter { !$0.hasLog }.count
+    }
+
+    private var averageValue: Double {
+        let values = dailySnapshots.map(\.value)
+        guard !values.isEmpty else { return 0 }
+        return values.reduce(0, +) / Double(values.count)
+    }
+
+    private var latestValue: Double {
+        dailySnapshots.last?.value ?? 0
+    }
+
+    private var deltaFromAverageText: String {
+        let delta = latestValue - averageValue
+        let sign = delta >= 0 ? "+" : ""
+        return "\(sign)\(formatMetric(delta)) vs avg"
+    }
+
+    private var deltaFromAverageColor: Color {
+        let delta = latestValue - averageValue
+        if abs(delta) < 0.0001 { return Colors.textSecondary }
+        return delta > 0 ? .green : .red
+    }
+
+    private var streakMotivation: String {
+        switch currentStreak {
+        case 0:
+            return "Start today and build your first streak."
+        case 1...2:
+            return "Great start. Keep going and lock in momentum."
+        case 3...6:
+            return "Nice consistency. You are building a strong rhythm."
+        default:
+            return "Excellent streak. Protect it and keep compounding."
+        }
+    }
+
+    private var consistency: Double {
+        let activeDays = max(successDays + failedDays, 1)
+        return Double(successDays) / Double(activeDays)
+    }
+
+    private var currentStreak: Int {
+        var streak = 0
+        let today = calendar.startOfDay(for: Date())
+        for offset in 0..<365 {
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { break }
+            let value = valueByDay[date] ?? 0
+            let hasLog = valueByDay.keys.contains(date)
+            if didMeetGoal(value: value, hasLog: hasLog) {
+                streak += 1
+            } else if offset > 0 || hasLog {
+                break
+            }
+        }
+        return streak
+    }
+
+    private func didMeetGoal(value: Double, hasLog: Bool) -> Bool {
+        guard hasLog else { return false }
+        switch item.habitIntent ?? .build {
+        case .build:
+            return value >= item.goalValue
+        case .quit:
+            return value <= item.goalValue
+        }
+    }
+
+    private func intensity(value: Double, hasLog: Bool) -> Double {
+        guard hasLog else { return 0 }
+        switch item.habitIntent ?? .build {
+        case .build:
+            guard item.goalValue > 0 else { return value > 0 ? 1 : 0 }
+            return min(max(value / item.goalValue, 0), 1)
+        case .quit:
+            guard item.goalValue > 0 else { return value <= 0 ? 1 : 0.2 }
+            let normalized = 1 - min(max(value / item.goalValue, 0), 1)
+            return max(0.1, normalized)
+        }
+    }
+
+    private func barHeight(for day: HabitTrendPoint) -> CGFloat {
+        // Keep a little headroom so tallest bars do not look abruptly clipped.
+        let normalized = min(max(day.value / chartMaxValue, 0), 0.985)
+        return max(10, normalized * chartDrawingHeight)
+    }
+
+    private func barColor(for day: HabitTrendPoint) -> Color {
+        if selectedTrendPoint?.id == day.id {
+            return itemColor
+        }
+        if day.goalMet { return itemColor }
+        if day.hasLog { return Color(red: 0.96, green: 0.42, blue: 0.42) }
+        return Color.white.opacity(0.14)
+    }
+
+    private func shortDayLabel(_ date: Date) -> String {
+        // Use single-character weekday markers for compact readability.
+        let weekday = calendar.component(.weekday, from: date) - 1
+        let symbols = calendar.veryShortStandaloneWeekdaySymbols
+        guard weekday >= 0 && weekday < symbols.count else { return "-" }
+        return symbols[weekday]
+    }
+
+    private var chartDrawingHeight: CGFloat { 172 }
+
+    private var chartContentWidth: CGFloat {
+        CGFloat(trendPoints.count) * (barWidth + 8)
+    }
+
+    private var chartMaxValue: Double {
+        let base = max(trendPoints.map(\.value).max() ?? 0, item.goalValue, 1)
+        return roundedAxisCeiling(base * 1.12)
+    }
+
+    private var chartTickValues: [Double] {
+        let steps = 4
+        return (0...steps).map { index in
+            (chartMaxValue / Double(steps)) * Double(index)
+        }
+    }
+
+    private func roundedAxisCeiling(_ value: Double) -> Double {
+        guard value > 0 else { return 1 }
+
+        let exponent = floor(log10(value))
+        let magnitude = pow(10, exponent)
+        let normalized = value / magnitude
+
+        let roundedNormalized: Double
+        switch normalized {
+        case ...1: roundedNormalized = 1
+        case ...2: roundedNormalized = 2
+        case ...2.5: roundedNormalized = 2.5
+        case ...5: roundedNormalized = 5
+        default: roundedNormalized = 10
+        }
+
+        return roundedNormalized * magnitude
+    }
+
+    private var averageLineOffsetY: CGFloat {
+        let sourceAverage = trendPoints.isEmpty ? 0 : trendPoints.map(\.value).reduce(0, +) / Double(trendPoints.count)
+        return CGFloat(max(0, min(sourceAverage / chartMaxValue, 1))) * chartDrawingHeight
+    }
+
+    private var barWidth: CGFloat {
+        switch selectedGranularity {
+        case .day: return 18
+        case .week: return 24
+        case .month: return 28
+        }
+    }
+
+    private func trendDateLabel(for point: HabitTrendPoint) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale.current
+        switch selectedGranularity {
+        case .day:
+            formatter.setLocalizedDateFormatFromTemplate("d MMM yyyy")
+            return formatter.string(from: point.startDate)
+        case .week:
+            formatter.setLocalizedDateFormatFromTemplate("d MMM")
+            let start = formatter.string(from: point.startDate)
+            let end = formatter.string(from: point.endDate)
+            return "\(start) – \(end)"
+        case .month:
+            formatter.setLocalizedDateFormatFromTemplate("MMM yyyy")
+            return formatter.string(from: point.startDate)
+        }
+    }
+
+    private func dailyTrendPoints() -> [HabitTrendPoint] {
+        let today = calendar.startOfDay(for: Date())
+        return (0..<30).compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: -(29 - offset), to: today) else { return nil }
+            let key = calendar.startOfDay(for: date)
+            let value = valueByDay[key] ?? 0
+            let hasLog = valueByDay.keys.contains(key)
+            let goalMet = didMeetGoal(value: value, hasLog: hasLog)
+            return HabitTrendPoint(
+                startDate: key,
+                endDate: key,
+                value: value,
+                hasLog: hasLog,
+                goalMet: goalMet,
+                intensity: intensity(value: value, hasLog: hasLog),
+                label: shortDayLabel(key)
+            )
+        }
+    }
+
+    private func weeklyTrendPoints() -> [HabitTrendPoint] {
+        let today = calendar.startOfDay(for: Date())
+        let currentWeekStart = calendar.dateInterval(of: .weekOfYear, for: today)?.start ?? today
+
+        return (0..<12).compactMap { index in
+            guard let start = calendar.date(byAdding: .weekOfYear, value: -(11 - index), to: currentWeekStart),
+                  let end = calendar.date(byAdding: .day, value: 6, to: start) else { return nil }
+
+            let days = (0..<7).compactMap { day -> Date? in
+                calendar.date(byAdding: .day, value: day, to: start).map { calendar.startOfDay(for: $0) }
+            }
+            let value = days.reduce(0.0) { $0 + (valueByDay[$1] ?? 0) }
+            let hasLog = days.contains { valueByDay.keys.contains($0) }
+            let goalMet = hasLog && didMeetGoal(value: value / 7.0, hasLog: true)
+            let weekNum = calendar.component(.weekOfYear, from: start)
+
+            return HabitTrendPoint(
+                startDate: start,
+                endDate: end,
+                value: value,
+                hasLog: hasLog,
+                goalMet: goalMet,
+                intensity: intensity(value: value / 7.0, hasLog: hasLog),
+                label: "W\(weekNum)"
+            )
+        }
+    }
+
+    private func monthlyTrendPoints() -> [HabitTrendPoint] {
+        let today = calendar.startOfDay(for: Date())
+        let currentMonthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: today)) ?? today
+
+        return (0..<12).compactMap { index in
+            guard let start = calendar.date(byAdding: .month, value: -(11 - index), to: currentMonthStart),
+                  let monthRange = calendar.range(of: .day, in: .month, for: start),
+                  let end = calendar.date(byAdding: .day, value: monthRange.count - 1, to: start) else { return nil }
+
+            let days = (0..<monthRange.count).compactMap { day -> Date? in
+                calendar.date(byAdding: .day, value: day, to: start).map { calendar.startOfDay(for: $0) }
+            }
+            let value = days.reduce(0.0) { $0 + (valueByDay[$1] ?? 0) }
+            let hasLog = days.contains { valueByDay.keys.contains($0) }
+            let dayCount = Double(max(monthRange.count, 1))
+            let goalMet = hasLog && didMeetGoal(value: value / dayCount, hasLog: true)
+            let monthSymbol = calendar.shortMonthSymbols[calendar.component(.month, from: start) - 1]
+
+            return HabitTrendPoint(
+                startDate: start,
+                endDate: end,
+                value: value,
+                hasLog: hasLog,
+                goalMet: goalMet,
+                intensity: intensity(value: value / dayCount, hasLog: hasLog),
+                label: monthSymbol
+            )
+        }
+    }
+
+    private func formatMetric(_ value: Double) -> String {
+        if item.goalUnit.lowercased().contains("step") || item.goalUnit == "ml" {
+            return Int(value.rounded()).formatted(.number.grouping(.automatic))
+        }
+        return value.formatted(.number.precision(.fractionLength(0...2)))
+    }
+
+    private func dayLabelText(_ day: HabitDailySnapshot) -> String {
+        guard day.hasLog else { return "—" }
+        return "\(Int((day.intensity * 100).rounded()))%"
+    }
+
+    private func rebuildValueByDayCache() {
+        var dictionary: [Date: Double] = [:]
+        for log in item.completionLogs {
+            let key = calendar.startOfDay(for: log.date)
+            if item.metricKind == .time {
+                dictionary[key, default: 0] += Double(log.durationSeconds ?? 0) / 60.0
+            } else {
+                dictionary[key, default: 0] += log.value ?? (log.completed ? item.goalValue : 0)
+            }
+        }
+        cachedValueByDay = dictionary
+    }
+}
+
+struct HabitHeatMapGrid: View {
+    let endDate: Date
+    let valueByDay: [Date: Double]
+    let goalValue: Double
+    let habitIntent: HabitIntent
+
+    private let calendar = Calendar.current
+    private let weekdayLabels = ["S", "M", "T", "W", "T", "F", "S"]
+    private let columns = 12
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(Array(weekdayLabels.enumerated()), id: \.offset) { _, day in
+                    Text(day)
+                        .font(.caption2)
+                        .foregroundColor(Colors.textSecondary)
+                        .frame(width: 12, height: 16, alignment: .leading)
+                }
+            }
+
+            VStack(spacing: 6) {
+                ForEach(0..<7, id: \.self) { row in
+                    HStack(spacing: 6) {
+                        ForEach(0..<columns, id: \.self) { column in
+                            let cell = cellFor(row: row, column: column)
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(cellColor(for: cell))
+                                .frame(width: 20, height: 16)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func cellFor(row: Int, column: Int) -> (date: Date, intensity: Double, hasLog: Bool) {
+        let baseStart = heatMapStartDate
+        let dayIndex = (column * 7) + row
+        let date = calendar.date(byAdding: .day, value: dayIndex, to: baseStart) ?? baseStart
+        let key = calendar.startOfDay(for: date)
+        let value = valueByDay[key] ?? 0
+        let hasLog = valueByDay.keys.contains(key)
+        return (key, heatIntensity(value: value, hasLog: hasLog), hasLog)
+    }
+
+    private var heatMapStartDate: Date {
+        let currentWeekStart = calendar.dateInterval(of: .weekOfYear, for: endDate)?.start ?? calendar.startOfDay(for: endDate)
+        return calendar.date(byAdding: .day, value: -((columns - 1) * 7), to: currentWeekStart) ?? currentWeekStart
+    }
+
+    private func cellColor(for cell: (date: Date, intensity: Double, hasLog: Bool)) -> Color {
+        if cell.date > calendar.startOfDay(for: endDate) {
+            return Color.clear
+        }
+        if !cell.hasLog {
+            return Color.white.opacity(0.08)
+        }
+        let shade: Color
+        switch cell.intensity {
+        case ..<0.34:
+            shade = Color(red: 0.98, green: 0.82, blue: 0.32) // yellow
+        case ..<0.67:
+            shade = Color(red: 0.98, green: 0.58, blue: 0.24) // orange
+        default:
+            shade = Color(red: 0.93, green: 0.30, blue: 0.26) // red
+        }
+        return shade.opacity(0.25 + (cell.intensity * 0.70))
+    }
+
+    private func heatIntensity(value: Double, hasLog: Bool) -> Double {
+        guard hasLog else { return 0 }
+        switch habitIntent {
+        case .build:
+            guard goalValue > 0 else { return value > 0 ? 1 : 0 }
+            return min(max(value / goalValue, 0), 1)
+        case .quit:
+            guard goalValue > 0 else { return value <= 0 ? 1 : 0.2 }
+            let normalized = 1 - min(max(value / goalValue, 0), 1)
+            return max(0.1, normalized)
+        }
+    }
+}
+
+struct HabitNotesTabView: View {
+    @Bindable var item: PlanItem
+    let itemColor: Color
+
+    @Environment(\.modelContext) private var modelContext
+    @State private var draftText = ""
+    @State private var didInitialize = false
+    @State private var saveStatus = ""
+
+    var body: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Notes for \(item.title)")
+                    .font(.headline)
+                    .foregroundColor(Colors.textPrimary)
+
+                TextEditor(text: $draftText)
+                    .scrollContentBackground(.hidden)
+                    .foregroundColor(Colors.textPrimary)
+                    .frame(minHeight: 220)
+                    .padding(10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.white.opacity(0.06))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    )
+
+                HStack(spacing: 10) {
+                    Button {
+                        draftText = item.habitNotes
+                        saveStatus = "Reverted"
+                    } label: {
+                        Text("Reset")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(Colors.textPrimary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(
+                                Capsule()
+                                    .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        saveNotes()
+                    } label: {
+                        Text("Save Notes")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 10)
+                            .background(
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [itemColor.opacity(0.78), itemColor],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                            )
+                    }
+                    .buttonStyle(.plain)
+
+                    Spacer()
+                }
+
+                if !saveStatus.isEmpty {
+                    Text(saveStatus)
+                        .font(.caption)
+                        .foregroundColor(Colors.textSecondary)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 24)
+        }
+        .onAppear {
+            guard !didInitialize else { return }
+            draftText = item.habitNotes
+            didInitialize = true
+        }
+    }
+
+    private func saveNotes() {
+        item.habitNotes = draftText.trimmingCharacters(in: .whitespacesAndNewlines)
+        item.updatedAt = Date()
+        do {
+            try modelContext.save()
+            saveStatus = "Saved"
+        } catch {
+            saveStatus = "Could not save notes"
         }
     }
 }

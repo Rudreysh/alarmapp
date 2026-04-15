@@ -186,6 +186,21 @@ struct PomodoroRuntimeState: Codable, Equatable {
     var overriddenTaskName: String? = nil
     var dateLastUpdated: Date? = nil
     var segmentEndDate: Date? = nil // Key for accuracy
+    var activeParallelSessionId: UUID? = nil
+    var parallelSessions: [ParallelFocusSession] = []
+}
+
+struct ParallelFocusSession: Codable, Equatable, Identifiable {
+    var id: UUID
+    var taskId: UUID?
+    var focusName: String
+    var segment: SegmentKind
+    var remainingSeconds: Int
+    var totalSeconds: Int
+    var startTime: Date
+    var endTime: Date?
+    var isRunning: Bool
+    var updatedAt: Date
 }
 
 // MARK: - Analytics

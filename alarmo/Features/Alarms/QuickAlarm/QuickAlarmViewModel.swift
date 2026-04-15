@@ -56,6 +56,7 @@ class QuickAlarmViewModel: ObservableObject {
     @Published var timeZoneIdentifier: String? = nil
     @Published var timeZoneCity: String? = nil
     @Published var dailyMotivationEnabled: Bool = false
+    @Published var visualOutputSettings: AlarmVisualOutputSettings
     @Published var presets: [QuickAlarmPreset] = []
     
     // For UI State
@@ -74,12 +75,15 @@ class QuickAlarmViewModel: ObservableObject {
     
     init(defaults: AppPreferences = AppPreferences()) {
         self.selectedSoundId = defaults.onboardingSoundName
-        self.selectedWallpaperId = defaults.onboardingWallpaperId
+        self.selectedWallpaperId = settingsStore.alarmWallpaperId.isEmpty ? defaults.onboardingWallpaperId : settingsStore.alarmWallpaperId
         self.volume = defaults.onboardingSoundVolume
         self.accountabilityEnabled = settingsStore.accountabilityEnabled
         self.blockAppsEnabled = settingsStore.blockAppsEnabled
         self.penaltyEnabled = settingsStore.penaltyEnabled
         self.penaltyAmountEuro = settingsStore.penaltyAmountEuro
+        self.bypassSilentMode = settingsStore.alarmRingInSilentModeEnabled
+        self.dailyMotivationEnabled = settingsStore.alarmDailyMotivationEnabled
+        self.visualOutputSettings = settingsStore.alarmVisualOutputSettings
         self.presets = Self.loadStoredPresets(forKey: presetsStorageKey) ?? Self.defaultPresets
         updateDateString()
         startTimer()
@@ -199,6 +203,10 @@ class QuickAlarmViewModel: ObservableObject {
             snoozeCount: 3,
             wallpaperId: selectedWallpaperId,
             dailyMotivationEnabled: dailyMotivationEnabled,
+            visualOutputSettings: AlarmVisualOutputSettings.migratedFromLegacy(
+                wallpaperId: selectedWallpaperId,
+                dailyMotivationEnabled: dailyMotivationEnabled
+            ),
             createdAt: Date(),
             enforcementMode: penaltyEnabled ? .penaltyOnly : .none,
             blockAppsEnabled: false,

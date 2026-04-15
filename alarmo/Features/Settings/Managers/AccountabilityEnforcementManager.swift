@@ -58,7 +58,10 @@ final class AccountabilityEnforcementManager: ObservableObject {
     func beginAlarmEnforcement(alarm: Alarm) {
         activeAlarmId = alarm.id
         if shouldBlockAppsForAlarm(alarm) {
-            applyShield(data: effectiveSelectionData(for: alarm))
+            applyShield(
+                data: effectiveSelectionData(for: alarm),
+                adultBlockingEnabled: effectiveAdultBlocking(for: alarm)
+            )
         }
         detectPotentialTimeTamper()
     }
@@ -101,7 +104,8 @@ final class AccountabilityEnforcementManager: ObservableObject {
         let shouldRestore = isFocusEnforcementActive || activeAlarmId != nil
         shieldManager.ensureShieldRestoredOnAppLaunch(
             isEnforcementActive: shouldRestore,
-            selectionData: settings.blockedAppsSelectionData
+            selectionData: settings.blockedAppsSelectionData,
+            adultBlockingEnabled: settings.blockedAdultContentEnabled
         )
     }
 
@@ -121,12 +125,19 @@ final class AccountabilityEnforcementManager: ObservableObject {
     }
 
     private func applyShieldIfPossible() {
-        applyShield(data: settings.blockedAppsSelectionData)
+        applyShield(data: settings.blockedAppsSelectionData, adultBlockingEnabled: settings.blockedAdultContentEnabled)
     }
 
-    private func applyShield(data: Data) {
+    private func applyShield(data: Data, adultBlockingEnabled: Bool) {
         guard authManager.isAuthorized else { return }
-        shieldManager.applyShield(selectionData: data)
+        shieldManager.applyShield(selectionData: data, adultBlockingEnabled: adultBlockingEnabled)
+    }
+
+    private func effectiveAdultBlocking(for alarm: Alarm) -> Bool {
+        if let specific = alarm.blockedSelectionData, !specific.isEmpty {
+            return false
+        }
+        return settings.blockedAdultContentEnabled
     }
 
     private func detectPotentialTimeTamper() {

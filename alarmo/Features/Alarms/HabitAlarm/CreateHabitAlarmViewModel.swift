@@ -28,6 +28,8 @@ class CreateHabitAlarmViewModel: ObservableObject {
     @Published var snoozeSeconds: Int = 0
     @Published var snoozeCount: Int = 3
     @Published var wallpaperId: String
+    @Published var dailyMotivationEnabled: Bool = false
+    @Published var visualOutputSettings: AlarmVisualOutputSettings
     @Published var wakeUpCheckEnabled: Bool = false
     @Published var missions: [AlarmMission] = []
     
@@ -44,6 +46,7 @@ class CreateHabitAlarmViewModel: ObservableObject {
     @Published var reminderDurationSeconds: Int = 20
     @Published var reminderStartTime: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
     @Published var reminderEndTime: Date = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: Date()) ?? Date()
+    @Published var notes: String = ""
     
     @Published var ringInText: String = ""
     @Published var cycleToLocal: Bool = false
@@ -58,12 +61,30 @@ class CreateHabitAlarmViewModel: ObservableObject {
         self.soundName = defaultSoundName
         self.soundVolume = defaultSoundVolume
         self.defaultSoundName = defaultSoundName
-        self.wallpaperId = AlarmDraft(defaultHour: defaultHour, defaultMinute: defaultMinute, defaultRepeatMask: RepeatMask.allDays, defaultSoundName: defaultSoundName, defaultSoundVolume: defaultSoundVolume, defaultWallpaperId: defaultWallpaperId).wallpaperId
+        let resolvedWallpaperId = AlarmDraft(
+            defaultHour: defaultHour,
+            defaultMinute: defaultMinute,
+            defaultRepeatMask: RepeatMask.allDays,
+            defaultSoundName: defaultSoundName,
+            defaultSoundVolume: defaultSoundVolume,
+            defaultWallpaperId: defaultWallpaperId
+        ).wallpaperId
+        self.wallpaperId = resolvedWallpaperId
+        self.visualOutputSettings = AlarmVisualOutputSettings.migratedFromLegacy(
+            wallpaperId: resolvedWallpaperId,
+            dailyMotivationEnabled: false
+        )
         let settings = SettingsStore.shared
+        self.dailyMotivationEnabled = settings.alarmDailyMotivationEnabled
+        self.visualOutputSettings = settings.alarmVisualOutputSettings
+        if !settings.alarmWallpaperId.isEmpty {
+            self.wallpaperId = settings.alarmWallpaperId
+        }
         self.accountabilityEnabled = settings.accountabilityEnabled
         self.blockAppsEnabled = settings.blockAppsEnabled
         self.penaltyEnabled = settings.penaltyEnabled
         self.penaltyAmountEuro = settings.penaltyAmountEuro
+        self.bypassSilentMode = settings.alarmRingInSilentModeEnabled
         
         updateRingInText()
         if timeZoneMode == .custom {
@@ -124,6 +145,8 @@ class CreateHabitAlarmViewModel: ObservableObject {
         snoozeSeconds = alarm.snoozeSeconds
         snoozeCount = alarm.snoozeCount
         wallpaperId = alarm.wallpaperId
+        dailyMotivationEnabled = alarm.dailyMotivationEnabled
+        visualOutputSettings = alarm.visualOutputSettings
         wakeUpCheckEnabled = alarm.wakeUpCheckEnabled
         missions = alarm.missions
 
@@ -142,6 +165,7 @@ class CreateHabitAlarmViewModel: ObservableObject {
         if let end = alarm.habitReminderEndTime {
             reminderEndTime = end
         }
+        notes = alarm.habitNotes
 
         updateRingInText()
     }
@@ -202,6 +226,8 @@ class CreateHabitAlarmViewModel: ObservableObject {
             snoozeSeconds: snoozeSeconds,
             snoozeCount: snoozeCount,
             wallpaperId: wallpaperId,
+            dailyMotivationEnabled: dailyMotivationEnabled,
+            visualOutputSettings: visualOutputSettings,
             createdAt: Date(),
             missions: missions
         )

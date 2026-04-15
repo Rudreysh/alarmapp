@@ -34,41 +34,62 @@ struct SignInView: View {
                         .foregroundColor(.white)
                         .padding(.bottom, 8)
                     
-                    Text("Keep your record safe by signing in")
+                    Text(store.isSignedIn ? "You're signed in" : "Keep your record safe by signing in")
                         .font(.system(size: 22, weight: .bold))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
+
+                    if store.isSignedIn {
+                        Text(store.profileDisplayName)
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(Colors.textSecondary)
+                    }
                 }
                 .padding(.horizontal, 40)
                 
                 Spacer()
                 
                 VStack(spacing: 20) {
-                    if canUseAppleSignIn {
-                        SignInWithAppleButton(.continue) { request in
-                            request.requestedScopes = [.fullName, .email]
-                        } onCompletion: { result in
-                            handleSignIn(result)
-                        }
-                        .signInWithAppleButtonStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .clipShape(Capsule())
-                    } else {
+                    if store.isSignedIn {
                         Button {
-                            alertMessage = configurationIssueMessage()
+                            store.signOutAppleAccount()
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: "applelogo")
-                                    .font(.system(size: 22, weight: .semibold))
-                                Text("Continue with Apple")
-                                    .font(.system(size: 18, weight: .bold))
+                            Text("Sign Out")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 56)
+                                .background(Color.white.opacity(0.18))
+                                .clipShape(Capsule())
+                        }
+                    } else {
+                        if canUseAppleSignIn {
+                            SignInWithAppleButton(.continue) { request in
+                                request.requestedScopes = [.fullName, .email]
+                            } onCompletion: { result in
+                                handleSignIn(result)
                             }
-                            .foregroundColor(.black.opacity(0.65))
+                            .signInWithAppleButtonStyle(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
-                            .background(Color.white.opacity(0.8))
                             .clipShape(Capsule())
+                        } else {
+                            Button {
+                                alertMessage = configurationIssueMessage()
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "applelogo")
+                                        .font(.system(size: 22, weight: .semibold))
+                                    Text("Continue with Apple")
+                                        .font(.system(size: 18, weight: .bold))
+                                }
+                                .foregroundColor(.black.opacity(0.65))
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 56)
+                                .background(Color.white.opacity(0.8))
+                                .clipShape(Capsule())
+                            }
                         }
                     }
                     
@@ -111,13 +132,8 @@ struct SignInView: View {
                 alertMessage = "Could not read your Apple account credential."
                 return
             }
-            let appleUserId = credential.user
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            if let data = appleUserId.data(using: .utf8) {
-                KeychainHelper.shared.save(data, service: "com.alarmo.auth", account: "appleUserId")
-            }
-            store.isSignedIn = true
-            store.appleUserId = appleUserId
+            store.completeAppleSignIn(with: credential)
             dismiss()
         case .failure(let error):
             if let authError = error as? ASAuthorizationError, authError.code == .canceled {

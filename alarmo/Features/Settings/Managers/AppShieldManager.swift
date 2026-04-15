@@ -22,12 +22,12 @@ final class AppShieldManager: ObservableObject {
 
     private init() {}
 
-    func applyShield(selectionData: Data) {
+    func applyShield(selectionData: Data, adultBlockingEnabled: Bool = false) {
         #if targetEnvironment(simulator)
         let settings = SettingsStore.shared
         simulatorBlockedApps = settings.blockedMockApps
         simulatorBlockedCategories = settings.blockedMockCategories
-        isSimulatorShieldActive = !simulatorBlockedApps.isEmpty || !simulatorBlockedCategories.isEmpty
+        isSimulatorShieldActive = !simulatorBlockedApps.isEmpty || !simulatorBlockedCategories.isEmpty || adultBlockingEnabled
         return
         #endif
 
@@ -37,16 +37,20 @@ final class AppShieldManager: ObservableObject {
             return
         }
 
-        if selection.applicationTokens.isEmpty && selection.categoryTokens.isEmpty {
+        let hasSelectionTargets = !selection.applicationTokens.isEmpty || !selection.categoryTokens.isEmpty || !selection.webDomainTokens.isEmpty
+        if !hasSelectionTargets && !adultBlockingEnabled {
             clearShield()
             return
         }
 
         store.shield.applications = selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
         store.shield.applicationCategories = selection.categoryTokens.isEmpty ? nil : .specific(selection.categoryTokens)
-        store.shield.webDomainCategories = nil
+        store.shield.webDomains = selection.webDomainTokens.isEmpty ? nil : selection.webDomainTokens
+        store.shield.webDomainCategories = selection.categoryTokens.isEmpty ? nil : .specific(selection.categoryTokens)
+        store.webContent.blockedByFilter = adultBlockingEnabled ? .auto() : nil
         #else
         _ = selectionData
+        _ = adultBlockingEnabled
         #endif
     }
 
@@ -60,16 +64,22 @@ final class AppShieldManager: ObservableObject {
         #if canImport(ManagedSettings)
         store.shield.applications = nil
         store.shield.applicationCategories = nil
+        store.shield.webDomains = nil
         store.shield.webDomainCategories = nil
+        store.webContent.blockedByFilter = nil
         #endif
     }
 
-    func ensureShieldRestoredOnAppLaunch(isEnforcementActive: Bool, selectionData: Data) {
+    func ensureShieldRestoredOnAppLaunch(
+        isEnforcementActive: Bool,
+        selectionData: Data,
+        adultBlockingEnabled: Bool = false
+    ) {
         guard isEnforcementActive else {
             clearShield()
             return
         }
-        applyShield(selectionData: selectionData)
+        applyShield(selectionData: selectionData, adultBlockingEnabled: adultBlockingEnabled)
     }
 
     #if canImport(FamilyControls)

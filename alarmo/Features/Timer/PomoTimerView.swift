@@ -49,6 +49,7 @@ struct PomoTimerView: View {
             let availableWidth = geo.size.width
             let availableHeight = geo.size.height
             let diameter = min(availableWidth * 0.75, availableHeight * 0.45)
+            let middleDialDiameter = diameter * 0.75 // Reduce circumference by 25%
             
             ZStack {
                 // Main Timer UI
@@ -177,31 +178,6 @@ struct PomoTimerView: View {
                     }
                     .padding(.top, 4)
                     
-                    // ---- Blocking Status Row ----
-                    if shouldShowTopBlockingStatusPill {
-                        blockingStatusPill
-                            .padding(.top, 4)
-                            .coachMark(
-                                title: "Deep Focus",
-                                subtitle: "Block distractions by blocking apps.",
-                                isVisible: $showTimerBlockListCoachMark,
-                                alignment: .top,
-                                pointDirection: .bottom,
-                                arrowAlignment: .center,
-                                arrowOffsetX: 0,
-                                bubbleOffsetX: 0,
-                                bubbleOffsetY: -80,
-                                color: .red
-                            )
-                            .onTapGesture {
-                                if showTimerBlockListCoachMark {
-                                    showTimerBlockListCoachMark = false
-                                    viewModel.preferences.hasSeenTimerBlockListTooltip = true
-                                    triggerNextTimerStep()
-                                }
-                            }
-                    }
-
                     Spacer()
                     
                     // Timer Circle
@@ -220,9 +196,14 @@ struct PomoTimerView: View {
                             ),
                             isRunning: engine.isRunning,
                             progress: engine.currentProgress,
-                            color: currentSegmentColor
+                            color: middleRingColor,
+                            centerSymbol: middleRingSymbol,
+                            particleSeed: engine.state.overriddenTaskName ?? taskStore.selectedTask?.name ?? "focus",
+                            onCenterTap: {
+                                showTaskSelection = true
+                            }
                         )
-                        .frame(width: diameter, height: diameter)
+                        .frame(width: middleDialDiameter, height: middleDialDiameter)
                         .coachMark(
                             title: "Dial",
                             subtitle: "Rotate to set time.",
@@ -296,6 +277,30 @@ struct PomoTimerView: View {
                                         .foregroundColor(Colors.textTertiary)
                                 }
                             }
+
+                            if shouldShowBlockingStatusPill {
+                                blockingStatusPill
+                                    .padding(.top, 8)
+                                    .coachMark(
+                                        title: "Deep Focus",
+                                        subtitle: "Block distractions by blocking apps.",
+                                        isVisible: $showTimerBlockListCoachMark,
+                                        alignment: .top,
+                                        pointDirection: .bottom,
+                                        arrowAlignment: .center,
+                                        arrowOffsetX: 0,
+                                        bubbleOffsetX: 0,
+                                        bubbleOffsetY: -80,
+                                        color: .red
+                                    )
+                                    .onTapGesture {
+                                        if showTimerBlockListCoachMark {
+                                            showTimerBlockListCoachMark = false
+                                            viewModel.preferences.hasSeenTimerBlockListTooltip = true
+                                            triggerNextTimerStep()
+                                        }
+                                    }
+                            }
                         }
                     }
                     .onTapGesture {
@@ -308,11 +313,20 @@ struct PomoTimerView: View {
                     
                     // Controls
                     VStack(spacing: Spacing.m) {
+                        if engine.parallelSessions.count > 1 {
+                            parallelSessionSwitcher
+                                .padding(.horizontal, Spacing.l)
+                                .padding(.bottom, 4)
+                        }
+
                         if case .idle = engine.state.phase {
                             idleControlRow
                                 .padding(.horizontal, Spacing.l)
                             
                             PrimaryButton(title: "Start Timer", style: .blueGlass) {
+                                // Ensure selected block list + snapshot are synced before starting.
+                                // This avoids needing a no-op "Save" after app relaunch.
+                                syncBlockListToEngine()
                                 engine.start(taskId: taskStore.selectedTaskId)
                                 if showTimerStartCoachMark {
                                     showTimerStartCoachMark = false
@@ -451,9 +465,10 @@ struct PomoTimerView: View {
                                 }
                                 .padding(.top, 8)
                             }
+
                         }
                     }
-                    .padding(.bottom, Spacing.xl)
+                    .padding(.bottom, controlsBottomInset)
                 }
                 .opacity(isOverlayVisible ? 0.3 : 1.0) // Dim if overlay
                 .blur(radius: isOverlayVisible ? 5 : 0)
@@ -544,11 +559,6 @@ struct PomoTimerView: View {
             if !running && viewModel.isAmbientPlaying {
                 // Stop ambient music if the timer is paused or stopped
                 viewModel.toggleAmbientSound()
-            } else if running && !viewModel.isAmbientPlaying && !viewModel.ambientSoundName.isEmpty {
-                // Only auto-start music if the segment is Focus
-                if engine.state.currentSegment == .focus {
-                    viewModel.toggleAmbientSound()
-                }
             }
         }
         .onChange(of: engine.state.currentSegment) { _, newSegment in
@@ -557,8 +567,6 @@ struct PomoTimerView: View {
                 if viewModel.isAmbientPlaying {
                     viewModel.toggleAmbientSound()
                 }
-            } else if newSegment == .focus && engine.isRunning && !viewModel.isAmbientPlaying && !viewModel.ambientSoundName.isEmpty {
-                 viewModel.toggleAmbientSound()
             }
         }
         .onAppear {
@@ -603,12 +611,18 @@ struct PomoTimerView: View {
     
     // MARK: - Helpers
 
-    private var shouldShowTopBlockingStatusPill: Bool {
-        // Avoid duplicating the block list chip in idle mode (idle row already shows it).
+    private var shouldShowBlockingStatusPill: Bool {
+        // Keep App Block UI visible while running/paused.
+        if case .idle = engine.state.phase { return false }
+        return true
+    }
+
+    private var controlsBottomInset: CGFloat {
         if case .idle = engine.state.phase {
-            return false
+            return Spacing.xl
         }
-        return engine.config.blockAppsEnabled && selectedBlockList != nil
+        // Keep running/paused actions (Take a short break + App Block List) clearly above tab bar.
+        return Spacing.xxl + 10
     }
     
     /// Restore the persisted block list reference back into the engine (e.g. after cold start).
@@ -624,6 +638,10 @@ struct PomoTimerView: View {
         guard let saved = allAppLists.first(where: {
             $0.type == .block && $0.id.uuidString == selectedId
         }) else {
+            // SwiftData query can still be loading when this sync runs.
+            // Avoid clearing persisted timer block config in that transient state.
+            guard !allAppLists.isEmpty else { return }
+            settingsStore.selectedBlockListId = ""
             engine.setActiveBlockList(nil)
             return
         }
@@ -632,6 +650,15 @@ struct PomoTimerView: View {
             engine.setActiveBlockList(saved)
             print("🔗 [PomoTimerView] syncBlockListToEngine → '\(saved.name)'")
         }
+        syncSettingsSnapshot(from: saved)
+    }
+
+    private func syncSettingsSnapshot(from list: AppList) {
+        settingsStore.selectedBlockListId = list.id.uuidString
+        settingsStore.blockedAppsSelectionData = list.selectionData
+        settingsStore.blockedMockApps = list.mockAppIDs
+        settingsStore.blockedMockCategories = list.mockCategoryIDs
+        settingsStore.blockedAdultContentEnabled = list.adultBlockingEnabled
     }
     
     private var idleControlRow: some View {
@@ -641,7 +668,7 @@ struct PomoTimerView: View {
             Button {
                 showAppLists = true
             } label: {
-                let listName = selectedBlockList?.name
+                let listName = timerBlockListDisplayName(selectedBlockList?.name)
                 let blockEnabled = engine.config.blockAppsEnabled && listName != nil
                 
                 HStack(spacing: 6) {
@@ -691,6 +718,40 @@ struct PomoTimerView: View {
         }
     }
 
+    private var parallelSessionSwitcher: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(engine.parallelSessions) { session in
+                    let isActive = engine.state.activeParallelSessionId == session.id
+                    Button {
+                        engine.switchToParallelSession(session.id)
+                    } label: {
+                        Text(sessionEmoji(for: session))
+                            .font(.system(size: 15))
+                            .frame(width: 26, height: 26)
+                            .background(
+                                Circle()
+                                    .fill(isActive ? Color.white.opacity(0.22) : Color.white.opacity(0.10))
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(isActive ? TimerPalette.accent.opacity(0.9) : Color.white.opacity(0.18), lineWidth: isActive ? 2 : 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 6)
+        }
+        .frame(height: 40)
+    }
+
+    private func sessionEmoji(for session: ParallelFocusSession) -> String {
+        let item = planItems.first(where: { $0.id == session.taskId })
+        return focusEmoji(for: item, fallbackName: session.focusName)
+    }
+
     private func applySelectedSeconds(_ seconds: Int) {
         let clampedSeconds = max(1, seconds)
 
@@ -731,48 +792,151 @@ struct PomoTimerView: View {
         case .longBreak: return TimerPalette.accent
         }
     }
+
+    private var selectedPlanItem: PlanItem? {
+        guard let taskId = engine.state.selectedTaskId else { return nil }
+        return planItems.first(where: { $0.id == taskId })
+    }
+
+    private var middleRingColor: Color {
+        guard let segment = engine.state.currentSegment else { return TimerPalette.accent }
+        guard segment == .focus else { return TimerPalette.accent.opacity(0.85) }
+        guard let item = selectedPlanItem else { return TimerPalette.accent }
+        return tintColor(for: item.tintKey)
+    }
+
+    private var middleRingSymbol: String {
+        let fallbackName = engine.state.overriddenTaskName ?? taskStore.selectedTask?.name ?? ""
+        return focusEmoji(for: selectedPlanItem, fallbackName: fallbackName)
+    }
+
+    private func focusEmoji(for item: PlanItem?, fallbackName: String) -> String {
+        if let icon = item?.iconName, icon.allSatisfy({ !$0.isASCII }) {
+            return icon
+        }
+
+        let source = [
+            item?.title ?? "",
+            item?.subtitle ?? "",
+            item?.iconName ?? "",
+            fallbackName
+        ].joined(separator: " ").lowercased()
+
+        if source.contains("yoga") || source.contains("meditat") || source.contains("breathe") || source.contains("figure.yoga") {
+            return "🧘‍♀️"
+        }
+        if source.contains("water") || source.contains("drink") || source.contains("drop") {
+            return "💧"
+        }
+        if source.contains("run") || source.contains("walk") || source.contains("gym") || source.contains("figure.run") || source.contains("figure.walk") {
+            return "🏃"
+        }
+        if source.contains("read") || source.contains("book") || source.contains("study") || source.contains("learn") || source.contains("graduationcap") {
+            return "📚"
+        }
+        if source.contains("code") || source.contains("work") || source.contains("laptopcomputer") || source.contains("desktopcomputer") {
+            return "💻"
+        }
+        if source.contains("sleep") || source.contains("bed") || source.contains("moon") {
+            return "😴"
+        }
+        if source.contains("dumbbell") || source.contains("strength") || source.contains("fitness") || source.contains("exercise") {
+            return "🏋️"
+        }
+        if source.contains("cycle") || source.contains("bicycle") {
+            return "🚴"
+        }
+        if source.contains("swim") || source.contains("pool") {
+            return "🏊"
+        }
+        if source.contains("stretch") || source.contains("mobility") {
+            return "🤸"
+        }
+        if source.contains("focus") || source.contains("brain") {
+            return "🧠"
+        }
+        return "⏱️"
+    }
+
+    private func tintColor(for key: String) -> Color {
+        switch key {
+        case "red": return .red
+        case "blue": return .blue
+        case "green": return .green
+        case "orange": return .orange
+        case "purple": return .purple
+        case "pink": return .pink
+        case "yellow": return .yellow
+        case "teal": return .teal
+        case "indigo": return .indigo
+        case "mint": return .mint
+        case "cyan": return .cyan
+        default: return TimerPalette.accent
+        }
+    }
     
     // MARK: - Blocking Status Pill
     
     private var blockingStatusPill: some View {
-        let listName = selectedBlockList?.name ?? "App Block List"
+        let fallbackListName: String? = {
+            if let selectedBlockList,
+               let name = timerBlockListDisplayName(selectedBlockList.name) {
+                return name
+            }
+            let hasSelection = !engine.config.selectedBlockListId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                !settingsStore.selectedBlockListId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            return hasSelection ? "App Block List" : nil
+        }()
+        let listName = fallbackListName ?? "App Block List"
         let appCount = selectedBlockListAppCount
-        
+
         let isRunningFocus = engine.isBlockingActive
-        
+        let hasConfiguredList = fallbackListName != nil
+
         return Button(action: { showAppLists = true }) {
-            HStack(spacing: 8) {
-                Image(systemName: isRunningFocus ? "lock.fill" : "lock.open.fill")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(isRunningFocus ? .red : .green)
+            HStack(spacing: 11) {
+                Image(systemName: (isRunningFocus && hasConfiguredList) ? "lock.fill" : "lock.open.fill")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundColor((isRunningFocus && hasConfiguredList) ? .red : .green)
                 
                 Text(listName)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(isRunningFocus ? Colors.textPrimary : Colors.textSecondary)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor((isRunningFocus && hasConfiguredList) ? Colors.textPrimary : Colors.textSecondary)
                 
                 if appCount > 0 {
                     Text("\(appCount) apps")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundColor(Colors.textTertiary)
                 }
                 
                 if engine.config.difficultyMode == .deepFocus {
                     Text("DEEP")
-                        .font(.system(size: 10, weight: .black))
+                        .font(.system(size: 14, weight: .black))
                         .foregroundColor(.black)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
                         .background(Color.red)
-                    }
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 11)
             .background(
                 Capsule()
-                    .fill(isRunningFocus ? Color.red.opacity(0.15) : Color.white.opacity(0.08))
+                    .fill((isRunningFocus && hasConfiguredList) ? Color.red.opacity(0.15) : Color.white.opacity(0.08))
             )
-            .buttonStyle(.plain)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func timerBlockListDisplayName(_ rawName: String?) -> String? {
+        guard let rawName else { return nil }
+        let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if trimmed.hasPrefix("App Block List") { return trimmed }
+        if trimmed.hasPrefix("Block List") {
+            return trimmed.replacingOccurrences(of: "Block List", with: "App Block List", options: [.anchored])
+        }
+        return trimmed
     }
     
     // MARK: - Onboarding Logic

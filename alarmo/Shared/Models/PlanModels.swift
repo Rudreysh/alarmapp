@@ -216,6 +216,7 @@ final class PlanItem {
     var metricKind: MetricKind? = MetricKind.count
     var ringtone: Ringtone? = Ringtone.systemDefault
     var autoHealthTracking: String? = nil // "steps", "distance"
+    var habitNotes: String = ""
 
     
     // LOGIC

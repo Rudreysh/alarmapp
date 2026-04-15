@@ -1,4 +1,6 @@
 import SwiftUI
+import AVFoundation
+import UIKit
 
 // MARK: - Session Intervention View
 /// Shown when the user tries to stop/take a break during a blocked focus session.
@@ -137,8 +139,18 @@ struct SessionInterventionView: View {
             switch challenge {
             case .qrBarcode:
                 QRBarcodeMissionView(
-                    targetCode: "", // We can enhance this later to require a specific barcode if needed for Focus
+                    targetCode: "PREVIEW_DUMMY_MODE",
                     onSuccess: { handleMissionSuccess() }
+                )
+            case .typing:
+                let settings = focusTypingSettings()
+                TypingMissionGameplayView(
+                    viewModel: TypingGameplayViewModel(
+                        settings: settings,
+                        phrases: focusTypingPhrases(settings: settings),
+                        isPreviewMode: false,
+                        onComplete: { handleMissionSuccess() }
+                    )
                 )
             case .math:
                 MathMissionPlayView(
@@ -177,27 +189,39 @@ struct SessionInterventionView: View {
                         onComplete: { handleMissionSuccess() }
                     )
                 )
+            case .memoryMatch:
+                MemoryMatchGameView(
+                    viewModel: MemoryMatchViewModel(
+                        difficulty: .fourByFour,
+                        rounds: 1,
+                        isPreviewMode: false,
+                        onComplete: { handleMissionSuccess() }
+                    )
+                )
+            case .ticTacToe:
+                TicTacToeGameView(
+                    viewModel: TicTacToeViewModel(
+                        rounds: 1,
+                        isPreviewMode: false,
+                        onComplete: { handleMissionSuccess() }
+                    )
+                )
             case .breathing:
                 BreathingExerciseView {
                     handleMissionSuccess()
                 } onCancel: {
                     showingMission = false
                 }
-            default:
-                // Fallback for missions that are not fully ported or are just placeholders (.off)
-                VStack {
-                    Text(challenge.titleForFocus)
-                        .font(.title)
-                        .foregroundColor(.white)
-                    Button("Complete (Debug)") {
+            case .householdItemHunt:
+                FocusHouseholdItemHuntMissionView(
+                    onComplete: { handleMissionSuccess() },
+                    onCancel: { showingMission = false }
+                )
+            case .off:
+                Color.clear
+                    .onAppear {
                         handleMissionSuccess()
                     }
-                    .padding()
-                    .background(Color.blue)
-                    .cornerRadius(8)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Colors.bgPrimary.ignoresSafeArea())
             }
         }
         // Native Cancel button overlaid so user can back out of the mission
@@ -223,17 +247,21 @@ struct SessionInterventionView: View {
     
     private enum IntentKind { case onBreak, onStop }
     @State private var currentIntent: IntentKind = .onStop
+    @State private var challengeRotationIndex: Int = 0
     
     private func launchChallenge(for intent: IntentKind) {
         currentIntent = intent
-        // Pick the first enabled challenge
-        if let challenge = enabledChallenges.first {
-            activeMission = challenge
-            showingMission = true
-        } else {
+        let available = enabledChallenges.filter { $0 != .off }
+        guard !available.isEmpty else {
             // No challenges — proceed directly
             handleChallengeComplete()
+            return
         }
+
+        let index = challengeRotationIndex % available.count
+        activeMission = available[index]
+        challengeRotationIndex = (challengeRotationIndex + 1) % max(available.count, 1)
+        showingMission = true
     }
     
     private func handleChallengeComplete() {
@@ -243,6 +271,19 @@ struct SessionInterventionView: View {
         case .onStop:
             onStopConfirmed()
         }
+    }
+
+    // MARK: - Mission Data
+    private func focusTypingSettings() -> TypingSettings {
+        var settings = TypingMissionStore.shared.loadSettings(for: "default")
+        settings.repeatCount = 1
+        return settings
+    }
+
+    private func focusTypingPhrases(settings: TypingSettings) -> [Phrase] {
+        let selected = TypingMissionStore.shared.allPhrases
+            .filter { settings.selectedPhraseIDs.contains($0.id) }
+        return selected.isEmpty ? TypingSettings.defaultPhrases : selected
     }
     
     // MARK: - Floating App Icons
@@ -305,6 +346,216 @@ struct SessionInterventionView: View {
             .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
         }
         .buttonStyle(PressedScaleButtonStyle())
+    }
+}
+
+private struct FocusHouseholdItemHuntMissionView: View {
+    let onComplete: () -> Void
+    let onCancel: () -> Void
+
+    @State private var referenceImage: UIImage?
+    @State private var isCapturingReference = false
+    @State private var showImagePicker = false
+    @State private var pickerSource: UIImagePickerController.SourceType = .camera
+    @State private var showPermissionAlert = false
+    @State private var isEvaluating = false
+    @State private var feedbackMessage: String?
+    @State private var feedbackColor: Color = Colors.textSecondary
+    @State private var similarityPercent: Int?
+
+    var body: some View {
+        ZStack {
+            Colors.bgPrimary.ignoresSafeArea()
+
+            VStack(spacing: 20) {
+                Text("Household Item Hunt")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.top, 52)
+
+                Text("Set a target item first, then take another photo of the same item to unlock.")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 28)
+
+                ZStack {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(Color.white.opacity(0.08))
+                        .frame(height: 250)
+
+                    if let image = referenceImage {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(height: 250)
+                            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    } else {
+                        VStack(spacing: 10) {
+                            Image(systemName: "camera.macro")
+                                .font(.system(size: 38, weight: .semibold))
+                                .foregroundColor(Colors.textSecondary)
+                            Text("No target item yet")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(Colors.textSecondary)
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+
+                if let similarityPercent {
+                    Text("Similarity: \(similarityPercent)%")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Colors.textSecondary)
+                }
+
+                if let feedbackMessage {
+                    Text(feedbackMessage)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(feedbackColor)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                }
+
+                if isEvaluating {
+                    ProgressView("Comparing images...")
+                        .tint(Colors.accentTeal)
+                        .foregroundColor(.white)
+                }
+
+                VStack(spacing: 12) {
+                    Button(action: { startCapture(referenceMode: true) }) {
+                        Text(referenceImage == nil ? "Set Target Item" : "Reset Target Item")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.white.opacity(0.14))
+                            .clipShape(Capsule())
+                    }
+                    .disabled(isEvaluating)
+
+                    Button(action: { startCapture(referenceMode: false) }) {
+                        Text("Match Item to Unlock")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundColor(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                LinearGradient(
+                                    colors: [TimerPalette.accentSoft, TimerPalette.accent],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .clipShape(Capsule())
+                    }
+                    .disabled(referenceImage == nil || isEvaluating)
+                }
+                .padding(.horizontal, 24)
+
+                Button("Cancel") { onCancel() }
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Colors.textTertiary)
+                    .padding(.top, 4)
+
+                Spacer()
+            }
+        }
+        .fullScreenCover(isPresented: $showImagePicker) {
+            ImagePicker(sourceType: pickerSource) { image in
+                guard let image else { return }
+                handleCapturedImage(image)
+            }
+            .ignoresSafeArea()
+        }
+        .alert("Camera permission needed", isPresented: $showPermissionAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Open Settings") {
+                guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                UIApplication.shared.open(url)
+            }
+        } message: {
+            Text("Enable camera access to complete Household Item Hunt.")
+        }
+    }
+
+    private func startCapture(referenceMode: Bool) {
+        isCapturingReference = referenceMode
+        similarityPercent = nil
+        feedbackMessage = nil
+        feedbackColor = Colors.textSecondary
+
+        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+            switch AVCaptureDevice.authorizationStatus(for: .video) {
+            case .authorized:
+                pickerSource = .camera
+                showImagePicker = true
+            case .notDetermined:
+                AVCaptureDevice.requestAccess(for: .video) { granted in
+                    DispatchQueue.main.async {
+                        if granted {
+                            pickerSource = .camera
+                            showImagePicker = true
+                        } else {
+                            showPermissionAlert = true
+                        }
+                    }
+                }
+            case .denied, .restricted:
+                showPermissionAlert = true
+            @unknown default:
+                showPermissionAlert = true
+            }
+        } else {
+            pickerSource = .photoLibrary
+            showImagePicker = true
+        }
+    }
+
+    private func handleCapturedImage(_ image: UIImage) {
+        if isCapturingReference {
+            referenceImage = image
+            feedbackMessage = "Target item saved. Now capture the same item to unlock."
+            feedbackColor = .green
+            return
+        }
+
+        guard let referenceImage else {
+            feedbackMessage = "Set a target item first."
+            feedbackColor = Colors.accentRed
+            return
+        }
+
+        isEvaluating = true
+        Task {
+            do {
+                let result = try await HouseholdItemHuntMatcher.shared.evaluate(
+                    reference: referenceImage,
+                    candidate: image
+                )
+                await MainActor.run {
+                    isEvaluating = false
+                    similarityPercent = result.similarityPercent
+                    if result.isMatch {
+                        feedbackMessage = "Match found. Mission complete."
+                        feedbackColor = .green
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        onComplete()
+                    } else {
+                        feedbackMessage = "Not close enough. Try capturing the same item again."
+                        feedbackColor = Colors.accentRed
+                        UINotificationFeedbackGenerator().notificationOccurred(.error)
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isEvaluating = false
+                    feedbackMessage = error.localizedDescription
+                    feedbackColor = Colors.accentRed
+                }
+            }
+        }
     }
 }
 

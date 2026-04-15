@@ -14,22 +14,30 @@ struct MockActivityPickerSheet: View {
         let emoji: String
     }
 
-    private static let categories: [MockCategory] = [
+    static let categories: [MockCategory] = [
         .init(id: "all", title: "All Apps & Categories", emoji: "📱"),
         .init(id: "social", title: "Social", emoji: "💬"),
         .init(id: "games", title: "Games", emoji: "🎮"),
         .init(id: "entertainment", title: "Entertainment", emoji: "🍿"),
+        .init(id: "creativity", title: "Creativity", emoji: "🎨"),
         .init(id: "productivity", title: "Productivity", emoji: "📈"),
         .init(id: "education", title: "Education", emoji: "📚"),
+        .init(id: "information", title: "Information & Reading", emoji: "📰"),
+        .init(id: "business", title: "Business", emoji: "💼"),
+        .init(id: "shopping", title: "Shopping", emoji: "🛍️"),
+        .init(id: "finance", title: "Finance", emoji: "💳"),
+        .init(id: "travel", title: "Travel", emoji: "✈️"),
+        .init(id: "food", title: "Food & Delivery", emoji: "🍔"),
+        .init(id: "music", title: "Music", emoji: "🎵"),
         .init(id: "utilities", title: "Utilities", emoji: "🛠️"),
         .init(id: "health", title: "Health & Fitness", emoji: "❤️")
     ]
 
-    private static let apps: [MockApp] = [
+    static let apps: [MockApp] = [
         .init(id: "com.apple.mobilesafari", name: "Safari", categoryID: "utilities", emoji: "🧭"),
         .init(id: "com.apple.MobileSMS", name: "Messages", categoryID: "social", emoji: "💬"),
         .init(id: "com.apple.MobileMail", name: "Mail", categoryID: "productivity", emoji: "✉️"),
-        .init(id: "com.apple.Music", name: "Music", categoryID: "entertainment", emoji: "🎵"),
+        .init(id: "com.apple.Music", name: "Apple Music", categoryID: "music", emoji: "🎵"),
         .init(id: "com.apple.calculator", name: "Calculator", categoryID: "utilities", emoji: "🔢"),
         .init(id: "com.apple.reminders", name: "Reminders", categoryID: "productivity", emoji: "📝"),
         .init(id: "com.alarmo.habit", name: "Habit", categoryID: "health", emoji: "✅"),
@@ -40,14 +48,35 @@ struct MockActivityPickerSheet: View {
         .init(id: "com.tiktok", name: "TikTok", categoryID: "social", emoji: "🎵"),
         .init(id: "com.x.twitter", name: "X", categoryID: "social", emoji: "🐦"),
         .init(id: "com.whatsapp", name: "WhatsApp", categoryID: "social", emoji: "💬"),
-        .init(id: "com.spotify", name: "Spotify", categoryID: "entertainment", emoji: "🎧"),
+        .init(id: "com.spotify", name: "Spotify", categoryID: "music", emoji: "🎧"),
         .init(id: "com.youtube", name: "YouTube", categoryID: "entertainment", emoji: "📺"),
         .init(id: "com.netflix", name: "Netflix", categoryID: "entertainment", emoji: "🎬"),
         .init(id: "com.roblox", name: "Roblox", categoryID: "games", emoji: "🎮"),
         .init(id: "com.candycrush", name: "Candy Crush", categoryID: "games", emoji: "🍬"),
         .init(id: "com.notion", name: "Notion", categoryID: "productivity", emoji: "📒"),
-        .init(id: "com.slack", name: "Slack", categoryID: "productivity", emoji: "💬")
+        .init(id: "com.slack", name: "Slack", categoryID: "business", emoji: "💬"),
+        .init(id: "com.reuters", name: "Reuters", categoryID: "information", emoji: "📰"),
+        .init(id: "com.apple.news", name: "News", categoryID: "information", emoji: "🗞️"),
+        .init(id: "com.linkedin", name: "LinkedIn", categoryID: "business", emoji: "💼"),
+        .init(id: "com.amazon.mobile", name: "Amazon", categoryID: "shopping", emoji: "🛒"),
+        .init(id: "com.ebay.mobile", name: "eBay", categoryID: "shopping", emoji: "📦"),
+        .init(id: "com.paypal", name: "PayPal", categoryID: "finance", emoji: "💳"),
+        .init(id: "com.revolut", name: "Revolut", categoryID: "finance", emoji: "💶"),
+        .init(id: "com.booking", name: "Booking.com", categoryID: "travel", emoji: "🏨"),
+        .init(id: "com.uber", name: "Uber", categoryID: "travel", emoji: "🚕"),
+        .init(id: "com.uber.eats", name: "Uber Eats", categoryID: "food", emoji: "🍔"),
+        .init(id: "com.doordash", name: "DoorDash", categoryID: "food", emoji: "🥡"),
+        .init(id: "com.canva", name: "Canva", categoryID: "creativity", emoji: "🎨"),
+        .init(id: "com.capcut", name: "CapCut", categoryID: "creativity", emoji: "✂️")
     ]
+
+    static func appDisplayName(for id: String) -> String {
+        apps.first(where: { $0.id == id })?.name ?? id
+    }
+
+    static func categoryDisplayName(for id: String) -> String {
+        categories.first(where: { $0.id == id })?.title ?? id
+    }
 
     @Environment(\.dismiss) private var dismiss
     @State private var query: String = ""

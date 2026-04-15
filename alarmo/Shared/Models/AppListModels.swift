@@ -116,7 +116,7 @@ enum AppListMigrationCoordinator {
         let existing = (try? context.fetch(descriptor)) ?? []
 
         if existing.isEmpty, !settings.blockedAppsSelectionData.isEmpty {
-            let legacy = AppList(type: .block, name: "Block List", selectionData: settings.blockedAppsSelectionData)
+            let legacy = AppList(type: .block, name: "🛑 App Block List", selectionData: settings.blockedAppsSelectionData)
             context.insert(legacy)
             settings.selectedBlockListId = legacy.id.uuidString
             try? context.save()

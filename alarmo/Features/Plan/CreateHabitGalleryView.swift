@@ -225,6 +225,7 @@ struct CreateHabitGalleryView: View {
         newItem.metricKind = template.metricKind
         newItem.goalValue = template.goalValue
         newItem.goalUnit = template.goalUnit
+        newItem.autoHealthTracking = inferredHealthTracking(for: template)
         
         selectedTemplateItem = newItem
     }
@@ -248,6 +249,35 @@ struct CreateHabitGalleryView: View {
         
         // Don't insert yet. Present for editing.
         selectedTemplateItem = newItem
+    }
+
+    private func inferredHealthTracking(for template: HabitTemplate) -> String? {
+        let title = template.title.lowercased()
+        let unit = template.goalUnit.lowercased()
+
+        if unit.contains("step") { return "steps" }
+
+        let distanceUnits = ["km", "mi", "m", "meter", "metre", "mile", "kilometer", "kilometre"]
+        let isDistance = distanceUnits.contains { unit.hasPrefix($0) || unit == "\($0)s" }
+        if isDistance {
+            if title.contains("cycle") || title.contains("bike") || title.contains("ride") || title.contains("spin") {
+                return "cycling"
+            }
+            if title.contains("run") || title.contains("jog") || title.contains("sprint") {
+                return "running"
+            }
+            return "distance"
+        }
+
+        if (unit.contains("hour") || unit == "h" || unit == "hr"), title.contains("sleep") {
+            return "sleep"
+        }
+
+        if (unit.contains("min") || unit == "m"), (title.contains("meditat") || title.contains("mindful") || title.contains("breath")) {
+            return "mindfulness"
+        }
+
+        return nil
     }
 }
 

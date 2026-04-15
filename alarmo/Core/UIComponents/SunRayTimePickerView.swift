@@ -1,5 +1,4 @@
 import SwiftUI
-import AudioToolbox
 
 struct SunRayTimePickerView: View {
     @Binding var hour: Int
@@ -32,11 +31,9 @@ struct SunRayTimePickerView: View {
     
     // Ring glow pulse animation
     @State private var ringGlowPulse: CGFloat = 0.0
-    @State private var lastTickSoundAt: CFAbsoluteTime = 0
     
     private let size: CGFloat = 240
     private let feedback = UISelectionFeedbackGenerator()
-    private let impactFeedback = UIImpactFeedbackGenerator(style: .light) // Stronger click
     
     enum TimeComponent {
         case hour
@@ -499,12 +496,6 @@ struct SunRayTimePickerView: View {
     
     private func triggerFeedback() {
         feedback.selectionChanged()
-        impactFeedback.impactOccurred(intensity: 0.7) // Medium-strong impact
-        let now = CFAbsoluteTimeGetCurrent()
-        if now - lastTickSoundAt > 0.02 {
-            AudioServicesPlaySystemSound(1157) // Native iOS picker wheel tick sound
-            lastTickSoundAt = now
-        }
     }
     
     private func setAM() {

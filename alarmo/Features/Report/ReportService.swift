@@ -6,7 +6,7 @@ import SwiftUI
 
 enum ReportDomain: String, CaseIterable, Identifiable, Sendable {
     case habits = "Habits"
-    case tasks = "Tasks"
+    case tasks = "Pomodoro"
     case alarms = "Alarms"
     var id: String { rawValue }
     

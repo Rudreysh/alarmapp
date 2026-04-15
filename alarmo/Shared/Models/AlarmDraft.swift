@@ -27,6 +27,7 @@ struct AlarmDraft: Equatable {
     var snoozeCount: Int = 3
     var wallpaperId: String = "default"
     var dailyMotivationEnabled: Bool = false
+    var visualOutputSettings: AlarmVisualOutputSettings = AlarmVisualOutputSettings()
     var missions: [AlarmMission] = []
     
     // Accountability Penalty
@@ -46,6 +47,10 @@ struct AlarmDraft: Equatable {
         self.soundName = defaultSoundName.isEmpty ? "Orkney" : defaultSoundName
         self.soundVolume = defaultSoundVolume
         self.wallpaperId = Self.resolveWallpaperId(defaultWallpaperId)
+        self.visualOutputSettings = AlarmVisualOutputSettings.migratedFromLegacy(
+            wallpaperId: self.wallpaperId,
+            dailyMotivationEnabled: false
+        )
     }
 
     private static func resolveWallpaperId(_ id: String) -> String {

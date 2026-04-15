@@ -1,6 +1,66 @@
 import Foundation
 import SwiftUI
 import Combine
+import AuthenticationServices
+
+enum AlarmClockStyle: String, Codable, CaseIterable, Identifiable {
+    case classicSunray = "classic_sunray"
+    case focusDial = "focus_dial"
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .classicSunray:
+            return "Classic Sunray"
+        case .focusDial:
+            return "Focus Ring"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .classicSunray:
+            return "Current alarm dial with sunray ticks"
+        case .focusDial:
+            return "Pomodoro-style ring dial for alarms"
+        }
+    }
+}
+
+enum AlarmFocusRingGradient: String, Codable, CaseIterable, Identifiable {
+    case aurora = "aurora"
+    case sunset = "sunset"
+    case ocean = "ocean"
+    case rose = "rose"
+    case emerald = "emerald"
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .aurora: return "Aurora"
+        case .sunset: return "Sunset"
+        case .ocean: return "Ocean"
+        case .rose: return "Rose"
+        case .emerald: return "Emerald"
+        }
+    }
+}
+
+enum AlarmThemeStyle: String, Codable, CaseIterable, Identifiable {
+    case `default` = "default"
+    case lilacCalm = "lilac_calm"
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .default: return "Default"
+        case .lilacCalm: return "Lilac Calm"
+        }
+    }
+}
 
 class SettingsStore: ObservableObject {
     static let shared = SettingsStore()
@@ -9,6 +69,9 @@ class SettingsStore: ObservableObject {
     private enum Keys {
         static let isSignedIn = "settings.isSignedIn"
         static let appleUserId = "settings.appleUserId"
+        static let appleEmail = "settings.appleEmail"
+        static let appleGivenName = "settings.appleGivenName"
+        static let appleFamilyName = "settings.appleFamilyName"
         static let points = "settings.points"
         static let themeMode = "settings.themeMode"
         static let soundOutputMode = "settings.soundOutputMode"
@@ -27,7 +90,15 @@ class SettingsStore: ObservableObject {
         static let blockedAppsSelectionData = "settings.blockedAppsSelectionData"
         static let blockedMockAppsData = "settings.blockedMockAppsData"
         static let blockedMockCategoriesData = "settings.blockedMockCategoriesData"
+        static let blockedAdultContentEnabled = "settings.blockedAdultContentEnabled"
         static let selectedBlockListId = "settings.selectedBlockListId"
+        static let alarmWallpaperId = "settings.alarmWallpaperId"
+        static let alarmDailyMotivationEnabled = "settings.alarmDailyMotivationEnabled"
+        static let alarmVisualOutputSettingsData = "settings.alarmVisualOutputSettingsData"
+        static let alarmRingInSilentModeEnabled = "settings.alarmRingInSilentModeEnabled"
+        static let alarmClockStyleRaw = "settings.alarmClockStyleRaw"
+        static let alarmFocusRingGradientRaw = "settings.alarmFocusRingGradientRaw"
+        static let alarmThemeStyleRaw = "settings.alarmThemeStyleRaw"
         static let penaltyEnabled = "settings.penaltyEnabled"
         static let penaltyAmountEuro = "settings.penaltyAmountEuro"
         static let penaltyCreditsBalance = "settings.penaltyCreditsBalance"
@@ -48,6 +119,9 @@ class SettingsStore: ObservableObject {
     
     @AppStorage(Keys.isSignedIn) var isSignedIn: Bool = false
     @AppStorage(Keys.appleUserId) var appleUserId: String = ""
+    @AppStorage(Keys.appleEmail) var appleEmail: String = ""
+    @AppStorage(Keys.appleGivenName) var appleGivenName: String = ""
+    @AppStorage(Keys.appleFamilyName) var appleFamilyName: String = ""
     @AppStorage(Keys.points) var points: Int = 13
     
     @Published var themeMode: ThemeMode {
@@ -71,7 +145,15 @@ class SettingsStore: ObservableObject {
     @AppStorage(Keys.blockedAppsSelectionData) var blockedAppsSelectionData: Data = Data()
     @AppStorage(Keys.blockedMockAppsData) var blockedMockAppsData: Data = Data()
     @AppStorage(Keys.blockedMockCategoriesData) var blockedMockCategoriesData: Data = Data()
+    @AppStorage(Keys.blockedAdultContentEnabled) var blockedAdultContentEnabled: Bool = false
     @AppStorage(Keys.selectedBlockListId) var selectedBlockListId: String = ""
+    @AppStorage(Keys.alarmWallpaperId) var alarmWallpaperId: String = "default"
+    @AppStorage(Keys.alarmDailyMotivationEnabled) var alarmDailyMotivationEnabled: Bool = false
+    @AppStorage(Keys.alarmVisualOutputSettingsData) var alarmVisualOutputSettingsData: Data = Data()
+    @AppStorage(Keys.alarmRingInSilentModeEnabled) var alarmRingInSilentModeEnabled: Bool = true
+    @AppStorage(Keys.alarmClockStyleRaw) var alarmClockStyleRaw: String = AlarmClockStyle.classicSunray.rawValue
+    @AppStorage(Keys.alarmFocusRingGradientRaw) var alarmFocusRingGradientRaw: String = AlarmFocusRingGradient.aurora.rawValue
+    @AppStorage(Keys.alarmThemeStyleRaw) var alarmThemeStyleRaw: String = AlarmThemeStyle.default.rawValue
     @AppStorage(Keys.penaltyEnabled) var penaltyEnabled: Bool = false
     @AppStorage(Keys.penaltyAmountEuro) var penaltyAmountEuro: Int = 1
     @AppStorage(Keys.penaltyCreditsBalance) var penaltyCreditsBalance: Int = 0
@@ -199,9 +281,97 @@ class SettingsStore: ObservableObject {
         set { blockedMockCategoriesData = (try? JSONEncoder().encode(newValue)) ?? Data() }
     }
 
+    var alarmVisualOutputSettings: AlarmVisualOutputSettings {
+        get {
+            if let decoded = try? JSONDecoder().decode(AlarmVisualOutputSettings.self, from: alarmVisualOutputSettingsData) {
+                return decoded
+            }
+            return AlarmVisualOutputSettings.migratedFromLegacy(
+                wallpaperId: alarmWallpaperId,
+                dailyMotivationEnabled: alarmDailyMotivationEnabled
+            )
+        }
+        set {
+            alarmVisualOutputSettingsData = (try? JSONEncoder().encode(newValue)) ?? Data()
+            alarmWallpaperId = newValue.separateWallpaperId ?? alarmWallpaperId
+            alarmDailyMotivationEnabled =
+                newValue.contentSource == .quotesOnly || newValue.contentSource == .wallpaperAndQuotes
+        }
+    }
+
+    var alarmClockStyle: AlarmClockStyle {
+        get { AlarmClockStyle(rawValue: alarmClockStyleRaw) ?? .classicSunray }
+        set { alarmClockStyleRaw = newValue.rawValue }
+    }
+
+    var alarmFocusRingGradient: AlarmFocusRingGradient {
+        get { AlarmFocusRingGradient(rawValue: alarmFocusRingGradientRaw) ?? .aurora }
+        set { alarmFocusRingGradientRaw = newValue.rawValue }
+    }
+
+    var alarmThemeStyle: AlarmThemeStyle {
+        get { AlarmThemeStyle(rawValue: alarmThemeStyleRaw) ?? .default }
+        set { alarmThemeStyleRaw = newValue.rawValue }
+    }
+
     var lastPenaltyDate: Date? {
         guard lastPenaltyEventAt > 0 else { return nil }
         return Date(timeIntervalSince1970: lastPenaltyEventAt)
+    }
+
+    var profileDisplayName: String {
+        let fullName = "\(appleGivenName) \(appleFamilyName)"
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !fullName.isEmpty { return fullName }
+        if !appleEmail.isEmpty { return appleEmail }
+        if isSignedIn { return "Signed in with Apple" }
+        return "Sign in to profile"
+    }
+
+    func completeAppleSignIn(with credential: ASAuthorizationAppleIDCredential) {
+        let userId = credential.user
+        if let data = userId.data(using: .utf8) {
+            KeychainHelper.shared.save(data, service: "com.alarmo.auth", account: "appleUserId")
+        }
+        isSignedIn = true
+        appleUserId = userId
+
+        if let email = credential.email, !email.isEmpty {
+            appleEmail = email
+        }
+        if let givenName = credential.fullName?.givenName, !givenName.isEmpty {
+            appleGivenName = givenName
+        }
+        if let familyName = credential.fullName?.familyName, !familyName.isEmpty {
+            appleFamilyName = familyName
+        }
+    }
+
+    func signOutAppleAccount() {
+        isSignedIn = false
+        appleUserId = ""
+        appleEmail = ""
+        appleGivenName = ""
+        appleFamilyName = ""
+        KeychainHelper.shared.delete(service: "com.alarmo.auth", account: "appleUserId")
+    }
+
+    func validateAppleCredentialStateIfNeeded() {
+        guard isSignedIn, !appleUserId.isEmpty else { return }
+        let provider = ASAuthorizationAppleIDProvider()
+        provider.getCredentialState(forUserID: appleUserId) { [weak self] state, error in
+            guard let self else { return }
+            if error != nil { return }
+            guard state == .authorized else {
+                DispatchQueue.main.async {
+                    self.signOutAppleAccount()
+                }
+                return
+            }
+            DispatchQueue.main.async {
+                self.isSignedIn = true
+            }
+        }
     }
 
     func appendPenaltyAudit(_ event: AccountabilityAuditEvent) {

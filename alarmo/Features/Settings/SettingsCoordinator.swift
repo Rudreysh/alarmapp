@@ -2,6 +2,10 @@ import SwiftUI
 import Combine
 
 enum SettingsRoute: Hashable {
+    case alarm
+    case habit
+    case timer
+    case overlap
     case advanced
     case theme
     case soundOutput

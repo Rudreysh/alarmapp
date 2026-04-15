@@ -32,12 +32,6 @@ final class ScreenTimeAuthorizationManager: ObservableObject {
             ? "Simulator mock mode is active. App/category selections are simulated."
             : "Simulator mock mode: tap Enable Screen Time Access to test blocking flows."
         #elseif canImport(FamilyControls)
-        guard EntitlementInspector.hasFamilyControlsAccess else {
-            state = .notAvailable
-            statusMessage = "Screen Time capability is missing in this build. Enable Family Controls entitlement."
-            return
-        }
-
         let status = AuthorizationCenter.shared.authorizationStatus
         switch status {
         case .approved:
@@ -48,7 +42,9 @@ final class ScreenTimeAuthorizationManager: ObservableObject {
             statusMessage = "Screen Time permission is denied. Enable it in iOS Settings."
         case .notDetermined:
             state = .unknown
-            statusMessage = nil
+            statusMessage = EntitlementInspector.hasFamilyControlsAccess
+                ? nil
+                : "Screen Time capability may be missing in this build. If picker fails, check Family Controls capability and provisioning."
         @unknown default:
             state = .unknown
             statusMessage = nil
@@ -65,12 +61,6 @@ final class ScreenTimeAuthorizationManager: ObservableObject {
         state = .approved
         statusMessage = "Simulator mock mode is active. App/category selections are simulated."
         #elseif canImport(FamilyControls)
-        guard EntitlementInspector.hasFamilyControlsAccess else {
-            state = .notAvailable
-            statusMessage = "Screen Time capability is missing in this build. Enable Family Controls entitlement."
-            return
-        }
-
         do {
             try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
             statusMessage = nil
@@ -80,6 +70,10 @@ final class ScreenTimeAuthorizationManager: ObservableObject {
             if nsError.domain == NSCocoaErrorDomain && nsError.code == 4099 {
                 state = .notAvailable
                 statusMessage = "Could not connect to FamilyControlsAgent. Use a real device and ensure Family Controls entitlement is enabled."
+                return
+            } else if isLikelyMissingCapabilityError(nsError) {
+                state = .notAvailable
+                statusMessage = "Screen Time capability is missing in this build. Enable Family Controls capability and refresh provisioning profile."
                 return
             } else {
                 statusMessage = error.localizedDescription
@@ -102,4 +96,21 @@ final class ScreenTimeAuthorizationManager: ObservableObject {
         refreshStatus()
     }
     #endif
+
+    private func isLikelyMissingCapabilityError(_ error: NSError) -> Bool {
+        let details = "\(error.domain) \(error.localizedDescription) \(error.userInfo)"
+            .lowercased()
+
+        if details.contains("entitlement") || details.contains("family controls") {
+            return true
+        }
+
+        // Common platform-level denied errors when entitlement/capability is absent.
+        if details.contains("request was denied by service delegate") ||
+            details.contains("could not connect to familycontrolsagent") ||
+            details.contains("not available on this build") {
+            return true
+        }
+        return false
+    }
 }

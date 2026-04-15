@@ -6,12 +6,20 @@ struct DraggableDialTimer: View {
     var isRunning: Bool
     var progress: Double // Used when running, 0 to 1
     var color: Color
+    var centerSymbol: String = "timer"
+    var particleSeed: String = "focus"
     var maxSeconds: Int = 180 * 60 // 3 hours max
+    var onCenterTap: (() -> Void)? = nil
 
     @State private var isDragging: Bool = false
+    @State private var lastDragUpdateTime: TimeInterval = 0
     
     private var accentSunYellow: Color {
         Color(red: 0.98, green: 0.84, blue: 0.30)
+    }
+
+    private var centerAccentColor: Color {
+        semanticColor(for: centerSymbol) ?? color
     }
 
     private var totalMinutes: Int {
@@ -42,132 +50,116 @@ struct DraggableDialTimer: View {
             let size = min(geo.size.width, geo.size.height)
             let radius = size / 2
             let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
-
-            let dialSize = size * 0.92
-            let innerRadius = radius * 0.70
-            let currentTickIndex = Int(round(ringFraction * 60)) % 60
+            let trackWidth = size * 0.16
+            let ringRadius = (size - trackWidth) / 2
+            let innerDiameter = size * 0.64
+            let logoBadgeDiameter = size * 0.44
+            let knobAngle = Angle.degrees((ringFraction * 360) - 90)
 
             ZStack {
-                // Sunray-style ambient ring glow.
                 Circle()
-                    .stroke(
-                        AngularGradient(
-                            colors: [
-                                Colors.accentBlue.opacity(isDragging ? 0.14 : 0.10),
-                                color.opacity(isDragging ? 0.20 : 0.14),
-                                accentSunYellow.opacity(isDragging ? 0.12 : 0.08),
-                                Colors.accentBlue.opacity(isDragging ? 0.14 : 0.10)
-                            ],
-                            center: .center
-                        ),
-                        lineWidth: 8
-                    )
-                    .blur(radius: 6)
-                    .frame(width: dialSize + 14, height: dialSize + 14)
+                    .stroke(Color.white.opacity(0.18), style: StrokeStyle(lineWidth: trackWidth, lineCap: .round))
+                    .frame(width: size, height: size)
 
-                Circle()
-                    .stroke(Color.white.opacity(0.05), lineWidth: 1)
-                    .frame(width: dialSize, height: dialSize)
-
-                // Sunray ticks around the dial.
-                ForEach(0..<60) { i in
-                    let isStep = i % 5 == 0
-                    let tickFraction = Double(i) / 60.0
-                    let isActive = tickFraction <= (ringFraction + 0.005)
-                    let isHead = i == currentTickIndex && ringFraction > 0
-
-                    Capsule()
-                        .fill(isActive ? color : Color.white.opacity(isStep ? 0.30 : 0.10))
-                        .frame(
-                            width: isHead ? 3.5 : (isStep ? 2.2 : 1.1),
-                            height: isHead ? size * 0.073 : (isStep ? size * 0.050 : size * 0.028)
-                        )
-                        .offset(y: -(dialSize / 2))
-                        .rotationEffect(.degrees(Double(i) * 6))
-                        .shadow(
-                            color: isHead ? color.opacity(0.8) : (isActive ? color.opacity(0.5) : .clear),
-                            radius: isHead ? 8 : 4
-                        )
-                        .scaleEffect(isHead ? 1.12 : 1.0)
-                        .animation(.spring(response: 0.26, dampingFraction: 0.8), value: ringFraction)
-                }
-
-                // Active outer ring like alarm editor style.
                 Circle()
                     .trim(from: 0.0, to: ringFraction)
                     .stroke(
                         AngularGradient(
                             colors: [
-                                Colors.accentBlue.opacity(0.45),
+                                color.opacity(0.60),
                                 color,
-                                accentSunYellow.opacity(0.74),
-                                Colors.accentBlue.opacity(0.70)
+                                accentSunYellow.opacity(0.72),
+                                color.opacity(0.70)
                             ],
                             center: .center,
                             startAngle: .degrees(0),
                             endAngle: .degrees(360 * ringFraction)
                         ),
-                        style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
+                        style: StrokeStyle(lineWidth: trackWidth, lineCap: .round)
                     )
-                    .frame(width: dialSize + 10, height: dialSize + 10)
+                    .frame(width: size, height: size)
                     .rotationEffect(.degrees(-90))
-                    .shadow(color: color.opacity(0.4), radius: 6)
-                    .animation(.interactiveSpring(response: 0.24, dampingFraction: 0.86), value: ringFraction)
+                    .shadow(color: color.opacity(0.45), radius: 10, x: 0, y: 4)
+                    .animation(.interactiveSpring(response: 0.20, dampingFraction: 0.84), value: ringFraction)
 
-                // Glass-like center to match alarm dial style.
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [Color.white.opacity(0.05), Color.black.opacity(0.22)],
+                            colors: [
+                                centerAccentColor.opacity(0.28),
+                                centerAccentColor.opacity(0.14),
+                                Color.white.opacity(0.07)
+                            ],
                             center: .center,
-                            startRadius: 10,
-                            endRadius: innerRadius
+                            startRadius: innerDiameter * 0.04,
+                            endRadius: innerDiameter * 0.62
                         )
                     )
-                    .frame(width: innerRadius * 2, height: innerRadius * 2)
+                    .frame(width: innerDiameter, height: innerDiameter)
                     .overlay(
                         Circle()
-                            .stroke(color.opacity(0.28), lineWidth: 1)
+                            .stroke(centerAccentColor.opacity(0.32), lineWidth: 1.2)
                     )
 
-                // Keep pointer movement behavior unchanged (visual only restyled).
-                if !isRunning {
-                    let handAngle = Angle.degrees(ringFraction * 360)
-
-                    ZStack {
-                        Rectangle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.96),
-                                        color.opacity(0.92),
-                                        accentSunYellow.opacity(0.68)
-                                    ],
-                                    startPoint: .bottom,
-                                    endPoint: .top
-                                )
-                            )
-                            .frame(width: 3, height: innerRadius)
-                            .offset(y: -innerRadius / 2)
-                            .shadow(color: .white.opacity(0.8), radius: 4)
-
-                        Circle()
-                            .fill(Color.white)
-                            .frame(width: 14, height: 14)
-                            .shadow(color: .white.opacity(0.8), radius: 4)
+                centerSymbolView(logoBadgeDiameter: logoBadgeDiameter)
+                    .contentShape(Circle())
+                    .onTapGesture {
+                        onCenterTap?()
                     }
-                    .rotationEffect(handAngle)
+
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: false)) { timeline in
+                    let now = timeline.date.timeIntervalSinceReferenceDate
+                    let isActivelyMoving = isDragging && (now - lastDragUpdateTime) < 0.12
+                    if isActivelyMoving && ringFraction > 0.001 {
+                        let startAngle = -Double.pi / 2
+                        let sweep = (Double.pi * 2) * ringFraction
+
+                        ForEach(0..<18, id: \.self) { i in
+                            let seed = seededValue(index: i, salt: 91)
+                            let speed = 0.22 + seededValue(index: i, salt: 17) * 0.58
+                            let direction = seededValue(index: i, salt: 33) > 0.5 ? 1.0 : -1.0
+                            // Keep particles constrained to the progressed arc only.
+                            let arcPosition = seededValue(index: i, salt: 71)
+                            let baseAngle = startAngle + (arcPosition * sweep)
+                            let angle = baseAngle + direction * now * speed * 0.08
+
+                            // Keep particles on donut surface (within ring thickness), not in background.
+                            let radialJitter = (seededValue(index: i, salt: 63) - 0.5) * (trackWidth * 0.70)
+                            let offsetRadius = ringRadius + radialJitter
+                            let x = cos(angle) * offsetRadius
+                            let y = sin(angle) * offsetRadius
+                            let alpha = 0.82 * (0.35 + seed * 0.65)
+                            let size = 2.0 + seededValue(index: i, salt: 49) * 7.0
+
+                            Group {
+                                if i % 3 == 0 {
+                                    Capsule(style: .circular)
+                                        .fill(color.opacity(alpha))
+                                        .frame(width: size * 2.1, height: size * 0.72)
+                                        .rotationEffect(.degrees((angle * 180 / .pi) + 90))
+                                } else {
+                                    Circle()
+                                        .fill((i % 2 == 0 ? color : accentSunYellow).opacity(alpha))
+                                        .frame(width: size, height: size)
+                                }
+                            }
+                            .offset(x: x, y: y)
+                        }
+                    }
                 }
 
-                if completedHours > 0 {
-                    Text("\(completedHours)h")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundColor(Colors.textSecondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(Color.white.opacity(0.08)))
-                        .offset(y: -size * 0.23)
-                }
+                // Draggable completion knob.
+                Circle()
+                    .fill(color.opacity(0.95))
+                    .frame(width: trackWidth * 0.86, height: trackWidth * 0.86)
+                    .overlay(
+                        Image(systemName: isDragging ? "arrow.left.and.right" : "arrow.down")
+                            .font(.system(size: trackWidth * 0.30, weight: .bold))
+                            .foregroundColor(.black.opacity(0.55))
+                    )
+                    .offset(x: cos(knobAngle.radians) * ringRadius, y: sin(knobAngle.radians) * ringRadius)
+                    .shadow(color: color.opacity(0.48), radius: 8, x: 0, y: 4)
+                    .animation(.interactiveSpring(response: 0.18, dampingFraction: 0.82), value: ringFraction)
             }
             .frame(width: size, height: size)
             .position(x: center.x, y: center.y)
@@ -176,7 +168,13 @@ struct DraggableDialTimer: View {
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
                         if isRunning { return }
+                        let dx = value.location.x - center.x
+                        let dy = value.location.y - center.y
+                        let distance = sqrt((dx * dx) + (dy * dy))
+                        let ringBand = trackWidth * 0.92
+                        guard abs(distance - ringRadius) <= ringBand else { return }
                         isDragging = true
+                        lastDragUpdateTime = Date().timeIntervalSinceReferenceDate
                         handleDrag(location: value.location, center: center)
                     }
                     .onEnded { _ in
@@ -220,5 +218,78 @@ struct DraggableDialTimer: View {
             UISelectionFeedbackGenerator().selectionChanged()
             AudioServicesPlaySystemSound(1104) // Tick sound
         }
+    }
+
+    @ViewBuilder
+    private func centerSymbolView(logoBadgeDiameter: CGFloat) -> some View {
+        let isEmoji = centerSymbol.allSatisfy({ !$0.isASCII })
+
+        return ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            centerAccentColor.opacity(0.42),
+                            centerAccentColor.opacity(0.24),
+                            Color.black.opacity(0.22)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.20), lineWidth: 1)
+                )
+                .shadow(color: centerAccentColor.opacity(0.30), radius: 10, x: 0, y: 4)
+
+            if isEmoji {
+                Text(centerSymbol)
+                    .font(.system(size: logoBadgeDiameter * 0.46))
+            } else {
+                Image(systemName: centerSymbol)
+                    .font(.system(size: logoBadgeDiameter * 0.42, weight: .semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(centerAccentColor.opacity(0.95))
+                    .shadow(color: Color.black.opacity(0.22), radius: 4, x: 0, y: 2)
+            }
+        }
+        .frame(width: logoBadgeDiameter, height: logoBadgeDiameter)
+    }
+
+    private func seededValue(index: Int, salt: Int) -> Double {
+        let seed = particleSeed.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+        let raw = sin(Double(seed + (index * 73) + (salt * 31)) * 12.9898) * 43758.5453
+        return raw - floor(raw)
+    }
+
+    private func semanticColor(for symbol: String) -> Color? {
+        let value = symbol.lowercased()
+
+        if value.contains("🧘") || value.contains("yoga") || value.contains("meditat") {
+            return Color(red: 0.62, green: 0.55, blue: 0.98)
+        }
+        if value.contains("🏃") || value.contains("run") || value.contains("walk") || value.contains("figure.run") {
+            return Color(red: 0.98, green: 0.48, blue: 0.23)
+        }
+        if value.contains("💧") || value.contains("drop") || value.contains("water") || value.contains("drink") {
+            return Color(red: 0.32, green: 0.69, blue: 0.97)
+        }
+        if value.contains("📚") || value.contains("book") || value.contains("read") || value.contains("study") {
+            return Color(red: 0.95, green: 0.67, blue: 0.24)
+        }
+        if value.contains("💻") || value.contains("laptop") || value.contains("code") || value.contains("work") {
+            return Color(red: 0.38, green: 0.86, blue: 0.70)
+        }
+        if value.contains("🎓") || value.contains("learn") || value.contains("graduationcap") {
+            return Color(red: 0.50, green: 0.75, blue: 1.00)
+        }
+        if value.contains("😴") || value.contains("sleep") || value.contains("bed") || value.contains("moon") {
+            return Color(red: 0.56, green: 0.62, blue: 0.94)
+        }
+        if value.contains("🧠") || value.contains("brain") || value.contains("focus") || value.contains("sparkles") {
+            return Color(red: 0.94, green: 0.55, blue: 0.75)
+        }
+        return nil
     }
 }

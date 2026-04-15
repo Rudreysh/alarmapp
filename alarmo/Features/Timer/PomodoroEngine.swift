@@ -12,6 +12,7 @@ class PomodoroEngine: ObservableObject {
     @Published var showingIntervention: Bool = false
     
     private let configStore: IntervalTimerConfigStore
+    private let runtimeStateStore: PomodoroRuntimeStateStore
     private var eventStore: PomodoroEventStore
     private var timer: AnyCancellable?
     private var entitlementProvider: EntitlementProvider
@@ -19,6 +20,7 @@ class PomodoroEngine: ObservableObject {
     private let notificationOrchestrator = NotificationOrchestrator.shared
     private var pendingSegmentNotificationId: String?
     private var didBindNotificationActions = false
+    private var didBindDarwinRunStateAction = false
     
     /// Callback for segment lifecycle events.
     /// Parameters: taskId, segment, durationSeconds
@@ -32,6 +34,11 @@ class PomodoroEngine: ObservableObject {
         if case .running = state.phase { return true }
         return false
     }
+
+    var parallelSessions: [ParallelFocusSession] {
+        state.parallelSessions
+            .sorted { $0.updatedAt > $1.updatedAt }
+    }
     
     var currentProgress: Double {
         guard let kind = state.currentSegment else { return 0 }
@@ -39,16 +46,50 @@ class PomodoroEngine: ObservableObject {
         guard total > 0 else { return 0 }
         return Double(total - state.remainingSeconds) / Double(total)
     }
+
+    private var currentSessionId: UUID? {
+        state.activeParallelSessionId
+    }
+
+    func switchToParallelSession(_ id: UUID, persistCurrent: Bool = true) {
+        if persistCurrent {
+            persistCurrentSessionSnapshot()
+        }
+        guard let selected = state.parallelSessions.first(where: { $0.id == id }) else { return }
+
+        state.activeParallelSessionId = selected.id
+        state.selectedTaskId = selected.taskId
+        state.overriddenTaskName = selected.focusName
+        state.currentSegment = selected.segment
+        state.remainingSeconds = selected.remainingSeconds
+
+        if selected.isRunning, let end = selected.endTime {
+            state.phase = .running(segment: selected.segment)
+            state.segmentEndDate = end
+            startTicker()
+        } else {
+            timer?.cancel()
+            state.phase = .paused(segment: selected.segment)
+            state.segmentEndDate = nil
+        }
+
+        syncLiveActivityFromSessions()
+        persistRuntimeState()
+    }
     
     init(configStore: IntervalTimerConfigStore? = nil,
          eventStore: PomodoroEventStore? = nil,
-         entitlementProvider: EntitlementProvider? = nil) {
+         entitlementProvider: EntitlementProvider? = nil,
+         runtimeStateStore: PomodoroRuntimeStateStore? = nil) {
         let store = configStore ?? IntervalTimerConfigStore()
         self.configStore = store
         self.config = store.config
+        self.runtimeStateStore = runtimeStateStore ?? PomodoroRuntimeStateStore()
         self.eventStore = eventStore ?? .shared
         self.entitlementProvider = entitlementProvider ?? MockEntitlementProvider()
-        self.state = PomodoroRuntimeState()
+        self.state = self.runtimeStateStore.load() ?? PomodoroRuntimeState()
+        reconcileLoadedRuntimeState()
+        bindDarwinRunStateActionIfNeeded()
         
         // Sync config updates
         // In a real app we might bind this, but for now init load is enough.
@@ -123,13 +164,70 @@ class PomodoroEngine: ObservableObject {
             }
             .store(in: &cancellables)
     }
+
+    private func bindDarwinRunStateActionIfNeeded() {
+        guard !didBindDarwinRunStateAction else { return }
+        didBindDarwinRunStateAction = true
+
+        let name = CFNotificationName("ht.alarmo.toggleRunState" as CFString)
+        let observer = Unmanaged.passUnretained(self).toOpaque()
+        CFNotificationCenterAddObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            observer,
+            { (_, observer, _, _, _) in
+                guard let observer else { return }
+                let engine = Unmanaged<PomodoroEngine>.fromOpaque(observer).takeUnretainedValue()
+                Task { @MainActor in
+                    engine.handleLiveActivityRunStateToggle()
+                }
+            },
+            name.rawValue,
+            nil,
+            .deliverImmediately
+        )
+    }
+
+    private func handleLiveActivityRunStateToggle() {
+        switch state.phase {
+        case .running:
+            pause()
+        case .paused:
+            resume()
+        default:
+            break
+        }
+    }
     
 
     // MARK: - Core Actions
     
     func start(taskId: UUID? = nil) {
+        var shouldStartFreshSession = false
         if let taskId = taskId {
-            state.selectedTaskId = taskId
+            if let existing = state.parallelSessions.first(where: { $0.taskId == taskId }) {
+                if state.activeParallelSessionId != existing.id {
+                    switchToParallelSession(existing.id)
+                }
+            } else {
+                persistCurrentSessionSnapshot()
+                state.selectedTaskId = taskId
+                state.activeParallelSessionId = taskId
+                if state.overriddenTaskName == nil || state.overriddenTaskName?.isEmpty == true {
+                    state.overriddenTaskName = "Focus"
+                }
+                state.phase = .idle
+                state.currentSegment = .focus
+                state.remainingSeconds = config.focusSeconds
+                state.segmentEndDate = nil
+                shouldStartFreshSession = true
+            }
+        }
+
+        hydrateBlockListSelectionFromSettingsIfNeeded()
+
+        if shouldStartFreshSession {
+            startSegment(.focus)
+            return
         }
         
         // If config disabled, force simple mode
@@ -161,9 +259,14 @@ class PomodoroEngine: ObservableObject {
         LiveActivityManager.shared.update(
             startTime: Date().addingTimeInterval(TimeInterval(-elapsed)),
             endTime: Date().addingTimeInterval(TimeInterval(state.remainingSeconds)),
+            remainingSeconds: state.remainingSeconds,
             isRunning: false,
             stateString: segment == .focus ? "Paused" : "Break Paused"
         )
+        persistCurrentSessionSnapshot()
+        syncLiveActivityFromSessions()
+        refreshBlockingForCurrentPhase()
+        persistRuntimeState()
     }
     
     func resume(segment: SegmentKind? = nil) {
@@ -183,9 +286,13 @@ class PomodoroEngine: ObservableObject {
         LiveActivityManager.shared.update(
             startTime: Date().addingTimeInterval(TimeInterval(-elapsed)),
             endTime: endDate,
+            remainingSeconds: state.remainingSeconds,
             isRunning: true,
             stateString: seg == .focus ? "Focus Hard" : "Break Time"
         )
+        persistCurrentSessionSnapshot()
+        syncLiveActivityFromSessions()
+        persistRuntimeState()
     }
     
     /// Called when the user taps Stop. If blocking is active during a focus session,
@@ -238,12 +345,18 @@ class PomodoroEngine: ObservableObject {
         BlockingManager.shared.clearBlocking()
         
         showingIntervention = false
-        LiveActivityManager.shared.end()
+        LiveActivityManager.shared.end(sessionId: currentSessionId)
         timer?.cancel()
         cancelPendingSegmentNotification()
         accountabilityManager.endFocusSession()
-        state = PomodoroRuntimeState()
-        state.remainingSeconds = config.focusSeconds
+        removeCurrentParallelSessionAndSelectNext()
+        if state.parallelSessions.isEmpty {
+            state = PomodoroRuntimeState()
+            state.remainingSeconds = config.focusSeconds
+            clearRuntimeState()
+        } else {
+            persistRuntimeState()
+        }
     }
     
     /// Called after challenge completed for a break (unblocks temporarily if blockDuringBreaks is false)
@@ -278,15 +391,22 @@ class PomodoroEngine: ObservableObject {
             BlockingManager.shared.clearBlocking()
         }
         
-        LiveActivityManager.shared.end()
+        LiveActivityManager.shared.end(sessionId: currentSessionId)
         timer?.cancel()
         cancelPendingSegmentNotification()
         accountabilityManager.endFocusSession()
+        removeCurrentParallelSessionAndSelectNext()
         if reset {
-            state = PomodoroRuntimeState()
-            state.remainingSeconds = config.focusSeconds
+            if state.parallelSessions.isEmpty {
+                state = PomodoroRuntimeState()
+                state.remainingSeconds = config.focusSeconds
+                clearRuntimeState()
+            } else {
+                persistRuntimeState()
+            }
         } else {
             state.phase = .idle
+            persistRuntimeState()
         }
     }
     
@@ -300,6 +420,9 @@ class PomodoroEngine: ObservableObject {
     // MARK: - State Machine Logic
     
     private func startSegment(_ kind: SegmentKind) {
+        if state.activeParallelSessionId == nil {
+            state.activeParallelSessionId = state.selectedTaskId ?? UUID()
+        }
         state.currentSegment = kind
         state.phase = .running(segment: kind)
         if kind == .focus {
@@ -324,19 +447,42 @@ class PomodoroEngine: ObservableObject {
         
         let focusName = state.overriddenTaskName ?? "Focus"
         let stateString = kind == .focus ? "Focus Hard" : "Break Time"
-        LiveActivityManager.shared.start(focusName: focusName, startTime: Date(), endTime: endDate, stateString: stateString)
+        LiveActivityManager.shared.start(
+            focusName: focusName,
+            startTime: Date(),
+            endTime: endDate,
+            remainingSeconds: state.remainingSeconds,
+            stateString: stateString,
+            activeSessionId: state.activeParallelSessionId
+        )
+        persistCurrentSessionSnapshot()
+        syncLiveActivityFromSessions()
+        persistRuntimeState()
     }
     
     // MARK: - App Blocking Bridge
     
     /// Whether the current focus session has app blocking enabled
     var isBlockingActive: Bool {
-        config.blockAppsEnabled && !config.selectedBlockListId.isEmpty
+        config.blockAppsEnabled && !effectiveSelectedBlockListId().isEmpty
     }
     
     /// Whether Deep Focus mode is active (can't stop early during focus)
     var isDeepFocusActive: Bool {
         config.difficultyMode == .deepFocus
+    }
+
+    /// True while a focus segment is active/paused and blocking is already engaged.
+    /// During this window, block settings must stay immutable to prevent bypass.
+    var isFocusBlockingControlsLocked: Bool {
+        switch state.phase {
+        case .running(let segment), .paused(let segment):
+            return segment == .focus &&
+                config.blockAppsEnabled &&
+                !effectiveSelectedBlockListId().isEmpty
+        default:
+            return false
+        }
     }
     
     /// Returns true if stop is currently allowed (blocked in deep focus during running focus)
@@ -349,6 +495,12 @@ class PomodoroEngine: ObservableObject {
     var activeBlockList: AppList? = nil
     
     func setActiveBlockList(_ list: AppList?) {
+        // Prevent changing/clearing the active block list mid focus lock session.
+        if isFocusBlockingControlsLocked,
+           list?.id != activeBlockList?.id {
+            return
+        }
+
         activeBlockList = list
         var c = config
         c.selectedBlockListId = list?.id.uuidString ?? ""
@@ -359,7 +511,15 @@ class PomodoroEngine: ObservableObject {
     }
     
     private func applyBlockingForSegment(_ kind: SegmentKind) {
-        guard config.blockAppsEnabled, let list = activeBlockList else {
+        guard config.blockAppsEnabled else {
+            BlockingManager.shared.clearBlocking()
+            return
+        }
+        guard let list = activeBlockList else {
+            // If list model is not hydrated yet, fallback to stored selection snapshot.
+            if applyBlockingFromStoredSelectionIfPossible() {
+                return
+            }
             BlockingManager.shared.clearBlocking()
             return
         }
@@ -385,6 +545,7 @@ class PomodoroEngine: ObservableObject {
     }
     
     private func tick() {
+        updateParallelSessionsClock()
         guard case .running = state.phase, let endDate = state.segmentEndDate else { return }
         
         let remaining = Int(endDate.timeIntervalSinceNow)
@@ -394,13 +555,14 @@ class PomodoroEngine: ObservableObject {
         } else {
             state.remainingSeconds = remaining
         }
+        persistCurrentSessionSnapshot()
     }
     
     private func completeSegment(wasSkipped: Bool = false) {
         timer?.cancel()
         cancelPendingSegmentNotification()
         state.segmentEndDate = nil
-        LiveActivityManager.shared.end()
+        LiveActivityManager.shared.end(sessionId: currentSessionId)
         
         guard let completedKind = state.currentSegment else { return }
         
@@ -453,6 +615,7 @@ class PomodoroEngine: ObservableObject {
                 handleNextTransition(to: .shortBreak, autoStart: config.autoStartBreak)
             }
         }
+        persistRuntimeState()
     }
 
     private func notifyInterruptionIfNeeded() {
@@ -543,6 +706,7 @@ class PomodoroEngine: ObservableObject {
             completeSegment()
         } else {
             state.remainingSeconds = remaining
+            persistRuntimeState()
         }
     }
     
@@ -550,22 +714,34 @@ class PomodoroEngine: ObservableObject {
     
     func updateConfig(_ newConfig: IntervalTimerConfig) {
         let oldConfig = config
-        config = newConfig
-        configStore.update(newConfig)
+        var effectiveConfig = newConfig
+
+        // If focus blocking is already active for the current session, do not allow
+        // disabling/changing block source until session completes or mission flow ends.
+        if isFocusBlockingControlsLocked {
+            effectiveConfig.blockAppsEnabled = oldConfig.blockAppsEnabled
+            effectiveConfig.selectedBlockListId = oldConfig.selectedBlockListId
+        }
+
+        config = effectiveConfig
+        configStore.update(effectiveConfig)
         
         // If idle, reset time to match new focus duration
         if case .idle = state.phase {
-            state.remainingSeconds = newConfig.focusSeconds
+            state.remainingSeconds = effectiveConfig.focusSeconds
         }
 
-        if oldConfig.blockAppsEnabled != newConfig.blockAppsEnabled ||
-            oldConfig.blockDuringBreaks != newConfig.blockDuringBreaks ||
-            oldConfig.selectedBlockListId != newConfig.selectedBlockListId {
+        if oldConfig.blockAppsEnabled != effectiveConfig.blockAppsEnabled ||
+            oldConfig.blockDuringBreaks != effectiveConfig.blockDuringBreaks ||
+            oldConfig.selectedBlockListId != effectiveConfig.selectedBlockListId {
             refreshBlockingForCurrentPhase()
         }
     }
     
     func apply(task: TaskItem) {
+        if state.selectedTaskId != task.id {
+            persistCurrentSessionSnapshot()
+        }
         var newConfig = config
         newConfig.isEnabled = task.isIntervalTimer
         newConfig.focusSeconds = task.focusDurationMinutes * 60
@@ -580,6 +756,9 @@ class PomodoroEngine: ObservableObject {
             newConfig.autoStartNextCycle = task.autoStartNextCycle
         }
         
+        state.selectedTaskId = task.id
+        state.overriddenTaskName = task.name
+        state.activeParallelSessionId = task.id
         updateConfig(newConfig)
     }
     
@@ -597,9 +776,27 @@ class PomodoroEngine: ObservableObject {
                 scheduleSegmentCompletionNotification(for: kind, seconds: seconds)
             }
         }
+        persistRuntimeState()
+    }
+
+    func handleSceneDidEnterBackground() {
+        if case .running = state.phase, let end = state.segmentEndDate {
+            state.remainingSeconds = max(0, Int(end.timeIntervalSinceNow))
+        }
+        refreshBlockingForCurrentPhase()
+        persistRuntimeState()
+    }
+
+    func handleSceneDidBecomeActive() {
+        refreshTimer()
+        refreshBlockingForCurrentPhase()
+        persistRuntimeState()
     }
     
     func apply(planItem: PlanItem) {
+        if state.selectedTaskId != planItem.id {
+            persistCurrentSessionSnapshot()
+        }
         var newConfig = config
         newConfig.isEnabled = planItem.intervalTimerEnabled
         
@@ -611,6 +808,7 @@ class PomodoroEngine: ObservableObject {
         
         state.overriddenTaskName = planItem.title
         state.selectedTaskId = planItem.id
+        state.activeParallelSessionId = planItem.id
         
         if let settings = planItem.intervalSettings {
             newConfig.shortBreakSeconds = settings.shortBreakMinutes * 60
@@ -630,7 +828,15 @@ class PomodoroEngine: ObservableObject {
     private func refreshBlockingForCurrentPhase() {
         switch state.phase {
         case .running(let segment), .paused(let segment):
-            guard config.blockAppsEnabled, let list = activeBlockList else {
+            guard config.blockAppsEnabled else {
+                BlockingManager.shared.clearBlocking()
+                return
+            }
+            guard let list = activeBlockList else {
+                // Re-apply from stored snapshot if list model isn't rehydrated yet.
+                if applyBlockingFromStoredSelectionIfPossible() {
+                    return
+                }
                 BlockingManager.shared.clearBlocking()
                 return
             }
@@ -647,6 +853,200 @@ class PomodoroEngine: ObservableObject {
         default:
             break
         }
+    }
+
+    private func applyBlockingFromStoredSelectionIfPossible() -> Bool {
+        let selectedId = effectiveSelectedBlockListId()
+        guard !selectedId.isEmpty else { return false }
+
+        let settings = SettingsStore.shared
+
+        let hasAnyTargets =
+            !settings.blockedAppsSelectionData.isEmpty ||
+            !settings.blockedMockApps.isEmpty ||
+            !settings.blockedMockCategories.isEmpty ||
+            settings.blockedAdultContentEnabled
+        guard hasAnyTargets else { return false }
+
+        BlockingManager.shared.applyBlocking(
+            selectionData: settings.blockedAppsSelectionData,
+            mockAppIDs: settings.blockedMockApps,
+            mockCategoryIDs: settings.blockedMockCategories,
+            adultBlockingEnabled: settings.blockedAdultContentEnabled,
+            label: "App Block List Snapshot"
+        )
+        return true
+    }
+
+    private func effectiveSelectedBlockListId() -> String {
+        let configId = config.selectedBlockListId.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !configId.isEmpty { return configId }
+        return SettingsStore.shared.selectedBlockListId.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func hydrateBlockListSelectionFromSettingsIfNeeded() {
+        guard config.blockAppsEnabled else { return }
+        let configId = config.selectedBlockListId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard configId.isEmpty else { return }
+
+        let settingsId = SettingsStore.shared.selectedBlockListId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !settingsId.isEmpty else { return }
+
+        var updated = config
+        updated.selectedBlockListId = settingsId
+        config = updated
+        configStore.update(updated)
+    }
+
+    private func reconcileLoadedRuntimeState() {
+        switch state.phase {
+        case .running(let segment):
+            guard let end = state.segmentEndDate else {
+                state.phase = .paused(segment: segment)
+                persistRuntimeState()
+                return
+            }
+            let remaining = Int(end.timeIntervalSinceNow)
+            if remaining <= 0 {
+                state.remainingSeconds = 0
+                state.phase = .finishedSegment(segment: segment)
+                state.segmentEndDate = nil
+            } else {
+                state.remainingSeconds = remaining
+            }
+        case .paused:
+            state.segmentEndDate = nil
+        case .idle:
+            if state.remainingSeconds <= 0 {
+                state.remainingSeconds = config.focusSeconds
+            }
+        default:
+            break
+        }
+        persistRuntimeState()
+    }
+
+    private func persistCurrentSessionSnapshot() {
+        guard let segment = state.currentSegment else { return }
+
+        let phaseIsActive: Bool = {
+            switch state.phase {
+            case .running, .paused:
+                return true
+            default:
+                return false
+            }
+        }()
+
+        guard phaseIsActive else { return }
+
+        let sessionId: UUID = {
+            if let existing = state.activeParallelSessionId {
+                return existing
+            }
+            if let taskId = state.selectedTaskId {
+                state.activeParallelSessionId = taskId
+                return taskId
+            }
+            let created = UUID()
+            state.activeParallelSessionId = created
+            return created
+        }()
+
+        let isRunningNow: Bool = {
+            if case .running = state.phase { return true }
+            return false
+        }()
+
+        let total = max(1, totalDuration(for: segment))
+        let fallbackEnd = Date().addingTimeInterval(TimeInterval(max(0, state.remainingSeconds)))
+        let end = state.segmentEndDate ?? fallbackEnd
+        let elapsed = max(0, total - state.remainingSeconds)
+        let start = end.addingTimeInterval(TimeInterval(-max(0, state.remainingSeconds + elapsed)))
+
+        let snapshot = ParallelFocusSession(
+            id: sessionId,
+            taskId: state.selectedTaskId,
+            focusName: state.overriddenTaskName ?? "Focus",
+            segment: segment,
+            remainingSeconds: max(0, state.remainingSeconds),
+            totalSeconds: total,
+            startTime: start,
+            endTime: end,
+            isRunning: isRunningNow,
+            updatedAt: Date()
+        )
+
+        if let idx = state.parallelSessions.firstIndex(where: { $0.id == sessionId }) {
+            state.parallelSessions[idx] = snapshot
+        } else {
+            state.parallelSessions.append(snapshot)
+        }
+    }
+
+    private func syncLiveActivityFromSessions() {
+        let sessions = state.parallelSessions
+        guard !sessions.isEmpty else {
+            LiveActivityManager.shared.end()
+            return
+        }
+
+        let active = sessions.first(where: { $0.id == state.activeParallelSessionId }) ?? sessions[0]
+        let end = active.endTime ?? Date().addingTimeInterval(TimeInterval(max(0, active.remainingSeconds)))
+        let stateLabel = active.segment == .focus
+            ? (active.isRunning ? "Focus Hard" : "Paused")
+            : (active.isRunning ? "Break Time" : "Break Paused")
+
+        LiveActivityManager.shared.syncSessions(
+            activeSessionId: state.activeParallelSessionId,
+            sessions: sessions,
+            fallbackFocusName: active.focusName,
+            fallbackStart: active.startTime,
+            fallbackEnd: end,
+            fallbackRemainingSeconds: active.remainingSeconds,
+            fallbackIsRunning: active.isRunning,
+            fallbackStateString: stateLabel
+        )
+    }
+
+    private func removeCurrentParallelSessionAndSelectNext() {
+        guard let currentId = state.activeParallelSessionId else { return }
+        state.parallelSessions.removeAll(where: { $0.id == currentId })
+        if let next = state.parallelSessions.sorted(by: { $0.updatedAt > $1.updatedAt }).first {
+            switchToParallelSession(next.id, persistCurrent: false)
+        } else {
+            state.activeParallelSessionId = nil
+            state.selectedTaskId = nil
+            state.overriddenTaskName = nil
+            state.currentSegment = nil
+            state.segmentEndDate = nil
+            state.phase = .idle
+            state.remainingSeconds = config.focusSeconds
+        }
+    }
+
+    private func updateParallelSessionsClock(now: Date = Date()) {
+        guard !state.parallelSessions.isEmpty else { return }
+        for index in state.parallelSessions.indices {
+            guard state.parallelSessions[index].isRunning,
+                  let end = state.parallelSessions[index].endTime else { continue }
+            let remaining = max(0, Int(end.timeIntervalSince(now)))
+            state.parallelSessions[index].remainingSeconds = remaining
+            state.parallelSessions[index].updatedAt = now
+            if remaining == 0 {
+                state.parallelSessions[index].isRunning = false
+            }
+        }
+    }
+
+    private func persistRuntimeState() {
+        state.dateLastUpdated = Date()
+        runtimeStateStore.save(state)
+    }
+
+    private func clearRuntimeState() {
+        state.dateLastUpdated = Date()
+        runtimeStateStore.clear()
     }
 }
 

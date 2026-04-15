@@ -89,8 +89,11 @@ struct AppRootView: View {
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
+                pomodoroEngine.handleSceneDidBecomeActive()
                 tamperDetectionService.evaluateOnForeground(ringCoordinator: ringCoordinator)
                 notificationManager.recoverAlarmFromDeliveredNotificationsIfNeeded()
+            } else if newPhase == .inactive || newPhase == .background {
+                pomodoroEngine.handleSceneDidEnterBackground()
             }
         }
         .onReceive(settingsStore.$notificationPrefs) { _ in

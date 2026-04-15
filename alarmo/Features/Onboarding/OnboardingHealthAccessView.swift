@@ -8,8 +8,8 @@ struct OnboardingHealthAccessView: View {
     @State private var isRequesting = false
     @State private var showHealthPrompt = false
     @State private var turnOnAll = false
-    @State private var writeSleep = false
-    @State private var readSleep = false
+    @State private var readSteps = false
+    @State private var readDistance = false
 
     var body: some View {
         ZStack {
@@ -38,7 +38,7 @@ struct OnboardingHealthAccessView: View {
                         .foregroundColor(Colors.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                     
-                    Text("Alarmo can update the sleep category in Apple Health so that you can share your sleep data with other apps and services.")
+                    Text("Alarmo can read your Apple Health activity data (steps and walking distance) so your Walk habit updates automatically.")
                         .font(.system(size: 17, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
                         .lineSpacing(4)
@@ -129,8 +129,8 @@ struct OnboardingHealthAccessView: View {
                         
                         Button {
                             turnOnAll.toggle()
-                            writeSleep = turnOnAll
-                            readSleep = turnOnAll
+                            readSteps = turnOnAll
+                            readDistance = turnOnAll
                         } label: {
                             Text(turnOnAll ? "Turn Off All" : "Turn On All")
                                 .font(.system(size: 17, weight: .semibold))
@@ -142,21 +142,21 @@ struct OnboardingHealthAccessView: View {
                         }
                         
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Allow \"Alarmo\" to write")
+                            Text("Allow \"Alarmo\" to read")
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(Color.white.opacity(0.7))
                                 .padding(.horizontal, 4)
                             
                             HStack {
-                                Image(systemName: "bed.double.fill")
+                                Image(systemName: "figure.walk")
                                     .foregroundColor(Colors.accentBlue)
                                     .font(.system(size: 20))
                                     .frame(width: 30)
-                                Text("Sleep")
+                                Text("Steps")
                                     .font(.system(size: 17, weight: .semibold))
                                     .foregroundColor(.white)
                                 Spacer()
-                                Toggle("", isOn: $writeSleep)
+                                Toggle("", isOn: $readSteps)
                                     .labelsHidden()
                                     .tint(.green)
                             }
@@ -164,7 +164,7 @@ struct OnboardingHealthAccessView: View {
                             .background(Color.white.opacity(0.1))
                             .cornerRadius(12)
                             
-                            Text("App Explanation: Alarmo will update your Apple Health data with the sleep readings recorded in the app")
+                            Text("App Explanation: Alarmo reads your daily step count to keep step-based habits in sync.")
                                 .font(.system(size: 12, weight: .regular))
                                 .foregroundColor(Color.white.opacity(0.5))
                                 .padding(.horizontal, 4)
@@ -177,15 +177,15 @@ struct OnboardingHealthAccessView: View {
                                 .padding(.horizontal, 4)
                             
                             HStack {
-                                Image(systemName: "bed.double.fill")
+                                Image(systemName: "figure.walk")
                                     .foregroundColor(Colors.accentBlue)
                                     .font(.system(size: 20))
                                     .frame(width: 30)
-                                Text("Sleep")
+                                Text("Walking + Running Distance")
                                     .font(.system(size: 17, weight: .semibold))
                                     .foregroundColor(.white)
                                 Spacer()
-                                Toggle("", isOn: $readSleep)
+                                Toggle("", isOn: $readDistance)
                                     .labelsHidden()
                                     .tint(.green)
                             }
@@ -193,7 +193,7 @@ struct OnboardingHealthAccessView: View {
                             .background(Color.white.opacity(0.1))
                             .cornerRadius(12)
                             
-                            Text("App Explanation: Alarmo requires access to Health data in order to perform sleep tracking.")
+                            Text("App Explanation: Alarmo reads walking/running distance for movement-based habits.")
                                 .font(.system(size: 12, weight: .regular))
                                 .foregroundColor(Color.white.opacity(0.5))
                                 .padding(.horizontal, 4)
@@ -209,7 +209,7 @@ struct OnboardingHealthAccessView: View {
                         withAnimation { showHealthPrompt = false }
                         Task {
                             isRequesting = true
-                            let _ = await HealthKitManager.shared.requestAuthorization(for: "sleep")
+                            let _ = await HealthKitManager.shared.requestAuthorization(for: "activity")
                             isRequesting = false
                             onNext()
                         }
@@ -245,12 +245,12 @@ struct OnboardingHealthAccessView: View {
             .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
             .edgesIgnoringSafeArea(.bottom)
         }
-        .onChange(of: writeSleep) { _, _ in updateTurnOnAllState() }
-        .onChange(of: readSleep) { _, _ in updateTurnOnAllState() }
+        .onChange(of: readSteps) { _, _ in updateTurnOnAllState() }
+        .onChange(of: readDistance) { _, _ in updateTurnOnAllState() }
     }
     
     private func updateTurnOnAllState() {
-        if writeSleep && readSleep {
+        if readSteps && readDistance {
             turnOnAll = true
         } else {
             turnOnAll = false
