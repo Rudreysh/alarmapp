@@ -4,7 +4,6 @@ struct HabitGoalCelebrationOverlay: View {
     var habitTitle: String?
 
     @State private var reveal = false
-    @State private var pulse = false
 
     var body: some View {
         ZStack {
@@ -28,81 +27,18 @@ struct HabitGoalCelebrationOverlay: View {
                 .opacity(reveal ? 1 : 0)
                 .scaleEffect(reveal ? 1 : 0.97)
 
-            VStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Colors.accentBlue.opacity(0.92),
-                                    Colors.accentTeal.opacity(0.95),
-                                    Color(red: 0.36, green: 0.76, blue: 0.98).opacity(0.92)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 248, height: 156)
-                        .scaleEffect(pulse ? 1.03 : 0.97)
-                        .shadow(color: Colors.accentBlue.opacity(0.28), radius: 24, x: 0, y: 8)
-                        .shadow(color: Colors.accentTeal.opacity(0.24), radius: 18, x: 0, y: 4)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                                .stroke(
-                                    LinearGradient(
-                                        colors: [
-                                            Colors.accentTeal.opacity(0.55),
-                                            Color.white.opacity(0.34),
-                                            Colors.accentBlue.opacity(0.45)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1.2
-                                )
-                        )
-
-                    VStack(spacing: 10) {
-                        ZStack {
-                            Circle()
-                                .fill(Colors.bgSecondary.opacity(0.28))
-                                .frame(width: 58, height: 58)
-                                .overlay(
-                                    Circle()
-                                        .stroke(Colors.accentTeal.opacity(0.45), lineWidth: 1)
-                                )
-                            Image(systemName: "checkmark.seal.fill")
-                                .font(.system(size: 34, weight: .bold))
-                                .foregroundColor(.white)
-                        }
-
-                        Text("Goal Completed")
-                            .font(.system(size: 29, weight: .heavy))
-                            .foregroundColor(.white)
-                    }
-                }
-
-                if let title = habitTitle, !title.isEmpty {
-                    Text(title)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Colors.textPrimary.opacity(0.88))
-                }
-            }
-            .padding(.horizontal, 24)
-            .opacity(reveal ? 1 : 0)
-            .offset(y: reveal ? 0 : 18)
-
             FallingEmojiBurstView()
                 .opacity(reveal ? 1 : 0)
                 .zIndex(2)
+
+            RisingConfettiStreaks()
+                .opacity(reveal ? 1 : 0)
+                .zIndex(1)
         }
         .allowsHitTesting(false)
         .onAppear {
             withAnimation(.easeOut(duration: 0.35)) {
                 reveal = true
-            }
-            withAnimation(.easeInOut(duration: 0.75).repeatCount(2, autoreverses: true)) {
-                pulse = true
             }
         }
         .transition(.opacity.combined(with: .scale(scale: 0.96)))
@@ -244,6 +180,68 @@ private struct FallingEmojiBurstView: View {
             }
         }
         .allowsHitTesting(false)
+    }
+}
+
+private struct RisingConfettiStreaks: View {
+    private let streaks: [ConfettiStreak] = (0..<28).map { _ in .random() }
+    @State private var animate = false
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                ForEach(streaks) { streak in
+                    RoundedRectangle(cornerRadius: streak.width / 2, style: .continuous)
+                        .fill(streak.color.opacity(0.85))
+                        .frame(width: streak.width, height: streak.height)
+                        .rotationEffect(.degrees(streak.rotation))
+                        .position(
+                            x: geo.size.width * streak.startX,
+                            y: animate ? geo.size.height * streak.endY : geo.size.height + streak.offsetY
+                        )
+                        .opacity(animate ? 0 : 0.95)
+                        .animation(.easeOut(duration: streak.duration).delay(streak.delay), value: animate)
+                }
+            }
+            .onAppear {
+                animate = true
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+private struct ConfettiStreak: Identifiable {
+    let id = UUID()
+    let color: Color
+    let startX: CGFloat
+    let endY: CGFloat
+    let offsetY: CGFloat
+    let width: CGFloat
+    let height: CGFloat
+    let rotation: Double
+    let delay: Double
+    let duration: Double
+
+    static func random() -> ConfettiStreak {
+        let colors: [Color] = [
+            Colors.accentBlue,
+            Colors.accentTeal,
+            Color(red: 0.56, green: 0.45, blue: 0.95),
+            Color(red: 0.31, green: 0.84, blue: 0.98),
+            Color.white
+        ]
+        return ConfettiStreak(
+            color: colors.randomElement() ?? .white,
+            startX: CGFloat.random(in: 0.02...0.98),
+            endY: CGFloat.random(in: 0.14...0.42),
+            offsetY: CGFloat.random(in: 8...66),
+            width: CGFloat.random(in: 4...8),
+            height: CGFloat.random(in: 14...28),
+            rotation: Double.random(in: -45...45),
+            delay: Double.random(in: 0...0.35),
+            duration: Double.random(in: 0.7...1.3)
+        )
     }
 }
 

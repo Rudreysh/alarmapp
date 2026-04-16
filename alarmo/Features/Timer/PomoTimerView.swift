@@ -29,6 +29,28 @@ struct PomoTimerView: View {
     private var allAppLists: [AppList]
     private let settingsStore = SettingsStore.shared
 
+    private enum Layout {
+        static let selectorItemSpacing: CGFloat = 7
+        static let selectorHorizontalPadding: CGFloat = 12
+        static let selectorVerticalPadding: CGFloat = 7
+
+        static let timerReadoutScale: CGFloat = 0.60
+        static let timerReadoutBaseFactor: CGFloat = 0.22
+        static let timerReadoutMinimumSize: CGFloat = 28
+
+        static let resetScale: CGFloat = 0.60
+        static let resetBaseSize: CGFloat = 26
+        static let resetButtonFrame: CGFloat = 24
+        static let timerResetSpacing: CGFloat = 10
+
+        static let emojiChipSpacing: CGFloat = 10
+        static let emojiChipItemSpacing: CGFloat = 5
+        static let emojiChipHorizontalPadding: CGFloat = 10
+        static let emojiChipVerticalPadding: CGFloat = 6
+        static let emojiGroupHorizontalPadding: CGFloat = 10
+        static let emojiGroupVerticalPadding: CGFloat = 6
+    }
+
     private var activeParallelSession: ParallelFocusSession? {
         guard let activeId = engine.state.activeParallelSessionId else { return nil }
         return engine.state.parallelSessions.first(where: { $0.id == activeId })
@@ -38,56 +60,42 @@ struct PomoTimerView: View {
         activeParallelSession?.taskId ?? engine.state.selectedTaskId
     }
     
-    var habitProgressText: String? {
-        guard let taskId = activeTaskId else { return nil }
-        guard let item = planItems.first(where: { $0.id == taskId }) else { return nil }
-        
-        let current = item.currentValue(on: Date())
-        let target = item.goalValue
-        let unit = item.goalUnit
-        
-        // For habits or anything with a goal
-        if item.type == .habit || target > 0 {
-             return "Today: \(Int(current))/\(Int(target)) \(unit)"
-        }
-        return nil
-    }
-    
     var body: some View {
         GeometryReader { geo in
             let availableWidth = geo.size.width
             let availableHeight = geo.size.height
+            let isDenseLayout = availableHeight < 760 || engine.parallelSessions.count > 1
+            let topInset = isDenseLayout ? Spacing.s : Spacing.m
+            let topSectionSpacer = isDenseLayout ? CGFloat(6) : CGFloat(16)
             let diameter = min(availableWidth * 0.75, availableHeight * 0.45)
-            let middleDialDiameter = diameter * 0.75 // Reduce circumference by 25%
+            let middleDialDiameter = diameter * 0.60 // 20% smaller than previous center dial size
+            let ringSectionSpacing = isDenseLayout ? CGFloat(18) : CGFloat(24)
+            let timerReadoutSize = max(Layout.timerReadoutMinimumSize, diameter * Layout.timerReadoutBaseFactor * Layout.timerReadoutScale)
+            let resetIconSize = Layout.resetBaseSize * Layout.resetScale
             
-            ZStack {
+            ZStack(alignment: .top) {
                 // Main Timer UI
                 VStack(spacing: 0) {
                     // Task Selection Header
                     Button(action: { showTaskSelection = true }) {
-                        VStack(spacing: 4) {
-                            HStack(spacing: 8) {
-                                Text(engine.state.overriddenTaskName ?? taskStore.selectedTask?.name ?? "Select a Task")
-                                    .font(.system(size: 18, weight: .semibold))
-                                
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(TimerPalette.accent)
-                                
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(Colors.textSecondary)
-                            }
+                        HStack(spacing: Layout.selectorItemSpacing) {
+                            Text(activeTaskDisplayName())
+                                .font(.system(size: 18, weight: .semibold))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .minimumScaleFactor(0.85)
                             
-                            if let progress = habitProgressText {
-                                Text(progress)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(TimerPalette.accent)
-                            }
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 16))
+                                .foregroundColor(TimerPalette.accent)
+                            
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(Colors.textSecondary)
                         }
                         .foregroundColor(Colors.textPrimary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
+                        .padding(.horizontal, Layout.selectorHorizontalPadding)
+                        .padding(.vertical, Layout.selectorVerticalPadding)
                         .background(
                             Capsule()
                                 .fill(Color.white.opacity(0.10))
@@ -106,8 +114,10 @@ struct PomoTimerView: View {
                         )
                         .shadow(color: Color.black.opacity(0.28), radius: 10, x: 0, y: 5)
                     }
-                    .padding(.top, Spacing.m)
-                    .frame(maxHeight: availableHeight * 0.2) // Increased slightly for progress text
+                    .buttonStyle(.plain)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, topInset)
                     
                     HStack(spacing: 16) {
                         // Interval Settings Shortcut
@@ -143,6 +153,7 @@ struct PomoTimerView: View {
                                 color: .red
                             )
                         }
+                        .frame(maxWidth: .infinity)
                         
                         // Ambient Sound Selection Shortcut
                         Button(action: { 
@@ -164,6 +175,8 @@ struct PomoTimerView: View {
                                         .font(.system(size: 13, weight: .bold))
                                     Text(viewModel.ambientSoundName)
                                         .font(.system(size: 13, weight: .bold))
+                                        .lineLimit(1)
+                                        .truncationMode(.tail)
                                 }
                             }
                             .foregroundColor(TimerPalette.accent)
@@ -184,13 +197,15 @@ struct PomoTimerView: View {
                                 color: .red
                             )
                         }
+                        .frame(maxWidth: .infinity)
                     }
                     .padding(.top, 4)
+                    .padding(.horizontal, 2)
                     
-                    Spacer()
+                    Spacer(minLength: topSectionSpacer)
                     
                     // Timer Circle
-                    VStack(spacing: 24) {
+                    VStack(spacing: ringSectionSpacing) {
                         DraggableDialTimer(
                             totalSeconds: Binding(
                                 get: { engine.state.remainingSeconds },
@@ -227,14 +242,13 @@ struct PomoTimerView: View {
                         )
                         
                         VStack(spacing: 8) {
-                            ZStack(alignment: .trailing) {
+                            HStack(spacing: Layout.timerResetSpacing) {
                                 Text(timeString(from: engine.state.remainingSeconds))
-                                    .font(.system(size: diameter * 0.22, weight: .heavy, design: .monospaced))
+                                    .font(.system(size: timerReadoutSize, weight: .heavy, design: .monospaced))
                                     .kerning(2)
                                     .foregroundColor(Colors.textPrimary)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.5)
-                                    .frame(maxWidth: .infinity, alignment: .center)
                                     .onTapGesture {
                                         if showTimerTimeIntegerCoachMark {
                                             showTimerTimeIntegerCoachMark = false
@@ -260,13 +274,15 @@ struct PomoTimerView: View {
 
                                 Button(action: resetTimerDisplay) {
                                     Image(systemName: "arrow.counterclockwise.circle.fill")
-                                        .font(.system(size: 26, weight: .semibold))
+                                        .font(.system(size: resetIconSize, weight: .semibold))
                                         .foregroundColor(TimerPalette.accent.opacity(engine.isRunning ? 0.45 : 0.95))
+                                        .frame(width: Layout.resetButtonFrame, height: Layout.resetButtonFrame)
                                 }
                                 .buttonStyle(.plain)
                                 .disabled(engine.isRunning)
                                 .accessibilityLabel("Reset timer")
                             }
+                            .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.horizontal, Spacing.l)
                             
                             // Expected End Time / Schedule
@@ -288,6 +304,11 @@ struct PomoTimerView: View {
                             }
 
                             if shouldShowBlockingStatusPill {
+                                if engine.parallelSessions.count > 1 {
+                                    parallelSessionSwitcher
+                                        .padding(.top, 4)
+                                }
+
                                 blockingStatusPill
                                     .padding(.top, 8)
                                     .coachMark(
@@ -318,16 +339,10 @@ struct PomoTimerView: View {
                         }
                     }
                     
-                    Spacer()
+                    Spacer(minLength: topSectionSpacer)
                     
                     // Controls
                     VStack(spacing: Spacing.m) {
-                        if engine.parallelSessions.count > 1 {
-                            parallelSessionSwitcher
-                                .padding(.horizontal, Spacing.l)
-                                .padding(.bottom, 4)
-                        }
-
                         if case .idle = engine.state.phase {
                             idleControlRow
                                 .padding(.horizontal, Spacing.l)
@@ -479,6 +494,7 @@ struct PomoTimerView: View {
                     }
                     .padding(.bottom, controlsBottomInset)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .opacity(isOverlayVisible ? 0.3 : 1.0) // Dim if overlay
                 .blur(radius: isOverlayVisible ? 5 : 0)
                 
@@ -492,7 +508,7 @@ struct PomoTimerView: View {
                     finishedCycleOverlay
                 }
             }
-            .frame(width: availableWidth, height: availableHeight)
+            .frame(width: availableWidth, height: availableHeight, alignment: .top)
         }
         .sheet(isPresented: $showTaskSelection) {
             TaskSelectionSheet()
@@ -631,7 +647,10 @@ struct PomoTimerView: View {
             return Spacing.xl
         }
         // Keep running/paused actions (Take a short break + App Block List) clearly above tab bar.
-        return Spacing.xxl + 10
+        if engine.parallelSessions.count > 1 {
+            return Spacing.xl
+        }
+        return Spacing.xxl
     }
     
     /// Restore the persisted block list reference back into the engine (e.g. after cold start).
@@ -728,32 +747,85 @@ struct PomoTimerView: View {
     }
 
     private var parallelSessionSwitcher: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(engine.parallelSessions) { session in
-                    let isActive = engine.state.activeParallelSessionId == session.id
-                    Button {
-                        engine.switchToParallelSession(session.id)
-                    } label: {
-                        Text(sessionEmoji(for: session))
-                            .font(.system(size: 15))
-                            .frame(width: 26, height: 26)
-                            .background(
-                                Circle()
-                                    .fill(isActive ? Color.white.opacity(0.22) : Color.white.opacity(0.10))
-                            )
-                            .overlay(
-                                Circle()
-                                    .stroke(isActive ? TimerPalette.accent.opacity(0.9) : Color.white.opacity(0.18), lineWidth: isActive ? 2 : 1)
-                            )
-                    }
-                    .buttonStyle(.plain)
+        Group {
+            if engine.parallelSessions.count <= 4 {
+                parallelSessionChipRow
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    parallelSessionChipRow
                 }
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 6)
         }
-        .frame(height: 40)
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .accessibilityLabel("Running timers switcher")
+    }
+
+    private var parallelSessionChipRow: some View {
+        HStack(spacing: Layout.emojiChipSpacing) {
+            ForEach(engine.parallelSessions) { session in
+                let isActive = engine.state.activeParallelSessionId == session.id
+                Button {
+                    engine.switchToParallelSession(session.id)
+                } label: {
+                    HStack(spacing: Layout.emojiChipItemSpacing) {
+                        Text(sessionEmoji(for: session))
+                            .font(.system(size: 15))
+
+                        Text(sessionLabel(for: session))
+                            .font(.system(size: 13, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
+                    }
+                    .foregroundColor(isActive ? Colors.textPrimary : Colors.textSecondary)
+                    .padding(.horizontal, Layout.emojiChipHorizontalPadding)
+                    .padding(.vertical, Layout.emojiChipVerticalPadding)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(isActive ? Color.white.opacity(0.18) : Color.white.opacity(0.10))
+                            .background(.ultraThinMaterial, in: Capsule(style: .continuous))
+                    )
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(
+                                isActive ? TimerPalette.accent.opacity(0.8) : Color.white.opacity(0.18),
+                                lineWidth: isActive ? 1.6 : 1
+                            )
+                    )
+                    .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
+                    .contentShape(Capsule(style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .fixedSize(horizontal: true, vertical: false)
+            }
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        .padding(.horizontal, Layout.emojiGroupHorizontalPadding)
+        .padding(.vertical, Layout.emojiGroupVerticalPadding)
+    }
+
+    private func sessionLabel(for session: ParallelFocusSession) -> String {
+        let item = planItems.first(where: { $0.id == session.taskId })
+        return compactTaskLabel(item?.title ?? session.focusName)
+    }
+
+    private func compactTaskLabel(_ raw: String) -> String {
+        let separators = ["\n", "•", "|", "—", " - "]
+        for separator in separators {
+            if let range = raw.range(of: separator) {
+                let trimmed = String(raw[..<range.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    return trimmed
+                }
+            }
+        }
+        return raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func activeTaskDisplayName() -> String {
+        let raw = engine.state.overriddenTaskName ?? taskStore.selectedTask?.name ?? "Select a Task"
+        return compactTaskLabel(raw)
     }
 
     private func sessionEmoji(for session: ParallelFocusSession) -> String {

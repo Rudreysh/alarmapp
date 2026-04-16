@@ -131,20 +131,24 @@ struct TimerRootView: View {
                 .padding(.top, Spacing.m)
                 
                 // Content
-                if viewModel.selectedMode == .pomo {
-                    PomoTimerView(viewModel: viewModel, engine: pomodoroEngine)
-                        .transition(.asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .trailing)))
-                } else {
-                    StopwatchView(
-                        viewModel: viewModel,
-                        preferences: preferences,
-                        swEngine: stopwatchEngine,
-                        multiStore: multiTimerStore,
-                        countdownStore: countdownStore,
-                        countdownEngine: countdownEngine
-                    )
+                Group {
+                    if viewModel.selectedMode == .pomo {
+                        PomoTimerView(viewModel: viewModel, engine: pomodoroEngine)
+                            .transition(.asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .trailing)))
+                    } else {
+                        StopwatchView(
+                            viewModel: viewModel,
+                            preferences: preferences,
+                            swEngine: stopwatchEngine,
+                            multiStore: multiTimerStore,
+                            countdownStore: countdownStore,
+                            countdownEngine: countdownEngine
+                        )
                         .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .clipped()
             }
             .padding(.bottom, AppConstants.tabBarHeight)
 

@@ -10,29 +10,68 @@ struct AlarmoWidgetBundle: WidgetBundle {
 }
 
 struct AlarmoWidgetLiveActivity: Widget {
+    private enum LockScreenLayout {
+        static let containerInset: CGFloat = 12
+        static let expandedTopInset: CGFloat = 18
+        static let expandedBottomInset: CGFloat = 6
+        static let collapsedVerticalInset: CGFloat = 12
+        static let sectionSpacing: CGFloat = 6
+        static let collapseControlTopSpacing: CGFloat = 2
+        static let rowVerticalPadding: CGFloat = 5
+        static let previewBadgeSize: CGFloat = 42
+    }
+
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: PomoAttributes.self) { context in
             let sessions = resolvedSessions(from: context.state, fallbackName: context.attributes.focusName)
-            let active = resolvedActiveSession(from: context.state, fallbackName: context.attributes.focusName)
-            let visibleSessions = Array(sessions.prefix(3))
-            // Lock screen compact habit card
-            VStack(spacing: 18) {
-                ForEach(visibleSessions, id: \.id) { session in
-                    lockScreenSessionRow(session: session, isActive: session.id == active.id, activeIsRunning: active.isRunning)
+            let active = resolvedActiveSession(from: context.state, sessions: sessions)
+            let isExpanded = context.state.isExpanded || sessions.count <= 1
+            let showsAmbientRow = context.state.isAmbientPlaying &&
+                (context.state.ambientSoundName?.isEmpty == false)
+
+            VStack(spacing: LockScreenLayout.sectionSpacing) {
+                if showsAmbientRow,
+                   let ambient = context.state.ambientSoundName {
+                    lockScreenAmbientRow(ambient: ambient)
                 }
-                if sessions.count > visibleSessions.count {
-                    Text("+\(sessions.count - visibleSessions.count) more running")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.75))
-                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                if isExpanded {
+                    VStack(spacing: LockScreenLayout.sectionSpacing) {
+                        ForEach(sessions, id: \.id) { session in
+                            lockScreenSessionRow(session: session)
+                        }
+
+                        if sessions.count > 1 {
+                            Button(intent: TogglePomoExpandedIntent()) {
+                                Text("Show less")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(.black.opacity(0.55))
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.top, LockScreenLayout.collapseControlTopSpacing)
+                        }
+                    }
+                    .background(Color.clear)
+                } else {
+                    collapsedStackRow(sessions: sessions, active: active)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(Color.black.opacity(0.65))
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .background(Color.clear)
+            .padding(.horizontal, LockScreenLayout.containerInset)
+            .padding(
+                .top,
+                isExpanded ? LockScreenLayout.expandedTopInset : LockScreenLayout.collapsedVerticalInset
+            )
+            .padding(
+                .bottom,
+                isExpanded ? LockScreenLayout.expandedBottomInset : LockScreenLayout.collapsedVerticalInset
+            )
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .widgetURL(nil)
         } dynamicIsland: { context in
-            let active = resolvedActiveSession(from: context.state, fallbackName: context.attributes.focusName)
+            let sessions = resolvedSessions(from: context.state, fallbackName: context.attributes.focusName)
+            let active = resolvedActiveSession(from: context.state, sessions: sessions)
+
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 6) {
@@ -44,7 +83,7 @@ struct AlarmoWidgetLiveActivity: Widget {
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Button(intent: TogglePomoRunStateIntent()) {
+                    Button(intent: TogglePomoRunStateIntent(sessionId: active.id.uuidString)) {
                         Image(systemName: active.isRunning ? "pause.fill" : "play.fill")
                             .font(.system(size: 18, weight: .bold))
                             .foregroundColor(.white)
@@ -140,64 +179,200 @@ struct AlarmoWidgetLiveActivity: Widget {
     }
 
     @ViewBuilder
-    private func lockScreenSessionRow(
-        session: PomoAttributes.ContentState.ParallelSession,
-        isActive: Bool,
-        activeIsRunning: Bool
+    private func collapsedStackRow(
+        sessions: [PomoAttributes.ContentState.ParallelSession],
+        active: PomoAttributes.ContentState.ParallelSession
     ) -> some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .stroke(Color.white.opacity(0.20), lineWidth: 6)
-                    .frame(width: 52, height: 52)
+        Button(intent: TogglePomoExpandedIntent()) {
+            HStack(spacing: 12) {
+                collapsedStackPreview(session: active)
+                collapsedStackDescription(sessions: sessions, active: active)
 
-                LockScreenProgressRing(
-                    startTime: session.startTime,
-                    endTime: session.endTime,
-                    remainingSeconds: session.remainingSeconds,
-                    isRunning: session.isRunning,
-                    diameter: 52,
-                    lineWidth: 6
-                )
-
-                Text(focusEmoji(from: session.focusName))
-                    .font(.system(size: 22))
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white.opacity(0.85))
+                    .padding(8)
+                    .background(Circle().fill(Color.white.opacity(0.12)))
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.black.opacity(0.72))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color.white.opacity(0.16), lineWidth: 1)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(session.focusName)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-                timerText(
-                    startTime: session.startTime,
-                    endTime: session.endTime,
-                    remainingSeconds: session.remainingSeconds,
-                    isRunning: session.isRunning,
-                    size: 16,
-                    color: .white,
-                    width: nil
-                )
+    @ViewBuilder
+    private func collapsedStackDescription(
+        sessions: [PomoAttributes.ContentState.ParallelSession],
+        active: PomoAttributes.ContentState.ParallelSession
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(active.focusName)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.white)
+                .lineLimit(1)
+            timerText(
+                startTime: active.startTime,
+                endTime: active.endTime,
+                remainingSeconds: active.remainingSeconds,
+                isRunning: active.isRunning,
+                size: 16,
+                color: .white,
+                width: nil
+            )
+            Text("\(sessions.count) running • tap to expand")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.white.opacity(0.72))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func collapsedStackPreview(
+        session: PomoAttributes.ContentState.ParallelSession
+    ) -> some View {
+        collapsedStackPreviewBadge(session: session)
+            .frame(width: LockScreenLayout.previewBadgeSize, height: LockScreenLayout.previewBadgeSize)
+    }
+
+    @ViewBuilder
+    private func collapsedStackPreviewBadge(
+        session: PomoAttributes.ContentState.ParallelSession
+    ) -> some View {
+        ZStack {
+            Circle()
+                .fill(Color.black.opacity(0.24))
+                .frame(width: LockScreenLayout.previewBadgeSize, height: LockScreenLayout.previewBadgeSize)
+
+            Circle()
+                .stroke(Color.white.opacity(0.20), lineWidth: 4)
+                .frame(width: LockScreenLayout.previewBadgeSize, height: LockScreenLayout.previewBadgeSize)
+
+            LockScreenProgressRing(
+                startTime: session.startTime,
+                endTime: session.endTime,
+                remainingSeconds: session.remainingSeconds,
+                isRunning: session.isRunning,
+                diameter: LockScreenLayout.previewBadgeSize,
+                lineWidth: 4
+            )
+
+            Text(focusEmoji(from: session.focusName))
+                .font(.system(size: 17))
+        }
+        .frame(width: LockScreenLayout.previewBadgeSize, height: LockScreenLayout.previewBadgeSize)
+    }
+
+    @ViewBuilder
+    private func lockScreenSessionRow(session: PomoAttributes.ContentState.ParallelSession) -> some View {
+        HStack(spacing: 10) {
+            Button(intent: OpenPomodoroSessionIntent(sessionId: session.id.uuidString)) {
+                HStack(spacing: 10) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.black.opacity(0.24))
+                            .frame(width: 44, height: 44)
+
+                        Circle()
+                            .stroke(Color.white.opacity(0.20), lineWidth: 4)
+                            .frame(width: 44, height: 44)
+
+                        LockScreenProgressRing(
+                            startTime: session.startTime,
+                            endTime: session.endTime,
+                            remainingSeconds: session.remainingSeconds,
+                            isRunning: session.isRunning,
+                            diameter: 44,
+                            lineWidth: 4
+                        )
+
+                        Text(focusEmoji(from: session.focusName))
+                            .font(.system(size: 18))
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(session.focusName)
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+
+                        timerText(
+                            startTime: session.startTime,
+                            endTime: session.endTime,
+                            remainingSeconds: session.remainingSeconds,
+                            isRunning: session.isRunning,
+                            size: 13,
+                            color: .white,
+                            width: nil
+                        )
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Spacer(minLength: 8)
+                }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+
+            Button(intent: TogglePomoRunStateIntent(sessionId: session.id.uuidString)) {
+                Image(systemName: session.isRunning ? "pause.fill" : "play.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.88))
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(Color.white))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, LockScreenLayout.rowVerticalPadding)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.black.opacity(0.72))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.white.opacity(0.16), lineWidth: 1)
+        )
+    }
+
+    @ViewBuilder
+    private func lockScreenAmbientRow(ambient: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "music.note")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.white.opacity(0.88))
+
+            Text(ambient)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.white.opacity(0.88))
+                .lineLimit(1)
 
             Spacer(minLength: 8)
 
-            if isActive {
-                Button(intent: TogglePomoRunStateIntent()) {
-                    Image(systemName: activeIsRunning ? "pause.fill" : "play.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.black.opacity(0.88))
-                        .frame(width: 36, height: 36)
-                        .background(Circle().fill(Color.white))
-                }
-                .buttonStyle(.plain)
-            } else {
-                Circle()
-                    .fill(session.isRunning ? Color.green.opacity(0.9) : Color.gray.opacity(0.7))
-                    .frame(width: 10, height: 10)
+            Button(intent: ToggleAmbientPlaybackIntent()) {
+                Image(systemName: "pause.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.88))
+                    .frame(width: 24, height: 24)
+                    .background(Circle().fill(Color.white))
             }
+            .buttonStyle(.plain)
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color.black.opacity(0.50))
+        )
     }
 
     @ViewBuilder
@@ -255,14 +430,14 @@ struct AlarmoWidgetLiveActivity: Widget {
         from state: PomoAttributes.ContentState,
         fallbackName: String
     ) -> [PomoAttributes.ContentState.ParallelSession] {
-        if !state.parallelSessions.isEmpty {
-            return state.parallelSessions
-        }
+        let live = state.parallelSessions.filter { $0.isRunning || $0.remainingSeconds > 0 }
+        if !live.isEmpty { return live }
+
         return [
             .init(
-                id: UUID(),
+                id: state.activeSessionId ?? UUID(),
                 focusName: fallbackName,
-                remainingSeconds: state.remainingSeconds,
+                remainingSeconds: max(0, state.remainingSeconds),
                 startTime: state.startTime,
                 endTime: state.endTime,
                 isRunning: state.isRunning
@@ -272,9 +447,8 @@ struct AlarmoWidgetLiveActivity: Widget {
 
     private func resolvedActiveSession(
         from state: PomoAttributes.ContentState,
-        fallbackName: String
+        sessions: [PomoAttributes.ContentState.ParallelSession]
     ) -> PomoAttributes.ContentState.ParallelSession {
-        let sessions = resolvedSessions(from: state, fallbackName: fallbackName)
         if let activeId = state.activeSessionId,
            let active = sessions.first(where: { $0.id == activeId }) {
             return active

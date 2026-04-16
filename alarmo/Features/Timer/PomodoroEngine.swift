@@ -65,7 +65,7 @@ class PomodoroEngine: ObservableObject {
 
         if selected.isRunning, let end = selected.endTime {
             state.phase = .running(segment: selected.segment)
-            state.segmentEndDate = end
+            state.segmentEndDate = end 
             startTicker()
         } else {
             timer?.cancel()
@@ -188,6 +188,12 @@ class PomodoroEngine: ObservableObject {
     }
 
     private func handleLiveActivityRunStateToggle() {
+        if let targetSessionId = consumeLiveActivityTargetSessionId(),
+           targetSessionId != state.activeParallelSessionId,
+           state.parallelSessions.contains(where: { $0.id == targetSessionId }) {
+            switchToParallelSession(targetSessionId)
+        }
+
         switch state.phase {
         case .running:
             pause()
@@ -196,6 +202,17 @@ class PomodoroEngine: ObservableObject {
         default:
             break
         }
+    }
+
+    private func consumeLiveActivityTargetSessionId() -> UUID? {
+        let key = "alarmo.liveActivity.targetSessionId"
+        let defaults = UserDefaults.standard
+        defer { defaults.removeObject(forKey: key) }
+        guard let raw = defaults.string(forKey: key),
+              let id = UUID(uuidString: raw) else {
+            return nil
+        }
+        return id
     }
     
 
@@ -545,7 +562,7 @@ class PomodoroEngine: ObservableObject {
     }
     
     private func tick() {
-        updateParallelSessionsClock()
+        let endedBackgroundSession = updateParallelSessionsClock()
         guard case .running = state.phase, let endDate = state.segmentEndDate else { return }
         
         let remaining = Int(endDate.timeIntervalSinceNow)
@@ -556,6 +573,10 @@ class PomodoroEngine: ObservableObject {
             state.remainingSeconds = remaining
         }
         persistCurrentSessionSnapshot()
+        if endedBackgroundSession {
+            syncLiveActivityFromSessions()
+            persistRuntimeState()
+        }
     }
     
     private func completeSegment(wasSkipped: Bool = false) {
@@ -788,9 +809,26 @@ class PomodoroEngine: ObservableObject {
     }
 
     func handleSceneDidBecomeActive() {
+        handlePendingLiveActivityOpenRequest()
         refreshTimer()
         refreshBlockingForCurrentPhase()
         persistRuntimeState()
+    }
+
+    private func handlePendingLiveActivityOpenRequest() {
+        let key = "alarmo.liveActivity.openSessionId"
+        let defaults = UserDefaults.standard
+        defer { defaults.removeObject(forKey: key) }
+
+        guard let raw = defaults.string(forKey: key),
+              let id = UUID(uuidString: raw),
+              state.parallelSessions.contains(where: { $0.id == id }) else {
+            return
+        }
+
+        if state.activeParallelSessionId != id {
+            switchToParallelSession(id)
+        }
     }
     
     func apply(planItem: PlanItem) {
@@ -985,10 +1023,16 @@ class PomodoroEngine: ObservableObject {
     }
 
     private func syncLiveActivityFromSessions() {
+        state.parallelSessions.removeAll { !$0.isRunning && $0.remainingSeconds <= 0 }
         let sessions = state.parallelSessions
         guard !sessions.isEmpty else {
             LiveActivityManager.shared.end()
             return
+        }
+
+        if let activeId = state.activeParallelSessionId,
+           !sessions.contains(where: { $0.id == activeId }) {
+            state.activeParallelSessionId = sessions.first?.id
         }
 
         let active = sessions.first(where: { $0.id == state.activeParallelSessionId }) ?? sessions[0]
@@ -1025,8 +1069,9 @@ class PomodoroEngine: ObservableObject {
         }
     }
 
-    private func updateParallelSessionsClock(now: Date = Date()) {
-        guard !state.parallelSessions.isEmpty else { return }
+    private func updateParallelSessionsClock(now: Date = Date()) -> Bool {
+        guard !state.parallelSessions.isEmpty else { return false }
+        var endedSession = false
         for index in state.parallelSessions.indices {
             guard state.parallelSessions[index].isRunning,
                   let end = state.parallelSessions[index].endTime else { continue }
@@ -1035,8 +1080,10 @@ class PomodoroEngine: ObservableObject {
             state.parallelSessions[index].updatedAt = now
             if remaining == 0 {
                 state.parallelSessions[index].isRunning = false
+                endedSession = true
             }
         }
+        return endedSession
     }
 
     private func persistRuntimeState() {

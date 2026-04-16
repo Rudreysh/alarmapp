@@ -35,6 +35,7 @@ public struct PomoAttributes: ActivityAttributes {
         public var stateString: String
         public var isAmbientPlaying: Bool
         public var ambientSoundName: String?
+        public var isExpanded: Bool
         public var activeSessionId: UUID?
         public var parallelSessions: [ParallelSession]
         
@@ -46,6 +47,7 @@ public struct PomoAttributes: ActivityAttributes {
             stateString: String,
             isAmbientPlaying: Bool = false,
             ambientSoundName: String? = nil,
+            isExpanded: Bool = false,
             activeSessionId: UUID? = nil,
             parallelSessions: [ParallelSession] = []
         ) {
@@ -56,6 +58,7 @@ public struct PomoAttributes: ActivityAttributes {
             self.stateString = stateString
             self.isAmbientPlaying = isAmbientPlaying
             self.ambientSoundName = ambientSoundName
+            self.isExpanded = isExpanded
             self.activeSessionId = activeSessionId
             self.parallelSessions = parallelSessions
         }

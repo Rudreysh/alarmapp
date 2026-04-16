@@ -20,9 +20,10 @@ struct AppRootView: View {
     @StateObject private var accountabilityManager = AccountabilityEnforcementManager.shared
     @StateObject private var shutdownDetectionService = ShutdownDetectionService()
     @StateObject private var tamperDetectionService = TamperDetectionService.shared
+    @AppStorage("settings.alarmThemeStyleRaw") private var appThemeStyleRaw: String = AlarmThemeStyle.default.rawValue
 
     var body: some View {
-        let _ = print("[AppRootView] body re-evaluating. onboardingCompleted: \(appPreferences.onboardingCompleted), showingMainTab: \(showingMainTab)")
+        let _ = print("[AppRootView] body re-evaluating. onboardingCompleted: \(appPreferences.onboardingCompleted), showingMainTab: \(showingMainTab), appThemeStyle: \(appThemeStyleRaw)")
         return Group {
             if showingMainTab {
                 let _ = print("[AppRootView] Showing MainTabContainerView")
@@ -32,7 +33,7 @@ struct AppRootView: View {
                 OnboardingFlowView(viewModel: onboardingViewModel, appPreferences: appPreferences, alarmStore: alarmStore)
             }
         }
-        .preferredColorScheme(SettingsStore.shared.themeMode.colorScheme)
+        .preferredColorScheme(resolvedColorScheme)
         .onAppear {
             // Configure remote assets from GitHub
             // Note: Change 'green-theme' to 'main' when merging to production branch.
@@ -59,6 +60,10 @@ struct AppRootView: View {
             accountabilityManager.ensureShieldRestoredOnLaunch()
             AccountabilityShieldEngine.shared.reconcileActiveSessionOnLaunch(ringingAlarmId: ringCoordinator.activeAlarm?.id, alarmStore: alarmStore)
             pomodoroEngine.configure(with: appPreferences)
+            if hasPendingLiveActivityOpenRequest() {
+                navigationStore.selectedTab = .timer
+                navigationStore.requestedTimerMode = .pomo
+            }
             if !didRunAppListMigration {
                 AppListMigrationCoordinator.migrateLegacySelectionIfNeeded(context: modelContext, settings: settingsStore)
                 didRunAppListMigration = true
@@ -89,6 +94,10 @@ struct AppRootView: View {
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
+                if hasPendingLiveActivityOpenRequest() {
+                    navigationStore.selectedTab = .timer
+                    navigationStore.requestedTimerMode = .pomo
+                }
                 pomodoroEngine.handleSceneDidBecomeActive()
                 tamperDetectionService.evaluateOnForeground(ringCoordinator: ringCoordinator)
                 notificationManager.recoverAlarmFromDeliveredNotificationsIfNeeded()
@@ -130,6 +139,16 @@ struct AppRootView: View {
                 showingMainTab = newState
             }
         }
+    }
+
+    private func hasPendingLiveActivityOpenRequest() -> Bool {
+        let key = "alarmo.liveActivity.openSessionId"
+        guard let raw = UserDefaults.standard.string(forKey: key) else { return false }
+        return !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var resolvedColorScheme: ColorScheme? {
+        appThemeStyleRaw == AlarmThemeStyle.lilacCalm.rawValue ? .light : settingsStore.themeMode.colorScheme
     }
 
     private func handlePlanNotificationMarkDone(userInfo: [AnyHashable: Any]?) {

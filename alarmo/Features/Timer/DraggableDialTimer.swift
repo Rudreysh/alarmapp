@@ -52,8 +52,8 @@ struct DraggableDialTimer: View {
             let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
             let trackWidth = size * 0.16
             let ringRadius = (size - trackWidth) / 2
-            let innerDiameter = size * 0.64
-            let logoBadgeDiameter = size * 0.44
+            let innerDiameter = size * 0.512 // 20% smaller than previous center circle
+            let logoBadgeDiameter = size * 0.352
             let knobAngle = Angle.degrees((ringFraction * 360) - 90)
 
             ZStack {
