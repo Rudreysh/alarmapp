@@ -15,6 +15,16 @@ final class PenaltyEngine {
         session: AlarmSession?,
         violation: AlarmViolationType
     ) -> Bool {
+        // TEMPORARILY DISABLED (Penalty rollout paused):
+        // Keep this method and its caller flow intact for future implementation.
+        // All penalty charging decisions are currently forced OFF.
+        _ = alarm
+        _ = rules
+        _ = session
+        _ = violation
+        return false
+
+        /*
         guard alarm.penaltyEnabled else {
             print("[PenaltyEngine] Skip: penalty disabled for alarm \(alarm.id)")
             return false
@@ -78,6 +88,7 @@ final class PenaltyEngine {
             return true
         default: return false
         }
+        */
     }
 
     @discardableResult
@@ -87,6 +98,15 @@ final class PenaltyEngine {
         violation: AlarmViolationType,
         note: String
     ) -> Bool {
+        // TEMPORARILY DISABLED (Penalty rollout paused):
+        // This method intentionally does not queue or charge penalties.
+        _ = alarm
+        _ = session
+        _ = violation
+        _ = note
+        return false
+
+        /*
         if let existing = session.violations.first(where: { $0.type == violation }) {
             print("[PenaltyEngine] Skip: already charged for \(violation.rawValue) in current session at \(existing.timestamp), amount=\(existing.chargedAmount)")
             return false
@@ -104,5 +124,6 @@ final class PenaltyEngine {
             print("[PenaltyEngine] Violation queued with grace period for \(violation.rawValue)")
         }
         return queued
+        */
     }
 }

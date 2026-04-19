@@ -20,7 +20,6 @@ struct CreateHabitAlarmView: View {
     @State private var showMissionSelection = false
     @State private var selectedMissionForConfig: AlarmMission?
     @State private var editingMissionIndex: Int?
-    @State private var showPenaltySettings = false
     @State private var showingLocalTimePreview = true // Default to floating mode if custom TZ
     @State private var showAlarmAccessAlert = false
     @State private var alarmAccessAlertMessage = "Enable notification access for reliable alarm ringing."
@@ -72,7 +71,7 @@ struct CreateHabitAlarmView: View {
                             minute: bindingForPicker.1,
                             second: bindingForPicker.2
                         )
-                        .padding(.top, 20)
+                        .padding(.top, settingsStore.alarmClockStyle == .classicSunray ? 30 : 20)
                         
                         // Interactive Location Badge
                         Menu {
@@ -124,7 +123,7 @@ struct CreateHabitAlarmView: View {
                                     .fill(Colors.cardSurface.opacity(0.6))
                                     .overlay(
                                         Capsule()
-                                            .stroke(!isShowingLocalInFloat ? Colors.accentTeal.opacity(0.6) : Color.white.opacity(0.1), lineWidth: 1)
+                                            .stroke(!isShowingLocalInFloat ? Colors.accentTeal.opacity(0.6) : Colors.cardStroke, lineWidth: 1)
                                     )
                             )
                             .foregroundColor(!isShowingLocalInFloat ? Colors.accentTeal : Colors.textPrimary)
@@ -133,10 +132,8 @@ struct CreateHabitAlarmView: View {
                             // TAP now opens the picker, making it easy to change locations
                             showTimeZonePicker = true
                         }
-                        .padding(.top, 10)
-                        .padding(.bottom, 6)
-                        .padding(.top, 18)
-                        .padding(.bottom, 10)
+                        .padding(.top, settingsStore.alarmClockStyle == .classicSunray ? 30 : 28)
+                        .padding(.bottom, settingsStore.alarmClockStyle == .classicSunray ? 14 : 10)
 
                         // 2. Name & Emoji
                         HStack(spacing: Spacing.m) {
@@ -169,7 +166,7 @@ struct CreateHabitAlarmView: View {
                             )
                             
                             Divider()
-                                .background(Color(white: 0.25))
+                                .background(Colors.cardStroke)
                                 .padding(.vertical, 4)
                             
                             MenuRow(
@@ -324,30 +321,21 @@ struct CreateHabitAlarmView: View {
                             }
                         }
 
-                        // Group F: Accountability Penalty
-                        SectionHeader(title: "Accountability Penalty")
+                        // Group F: Alarm Lock
+                        SectionHeader(title: "Alarm Lock")
                         GroupedSettingsCard {
-                            Toggle(isOn: $viewModel.penaltyEnabled) {
-                                Text("Enable Penalty")
+                            Toggle(isOn: $viewModel.blockAppsEnabled) {
+                                Text("Block all apps until mission is solved")
                                     .foregroundColor(Colors.textPrimary)
                             }
                             .padding()
-                            if viewModel.penaltyEnabled {
-                                Divider().padding(.leading, 16).opacity(0.3)
-                                MenuRow(
-                                    icon: "slider.horizontal.3",
-                                    title: "Edit Penalty Rules",
-                                    value: "Settings"
-                                ) {
-                                    showPenaltySettings = true
-                                }
-                                
-                                Text("Penalty rules are global and apply only while this alarm is active.")
-                                    .font(.caption)
-                                    .foregroundColor(Colors.textSecondary)
-                                    .padding(.horizontal)
-                                    .padding(.bottom, 8)
+
+                            Divider().padding(.leading, 16).opacity(0.3)
+                            Toggle(isOn: $viewModel.shutdownProtectionEnabled) {
+                                Text("Disable app delete/switch off")
+                                    .foregroundColor(Colors.textPrimary)
                             }
+                            .padding()
                         }
 
                         // Group G: Wallpaper
@@ -431,9 +419,6 @@ struct CreateHabitAlarmView: View {
         }
         .sheet(isPresented: $showWakeUpCheck) {
             WakeUpCheckView(isEnabled: $viewModel.wakeUpCheckEnabled)
-        }
-        .sheet(isPresented: $showPenaltySettings) {
-            PreventPowerOffView()
         }
         .alert("Alarm Access Needed", isPresented: $showAlarmAccessAlert) {
             Button("Save Anyway") {
@@ -576,7 +561,9 @@ struct CreateHabitAlarmView: View {
             TimePickerSheet(title: "End until", date: $viewModel.reminderEndTime)
         }
         .onDisappear {
-            soundPlayer.stop()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                soundPlayer.stop()
+            }
         }
         .onChange(of: viewModel.hour) { _, _ in
             viewModel.updateRingInText()
@@ -763,9 +750,8 @@ struct CreateHabitAlarmView: View {
     }
     
     private func saveAlarm(ignoreDeliveryWarnings: Bool = false) {
-        var alarmPenaltyRules = settingsStore.penaltyRules
-        // Alarm penalty in this mode is snooze-threshold based.
-        alarmPenaltyRules.alarmMissionFailTriggersPenalty = false
+        let blockAppsEnabled = viewModel.blockAppsEnabled
+        let enforcementMode: EnforcementMode = blockAppsEnabled ? .blockApps : .none
 
         let alarm = Alarm(
             id: existingAlarm?.id ?? UUID(),
@@ -802,14 +788,14 @@ struct CreateHabitAlarmView: View {
             ),
             createdAt: existingAlarm?.createdAt ?? Date(),
             missions: viewModel.missions,
-            enforcementMode: viewModel.penaltyEnabled ? .penaltyOnly : .none,
-            blockAppsEnabled: false,
+            enforcementMode: enforcementMode,
+            blockAppsEnabled: blockAppsEnabled,
             blockedSelectionData: settingsStore.blockedAppsSelectionData,
-            penaltyEnabled: viewModel.penaltyEnabled,
+            penaltyEnabled: false,
             penaltyAmountEuro: settingsStore.penaltyAmountEuro,
             penaltyStrategy: .credits,
-            penaltyRules: alarmPenaltyRules,
-            shutdownProtectionEnabled: viewModel.penaltyEnabled,
+            penaltyRules: .default,
+            shutdownProtectionEnabled: viewModel.shutdownProtectionEnabled,
             habitReminderEnabled: viewModel.reminderEnabled,
             habitReminderInterval: viewModel.reminderIntervalMinutes,
             habitReminderDuration: viewModel.reminderDurationSeconds,
@@ -819,16 +805,21 @@ struct CreateHabitAlarmView: View {
         )
 
         print("[HabitAlarm] Saving habit: \(alarm.name) at \(alarm.hour):\(alarm.minute)")
-        if existingAlarm != nil {
-            alarmStore.update(alarm)
-        } else {
-            alarmStore.add(alarm)
-        }
 
-        // Close immediately for a responsive save UX, then refresh schedule.
+        // Dismiss first to keep Save interaction instant.
         onClose()
 
-        Task { @MainActor in
+        // Delay model mutation slightly so full-screen dismissal animation can start cleanly.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            if existingAlarm != nil {
+                alarmStore.update(alarm)
+            } else {
+                alarmStore.add(alarm)
+            }
+        }
+
+        // Scheduling can be expensive (attachments + many notifications); keep it off MainActor.
+        DispatchQueue.global(qos: .utility).async {
             scheduler.cancel(alarmId: alarm.id)
             scheduler.schedule(alarm: alarm)
         }

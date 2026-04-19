@@ -88,7 +88,7 @@ struct PresetCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(preset.name)
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                         .lineLimit(1)
                     
                     Text(formatDuration(preset.duration))
@@ -99,10 +99,10 @@ struct PresetCard: View {
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.white.opacity(0.04))
+                    .fill(Colors.cardSurface)
                     .overlay(
                         RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                            .stroke(Colors.cardStroke, lineWidth: 1)
                     )
             )
         }
@@ -157,7 +157,7 @@ struct ActiveCountdownOverlay: View {
                 VStack(spacing: 8) {
                     Text(swFormatTime(engine.remaining, showHundredths: false))
                         .font(.system(size: 56, weight: .bold, design: .monospaced))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                         .onTapGesture {
                             if engine.state == .running || engine.state == .paused {
                                 showEditSheet = true
@@ -177,9 +177,9 @@ struct ActiveCountdownOverlay: View {
                 Button(action: { engine.reset() }) {
                     Image(systemName: "arrow.counterclockwise")
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                         .frame(width: 60, height: 60)
-                        .background(Circle().fill(Color.white.opacity(0.1)))
+                        .background(Circle().fill(Colors.cardSurface))
                 }
                 
                 Button(action: {
@@ -203,9 +203,9 @@ struct ActiveCountdownOverlay: View {
                 }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                         .frame(width: 60, height: 60)
-                        .background(Circle().fill(Color.white.opacity(0.1)))
+                        .background(Circle().fill(Colors.cardSurface))
                 }
             }
             .padding(.bottom, 60)

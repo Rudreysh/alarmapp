@@ -13,43 +13,43 @@ struct FloatingAddMenu: View {
                     onSelectTimer()
                 }
             }
-            .background(Colors.textPrimary)
+            .background(Colors.cardSurface)
             .clipShape(RoundedRectangle(cornerRadius: 20))
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(Color.black.opacity(0.22), lineWidth: 1.2)
+                    .stroke(Colors.cardStroke, lineWidth: 1.2)
             )
-            .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 6)
+            .shadow(color: Colors.shadow.opacity(0.35), radius: 12, x: 0, y: 6)
 
             VStack(spacing: 0) {
                 FloatingMenuRow(icon: "calendar", title: "Habit alarm", tint: Color.purple) {
                     onSelectHabit()
                 }
-                Divider().background(Color.black.opacity(0.1))
+                Divider().background(Colors.cardStroke)
                 FloatingMenuRow(icon: "bolt.fill", title: "Quick alarm", tint: Color.blue) {
                     onSelectQuick()
                 }
             }
-            .background(Colors.textPrimary)
+            .background(Colors.cardSurface)
             .clipShape(RoundedRectangle(cornerRadius: 20))
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(Color.black.opacity(0.22), lineWidth: 1.2)
+                    .stroke(Colors.cardStroke, lineWidth: 1.2)
             )
-            .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 6)
+            .shadow(color: Colors.shadow.opacity(0.35), radius: 12, x: 0, y: 6)
 
             VStack(spacing: 0) {
                 FloatingMenuRow(icon: "alarm", title: "Alarm", tint: Colors.accentRed) {
                     onSelectAlarm()
                 }
             }
-            .background(Colors.textPrimary)
+            .background(Colors.cardSurface)
             .clipShape(RoundedRectangle(cornerRadius: 20))
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(Color.black.opacity(0.22), lineWidth: 1.2)
+                    .stroke(Colors.cardStroke, lineWidth: 1.2)
             )
-            .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 6)
+            .shadow(color: Colors.shadow.opacity(0.35), radius: 12, x: 0, y: 6)
         }
         .frame(width: 210)
     }
@@ -70,7 +70,7 @@ private struct FloatingMenuRow: View {
                     .frame(width: 28)
                 Text(title)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.black)
+                    .foregroundColor(Colors.textPrimary)
                 Spacer()
             }
             .padding(.horizontal, 14)

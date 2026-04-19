@@ -183,23 +183,28 @@ struct SquatMissionView: View {
     // MARK: - Success
     
     private var successView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(.green)
-            
-            Text("Great workout!")
-                .font(.system(size: 32, weight: .bold))
-                .foregroundColor(.white)
-            
-            Text("You're definitely awake now! 💪")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(Colors.textSecondary)
+        ZStack {
+            MissionEmojiConfettiBackground()
+
+            VStack(spacing: 20) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(.green)
+                
+                Text("Great workout!")
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundColor(.white)
+                
+                Text("You're definitely awake now! 💪")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Colors.textSecondary)
+            }
+            .padding(40)
+            .background(Color.black.opacity(0.85))
+            .cornerRadius(32)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .transition(.scale.combined(with: .opacity))
-        .padding(40)
-        .background(Color.black.opacity(0.85))
-        .cornerRadius(32)
     }
     
     // MARK: - Blocked

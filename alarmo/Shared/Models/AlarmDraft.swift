@@ -37,6 +37,7 @@ struct AlarmDraft: Equatable {
     var penaltyEnabled: Bool = false
     var penaltyAmountEuro: Int = 1
     var penaltyRules: PenaltyRules = .default
+    var shutdownProtectionEnabled: Bool = false
 
     init(defaultHour: Int, defaultMinute: Int, defaultSecond: Int = 0, defaultRepeatMask: Int, defaultSoundName: String, defaultSoundVolume: Float, defaultWallpaperId: String) {
         self.hour = defaultHour

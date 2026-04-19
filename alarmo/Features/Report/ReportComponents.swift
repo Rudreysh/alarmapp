@@ -5,8 +5,8 @@ enum ReportPalette {
     static let accent = Color(red: 0.08, green: 0.78, blue: 0.92)
     static let accentDark = Color(red: 0.05, green: 0.34, blue: 0.52)
     static let glow = Color(red: 0.28, green: 0.88, blue: 0.98)
-    static let cardStart = Color(red: 0.05, green: 0.10, blue: 0.15).opacity(0.92)
-    static let cardEnd = Color(red: 0.03, green: 0.06, blue: 0.10).opacity(0.95)
+    static let cardStart = Colors.cardSurface
+    static let cardEnd = Colors.bgSecondary.opacity(0.9)
     static let accentGradient = LinearGradient(
         colors: [accent, glow.opacity(0.82), accentDark],
         startPoint: .topLeading,
@@ -120,7 +120,7 @@ struct KPICard: View {
             RoundedRectangle(cornerRadius: 20)
                 .fill(
                     LinearGradient(
-                        colors: [ReportPalette.cardStart, ReportPalette.cardEnd],
+                        colors: [Colors.cardSurface, Colors.bgSecondary.opacity(0.85)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )

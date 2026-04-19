@@ -20,7 +20,6 @@ struct CreateWakeUpAlarmView: View {
     @StateObject private var soundPlayer = SoundPreviewPlayer()
     @ObservedObject private var settingsStore = SettingsStore.shared
     private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
-    @State private var showPenaltySettings = false
     @State private var showingLocalTimePreview = true // Default to floating mode if custom TZ
     @State private var showAlarmAccessAlert = false
     @State private var alarmAccessAlertMessage = "Enable notification access for reliable alarm ringing."
@@ -64,17 +63,19 @@ struct CreateWakeUpAlarmView: View {
                 Colors.bgPrimary.ignoresSafeArea()
                 
                 ScrollView {
-                    VStack(spacing: 16) {
+                    VStack(spacing: 8) {
                         // Top Spacer for Header
-                        Color.clear.frame(height: 4)
+                        Color.clear.frame(height: 0)
 
                         // 1. Digital Time Picker (Floating between TZ)
                         DigitalTimeDisplay(
                             hour: bindingForPicker.0,
                             minute: bindingForPicker.1,
-                            second: bindingForPicker.2
+                            second: bindingForPicker.2,
+                            sunrayScale: isClassicSunrayStyle ? 1.125 : 1.0
                         )
-                        .padding(.top, 0)
+                        .offset(y: timeDisplayOffsetY)
+                        .padding(.bottom, timeDisplayBottomPadding)
                         .coachMark(
                             title: "Set Time",
                             subtitle: "Tap to adjust.",
@@ -156,7 +157,7 @@ struct CreateWakeUpAlarmView: View {
                                     .fill(Colors.cardSurface.opacity(0.6))
                                     .overlay(
                                         Capsule()
-                                            .stroke(!isShowingLocalInFloat ? Colors.accentTeal.opacity(0.6) : Color.white.opacity(0.1), lineWidth: 1)
+                                            .stroke(!isShowingLocalInFloat ? Colors.accentTeal.opacity(0.6) : Colors.cardStroke, lineWidth: 1)
                                     )
                             )
                             .foregroundColor(!isShowingLocalInFloat ? Colors.accentTeal : Colors.textPrimary)
@@ -165,10 +166,8 @@ struct CreateWakeUpAlarmView: View {
                             // TAP now opens the picker
                             showTimeZonePicker = true
                         }
-                        .padding(.top, 2)
-                        .padding(.bottom, 4)
-                        .padding(.top, 2)
-                        .padding(.bottom, 4)
+                        .padding(.top, locationBadgeTopPadding)
+                        .padding(.bottom, locationBadgeBottomPadding)
 
                         // 2. Name & Emoji (Moved Below Time)
                          HStack(spacing: Spacing.m) {
@@ -189,6 +188,7 @@ struct CreateWakeUpAlarmView: View {
                             }
                         }
                         .padding(.horizontal, Spacing.l)
+                        .padding(.top, alarmNameTopPadding)
                         .coachMark(
                             title: "Name",
                             subtitle: "Label your alarm.",
@@ -225,7 +225,7 @@ struct CreateWakeUpAlarmView: View {
 
                             
                             Divider()
-                                .background(Color(white: 0.25)) // Visible separator
+                                .background(Colors.cardStroke)
                                 .padding(.vertical, 4)
                             
                              // Snooze
@@ -432,11 +432,11 @@ struct CreateWakeUpAlarmView: View {
                             }
                         }
 
-                        // Group E: Commitment Pledge
-                        SectionHeader(title: "Commitment Pledge")
+                        // Group E: Alarm Lock
+                        SectionHeader(title: "Alarm Lock")
                             .coachMark(
                                 title: "Features",
-                                subtitle: "Snooze and penalties.",
+                                subtitle: "Alarm lock options.",
                                 isVisible: $showPenaltyCoachMark,
                                 alignment: .bottomTrailing,
                                 pointDirection: .bottom,
@@ -448,12 +448,12 @@ struct CreateWakeUpAlarmView: View {
                             )
                             .zIndex(showPenaltyCoachMark ? 100 : 0)
                         GroupedSettingsCard {
-                            Toggle(isOn: $viewModel.draft.penaltyEnabled) {
-                                Text("Enable Penalty")
+                            Toggle(isOn: $viewModel.draft.blockAppsEnabled) {
+                                Text("Block all apps until mission is solved")
                                     .foregroundColor(Colors.textPrimary)
                             }
                             .padding()
-                            .onChange(of: viewModel.draft.penaltyEnabled) { _, _ in
+                            .onChange(of: viewModel.draft.blockAppsEnabled) { _, _ in
                                 guard showPenaltyCoachMark else { return }
                                 withAnimation {
                                     showPenaltyCoachMark = false
@@ -462,22 +462,12 @@ struct CreateWakeUpAlarmView: View {
                                 // No more steps currently defined in the chain for this view
                             }
 
-                            if viewModel.draft.penaltyEnabled {
-                                Divider().padding(.leading, 16).opacity(0.3)
-                                MenuRow(
-                                    icon: "slider.horizontal.3",
-                                    title: "Edit Penalty Rules",
-                                    value: "Settings"
-                                ) {
-                                    showPenaltySettings = true
-                                }
-
-                                Text("Penalty rules are global and apply only while this alarm is active.")
-                                    .font(.caption)
-                                    .foregroundColor(Colors.textSecondary)
-                                    .padding(.horizontal)
-                                    .padding(.bottom, 8)
+                            Divider().padding(.leading, 16).opacity(0.3)
+                            Toggle(isOn: $viewModel.draft.shutdownProtectionEnabled) {
+                                Text("Disable app delete/switch off")
+                                    .foregroundColor(Colors.textPrimary)
                             }
+                            .padding()
                         }
 
                         // Group F: Wallpaper
@@ -687,9 +677,6 @@ struct CreateWakeUpAlarmView: View {
                 selectedMode: $viewModel.draft.timeZoneMode
             )
         }
-        .sheet(isPresented: $showPenaltySettings) {
-            AccountabilityShieldSettingsView()
-        }
         .alert("Alarm Access Needed", isPresented: $showAlarmAccessAlert) {
             Button("Save Anyway") {
                 saveAlarm(ignoreDeliveryWarnings: true)
@@ -802,6 +789,13 @@ struct CreateWakeUpAlarmView: View {
                     updatedMission.config = ["squatCount": squatCount]
                     updateMission(updatedMission)
                 }
+            } else if mission.type == .bibleVerse ||
+                        mission.type == .quranVerse ||
+                        mission.type == .bhagavadGitaVerse ||
+                        mission.type == .affirmation {
+                ReligiousMissionSettingsView(initialMission: mission) { updatedMission in
+                    updateMission(updatedMission)
+                }
             } else {
                  VStack {
                     Text(mission.title).font(.bold(.title)())
@@ -815,7 +809,9 @@ struct CreateWakeUpAlarmView: View {
             }
         }
         .onDisappear {
-            soundPlayer.stop()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                soundPlayer.stop()
+            }
         }
     }
     
@@ -825,6 +821,30 @@ struct CreateWakeUpAlarmView: View {
     @State private var showSoundEditor = false
 
     // MARK: - Helpers
+    private var isClassicSunrayStyle: Bool {
+        settingsStore.alarmClockStyle == .classicSunray
+    }
+
+    private var timeDisplayOffsetY: CGFloat {
+        isClassicSunrayStyle ? -34 : -44
+    }
+
+    private var timeDisplayBottomPadding: CGFloat {
+        isClassicSunrayStyle ? 4 : -18
+    }
+
+    private var locationBadgeTopPadding: CGFloat {
+        isClassicSunrayStyle ? -22 : -50
+    }
+
+    private var locationBadgeBottomPadding: CGFloat {
+        isClassicSunrayStyle ? 0 : -2
+    }
+
+    private var alarmNameTopPadding: CGFloat {
+        isClassicSunrayStyle ? -8 : -28
+    }
+
     private var repeatText: String {
         if viewModel.draft.isDaily { return "Daily" }
         if viewModel.draft.selectedWeekdays.isEmpty { return "Once" }
@@ -870,82 +890,99 @@ private extension CreateWakeUpAlarmView {
     }
 
     func saveAlarm(ignoreDeliveryWarnings: Bool = false) {
+        let alarmName = viewModel.draft.name.isEmpty ? "Alarm" : viewModel.draft.name
+        let alarmId = existingAlarm?.id ?? UUID()
+        let blockAppsEnabled = viewModel.draft.blockAppsEnabled
+        let enforcementMode: EnforcementMode = blockAppsEnabled ? .blockApps : .none
+
+        let alarm = Alarm(
+            id: alarmId,
+            name: alarmName,
+            emoji: viewModel.draft.emoji,
+            hour: viewModel.draft.hour,
+            minute: viewModel.draft.minute,
+            second: viewModel.draft.second,
+            isDaily: viewModel.draft.isDaily,
+            repeatMask: viewModel.repeatMask(),
+            enabled: true,
+            wakeUpCheckEnabled: viewModel.draft.wakeUpCheckEnabled,
+            soundName: viewModel.draft.soundName,
+            soundVolume: viewModel.draft.soundVolume,
+            vibrateEnabled: viewModel.draft.vibrateEnabled,
+            gentleWakeUpSeconds: viewModel.draft.gentleWakeUpSeconds,
+            timeReminderEnabled: viewModel.draft.timeReminderEnabled,
+            weatherReminderEnabled: viewModel.draft.weatherReminderEnabled,
+            labelReminderEnabled: viewModel.draft.labelReminderEnabled,
+            extraLoudEnabled: viewModel.draft.extraLoudEnabled,
+            bypassSilentMode: viewModel.draft.bypassSilentMode,
+            timeZoneMode: viewModel.draft.timeZoneMode,
+            timeZoneIdentifier: viewModel.draft.timeZoneIdentifier,
+            timeZoneCity: viewModel.draft.timeZoneCity,
+            snoozeMinutes: viewModel.draft.snoozeMinutes,
+            snoozeSeconds: viewModel.draft.snoozeSeconds,
+            snoozeCount: viewModel.draft.snoozeCount,
+            wallpaperId: viewModel.draft.wallpaperId,
+            dailyMotivationEnabled: viewModel.draft.dailyMotivationEnabled,
+            visualOutputSettings: AlarmVisualOutputSettings.migratedFromLegacy(
+                wallpaperId: viewModel.draft.wallpaperId,
+                dailyMotivationEnabled: viewModel.draft.dailyMotivationEnabled
+            ),
+            createdAt: Date(),
+            missions: viewModel.draft.missions,
+            enforcementMode: enforcementMode,
+            blockAppsEnabled: blockAppsEnabled,
+            blockedSelectionData: settingsStore.blockedAppsSelectionData,
+            penaltyEnabled: false,
+            penaltyAmountEuro: settingsStore.penaltyAmountEuro,
+            penaltyStrategy: .credits,
+            penaltyRules: .default,
+            shutdownProtectionEnabled: viewModel.draft.shutdownProtectionEnabled
+        )
+
+        let completeSave: () -> Void = {
+            // Dismiss first so Save feels instant.
+            onClose()
+
+            // Delay model mutation slightly so full-screen dismissal animation can start cleanly.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                if existingAlarm != nil {
+                    alarmStore.update(alarm)
+                } else {
+                    alarmStore.add(alarm)
+                }
+            }
+
+            // Scheduling can perform heavy notification/asset work; keep it off main.
+            DispatchQueue.global(qos: .utility).async {
+                scheduler.cancel(alarmId: alarm.id)
+                scheduler.schedule(alarm: alarm)
+            }
+        }
+
+        guard !ignoreDeliveryWarnings else {
+            completeSave()
+            return
+        }
+
         Task { @MainActor in
             let granted = await notificationManager.ensureAuthorization()
             let delivery = await notificationManager.currentAlarmDeliveryStatus()
-            if !ignoreDeliveryWarnings && (!granted || !delivery.notificationsAuthorized) {
+            if !granted || !delivery.notificationsAuthorized {
                 alarmAccessAlertMessage = "Alarm notifications are not authorized. Turn on notifications for Alarmo."
                 showAlarmAccessAlert = true
                 return
             }
-            if !ignoreDeliveryWarnings && !delivery.soundEnabled {
+            if !delivery.soundEnabled {
                 alarmAccessAlertMessage = "Notification sounds are turned off for Alarmo. Turn sounds on so alarms ring audibly."
                 showAlarmAccessAlert = true
                 return
             }
-            if !ignoreDeliveryWarnings && !delivery.timeSensitiveEnabled {
+            if !delivery.timeSensitiveEnabled {
                 alarmAccessAlertMessage = "Time Sensitive notifications are off. Enable them to keep alarm alerts audible during Focus modes."
                 showAlarmAccessAlert = true
                 return
             }
-            let alarmName = viewModel.draft.name.isEmpty ? "Alarm" : viewModel.draft.name
-            let alarmId = existingAlarm?.id ?? UUID()
-            var alarmPenaltyRules = settingsStore.penaltyRules
-            // Alarm penalty in this mode is snooze-threshold based.
-            alarmPenaltyRules.alarmMissionFailTriggersPenalty = false
-            let penaltyEnabled = viewModel.draft.penaltyEnabled
-
-            let alarm = Alarm(
-                id: alarmId,
-                name: alarmName,
-                emoji: viewModel.draft.emoji,
-                hour: viewModel.draft.hour,
-                minute: viewModel.draft.minute,
-                second: viewModel.draft.second,
-                isDaily: viewModel.draft.isDaily,
-                repeatMask: viewModel.repeatMask(),
-                enabled: true,
-                wakeUpCheckEnabled: viewModel.draft.wakeUpCheckEnabled,
-                soundName: viewModel.draft.soundName,
-                soundVolume: viewModel.draft.soundVolume,
-                vibrateEnabled: viewModel.draft.vibrateEnabled,
-                gentleWakeUpSeconds: viewModel.draft.gentleWakeUpSeconds,
-                timeReminderEnabled: viewModel.draft.timeReminderEnabled,
-                weatherReminderEnabled: viewModel.draft.weatherReminderEnabled,
-                labelReminderEnabled: viewModel.draft.labelReminderEnabled,
-                extraLoudEnabled: viewModel.draft.extraLoudEnabled,
-                bypassSilentMode: viewModel.draft.bypassSilentMode,
-                timeZoneMode: viewModel.draft.timeZoneMode,
-                timeZoneIdentifier: viewModel.draft.timeZoneIdentifier,
-                timeZoneCity: viewModel.draft.timeZoneCity,
-                snoozeMinutes: viewModel.draft.snoozeMinutes,
-                snoozeSeconds: viewModel.draft.snoozeSeconds,
-                snoozeCount: viewModel.draft.snoozeCount,
-                wallpaperId: viewModel.draft.wallpaperId,
-                dailyMotivationEnabled: viewModel.draft.dailyMotivationEnabled,
-                visualOutputSettings: AlarmVisualOutputSettings.migratedFromLegacy(
-                    wallpaperId: viewModel.draft.wallpaperId,
-                    dailyMotivationEnabled: viewModel.draft.dailyMotivationEnabled
-                ),
-                createdAt: Date(),
-                missions: viewModel.draft.missions,
-                enforcementMode: penaltyEnabled ? .penaltyOnly : .none,
-                blockAppsEnabled: false,
-                blockedSelectionData: settingsStore.blockedAppsSelectionData,
-                penaltyEnabled: penaltyEnabled,
-                penaltyAmountEuro: settingsStore.penaltyAmountEuro,
-                penaltyStrategy: .credits,
-                penaltyRules: alarmPenaltyRules,
-                shutdownProtectionEnabled: penaltyEnabled
-            )
-            
-            if existingAlarm != nil {
-                alarmStore.update(alarm)
-            } else {
-                alarmStore.add(alarm)
-            }
-            scheduler.schedule(alarm: alarm)
-            onClose()
+            completeSave()
         }
     }
     

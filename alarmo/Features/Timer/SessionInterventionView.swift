@@ -185,9 +185,21 @@ struct SessionInterventionView: View {
             case .squat:
                 SquatMissionView(
                     viewModel: SquatMissionViewModel(
-                        targetSquats: 10,
+                        targetSquats: 15,
                         onComplete: { handleMissionSuccess() }
                     )
+                )
+            case .objectHunt:
+                ObjectHuntMissionView(
+                    onComplete: { handleMissionSuccess() }
+                )
+            case .pushups:
+                PushupsMissionView(
+                    onComplete: { handleMissionSuccess() }
+                )
+            case .plank:
+                PlankMissionView(
+                    onComplete: { handleMissionSuccess() }
                 )
             case .memoryMatch:
                 MemoryMatchGameView(
@@ -217,6 +229,19 @@ struct SessionInterventionView: View {
                     onComplete: { handleMissionSuccess() },
                     onCancel: { showingMission = false }
                 )
+            case .bibleVerse, .quranVerse, .bhagavadGitaVerse, .affirmation:
+                if let first = ReligiousMissionContentStore.items(for: challenge).first {
+                    SpokenVerseMissionView(
+                        mission: AlarmMission(type: challenge),
+                        verse: first,
+                        onComplete: { handleMissionSuccess() }
+                    )
+                } else {
+                    Color.clear
+                        .onAppear {
+                            handleMissionSuccess()
+                        }
+                }
             case .off:
                 Color.clear
                     .onAppear {

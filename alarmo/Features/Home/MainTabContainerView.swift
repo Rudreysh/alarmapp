@@ -33,7 +33,7 @@ struct MainTabContainerView: View {
                 case .report:
                     ReportView(modelContext: modelContext, alarmStore: alarmStore)
                 case .setting:
-                    SettingsRootView()
+                    SettingsRootView(preferences: preferences)
                 }
             }
 

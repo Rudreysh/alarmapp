@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SquatMissionSettingsView: View {
     @Environment(\.dismiss) var dismiss
-    @State private var squatCount: Int = 10
+    @State private var squatCount: Int = 15
     @State private var showAlarmPreview = false
     @State private var showGamePreview = false
     

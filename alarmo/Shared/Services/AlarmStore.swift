@@ -6,6 +6,7 @@ final class AlarmStore: ObservableObject {
     @Published private(set) var alarms: [Alarm] = []
 
     private let fileURL: URL
+    private let persistenceQueue = DispatchQueue(label: "alarm.store.persistence", qos: .utility)
 
     init(fileManager: FileManager = .default) {
         let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -20,24 +21,24 @@ final class AlarmStore: ObservableObject {
 
     func add(_ alarm: Alarm) {
         alarms.append(alarm)
-        persist()
+        persistAsync()
     }
 
     func update(_ alarm: Alarm) {
         guard let index = alarms.firstIndex(where: { $0.id == alarm.id }) else { return }
         alarms[index] = alarm
-        persist()
+        persistAsync()
     }
 
     func remove(id: UUID) {
         alarms.removeAll { $0.id == id }
-        persist()
+        persistAsync()
     }
 
     func toggleEnabled(id: UUID, enabled: Bool) {
         guard let index = alarms.firstIndex(where: { $0.id == id }) else { return }
         alarms[index].enabled = enabled
-        persist()
+        persistAsync()
     }
 
     // MARK: - Bulk Global Operations
@@ -48,7 +49,7 @@ final class AlarmStore: ObservableObject {
         for index in alarms.indices {
             alarms[index].snoozeMinutes = minutes
         }
-        persist()
+        persistAsync()
         // Reschedule all enabled alarms
         for alarm in alarms where alarm.enabled {
             scheduler.schedule(alarm: alarm)
@@ -60,7 +61,7 @@ final class AlarmStore: ObservableObject {
         for index in alarms.indices {
             alarms[index].soundVolume = volume
         }
-        persist()
+        persistAsync()
     }
 
     /// Apply vibration setting to all alarms
@@ -68,7 +69,7 @@ final class AlarmStore: ObservableObject {
         for index in alarms.indices {
             alarms[index].vibrateEnabled = enabled
         }
-        persist()
+        persistAsync()
     }
 
     /// Skip weekends: strip Sat/Sun bits from repeatMask, or restore originals.
@@ -103,7 +104,7 @@ final class AlarmStore: ObservableObject {
                 UserDefaults.standard.removeObject(forKey: key)
             }
         }
-        persist()
+        persistAsync()
         // Reschedule all enabled alarms
         for alarm in alarms where alarm.enabled {
             scheduler.schedule(alarm: alarm)
@@ -160,7 +161,7 @@ final class AlarmStore: ObservableObject {
                 UserDefaults.standard.removeObject(forKey: key)
             }
         }
-        persist()
+        persistAsync()
         for alarm in alarms where alarm.enabled {
             scheduler.schedule(alarm: alarm)
         }
@@ -245,12 +246,18 @@ final class AlarmStore: ObservableObject {
         return updated
     }
 
-    private func persist() {
-        do {
-            let data = try JSONEncoder().encode(alarms)
-            try data.write(to: fileURL, options: [.atomic])
-        } catch {
-            return
+    private func persistAsync() {
+        let snapshot = alarms
+        let destination = fileURL
+        persistenceQueue.async {
+            do {
+                let data = try JSONEncoder().encode(snapshot)
+                try data.write(to: destination, options: [.atomic])
+            } catch {
+                #if DEBUG
+                print("[AlarmStore] Persist failed: \(error)")
+                #endif
+            }
         }
     }
 }

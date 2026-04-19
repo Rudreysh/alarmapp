@@ -29,6 +29,7 @@ enum AlarmClockStyle: String, Codable, CaseIterable, Identifiable {
 }
 
 enum AlarmFocusRingGradient: String, Codable, CaseIterable, Identifiable {
+    case classicSunray = "classic_sunray"
     case aurora = "aurora"
     case sunset = "sunset"
     case ocean = "ocean"
@@ -39,6 +40,7 @@ enum AlarmFocusRingGradient: String, Codable, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
+        case .classicSunray: return "Classic Sunray"
         case .aurora: return "Aurora"
         case .sunset: return "Sunset"
         case .ocean: return "Ocean"
@@ -62,6 +64,27 @@ enum AlarmThemeStyle: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum HabitDistanceUnitSystem: String, Codable, CaseIterable, Identifiable {
+    case kilometers = "kilometers"
+    case miles = "miles"
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .kilometers: return "Metric"
+        case .miles: return "US"
+        }
+    }
+
+    var distanceUnit: String {
+        switch self {
+        case .kilometers: return "km"
+        case .miles: return "mi"
+        }
+    }
+}
+
 class SettingsStore: ObservableObject {
     static let shared = SettingsStore()
     
@@ -72,6 +95,7 @@ class SettingsStore: ObservableObject {
         static let appleEmail = "settings.appleEmail"
         static let appleGivenName = "settings.appleGivenName"
         static let appleFamilyName = "settings.appleFamilyName"
+        static let appleDisplayName = "settings.appleDisplayName"
         static let points = "settings.points"
         static let themeMode = "settings.themeMode"
         static let soundOutputMode = "settings.soundOutputMode"
@@ -99,6 +123,10 @@ class SettingsStore: ObservableObject {
         static let alarmClockStyleRaw = "settings.alarmClockStyleRaw"
         static let alarmFocusRingGradientRaw = "settings.alarmFocusRingGradientRaw"
         static let alarmThemeStyleRaw = "settings.alarmThemeStyleRaw"
+        static let habitDistanceUnitSystemRaw = "settings.habitDistanceUnitSystemRaw"
+        static let habitQuickAddStepsIncrement = "settings.habitQuickAddStepsIncrement"
+        static let habitQuickAddDistanceIncrement = "settings.habitQuickAddDistanceIncrement"
+        static let habitGoalCelebrationEnabled = "settings.habitGoalCelebrationEnabled"
         static let penaltyEnabled = "settings.penaltyEnabled"
         static let penaltyAmountEuro = "settings.penaltyAmountEuro"
         static let penaltyCreditsBalance = "settings.penaltyCreditsBalance"
@@ -114,6 +142,8 @@ class SettingsStore: ObservableObject {
         static let penaltyPaymentToken = "settings.penaltyPaymentToken"
         static let penaltyCardBrand = "settings.penaltyCardBrand"
         static let penaltyCardLast4 = "settings.penaltyCardLast4"
+        static let penaltyCardExpiry = "settings.penaltyCardExpiry"
+        static let penaltyCardCountry = "settings.penaltyCardCountry"
         static let penaltyTermsAccepted = "settings.penaltyTermsAccepted"
     }
     
@@ -122,6 +152,7 @@ class SettingsStore: ObservableObject {
     @AppStorage(Keys.appleEmail) var appleEmail: String = ""
     @AppStorage(Keys.appleGivenName) var appleGivenName: String = ""
     @AppStorage(Keys.appleFamilyName) var appleFamilyName: String = ""
+    @AppStorage(Keys.appleDisplayName) var appleDisplayName: String = ""
     @AppStorage(Keys.points) var points: Int = 13
     
     @Published var themeMode: ThemeMode {
@@ -154,6 +185,10 @@ class SettingsStore: ObservableObject {
     @AppStorage(Keys.alarmClockStyleRaw) var alarmClockStyleRaw: String = AlarmClockStyle.classicSunray.rawValue
     @AppStorage(Keys.alarmFocusRingGradientRaw) var alarmFocusRingGradientRaw: String = AlarmFocusRingGradient.aurora.rawValue
     @AppStorage(Keys.alarmThemeStyleRaw) var alarmThemeStyleRaw: String = AlarmThemeStyle.default.rawValue
+    @AppStorage(Keys.habitDistanceUnitSystemRaw) var habitDistanceUnitSystemRaw: String = HabitDistanceUnitSystem.kilometers.rawValue
+    @AppStorage(Keys.habitQuickAddStepsIncrement) var habitQuickAddStepsIncrement: Int = 1000
+    @AppStorage(Keys.habitQuickAddDistanceIncrement) var habitQuickAddDistanceIncrement: Double = 0.5
+    @AppStorage(Keys.habitGoalCelebrationEnabled) var habitGoalCelebrationEnabled: Bool = true
     @AppStorage(Keys.penaltyEnabled) var penaltyEnabled: Bool = false
     @AppStorage(Keys.penaltyAmountEuro) var penaltyAmountEuro: Int = 1
     @AppStorage(Keys.penaltyCreditsBalance) var penaltyCreditsBalance: Int = 0
@@ -162,6 +197,8 @@ class SettingsStore: ObservableObject {
     @AppStorage(Keys.penaltyPaymentToken) var penaltyPaymentToken: String = ""
     @AppStorage(Keys.penaltyCardBrand) var penaltyCardBrand: String = ""
     @AppStorage(Keys.penaltyCardLast4) var penaltyCardLast4: String = ""
+    @AppStorage(Keys.penaltyCardExpiry) var penaltyCardExpiry: String = ""
+    @AppStorage(Keys.penaltyCardCountry) var penaltyCardCountry: String = ""
     @AppStorage(Keys.penaltyTermsAccepted) var penaltyTermsAccepted: Bool = false
     
     @Published var notificationPrefs: NotificationPrefs {
@@ -314,12 +351,23 @@ class SettingsStore: ObservableObject {
         set { alarmThemeStyleRaw = newValue.rawValue }
     }
 
+    var habitDistanceUnitSystem: HabitDistanceUnitSystem {
+        get { HabitDistanceUnitSystem(rawValue: habitDistanceUnitSystemRaw) ?? .kilometers }
+        set { habitDistanceUnitSystemRaw = newValue.rawValue }
+    }
+
+    var preferredHabitDistanceUnit: String {
+        habitDistanceUnitSystem.distanceUnit
+    }
+
     var lastPenaltyDate: Date? {
         guard lastPenaltyEventAt > 0 else { return nil }
         return Date(timeIntervalSince1970: lastPenaltyEventAt)
     }
 
     var profileDisplayName: String {
+        let explicitDisplayName = appleDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !explicitDisplayName.isEmpty { return explicitDisplayName }
         let fullName = "\(appleGivenName) \(appleFamilyName)"
             .trimmingCharacters(in: .whitespacesAndNewlines)
         if !fullName.isEmpty { return fullName }
@@ -345,6 +393,71 @@ class SettingsStore: ObservableObject {
         if let familyName = credential.fullName?.familyName, !familyName.isEmpty {
             appleFamilyName = familyName
         }
+
+        if let resolvedName = resolvedDisplayName(from: credential.fullName), !resolvedName.isEmpty {
+            appleDisplayName = resolvedName
+        }
+
+        // Apple may return name/email only on first authorization.
+        // Backfill from the identity token claims when direct fields are missing.
+        if let claims = parseAppleIdentityTokenClaims(from: credential.identityToken) {
+            if appleEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               let tokenEmail = claims.email?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !tokenEmail.isEmpty {
+                appleEmail = tokenEmail
+            }
+            if appleGivenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               let tokenGiven = claims.givenName?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !tokenGiven.isEmpty {
+                appleGivenName = tokenGiven
+            }
+            if appleFamilyName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               let tokenFamily = claims.familyName?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !tokenFamily.isEmpty {
+                appleFamilyName = tokenFamily
+            }
+            if appleGivenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                appleFamilyName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               let fullName = claims.name?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !fullName.isEmpty {
+                let parts = fullName.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+                if let first = parts.first {
+                    appleGivenName = String(first)
+                }
+                if parts.count > 1 {
+                    appleFamilyName = String(parts[1])
+                }
+            }
+        }
+
+        // If name is still missing but email exists, derive a friendly display name from email.
+        if appleGivenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            appleFamilyName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let email = appleEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let localPart = email.split(separator: "@").first, !localPart.isEmpty {
+                let cleaned = localPart.replacingOccurrences(of: ".", with: " ").replacingOccurrences(of: "_", with: " ")
+                let pretty = cleaned
+                    .split(separator: " ")
+                    .map { $0.prefix(1).uppercased() + $0.dropFirst().lowercased() }
+                    .joined(separator: " ")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !pretty.isEmpty {
+                    appleGivenName = pretty
+                    if appleDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        appleDisplayName = pretty
+                    }
+                }
+            }
+        }
+
+        if appleDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let fullName = "\(appleGivenName) \(appleFamilyName)".trimmingCharacters(in: .whitespacesAndNewlines)
+            if !fullName.isEmpty {
+                appleDisplayName = fullName
+            }
+        }
+
+        objectWillChange.send()
     }
 
     func signOutAppleAccount() {
@@ -353,7 +466,9 @@ class SettingsStore: ObservableObject {
         appleEmail = ""
         appleGivenName = ""
         appleFamilyName = ""
+        appleDisplayName = ""
         KeychainHelper.shared.delete(service: "com.alarmo.auth", account: "appleUserId")
+        objectWillChange.send()
     }
 
     func validateAppleCredentialStateIfNeeded() {
@@ -370,6 +485,7 @@ class SettingsStore: ObservableObject {
             }
             DispatchQueue.main.async {
                 self.isSignedIn = true
+                self.objectWillChange.send()
             }
         }
     }
@@ -385,6 +501,10 @@ class SettingsStore: ObservableObject {
 
     var hasValidPenaltyPaymentMethod: Bool {
         isPenaltyPaymentConnected && !penaltyPaymentToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var hasPenaltyFundingSource: Bool {
+        penaltyCreditsBalance > 0 || hasValidPenaltyPaymentMethod
     }
     
     // Persistence Helpers
@@ -406,5 +526,63 @@ class SettingsStore: ObservableObject {
     private static func loadComplexFromDefaults<T: Decodable>(_ type: T.Type, key: String) -> T? {
         guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(T.self, from: data)
+    }
+
+    private struct AppleIdentityTokenClaims: Decodable {
+        let email: String?
+        let name: String?
+        let givenName: String?
+        let familyName: String?
+
+        private enum CodingKeys: String, CodingKey {
+            case email
+            case name
+            case givenName = "given_name"
+            case familyName = "family_name"
+        }
+    }
+
+    private func parseAppleIdentityTokenClaims(from tokenData: Data?) -> AppleIdentityTokenClaims? {
+        guard let tokenData,
+              let token = String(data: tokenData, encoding: .utf8) else {
+            return nil
+        }
+        let segments = token.split(separator: ".")
+        guard segments.count >= 2 else { return nil }
+        let payload = String(segments[1])
+        guard let decodedPayload = base64URLDecode(payload) else { return nil }
+        return try? JSONDecoder().decode(AppleIdentityTokenClaims.self, from: decodedPayload)
+    }
+
+    private func base64URLDecode(_ value: String) -> Data? {
+        var base64 = value.replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        let remainder = base64.count % 4
+        if remainder != 0 {
+            base64 += String(repeating: "=", count: 4 - remainder)
+        }
+        return Data(base64Encoded: base64)
+    }
+
+    private func resolvedDisplayName(from fullName: PersonNameComponents?) -> String? {
+        guard let fullName else { return nil }
+        let formatter = PersonNameComponentsFormatter()
+        formatter.style = .default
+        let formatted = formatter.string(from: fullName).trimmingCharacters(in: .whitespacesAndNewlines)
+        if !formatted.isEmpty { return formatted }
+
+        let fallbackParts = [
+            fullName.namePrefix,
+            fullName.givenName,
+            fullName.middleName,
+            fullName.familyName,
+            fullName.nameSuffix,
+            fullName.nickname
+        ]
+        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+
+        let fallback = fallbackParts.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+        return fallback.isEmpty ? nil : fallback
     }
 }

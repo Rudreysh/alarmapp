@@ -2,7 +2,9 @@ import SwiftUI
 import SwiftData
 
 struct ReportView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
+    @ObservedObject private var settingsStore = SettingsStore.shared
     @StateObject private var viewModel: ReportViewModel
     
     init(modelContext: ModelContext, alarmStore: AlarmStore? = nil) {
@@ -14,6 +16,17 @@ struct ReportView: View {
     
     @Namespace private var domainNamespace
     @Namespace private var periodNamespace
+
+    private var isLightMode: Bool {
+        switch settingsStore.themeMode {
+        case .light:
+            return true
+        case .dark:
+            return false
+        case .system:
+            return colorScheme == .light
+        }
+    }
     
     var body: some View {
         ZStack {
@@ -115,7 +128,7 @@ struct ReportView: View {
     private var reportHeader: some View {
         VStack(spacing: 16) {
             // Domain Segment — Capsule style matching Timer tabs
-            HStack(spacing: 0) {
+            HStack(spacing: 6) {
                 ForEach(ReportDomain.allCases) { domain in
                     let isSelected = viewModel.selectedDomain == domain
                     Button {
@@ -125,9 +138,11 @@ struct ReportView: View {
                         }
                         Task { await viewModel.refresh() }
                     } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: isSelected ? domain.icon + ".fill" : domain.icon)
-                                .font(.system(size: 13, weight: .semibold))
+                        HStack(spacing: domain == .tasks ? 0 : 6) {
+                            if domain != .tasks {
+                                Image(systemName: isSelected ? domain.icon + ".fill" : domain.icon)
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
                             Text(domain.rawValue)
                                 .font(.system(size: 14, weight: .bold))
                         }
@@ -135,37 +150,49 @@ struct ReportView: View {
                         .padding(.vertical, 10)
                         .padding(.horizontal, 18)
                         .background(
-                            Group {
-                                if isSelected {
-                                    Capsule()
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [
-                                                    Color(red: 0.18, green: 0.21, blue: 0.28).opacity(0.95),
-                                                    Color(red: 0.12, green: 0.15, blue: 0.21).opacity(0.95)
-                                                ],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
+                            Capsule()
+                                .fill(
+                                    isSelected
+                                        ? LinearGradient(
+                                            colors: isLightMode
+                                                ? [Color.white, Color(red: 0.90, green: 0.96, blue: 1.0)]
+                                                : [Color(red: 0.18, green: 0.21, blue: 0.28).opacity(0.95), Color(red: 0.12, green: 0.15, blue: 0.21).opacity(0.95)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
                                         )
-                                        .matchedGeometryEffect(id: "domain_bg", in: domainNamespace)
-                                } else {
-                                    Color.clear
-                                }
-                            }
+                                        : LinearGradient(
+                                            colors: [
+                                                isLightMode ? Color(red: 0.93, green: 0.94, blue: 0.97) : Color.white.opacity(0.06),
+                                                isLightMode ? Color(red: 0.88, green: 0.90, blue: 0.94) : Color.white.opacity(0.03)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                )
+                                .matchedGeometryEffect(id: "domain_bg", in: domainNamespace)
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(
+                                    isSelected
+                                        ? (isLightMode ? Color(red: 0.55, green: 0.76, blue: 0.96).opacity(0.7) : Color.white.opacity(0.2))
+                                        : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.1)),
+                                    lineWidth: 1
+                                )
                         )
                         .clipShape(Capsule())
                     }
                     .frame(maxWidth: .infinity)
                 }
             }
+            .padding(4)
             .background(
                 Capsule()
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color(red: 0.12, green: 0.15, blue: 0.20).opacity(0.92),
-                                Color(red: 0.09, green: 0.12, blue: 0.17).opacity(0.92)
+                                isLightMode ? Color.white.opacity(0.96) : Color(red: 0.12, green: 0.15, blue: 0.20).opacity(0.92),
+                                isLightMode ? Color(red: 0.95, green: 0.96, blue: 0.98).opacity(0.96) : Color(red: 0.09, green: 0.12, blue: 0.17).opacity(0.92)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -174,14 +201,14 @@ struct ReportView: View {
             )
             .overlay(
                 Capsule()
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    .stroke(Colors.cardStroke, lineWidth: 1)
             )
             .clipShape(Capsule())
             .padding(.horizontal)
             
             // Period Selection & Navigation
             HStack {
-                HStack(spacing: 0) {
+                HStack(spacing: 4) {
                     ForEach(ReportPeriod.allCases) { period in
                         let isSelected = viewModel.selectedPeriod == period
                         Button {
@@ -193,21 +220,59 @@ struct ReportView: View {
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
                                 .background(
-                                    ZStack {
-                                        if isSelected {
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(
+                                            isSelected
+                                                ? LinearGradient(
+                                                    colors: isLightMode
+                                                        ? [Color.white, Color(red: 0.90, green: 0.96, blue: 1.0)]
+                                                        : [Color(red: 0.18, green: 0.21, blue: 0.28).opacity(0.95), Color(red: 0.12, green: 0.15, blue: 0.21).opacity(0.95)],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                                : LinearGradient(
+                                                    colors: [
+                                                        isLightMode ? Color(red: 0.93, green: 0.94, blue: 0.97) : Color.white.opacity(0.05),
+                                                        isLightMode ? Color(red: 0.88, green: 0.90, blue: 0.94) : Color.white.opacity(0.03)
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                        )
+                                        .matchedGeometryEffect(id: "period_bg", in: periodNamespace)
+                                        .overlay(
                                             RoundedRectangle(cornerRadius: 10)
-                                                .fill(Colors.cardSurface)
-                                                .matchedGeometryEffect(id: "period_bg", in: periodNamespace)
-                                                .shadow(color: Color.black.opacity(0.1), radius: 2)
-                                        }
-                                    }
+                                                .stroke(
+                                                    isSelected
+                                                        ? (isLightMode ? Color(red: 0.55, green: 0.76, blue: 0.96).opacity(0.7) : Color.white.opacity(0.2))
+                                                        : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.08)),
+                                                    lineWidth: 1
+                                                )
+                                        )
+                                        .shadow(color: isSelected ? Color.black.opacity(isLightMode ? 0.08 : 0.15) : .clear, radius: 2, y: 1)
                                 )
                                 .foregroundColor(isSelected ? Colors.textPrimary : Colors.textSecondary)
                         }
                     }
                 }
                 .padding(4)
-                .background(Colors.bgPrimary.opacity(0.5))
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    isLightMode ? Color.white.opacity(0.98) : Color(red: 0.10, green: 0.13, blue: 0.18).opacity(0.9),
+                                    isLightMode ? Color(red: 0.94, green: 0.95, blue: 0.98).opacity(0.98) : Color(red: 0.07, green: 0.10, blue: 0.15).opacity(0.9)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(isLightMode ? Colors.cardStroke : Color.white.opacity(0.08), lineWidth: 1)
+                )
                 .cornerRadius(12)
                 
                 Spacer()
@@ -357,7 +422,7 @@ struct ReportView: View {
                     } label: {
                         Text("Overall View")
                             .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.vertical, 16)
                             .padding(.horizontal, 24)
@@ -383,7 +448,7 @@ struct ReportView: View {
                                         
                                         Text(item.title)
                                             .font(.system(size: 18, weight: .medium))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(Colors.textPrimary)
                                         
                                         Spacer()
                                         

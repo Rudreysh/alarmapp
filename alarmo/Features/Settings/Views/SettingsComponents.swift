@@ -25,7 +25,7 @@ struct SettingsCard<Content: View>: View {
         .cornerRadius(24)
         .overlay(
             RoundedRectangle(cornerRadius: 24)
-                .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                .stroke(Colors.cardStroke, lineWidth: 1)
         )
         .shadow(color: SettingsPalette.accent.opacity(0.10), radius: 12, x: 0, y: 6)
         .padding(.horizontal, 16)
@@ -54,14 +54,14 @@ struct SettingsActionRow: View {
                             .frame(width: 32, height: 32)
                         Image(systemName: icon)
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(iconColor ?? .white)
+                            .foregroundColor(iconColor ?? Colors.textPrimary)
                     }
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                     
                     if let subtitle = subtitle {
                         Text(subtitle)
@@ -90,7 +90,7 @@ struct SettingsActionRow: View {
                     if !isLast {
                         Spacer()
                         Divider()
-                            .background(Color.white.opacity(0.1))
+                            .background(Colors.cardStroke)
                             .padding(.leading, icon != nil ? 64 : 16)
                     }
                 }
@@ -118,14 +118,14 @@ struct SettingsNavigationRow<Destination: View>: View {
                             .frame(width: 32, height: 32)
                         Image(systemName: icon)
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(iconColor ?? .white)
+                            .foregroundColor(iconColor ?? Colors.textPrimary)
                     }
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                     
                     if let subtitle = subtitle {
                         Text(subtitle)
@@ -154,7 +154,7 @@ struct SettingsNavigationRow<Destination: View>: View {
                     if !isLast {
                         Spacer()
                         Divider()
-                            .background(Color.white.opacity(0.1))
+                            .background(Colors.cardStroke)
                             .padding(.leading, icon != nil ? 64 : 16)
                     }
                 }
@@ -187,13 +187,13 @@ struct SettingsRadioRow: View {
                 
                 Text(title)
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                 
                 Spacer()
                 
                 ZStack {
                     Circle()
-                        .stroke(isSelected ? SettingsPalette.accent : Color.white.opacity(0.2), lineWidth: 2)
+                        .stroke(isSelected ? SettingsPalette.accent : Colors.cardStroke, lineWidth: 2)
                         .frame(width: 20, height: 20)
                     
                     if isSelected {
@@ -210,7 +210,7 @@ struct SettingsRadioRow: View {
                     if !isLast {
                         Spacer()
                         Divider()
-                            .background(Color.white.opacity(0.1))
+                            .background(Colors.cardStroke)
                             .padding(.leading, 16)
                     }
                 }
@@ -231,7 +231,7 @@ struct SettingsCardToggleRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
                         .font(.system(size: 17, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                     
                     if let subtitle = subtitle {
                         Text(subtitle)
@@ -255,7 +255,7 @@ struct SettingsCardToggleRow: View {
             
             if !isLast {
                 Divider()
-                    .background(Color.white.opacity(0.1))
+                    .background(Colors.cardStroke)
                     .padding(.leading, 16)
             }
         }

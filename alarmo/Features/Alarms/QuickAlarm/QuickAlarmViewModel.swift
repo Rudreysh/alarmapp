@@ -48,6 +48,7 @@ class QuickAlarmViewModel: ObservableObject {
     @Published var blockAppsEnabled: Bool
     @Published var penaltyEnabled: Bool
     @Published var penaltyAmountEuro: Int
+    @Published var shutdownProtectionEnabled: Bool
     
     // New Settings
     @Published var gentleWakeUpSeconds: Int = 0
@@ -78,9 +79,10 @@ class QuickAlarmViewModel: ObservableObject {
         self.selectedWallpaperId = settingsStore.alarmWallpaperId.isEmpty ? defaults.onboardingWallpaperId : settingsStore.alarmWallpaperId
         self.volume = defaults.onboardingSoundVolume
         self.accountabilityEnabled = settingsStore.accountabilityEnabled
-        self.blockAppsEnabled = settingsStore.blockAppsEnabled
+        self.blockAppsEnabled = false
         self.penaltyEnabled = settingsStore.penaltyEnabled
         self.penaltyAmountEuro = settingsStore.penaltyAmountEuro
+        self.shutdownProtectionEnabled = settingsStore.preventPowerOffEnabled
         self.bypassSilentMode = settingsStore.alarmRingInSilentModeEnabled
         self.dailyMotivationEnabled = settingsStore.alarmDailyMotivationEnabled
         self.visualOutputSettings = settingsStore.alarmVisualOutputSettings
@@ -169,9 +171,8 @@ class QuickAlarmViewModel: ObservableObject {
         let calendar = Calendar.current
         let comps = calendar.dateComponents([.hour, .minute, .second], from: fireDate)
         
-        var alarmPenaltyRules = settingsStore.penaltyRules
-        // Alarm penalty in this mode is snooze-threshold based.
-        alarmPenaltyRules.alarmMissionFailTriggersPenalty = false
+        let shouldBlockApps = blockAppsEnabled
+        let enforcementMode: EnforcementMode = shouldBlockApps ? .blockApps : .none
 
         let alarmId = UUID()
         let alarm = Alarm(
@@ -208,22 +209,24 @@ class QuickAlarmViewModel: ObservableObject {
                 dailyMotivationEnabled: dailyMotivationEnabled
             ),
             createdAt: Date(),
-            enforcementMode: penaltyEnabled ? .penaltyOnly : .none,
-            blockAppsEnabled: false,
+            enforcementMode: enforcementMode,
+            blockAppsEnabled: shouldBlockApps,
             blockedSelectionData: settingsStore.blockedAppsSelectionData,
-            penaltyEnabled: penaltyEnabled,
+            penaltyEnabled: false,
             penaltyAmountEuro: penaltyAmountEuro,
             penaltyStrategy: .credits,
-            penaltyRules: alarmPenaltyRules,
-            shutdownProtectionEnabled: penaltyEnabled
+            penaltyRules: .default,
+            shutdownProtectionEnabled: shutdownProtectionEnabled
         )
         
         print("[QuickAlarm] Saving alarm for +\(finalSeconds) sec (at: \(alarm.timeString))")
         store.add(alarm)
         
-        // Logic for "One-time" scheduling with robust scheduler
-        // Note: The new AlarmScheduler handles dates intelligently.
-        scheduler.schedule(alarm: alarm)
+        // Scheduling can be expensive (sound staging + multiple notification requests).
+        // Keep it off main so Save-to-dismiss stays responsive.
+        DispatchQueue.global(qos: .utility).async {
+            scheduler.schedule(alarm: alarm)
+        }
     }
 
     private func persistPresets() {

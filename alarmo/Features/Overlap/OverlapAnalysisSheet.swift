@@ -3,7 +3,9 @@ import SwiftUI
 /// Overlap Analysis — finds overlapping availability windows across selected cities.
 /// This is the "sinusoidal" icon feature showing when selected cities overlap.
 struct OverlapAnalysisSheet: View {
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var store: OverlapStore
+    @ObservedObject private var settingsStore = SettingsStore.shared
     @Environment(\.dismiss) private var dismiss
     @State private var selectedCityIds: Set<UUID> = []
     @State private var showMeetingSuggestions = false
@@ -19,6 +21,19 @@ struct OverlapAnalysisSheet: View {
     @State private var overlapPickerStart: Date = Date()
     @State private var overlapPickerEnd: Date = Date()
 
+    private let accent = Color(red: 0.0, green: 0.7, blue: 0.5)
+
+    private var isLightMode: Bool {
+        switch settingsStore.themeMode {
+        case .light:
+            return true
+        case .dark:
+            return false
+        case .system:
+            return colorScheme == .light
+        }
+    }
+
     var body: some View {
         NavigationView {
             ZStack {
@@ -30,7 +45,7 @@ struct OverlapAnalysisSheet: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("SELECT CITIES TO COMPARE")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(Color.gray)
+                            .foregroundColor(Colors.textSecondary)
                             .kerning(1)
 
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -52,16 +67,16 @@ struct OverlapAnalysisSheet: View {
                                             Text(city.displayName)
                                                 .font(.system(size: 14, weight: .semibold))
                                         }
-                                        .foregroundColor(isSelected ? .white : Color.gray)
+                                        .foregroundColor(isSelected ? (isLightMode ? Colors.textPrimary : .white) : Colors.textSecondary)
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 10)
                                         .background(
                                             Capsule()
-                                                .fill(isSelected ? Color(red: 0.0, green: 0.7, blue: 0.5) : Color(red: 0.12, green: 0.14, blue: 0.20))
+                                                .fill(isSelected ? accent : Colors.cardSurface)
                                         )
                                         .overlay(
                                             Capsule()
-                                                .stroke(isSelected ? Color(red: 0.0, green: 0.7, blue: 0.5).opacity(0.5) : Color.white.opacity(0.06), lineWidth: 1)
+                                                .stroke(isSelected ? accent.opacity(0.5) : Colors.cardStroke, lineWidth: 1)
                                         )
                                     }
                                 }
@@ -84,14 +99,14 @@ struct OverlapAnalysisSheet: View {
                                 overlapResultView
 
                                 Divider()
-                                    .background(Color.white.opacity(0.08))
+                                    .background(Colors.cardStroke)
                                     .padding(.horizontal)
 
                                 // Super Feature: Interactive Time Scrubber
                                 timeScrubberSection
 
                                 Divider()
-                                    .background(Color.white.opacity(0.08))
+                                    .background(Colors.cardStroke)
                                     .padding(.horizontal)
 
                                 // Best Meeting Times
@@ -104,11 +119,11 @@ struct OverlapAnalysisSheet: View {
                             Spacer()
                             Image(systemName: "waveform.path")
                                 .font(.system(size: 48))
-                                .foregroundColor(Color.gray.opacity(0.6))
+                                .foregroundColor(Colors.textTertiary)
 
                             Text("Select at least 2 cities\nto see their overlap")
                                 .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(Color.gray)
+                                .foregroundColor(Colors.textSecondary)
                                 .multilineTextAlignment(.center)
                             Spacer()
                         }
@@ -139,38 +154,38 @@ struct OverlapAnalysisSheet: View {
                 VStack(spacing: 24) {
                     Text("Customize Meeting Time")
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                         .padding(.top, 24)
 
                     HStack {
                         Text("Start Time")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                         Spacer()
                         DatePicker("", selection: $overlapPickerStart, displayedComponents: .hourAndMinute)
                             .labelsHidden()
-                            .colorScheme(.dark)
-                            .tint(Color(red: 0.0, green: 0.7, blue: 0.5))
+                            .colorScheme(isLightMode ? .light : .dark)
+                            .tint(accent)
                     }
                     .padding()
-                    .background(Color(red: 0.08, green: 0.1, blue: 0.15))
+                    .background(Colors.cardSurface)
                     .cornerRadius(12)
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.1), lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Colors.cardStroke, lineWidth: 1))
 
                     HStack {
                         Text("End Time")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                         Spacer()
                         DatePicker("", selection: $overlapPickerEnd, displayedComponents: .hourAndMinute)
                             .labelsHidden()
-                            .colorScheme(.dark)
-                            .tint(Color(red: 0.0, green: 0.7, blue: 0.5))
+                            .colorScheme(isLightMode ? .light : .dark)
+                            .tint(accent)
                     }
                     .padding()
-                    .background(Color(red: 0.08, green: 0.1, blue: 0.15))
+                    .background(Colors.cardSurface)
                     .cornerRadius(12)
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.1), lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Colors.cardStroke, lineWidth: 1))
 
                     Spacer()
 
@@ -200,7 +215,7 @@ struct OverlapAnalysisSheet: View {
                         } label: {
                             Text("Reset to Maximum Overlap")
                                 .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(Color.gray)
+                                .foregroundColor(Colors.textSecondary)
                         }
                     }
                 }
@@ -222,13 +237,13 @@ struct OverlapAnalysisSheet: View {
             HStack {
                 Text(city.displayName)
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
 
                 Spacer()
 
                 Text("\(OverlapStore.formatMinutes(city.availabilityStart)) – \(OverlapStore.formatMinutes(city.availabilityEnd))")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Color.gray)
+                    .foregroundColor(Colors.textSecondary)
             }
 
             // 24-hour timeline bar
@@ -239,7 +254,7 @@ struct OverlapAnalysisSheet: View {
                 ZStack(alignment: .leading) {
                     // Background (full 24 hours)
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(Color(red: 0.10, green: 0.12, blue: 0.18))
+                        .fill(isLightMode ? Color.white.opacity(0.95) : Color(red: 0.10, green: 0.12, blue: 0.18))
                         .frame(height: 28)
 
                     // Flex before
@@ -263,7 +278,7 @@ struct OverlapAnalysisSheet: View {
                         let x = CGFloat(hour * 60) * minuteWidth
                         VStack(spacing: 2) {
                             Rectangle()
-                                .fill(Color.white.opacity(0.15))
+                                .fill(Colors.textSecondary.opacity(0.25))
                                 .frame(width: 1, height: 28)
                         }
                         .offset(x: x)
@@ -274,7 +289,7 @@ struct OverlapAnalysisSheet: View {
                     let nowInCity = currentMinutes(in: refCity.timeZone, at: store.adjustedDate)
                     let nowX = CGFloat(nowInCity) * minuteWidth
                     Rectangle()
-                        .fill(Color.white.opacity(0.4))
+                        .fill(Colors.textPrimary.opacity(0.35))
                         .frame(width: 2, height: 28)
                         .offset(x: min(max(0, nowX), totalWidth - 2))
 
@@ -309,7 +324,7 @@ struct OverlapAnalysisSheet: View {
                 Text("24:00")
             }
             .font(.system(size: 9, weight: .medium))
-            .foregroundColor(Color.gray.opacity(0.6))
+            .foregroundColor(Colors.textTertiary)
         }
     }
 
@@ -328,7 +343,7 @@ struct OverlapAnalysisSheet: View {
                         .foregroundColor(.green)
                     Text(customOverlapStart != nil ? "Meeting Proposal" : "Overlap Found!")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                 }
 
                 let selectedNames = store.visibleCities
@@ -338,7 +353,7 @@ struct OverlapAnalysisSheet: View {
 
                 Text("Overlap for \(selectedNames)")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(Color.gray)
+                    .foregroundColor(Colors.textSecondary)
                     .multilineTextAlignment(.center)
 
                 HStack(spacing: 12) {
@@ -348,12 +363,12 @@ struct OverlapAnalysisSheet: View {
                             .foregroundColor(Color(red: 0.0, green: 0.7, blue: 0.5))
                         Text("START")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(Color.gray)
+                            .foregroundColor(Colors.textSecondary)
                     }
 
                     Text("—")
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(Color.gray)
+                        .foregroundColor(Colors.textSecondary)
 
                     VStack(spacing: 4) {
                         Text(OverlapStore.formatMinutes(actualEnd))
@@ -361,25 +376,25 @@ struct OverlapAnalysisSheet: View {
                             .foregroundColor(Color(red: 0.0, green: 0.7, blue: 0.5))
                         Text("END")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(Color.gray)
+                            .foregroundColor(Colors.textSecondary)
                     }
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color(red: 0.12, green: 0.15, blue: 0.22))
+                        .fill(isLightMode ? Color.white.opacity(0.95) : Color(red: 0.12, green: 0.15, blue: 0.22))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color(red: 0.0, green: 0.7, blue: 0.5).opacity(0.4), lineWidth: 1.5)
+                        .stroke(accent.opacity(0.4), lineWidth: 1.5)
                 )
-                .shadow(color: Color(red: 0.0, green: 0.7, blue: 0.5).opacity(0.15), radius: 10, x: 0, y: 5)
+                .shadow(color: accent.opacity(0.15), radius: 10, x: 0, y: 5)
                 .overlay(alignment: .topTrailing) {
                     Image(systemName: "pencil.circle.fill")
                         .font(.system(size: 22))
-                        .foregroundColor(Color(red: 0.0, green: 0.7, blue: 0.5))
-                        .background(Circle().fill(Color(red: 0.12, green: 0.15, blue: 0.22)))
+                        .foregroundColor(accent)
+                        .background(Circle().fill(isLightMode ? Color.white.opacity(0.95) : Color(red: 0.12, green: 0.15, blue: 0.22)))
                         .offset(x: 10, y: -10)
                 }
                 .contentShape(Rectangle())
@@ -402,13 +417,13 @@ struct OverlapAnalysisSheet: View {
                 let displayDuration = durationMin < 0 ? durationMin + 1440 : durationMin
                 Text(customOverlapStart != nil ? "\(displayDuration / 60)h \(displayDuration % 60)m selected" : "\(displayDuration / 60)h \(displayDuration % 60)m overlap")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
 
                 // Show what time it is in each city during the overlap
                 VStack(alignment: .leading, spacing: 8) {
                     Text("During this overlap:")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(Color.gray)
+                        .foregroundColor(Colors.textSecondary)
 
                     ForEach(store.visibleCities.filter { selectedCityIds.contains($0.id) }) { city in
                         let offsetSeconds = city.timeZone.secondsFromGMT(for: store.adjustedDate) - store.referenceTimeZone.secondsFromGMT(for: store.adjustedDate)
@@ -419,7 +434,7 @@ struct OverlapAnalysisSheet: View {
                         HStack {
                             Text(city.displayName)
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.white)
+                                .foregroundColor(Colors.textPrimary)
                             Spacer()
                             Text("\(OverlapStore.formatMinutes(cityStart)) – \(OverlapStore.formatMinutes(cityEnd))")
                                 .font(.system(size: 13, weight: .bold))
@@ -431,17 +446,17 @@ struct OverlapAnalysisSheet: View {
                 .padding()
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(red: 0.08, green: 0.10, blue: 0.16))
+                        .fill(Colors.cardSurface)
                 )
             }
             .padding()
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(red: 0.06, green: 0.08, blue: 0.14))
+                    .fill(isLightMode ? Color.white.opacity(0.93) : Color(red: 0.06, green: 0.08, blue: 0.14))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color(red: 0.0, green: 0.7, blue: 0.5).opacity(0.2), lineWidth: 1)
+                    .stroke(accent.opacity(0.2), lineWidth: 1)
             )
         } else if selectedCityIds.count >= 2 {
             VStack(spacing: 12) {
@@ -451,17 +466,17 @@ struct OverlapAnalysisSheet: View {
 
                 Text("No Overlap")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
 
                 Text("The selected cities' availability hours don't overlap.\nTry adjusting availability in city settings.")
                     .font(.system(size: 13))
-                    .foregroundColor(Color.gray)
+                    .foregroundColor(Colors.textSecondary)
                     .multilineTextAlignment(.center)
             }
             .padding()
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(red: 0.08, green: 0.06, blue: 0.06))
+                    .fill(isLightMode ? Color.red.opacity(0.06) : Color(red: 0.08, green: 0.06, blue: 0.06))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -480,10 +495,10 @@ struct OverlapAnalysisSheet: View {
                 HStack(spacing: 6) {
                     Image(systemName: "clock.badge.checkmark")
                         .font(.system(size: 16))
-                        .foregroundColor(Color(red: 0.0, green: 0.7, blue: 0.5))
+                        .foregroundColor(accent)
                     Text("Best Meeting Times")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                 }
 
                 ForEach(slots.prefix(5)) { slot in
@@ -502,7 +517,7 @@ struct OverlapAnalysisSheet: View {
                                     .font(.system(size: 15, weight: .bold, design: .rounded))
                                     .monospacedDigit()
                             }
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
 
                             Spacer()
 
@@ -510,7 +525,7 @@ struct OverlapAnalysisSheet: View {
                             HStack(spacing: 3) {
                                 ForEach(0..<5, id: \.self) { i in
                                     Circle()
-                                        .fill(Double(i) < slot.score * 5 ? Color(red: 0.0, green: 0.7, blue: 0.5) : Color.white.opacity(0.1))
+                                        .fill(Double(i) < slot.score * 5 ? accent : Colors.cardStroke)
                                         .frame(width: 6, height: 6)
                                 }
                             }
@@ -523,7 +538,7 @@ struct OverlapAnalysisSheet: View {
                         .padding(.vertical, 10)
                         .background(
                             RoundedRectangle(cornerRadius: 10)
-                                .fill(scrubMinutes == Double(slot.startMinutes) ? Color(red: 0.0, green: 0.7, blue: 0.5).opacity(0.1) : Color(red: 0.08, green: 0.10, blue: 0.16))
+                                .fill(scrubMinutes == Double(slot.startMinutes) ? accent.opacity(0.1) : Colors.cardSurface)
                         )
                     }
                     .buttonStyle(.plain)
@@ -546,23 +561,23 @@ struct OverlapAnalysisSheet: View {
             
             HStack {
                 Image(systemName: "slider.horizontal.3")
-                    .foregroundColor(Color(red: 0.0, green: 0.7, blue: 0.5))
+                    .foregroundColor(accent)
                 Text("Interactive Explorer")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                 Spacer()
                 if let mins = scrubMinutes {
                     Text(OverlapStore.formatMinutes(Int(mins)))
                         .font(.system(size: 14, weight: .bold, design: .monospaced))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color(red: 0.0, green: 0.7, blue: 0.5).opacity(0.2))
+                        .background(accent.opacity(0.2))
                         .cornerRadius(6)
                 } else {
                     Text("Off")
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(Color.gray)
+                        .foregroundColor(Colors.textSecondary)
                 }
             }
             
@@ -570,12 +585,12 @@ struct OverlapAnalysisSheet: View {
                 get: { scrubMinutes ?? 720 },
                 set: { scrubMinutes = $0 }
             ), in: 0...1440, step: 15)
-            .tint(Color(red: 0.0, green: 0.7, blue: 0.5))
+            .tint(accent)
             
             HStack {
                 Text("Drag to preview and copy meeting times across timezones.")
                     .font(.system(size: 11))
-                    .foregroundColor(Color.gray)
+                    .foregroundColor(Colors.textSecondary)
                 
                 Spacer()
                 
@@ -591,7 +606,7 @@ struct OverlapAnalysisSheet: View {
             if let mins = scrubMinutes {
                 Text("Precision tuning \(OverlapStore.formatMinutes(Int(mins)))")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Color(red: 0.0, green: 0.7, blue: 0.5))
+                    .foregroundColor(accent)
             }
         }
     }
@@ -601,7 +616,7 @@ struct OverlapAnalysisSheet: View {
             HStack {
                 Text("Meeting Proposal")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                 Spacer()
                 Button {
                     copyMeetingPlan(for: refMinutes)
@@ -633,19 +648,19 @@ struct OverlapAnalysisSheet: View {
                             .font(.system(size: 10))
                         Text(city.displayName)
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(Color.gray)
+                            .foregroundColor(Colors.textSecondary)
                         Spacer()
                         Text(OverlapStore.formatMinutes(normalizedCityMins))
                             .font(.system(size: 13, weight: .bold, design: .monospaced))
-                            .foregroundColor(isAvailable ? .white : Color.gray.opacity(0.6))
+                            .foregroundColor(isAvailable ? Colors.textPrimary : Colors.textTertiary)
                     }
                 }
             }
         }
         .padding(14)
-        .background(Color.white.opacity(0.05))
+        .background(Colors.cardSurface)
         .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.1), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Colors.cardStroke, lineWidth: 1))
     }
     
     private func copyMeetingPlan(for refMinutes: Int) {

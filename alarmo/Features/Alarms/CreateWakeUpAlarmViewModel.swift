@@ -24,6 +24,7 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
         draft.bypassSilentMode = settings.alarmRingInSilentModeEnabled
         draft.dailyMotivationEnabled = settings.alarmDailyMotivationEnabled
         draft.visualOutputSettings = settings.alarmVisualOutputSettings
+        draft.shutdownProtectionEnabled = settings.preventPowerOffEnabled
         if draft.timeZoneMode == .custom {
             startCycling()
         }
@@ -67,6 +68,7 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
         draft.penaltyEnabled = alarm.penaltyEnabled
         draft.penaltyAmountEuro = alarm.penaltyAmountEuro
         draft.penaltyRules = alarm.penaltyRules
+        draft.shutdownProtectionEnabled = alarm.shutdownProtectionEnabled
         self.draft = draft
         if draft.timeZoneMode == .custom {
             startCycling()

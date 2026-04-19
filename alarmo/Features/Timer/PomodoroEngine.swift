@@ -35,6 +35,11 @@ class PomodoroEngine: ObservableObject {
         return false
     }
 
+    var isPaused: Bool {
+        if case .paused = state.phase { return true }
+        return false
+    }
+
     var parallelSessions: [ParallelFocusSession] {
         // Keep insertion order stable for UI so session emoji chips do not jump/swap every tick.
         state.parallelSessions
@@ -254,7 +259,7 @@ class PomodoroEngine: ObservableObject {
 
         switch state.phase {
         case .idle:
-            startSegment(.focus)
+            startSegment(state.currentSegment ?? .focus)
         case .paused(let segment):
             resume(segment: segment)
         default:
@@ -782,11 +787,69 @@ class PomodoroEngine: ObservableObject {
         state.activeParallelSessionId = task.id
         updateConfig(newConfig)
     }
+
+    func startParallelSession(for task: TaskItem) {
+        if let existing = state.parallelSessions.first(where: { $0.taskId == task.id }) {
+            if state.activeParallelSessionId != existing.id {
+                switchToParallelSession(existing.id)
+            }
+            if !existing.isRunning {
+                resume(segment: existing.segment)
+            }
+            return
+        }
+
+        persistCurrentSessionSnapshot()
+
+        var newConfig = config
+        newConfig.isEnabled = task.isIntervalTimer
+        newConfig.focusSeconds = task.focusDurationMinutes * 60
+        newConfig.shortBreakSeconds = task.shortBreakMinutes * 60
+        newConfig.longBreakSeconds = task.longBreakMinutes * 60
+
+        if task.isIntervalTimer {
+            newConfig.sessionsPerCycle = task.sessionsPerCycle
+            newConfig.autoStartNextSession = task.autoStartNextSession
+            newConfig.autoStartNextCycle = task.autoStartNextCycle
+        }
+
+        updateConfig(newConfig)
+
+        state.selectedTaskId = task.id
+        state.overriddenTaskName = task.name
+        state.activeParallelSessionId = task.id
+        state.phase = .idle
+        state.currentSegment = .focus
+        state.remainingSeconds = newConfig.focusSeconds
+        state.segmentEndDate = nil
+
+        startSegment(.focus)
+    }
     
     // MARK: - Manual Actions
     
     func startBreak() {
         startSegment(.shortBreak)
+    }
+
+    func applyQuickPreset(name: String, durationSeconds: Int, segment: SegmentKind) {
+        timer?.cancel()
+        cancelPendingSegmentNotification()
+        LiveActivityManager.shared.end(sessionId: currentSessionId)
+
+        state.phase = .idle
+        state.currentSegment = segment
+        state.remainingSeconds = max(60, durationSeconds)
+        state.segmentEndDate = nil
+        state.overriddenTaskName = name
+
+        if state.activeParallelSessionId == nil {
+            state.activeParallelSessionId = state.selectedTaskId ?? UUID()
+        }
+
+        persistCurrentSessionSnapshot()
+        syncLiveActivityFromSessions()
+        persistRuntimeState()
     }
 
     func adjustRemainingTime(to seconds: Int) {
@@ -861,6 +924,52 @@ class PomodoroEngine: ObservableObject {
         }
         
         updateConfig(newConfig)
+    }
+
+    func startParallelSession(for planItem: PlanItem) {
+        if let existing = state.parallelSessions.first(where: { $0.taskId == planItem.id }) {
+            if state.activeParallelSessionId != existing.id {
+                switchToParallelSession(existing.id)
+            }
+            if !existing.isRunning {
+                resume(segment: existing.segment)
+            }
+            return
+        }
+
+        persistCurrentSessionSnapshot()
+
+        var newConfig = config
+        newConfig.isEnabled = planItem.intervalTimerEnabled
+
+        if let duration = planItem.defaultDurationSeconds {
+            newConfig.focusSeconds = duration
+        } else if let settings = planItem.intervalSettings {
+            newConfig.focusSeconds = settings.focusMinutes * 60
+        }
+
+        if let settings = planItem.intervalSettings {
+            newConfig.shortBreakSeconds = settings.shortBreakMinutes * 60
+            newConfig.longBreakSeconds = settings.longBreakMinutes * 60
+            newConfig.sessionsPerCycle = settings.sessionsPerCycle
+            newConfig.autoStartNextSession = settings.autoStartNextSession
+            newConfig.autoStartNextCycle = settings.autoStartNextCycle
+        } else {
+            newConfig.shortBreakSeconds = 5 * 60
+            newConfig.longBreakSeconds = 25 * 60
+        }
+
+        updateConfig(newConfig)
+
+        state.selectedTaskId = planItem.id
+        state.overriddenTaskName = planItem.title
+        state.activeParallelSessionId = planItem.id
+        state.phase = .idle
+        state.currentSegment = .focus
+        state.remainingSeconds = newConfig.focusSeconds
+        state.segmentEndDate = nil
+
+        startSegment(.focus)
     }
 
     private func refreshBlockingForCurrentPhase() {

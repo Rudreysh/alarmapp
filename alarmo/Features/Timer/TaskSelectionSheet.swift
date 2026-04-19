@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct TaskSelectionSheet: View {
+    @ObservedObject var viewModel: TimerViewModel
     @Environment(\.dismiss) var dismiss
     @Environment(\.modelContext) var modelContext
     @EnvironmentObject var taskStore: TaskStore
@@ -16,11 +17,45 @@ struct TaskSelectionSheet: View {
     @State private var renamingPlanId: UUID?
     @State private var renameText: String = ""
     @State private var showRenameAlert = false
+    @State private var showQuickPresets = false
     
     private var selectablePlans: [PlanItem] {
         activePlans.filter { plan in
             plan.parentTask == nil &&
             (plan.type == .task || plan.type == .habit)
+        }
+    }
+
+    private var hasActiveTimerContext: Bool {
+        engine.isRunning || engine.isPaused
+    }
+
+    private func handleSelection(for plan: PlanItem) {
+        if hasActiveTimerContext {
+            engine.startParallelSession(for: plan)
+        } else {
+            engine.apply(planItem: plan)
+        }
+        dismiss()
+    }
+
+    private func handleSelection(for task: TaskItem) {
+        taskStore.selectTask(task.id)
+        if hasActiveTimerContext {
+            engine.startParallelSession(for: task)
+        } else {
+            engine.apply(task: task)
+        }
+        dismiss()
+    }
+
+    private func handleCreatedTaskSelection() {
+        defer { dismiss() }
+        guard let selected = taskStore.selectedTask else { return }
+        if hasActiveTimerContext {
+            engine.startParallelSession(for: selected)
+        } else {
+            engine.apply(task: selected)
         }
     }
     
@@ -54,6 +89,34 @@ struct TaskSelectionSheet: View {
                     }
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.m)
+
+                    Button(action: { showQuickPresets = true }) {
+                        HStack(spacing: 16) {
+                            ZStack {
+                                Circle()
+                                    .fill(TimerPalette.accent.opacity(0.15))
+                                    .frame(width: 40, height: 40)
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(TimerPalette.accent)
+                            }
+
+                            Text("Quick Presets")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(Colors.textPrimary)
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Colors.textTertiary)
+                        }
+                        .padding()
+                        .background(Colors.cardSurface)
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.top, 8)
                     
                     List {
                         Section {
@@ -62,9 +125,7 @@ struct TaskSelectionSheet: View {
                                     item: plan,
                                     isSelected: engine.state.selectedTaskId == plan.id,
                                     onSelect: {
-                                        engine.stop(reset: true)
-                                        engine.apply(planItem: plan)
-                                        dismiss()
+                                        handleSelection(for: plan)
                                     }
                                 )
                                 .listRowBackground(Color.clear)
@@ -106,10 +167,7 @@ struct TaskSelectionSheet: View {
                                     task: task,
                                     isSelected: engine.state.selectedTaskId == task.id,
                                     onSelect: {
-                                        taskStore.selectTask(task.id)
-                                        engine.state.overriddenTaskName = nil
-                                        engine.apply(task: task)
-                                        dismiss()
+                                        handleSelection(for: task)
                                     }
                                 )
                                 .listRowBackground(Color.clear)
@@ -164,12 +222,19 @@ struct TaskSelectionSheet: View {
             }
             .sheet(isPresented: $showNewTaskSheet) {
                 DetailedNewTaskView(onTaskCreated: {
-                    if let selected = taskStore.selectedTask {
-                        engine.apply(task: selected)
-                    }
-                    dismiss()
+                    handleCreatedTaskSelection()
                 })
                 .environmentObject(taskStore)
+            }
+            .sheet(isPresented: $showQuickPresets) {
+                FrequentlyUsedPomoSheet(
+                    viewModel: viewModel,
+                    engine: engine,
+                    onPresetApplied: {
+                        showQuickPresets = false
+                        dismiss()
+                    }
+                )
             }
             .alert("Rename Task", isPresented: $showRenameAlert) {
                 TextField("Task Name", text: $renameText)

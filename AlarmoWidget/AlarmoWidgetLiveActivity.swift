@@ -10,15 +10,22 @@ struct AlarmoWidgetBundle: WidgetBundle {
 }
 
 struct AlarmoWidgetLiveActivity: Widget {
+    private enum RowDensity {
+        case regular
+        case compact
+    }
+
     private enum LockScreenLayout {
-        static let containerInset: CGFloat = 12
-        static let expandedTopInset: CGFloat = 18
-        static let expandedBottomInset: CGFloat = 6
+        static let containerInset: CGFloat = 10
+        static let expandedTopInset: CGFloat = 10
+        static let expandedBottomInset: CGFloat = 8
         static let collapsedVerticalInset: CGFloat = 12
-        static let sectionSpacing: CGFloat = 6
+        static let sectionSpacing: CGFloat = 4
         static let collapseControlTopSpacing: CGFloat = 2
-        static let rowVerticalPadding: CGFloat = 5
+        static let rowVerticalPaddingRegular: CGFloat = 5
+        static let rowVerticalPaddingCompact: CGFloat = 2
         static let previewBadgeSize: CGFloat = 42
+        static let maxExpandedRows: Int = 2
     }
 
     var body: some WidgetConfiguration {
@@ -36,22 +43,7 @@ struct AlarmoWidgetLiveActivity: Widget {
                 }
 
                 if isExpanded {
-                    VStack(spacing: LockScreenLayout.sectionSpacing) {
-                        ForEach(sessions, id: \.id) { session in
-                            lockScreenSessionRow(session: session)
-                        }
-
-                        if sessions.count > 1 {
-                            Button(intent: TogglePomoExpandedIntent()) {
-                                Text("Show less")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(.black.opacity(0.55))
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.top, LockScreenLayout.collapseControlTopSpacing)
-                        }
-                    }
-                    .background(Color.clear)
+                    expandedLockScreenContent(sessions: sessions, active: active)
                 } else {
                     collapsedStackRow(sessions: sessions, active: active)
                 }
@@ -127,6 +119,55 @@ struct AlarmoWidgetLiveActivity: Widget {
             }
             .keylineTint(Color.orange)
         }
+    }
+
+    @ViewBuilder
+    private func expandedLockScreenContent(
+        sessions: [PomoAttributes.ContentState.ParallelSession],
+        active: PomoAttributes.ContentState.ParallelSession
+    ) -> some View {
+        ViewThatFits(in: .vertical) {
+            expandedSessionList(
+                sessions: sessions,
+                density: .regular,
+                showsCollapse: sessions.count > 1
+            )
+
+            expandedSessionList(
+                sessions: sessions,
+                density: .compact,
+                showsCollapse: sessions.count > 1
+            )
+
+            collapsedStackRow(sessions: sessions, active: active)
+        }
+    }
+
+    @ViewBuilder
+    private func expandedSessionList(
+        sessions: [PomoAttributes.ContentState.ParallelSession],
+        density: RowDensity,
+        showsCollapse: Bool
+    ) -> some View {
+        let visibleSessions = Array(sessions.prefix(LockScreenLayout.maxExpandedRows))
+
+        VStack(spacing: density == .regular ? 4 : 3) {
+            ForEach(visibleSessions, id: \.id) { session in
+                lockScreenSessionRow(session: session, density: density)
+            }
+
+            if showsCollapse {
+                Button(intent: TogglePomoExpandedIntent()) {
+                    Text("Show less")
+                        .font(.system(size: density == .regular ? 11 : 10, weight: .semibold))
+                        .foregroundColor(.black.opacity(0.55))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, LockScreenLayout.collapseControlTopSpacing)
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .background(Color.clear)
     }
 
     private struct LockScreenProgressRing: View {
@@ -273,35 +314,49 @@ struct AlarmoWidgetLiveActivity: Widget {
     }
 
     @ViewBuilder
-    private func lockScreenSessionRow(session: PomoAttributes.ContentState.ParallelSession) -> some View {
-        HStack(spacing: 10) {
+    private func lockScreenSessionRow(
+        session: PomoAttributes.ContentState.ParallelSession,
+        density: RowDensity = .regular
+    ) -> some View {
+        let badgeSize: CGFloat = density == .regular ? 44 : 36
+        let ringLineWidth: CGFloat = density == .regular ? 4 : 3
+        let titleSize: CGFloat = density == .regular ? 13 : 12
+        let timeSize: CGFloat = density == .regular ? 13 : 12
+        let emojiSize: CGFloat = density == .regular ? 18 : 15
+        let buttonSize: CGFloat = density == .regular ? 30 : 26
+        let buttonIconSize: CGFloat = density == .regular ? 14 : 12
+        let rowVerticalPadding: CGFloat = density == .regular
+            ? LockScreenLayout.rowVerticalPaddingRegular
+            : LockScreenLayout.rowVerticalPaddingCompact
+
+        HStack(spacing: density == .regular ? 10 : 8) {
             Button(intent: OpenPomodoroSessionIntent(sessionId: session.id.uuidString)) {
-                HStack(spacing: 10) {
+                HStack(spacing: density == .regular ? 10 : 8) {
                     ZStack {
                         Circle()
                             .fill(Color.black.opacity(0.24))
-                            .frame(width: 44, height: 44)
+                            .frame(width: badgeSize, height: badgeSize)
 
                         Circle()
-                            .stroke(Color.white.opacity(0.20), lineWidth: 4)
-                            .frame(width: 44, height: 44)
+                            .stroke(Color.white.opacity(0.20), lineWidth: ringLineWidth)
+                            .frame(width: badgeSize, height: badgeSize)
 
                         LockScreenProgressRing(
                             startTime: session.startTime,
                             endTime: session.endTime,
                             remainingSeconds: session.remainingSeconds,
                             isRunning: session.isRunning,
-                            diameter: 44,
-                            lineWidth: 4
+                            diameter: badgeSize,
+                            lineWidth: ringLineWidth
                         )
 
                         Text(focusEmoji(from: session.focusName))
-                            .font(.system(size: 18))
+                            .font(.system(size: emojiSize))
                     }
 
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 1) {
                         Text(session.focusName)
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.system(size: titleSize, weight: .bold))
                             .foregroundColor(.white)
                             .lineLimit(1)
 
@@ -310,14 +365,14 @@ struct AlarmoWidgetLiveActivity: Widget {
                             endTime: session.endTime,
                             remainingSeconds: session.remainingSeconds,
                             isRunning: session.isRunning,
-                            size: 13,
+                            size: timeSize,
                             color: .white,
                             width: nil
                         )
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Spacer(minLength: 8)
+                    Spacer(minLength: 6)
                 }
                 .contentShape(Rectangle())
             }
@@ -325,15 +380,15 @@ struct AlarmoWidgetLiveActivity: Widget {
 
             Button(intent: TogglePomoRunStateIntent(sessionId: session.id.uuidString)) {
                 Image(systemName: session.isRunning ? "pause.fill" : "play.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: buttonIconSize, weight: .semibold))
                     .foregroundColor(.black.opacity(0.88))
-                    .frame(width: 30, height: 30)
+                    .frame(width: buttonSize, height: buttonSize)
                     .background(Circle().fill(Color.white))
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, LockScreenLayout.rowVerticalPadding)
+        .padding(.vertical, rowVerticalPadding)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(Color.black.opacity(0.72))

@@ -70,6 +70,7 @@ struct DigitalTimeDisplay: View {
     @Binding var minute: Int
     @Binding var second: Int
     @ObservedObject private var settingsStore = SettingsStore.shared
+    var sunrayScale: CGFloat = 1.0
     
     var body: some View {
         Group {
@@ -78,7 +79,8 @@ struct DigitalTimeDisplay: View {
                 SunRayTimePickerView(
                     hour: $hour,
                     minute: $minute,
-                    second: $second
+                    second: $second,
+                    sizeMultiplier: sunrayScale
                 )
             case .focusDial:
                 FocusDialAlarmTimePickerView(
@@ -98,6 +100,7 @@ private struct FocusDialAlarmTimePickerView: View {
     @Binding var minute: Int
     @Binding var second: Int
 
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var settingsStore = SettingsStore.shared
     @AppStorage("is12HourFormat") private var is12HourFormat: Bool = true
     @State private var isDragging = false
@@ -105,8 +108,9 @@ private struct FocusDialAlarmTimePickerView: View {
 
     private let selectionFeedback = UISelectionFeedbackGenerator()
     private let impactFeedback = UIImpactFeedbackGenerator(style: .rigid)
-    private let ringSize: CGFloat = 248
+    private let ringSize: CGFloat = 186
     private let ringWidth: CGFloat = 36
+    private let alarmRingBlue = Color(red: 0.08, green: 0.78, blue: 0.92)
 
     private var progress: Double {
         min(max(currentMinutesInCycle / totalMinutesInCycle, 0), 1)
@@ -142,44 +146,24 @@ private struct FocusDialAlarmTimePickerView: View {
         return Double(hourValue * 60 + minute)
     }
 
-    private var ringGradientColors: [Color] {
-        switch settingsStore.alarmFocusRingGradient {
-        case .aurora:
-            return [
-                Color(red: 0.54, green: 0.44, blue: 0.98),
-                Color(red: 0.66, green: 0.57, blue: 1.00),
-                Color(red: 0.80, green: 0.68, blue: 1.00),
-                Color(red: 0.54, green: 0.44, blue: 0.98)
-            ]
-        case .sunset:
-            return [
-                Color(red: 0.98, green: 0.50, blue: 0.27),
-                Color(red: 0.95, green: 0.28, blue: 0.38),
-                Color(red: 0.71, green: 0.29, blue: 0.96),
-                Color(red: 0.98, green: 0.50, blue: 0.27)
-            ]
-        case .ocean:
-            return [
-                Color(red: 0.10, green: 0.70, blue: 0.94),
-                Color(red: 0.07, green: 0.57, blue: 0.86),
-                Color(red: 0.00, green: 0.82, blue: 0.76),
-                Color(red: 0.10, green: 0.70, blue: 0.94)
-            ]
-        case .rose:
-            return [
-                Color(red: 0.98, green: 0.35, blue: 0.63),
-                Color(red: 0.93, green: 0.29, blue: 0.45),
-                Color(red: 0.82, green: 0.40, blue: 0.96),
-                Color(red: 0.98, green: 0.35, blue: 0.63)
-            ]
-        case .emerald:
-            return [
-                Color(red: 0.17, green: 0.78, blue: 0.58),
-                Color(red: 0.13, green: 0.69, blue: 0.46),
-                Color(red: 0.23, green: 0.86, blue: 0.70),
-                Color(red: 0.17, green: 0.78, blue: 0.58)
-            ]
+    private var isLightMode: Bool {
+        switch settingsStore.themeMode {
+        case .light:
+            return true
+        case .dark:
+            return false
+        case .system:
+            return colorScheme == .light
         }
+    }
+
+    private var ringGradientColors: [Color] {
+        [
+            alarmRingBlue.opacity(0.62),
+            alarmRingBlue.opacity(0.96),
+            alarmRingBlue.opacity(0.78),
+            alarmRingBlue.opacity(0.80)
+        ]
     }
 
     var body: some View {
@@ -202,7 +186,7 @@ private struct FocusDialAlarmTimePickerView: View {
 
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.16), lineWidth: ringWidth)
+                    .stroke(Colors.cardStroke.opacity(isLightMode ? 1.0 : 0.9), lineWidth: ringWidth)
                     .frame(width: ringSize, height: ringSize)
 
                 Circle()
@@ -223,8 +207,8 @@ private struct FocusDialAlarmTimePickerView: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color(red: 0.72, green: 0.74, blue: 0.96).opacity(0.95),
-                                Color(red: 0.62, green: 0.65, blue: 0.92).opacity(0.9)
+                                (isLightMode ? Color.white : Color(red: 0.72, green: 0.74, blue: 0.96)).opacity(0.95),
+                                (isLightMode ? Colors.cardSurface : Color.black).opacity(0.95)
                             ],
                             center: .center,
                             startRadius: 20,
@@ -234,20 +218,20 @@ private struct FocusDialAlarmTimePickerView: View {
                     .frame(width: ringSize * 0.62, height: ringSize * 0.62)
                     .overlay(
                         Circle()
-                            .stroke(Color.white.opacity(0.28), lineWidth: 1.2)
+                            .stroke(Colors.cardStroke, lineWidth: 1.2)
                     )
                     .overlay {
                         VStack(spacing: 6) {
                             Image(systemName: "alarm.fill")
                                 .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(Color.black.opacity(0.55))
+                                .foregroundColor(Colors.textSecondary)
                             Text(centerTimeLabel)
                                 .font(.system(size: 34, weight: .black, design: .monospaced))
-                                .foregroundColor(Color.black.opacity(0.68))
+                                .foregroundColor(Colors.textPrimary)
                             if !periodLabel.isEmpty {
                                 Text(periodLabel)
                                     .font(.system(size: 12, weight: .bold, design: .monospaced))
-                                    .foregroundColor(Color.black.opacity(0.52))
+                                    .foregroundColor(Colors.textSecondary)
                             }
                         }
                     }
@@ -270,25 +254,6 @@ private struct FocusDialAlarmTimePickerView: View {
                     }
             )
 
-            HStack(spacing: 8) {
-                Button {
-                    showWheelPicker = true
-                } label: {
-                    HStack(spacing: 0) {
-                        Image(systemName: "keyboard")
-                            .font(.system(size: 12, weight: .bold))
-                    }
-                    .foregroundColor(Colors.textPrimary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .background(Capsule().fill(Colors.accentTeal.opacity(0.22)))
-                }
-                .buttonStyle(.plain)
-
-                Text("Drag ring to set time")
-                    .font(.caption)
-                    .foregroundColor(Colors.textSecondary)
-            }
         }
         .frame(height: 332)
         .sheet(isPresented: $showWheelPicker) {
@@ -306,7 +271,7 @@ private struct FocusDialAlarmTimePickerView: View {
             .overlay(
                 Image(systemName: "arrow.left.and.right")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(Color.black.opacity(0.5))
+                    .foregroundColor(Colors.textSecondary)
                     .opacity(isDragging ? 1 : 0)
             )
             .offset(x: cos(angle.radians) * radius, y: sin(angle.radians) * radius)
@@ -361,7 +326,7 @@ private struct FocusDialAlarmTimePickerView: View {
                         .fill(isSelected ? Colors.accentTeal.opacity(0.14) : Color.clear)
                         .overlay(
                             Capsule()
-                                .stroke(isSelected ? Colors.accentTeal.opacity(0.45) : Color.white.opacity(0.08), lineWidth: 1)
+                                .stroke(isSelected ? Colors.accentTeal.opacity(0.45) : Colors.cardStroke, lineWidth: 1)
                         )
                 )
         }
@@ -370,7 +335,7 @@ private struct FocusDialAlarmTimePickerView: View {
 
     private var focusDialWheelSheet: some View {
         ZStack {
-            Color(red: 0.06, green: 0.07, blue: 0.10)
+            Colors.bgPrimary
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -383,7 +348,7 @@ private struct FocusDialAlarmTimePickerView: View {
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(Colors.textPrimary.opacity(0.85))
                             .frame(width: 32, height: 32)
-                            .background(Color.white.opacity(0.12))
+                            .background(isLightMode ? Color.black.opacity(0.06) : Color.white.opacity(0.12))
                             .clipShape(Circle())
                     }
                 }
@@ -394,7 +359,7 @@ private struct FocusDialAlarmTimePickerView: View {
 
                 ZStack {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.white.opacity(0.08))
+                        .fill(isLightMode ? Color.black.opacity(0.04) : Color.white.opacity(0.08))
                         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .frame(height: 44)
 
@@ -458,7 +423,6 @@ private struct FocusDialAlarmTimePickerView: View {
                 Spacer()
             }
         }
-        .colorScheme(.dark)
         .presentationDetents([.height(300)])
         .presentationDragIndicator(.visible)
     }
@@ -765,7 +729,8 @@ struct MissionSlotsView: View {
                     }
                 }
                 .padding(.vertical, 4)
-                .padding(.horizontal, 4)
+                .padding(.leading, 12)
+                .padding(.trailing, 4)
             }
         }
     }

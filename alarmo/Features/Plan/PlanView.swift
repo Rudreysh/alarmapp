@@ -3,6 +3,7 @@ import SwiftData
 
 struct PlanView: View {
     let preferences: AppPreferences
+    @ObservedObject private var settings = SettingsStore.shared
     @StateObject var viewModel = PlanViewModel()
     @Environment(\.modelContext) var modelContext
     @Environment(\.scenePhase) private var scenePhase
@@ -43,6 +44,7 @@ struct PlanView: View {
     @State private var selectedItem: PlanItem? // For detail
     @State private var editingItem: PlanItem? // For edit
     @State private var editingNote: PlanItem? // For note editing
+    @State private var habitEditMode: EditMode = .inactive
     
     // Timer State
     
@@ -83,18 +85,10 @@ struct PlanView: View {
                     selectedDate: $viewModel.selectedDate,
                     isListView: $viewModel.isListView,
                     showCalendarCoachMark: $showPlanCalendarCoachMark,
-                    isShieldOn: SettingsStore.shared.accountabilityEnabled,
                     moodEmoji: selectedMoodForCurrentSegment?.emoji,
                     hasMoodNoteOnDate: hasMoodNoteOnDate,
                     onMoodTap: {
                         showMoodSheet = true
-                    },
-                    onShieldTap: {
-                        if subManager.isPro {
-                            showShieldSettings = true
-                        } else {
-                            showUpsell = true
-                        }
                     }
                 )
 
@@ -212,34 +206,47 @@ struct PlanView: View {
                         // Items List
                         let filtered = viewModel.items(from: allItems)
                         let habits = filtered.filter { $0.type == .habit }
+                            .sorted(by: habitDisplayOrder(lhs:rhs:))
                         let firstVisibleItemId = habits.first?.id
                         
                          // Habits Section
                         if !habits.isEmpty {
                             Section(header: 
-                                Button(action: { withAnimation { viewModel.isHabitsExpanded.toggle() } }) {
-                                    HStack {
-                                        Text("Habits (\(habits.count))")
-                                           .font(.system(size: 14, weight: .medium))
-                                           .foregroundColor(PlanPalette.textSecondary)
-                                        Image(systemName: "chevron.right")
-                                            .font(.caption)
-                                            .foregroundColor(PlanPalette.textSecondary)
-                                            .rotationEffect(.degrees(viewModel.isHabitsExpanded ? 90 : 0))
-                                        Spacer()
+                                HStack {
+                                    Button(action: { withAnimation { viewModel.isHabitsExpanded.toggle() } }) {
+                                        HStack {
+                                            Text("Habits (\(habits.count))")
+                                               .font(.system(size: 14, weight: .medium))
+                                               .foregroundColor(PlanPalette.textSecondary)
+                                            Image(systemName: "chevron.right")
+                                                .font(.caption)
+                                                .foregroundColor(PlanPalette.textSecondary)
+                                                .rotationEffect(.degrees(viewModel.isHabitsExpanded ? 90 : 0))
+                                            Spacer()
+                                        }
                                     }
-                                    .padding(.leading, -16)
+                                    .buttonStyle(.plain)
+
+                                    if viewModel.isHabitsExpanded {
+                                        Button(habitEditMode == .active ? "Done" : "Edit") {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                habitEditMode = habitEditMode == .active ? .inactive : .active
+                                            }
+                                        }
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(Colors.accentTeal)
+                                    }
                                 }
-                                .buttonStyle(.plain)
+                                .padding(.leading, -16)
                             ) {
                                 if viewModel.isHabitsExpanded {
-                                    ForEach(Array(habits.enumerated()), id: \.element.id) { index, item in
+                                    ForEach(habits, id: \.id) { item in
                                         PlanItemRow(item: item, selectedDate: viewModel.selectedDate, isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
                                             viewModel.toggleComplete(item, context: modelContext)
                                         } onPlay: {
                                             startTimer(for: item)
                                         } onQuickAdd: { _, position in
-                                            if index == 0 && !preferences.hasSeenQuickLogTooltip {
+                                            if item.id == firstVisibleItemId && !preferences.hasSeenQuickLogTooltip {
                                                 preferences.hasSeenQuickLogTooltip = true
                                                 showQuickLogCoachMark = false
                                             }
@@ -264,7 +271,7 @@ struct PlanView: View {
                                         .coachMark(
                                             title: "Quick Log",
                                             subtitle: "Tap + to log progress.",
-                                            isVisible: Binding(get: { index == 0 ? showQuickLogCoachMark : false }, set: { showQuickLogCoachMark = $0 }),
+                                            isVisible: Binding(get: { item.id == firstVisibleItemId ? showQuickLogCoachMark : false }, set: { showQuickLogCoachMark = $0 }),
                                             alignment: .bottomTrailing,
                                             pointDirection: .top,
                                             arrowAlignment: .trailing,
@@ -277,11 +284,18 @@ struct PlanView: View {
                                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                                         .contentShape(Rectangle())
                                         .onTapGesture {
+                                            guard habitEditMode != .active else { return }
                                             // Tap on habit -> Open Detail View (Start Focus screen)
                                             selectedItem = item
                                         }
                                         .id(item.updatedAt) // Force Refresh
                                         .contextMenu {
+                                            Button {
+                                                viewModel.skipHabitForSelectedDate(item, context: modelContext)
+                                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                            } label: {
+                                                Label("Skip for This Day", systemImage: "forward.end.fill")
+                                            }
                                             Button {
                                                 startEditing(item)
                                             } label: {
@@ -292,7 +306,18 @@ struct PlanView: View {
                                             } label: {
                                                 Label("Delete", systemImage: "trash")
                                             }
+                                            Button {
+                                                withAnimation(.easeInOut(duration: 0.2)) {
+                                                    habitEditMode = .active
+                                                }
+                                            } label: {
+                                                Label("Rearrange", systemImage: "line.3.horizontal")
+                                            }
                                         }
+                                        .moveDisabled(habitEditMode != .active)
+                                    }
+                                    .onMove { source, destination in
+                                        moveHabits(from: source, to: destination, visibleHabits: habits)
                                     }
                                 }
                             }
@@ -302,6 +327,7 @@ struct PlanView: View {
                     .scrollContentBackground(.hidden)
                     .scrollIndicators(.visible, axes: .vertical)
                     .scrollIndicatorsFlash(onAppear: true)
+                    .environment(\.editMode, $habitEditMode)
                     .safeAreaInset(edge: .bottom) {
                         Color.clear.frame(height: listBottomClearance)
                             .allowsHitTesting(false)
@@ -372,6 +398,7 @@ struct PlanView: View {
             viewModel.setContext(modelContext)
             viewModel.allItems = allItems
             cleanupLegacyAnytimeDefaults()
+            normalizeHabitSortOrderIfNeeded()
             registerUsageForToday()
             
             Task {
@@ -465,6 +492,7 @@ struct PlanView: View {
         }
         .onChange(of: allItems.count) { _, _ in
             viewModel.allItems = allItems
+            normalizeHabitSortOrderIfNeeded()
             Task {
                 await viewModel.syncHealthData(from: allItems)
             }
@@ -512,6 +540,7 @@ struct PlanView: View {
     }
 
     private func triggerHabitCelebration(with title: String?) {
+        guard settings.habitGoalCelebrationEnabled else { return }
         celebrationHideTask?.cancel()
         celebrationHabitTitle = title
 
@@ -601,6 +630,60 @@ struct PlanView: View {
         let f = DateFormatter()
         f.timeStyle = .short
         return f.string(from: date)
+    }
+
+    private func habitDisplayOrder(lhs: PlanItem, rhs: PlanItem) -> Bool {
+        switch (lhs.habitSortOrder, rhs.habitSortOrder) {
+        case let (l?, r?):
+            if l != r { return l < r }
+            return lhs.createdAt < rhs.createdAt
+        case (_?, nil):
+            return true
+        case (nil, _?):
+            return false
+        case (nil, nil):
+            return lhs.createdAt > rhs.createdAt
+        }
+    }
+
+    private func normalizeHabitSortOrderIfNeeded() {
+        let activeHabits = allItems
+            .filter { !$0.isArchived && $0.type == .habit }
+            .sorted(by: habitDisplayOrder(lhs:rhs:))
+
+        guard !activeHabits.isEmpty else { return }
+
+        var needsNormalization = false
+        for (index, habit) in activeHabits.enumerated() {
+            if habit.habitSortOrder != index {
+                needsNormalization = true
+                break
+            }
+        }
+
+        guard needsNormalization else { return }
+
+        for (index, habit) in activeHabits.enumerated() {
+            habit.habitSortOrder = index
+        }
+        try? modelContext.save()
+    }
+
+    private func moveHabits(from source: IndexSet, to destination: Int, visibleHabits: [PlanItem]) {
+        var reorderedVisible = visibleHabits
+        reorderedVisible.move(fromOffsets: source, toOffset: destination)
+
+        let visibleIds = Set(reorderedVisible.map(\.id))
+        let trailingHabits = allItems
+            .filter { !$0.isArchived && $0.type == .habit && !visibleIds.contains($0.id) }
+            .sorted(by: habitDisplayOrder(lhs:rhs:))
+
+        let finalOrderedHabits = reorderedVisible + trailingHabits
+        for (index, item) in finalOrderedHabits.enumerated() {
+            item.habitSortOrder = index
+            item.updatedAt = Date()
+        }
+        try? modelContext.save()
     }
 
     private var currentMoodSegment: MoodSegment {
@@ -778,6 +861,8 @@ struct PlanView: View {
 }
 
 struct PlanItemTimelineRow: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var settingsStore = SettingsStore.shared
     @Bindable var item: PlanItem
     let timeString: String
     let selectedDate: Date
@@ -795,6 +880,18 @@ struct PlanItemTimelineRow: View {
     @State private var rowHeight: CGFloat = 80
     @State private var lastHapticStep: Int = -1
     @State private var dragIntent: DragIntent?
+    private let habitRowScale: CGFloat = 0.9
+
+    private var isLightMode: Bool {
+        switch settingsStore.themeMode {
+        case .light:
+            return true
+        case .dark:
+            return false
+        case .system:
+            return colorScheme == .light
+        }
+    }
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -874,9 +971,9 @@ struct PlanItemTimelineRow: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color(red: 0.04, green: 0.08, blue: 0.12).opacity(0.92),
-                            Color(red: 0.06, green: 0.11, blue: 0.17).opacity(0.86),
-                            Color(red: 0.03, green: 0.05, blue: 0.09).opacity(0.92)
+                            isLightMode ? Color.white.opacity(0.98) : Color(red: 0.04, green: 0.08, blue: 0.12).opacity(0.92),
+                            isLightMode ? Color(red: 0.97, green: 0.97, blue: 0.97).opacity(0.98) : Color(red: 0.06, green: 0.11, blue: 0.17).opacity(0.86),
+                            isLightMode ? Color(red: 0.95, green: 0.95, blue: 0.95).opacity(0.98) : Color(red: 0.03, green: 0.05, blue: 0.09).opacity(0.92)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -890,17 +987,17 @@ struct PlanItemTimelineRow: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                habitTintColor.opacity(0.38),
-                                habitTintColor.opacity(0.18),
-                                Color.black.opacity(0.02)
+                                habitTintColor.opacity(isLightMode ? 0.24 : 0.38),
+                                habitTintColor.opacity(isLightMode ? 0.12 : 0.18),
+                                isLightMode ? Color.white.opacity(0.01) : Color.black.opacity(0.02)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 86)
+                    .frame(width: 86 * habitRowScale)
                     .padding(.leading, 6)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 6 * habitRowScale)
                 Spacer(minLength: 0)
             }
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -914,28 +1011,28 @@ struct PlanItemTimelineRow: View {
                 ZStack {
                     if isHabitSFIcon {
                         Image(systemName: item.iconName)
-                            .font(.system(size: 22.8, weight: .bold))
+                            .font(.system(size: 22.8 * habitRowScale, weight: .bold))
                             .foregroundColor(habitTintColor)
-                            .frame(width: 50.4, height: 50.4)
+                            .frame(width: 50.4 * habitRowScale, height: 50.4 * habitRowScale)
                             .background(habitTintColor.opacity(0.14))
                             .clipShape(Circle())
                     } else {
                         Text(item.iconName)
-                            .font(.system(size: 28.8))
-                            .frame(width: 50.4, height: 50.4)
+                            .font(.system(size: 28.8 * habitRowScale))
+                            .frame(width: 50.4 * habitRowScale, height: 50.4 * habitRowScale)
                     }
                 }
                 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(item.title)
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(PlanPalette.textPrimary)
+                        .foregroundColor(isLightMode ? Colors.textPrimary : PlanPalette.textPrimary)
                         .strikethrough(isCompleted)
                     
                     if let goalText = habitGoalText {
                         Text(goalText)
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(PlanPalette.textSecondary)
+                            .foregroundColor(isLightMode ? Colors.textSecondary : PlanPalette.textSecondary)
                     }
                 }
                 
@@ -966,18 +1063,30 @@ struct PlanItemTimelineRow: View {
                 
                 if isCompleted {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 24))
+                        .font(.system(size: 24 * habitRowScale))
                         .foregroundColor(PlanPalette.accent)
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.vertical, 12 * habitRowScale)
         }
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(isCompleted ? PlanPalette.accent.opacity(0.32) : (isDragging ? habitTintColor.opacity(0.5) : Color.white.opacity(0.20)), lineWidth: isDragging ? 2 : 1)
+                .stroke(
+                    isCompleted
+                    ? PlanPalette.accent.opacity(0.32)
+                    : (isDragging ? habitTintColor.opacity(0.5) : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.20))),
+                    lineWidth: isDragging ? 2 : 1
+                )
         )
-        .shadow(color: isCompleted ? PlanPalette.accent.opacity(0.20) : (isDragging ? habitTintColor.opacity(0.3) : Color.black.opacity(0.16)), radius: isDragging ? 15 : 10, x: 0, y: isDragging ? 6 : 4)
+        .shadow(
+            color: isCompleted
+                ? PlanPalette.accent.opacity(0.20)
+                : (isDragging ? habitTintColor.opacity(0.3) : (isLightMode ? Color.black.opacity(0.08) : Color.black.opacity(0.16))),
+            radius: isDragging ? 15 : 10,
+            x: 0,
+            y: isDragging ? 6 : 4
+        )
         .background(
             GeometryReader { geo in
                 Color.clear
@@ -2457,16 +2566,26 @@ private struct MoodChoiceButton: View {
 }
 
 struct CalendarHeaderView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var settingsStore = SettingsStore.shared
     @Binding var selectedDate: Date
     @Binding var isListView: Bool
     @Binding var showCalendarCoachMark: Bool
-    var isShieldOn: Bool = false
     var moodEmoji: String? = nil
     var hasMoodNoteOnDate: ((Date) -> Bool)? = nil
     var onMoodTap: (() -> Void)? = nil
-    var onShieldTap: (() -> Void)? = nil
     
     private var calendar: Calendar { Calendar.current }
+    private var isLightMode: Bool {
+        switch settingsStore.themeMode {
+        case .light:
+            return true
+        case .dark:
+            return false
+        case .system:
+            return colorScheme == .light
+        }
+    }
     
     var body: some View {
 
@@ -2485,7 +2604,7 @@ struct CalendarHeaderView: View {
                                 .foregroundColor(Colors.textSecondary)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(Colors.cardSurface)
+                                .background(isLightMode ? Color.white.opacity(0.95) : Colors.cardSurface)
                                 .cornerRadius(8)
                         }
                     }
@@ -2506,7 +2625,7 @@ struct CalendarHeaderView: View {
                                 Text(moodEmoji ?? "🙂")
                                     .font(.system(size: 24))
                                     .frame(width: 40, height: 40)
-                                    .background(Color.white.opacity(0.08))
+                                    .background(isLightMode ? Color.white.opacity(0.95) : Color.white.opacity(0.08))
                                     .clipShape(Circle())
 
                                 Image(systemName: "plus.circle.fill")
@@ -2520,27 +2639,6 @@ struct CalendarHeaderView: View {
                             .planGlassPanel(cornerRadius: 14, fillOpacity: 0.12)
                         }
                         .buttonStyle(.plain)
-
-                        Button(action: { onShieldTap?() }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: isShieldOn ? "shield.checkered" : "shield.slash.fill")
-                                    .font(.caption2)
-                                    .foregroundColor(isShieldOn ? Colors.accentTeal : .gray)
-                                Text(isShieldOn ? "On" : "Off")
-                                    .font(.caption2)
-                                    .foregroundColor(PlanPalette.textPrimary)
-                            }
-                            .padding(.vertical, 5)
-                            .padding(.horizontal, 8)
-                            .planGlassPanel(cornerRadius: 12, fillOpacity: isShieldOn ? 0.18 : 0.12)
-                            .overlay(
-                                isShieldOn
-                                    ? RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Colors.accentTeal.opacity(0.3), lineWidth: 1)
-                                    : nil
-                            )
-                        }
-                        .buttonStyle(.plain)
                     }
                     
                     // View Toggle
@@ -2550,7 +2648,7 @@ struct CalendarHeaderView: View {
                                 .font(.system(size: 14))
                                 .foregroundColor(isListView ? Colors.textPrimary : Colors.textSecondary)
                                 .frame(width: 32, height: 32)
-                                .background(isListView ? Colors.cardSurface : Color.clear)
+                                .background(isListView ? (isLightMode ? Color.white.opacity(0.95) : Colors.cardSurface) : Color.clear)
                                 .clipShape(Circle())
                         }
                         
@@ -2559,12 +2657,12 @@ struct CalendarHeaderView: View {
                                 .font(.system(size: 14))
                                 .foregroundColor(!isListView ? Colors.textPrimary : Colors.textSecondary)
                                 .frame(width: 32, height: 32)
-                                .background(!isListView ? Colors.cardSurface : Color.clear)
+                                .background(!isListView ? (isLightMode ? Color.white.opacity(0.95) : Colors.cardSurface) : Color.clear)
                                 .clipShape(Circle())
                         }
                     }
                     .padding(2)
-                    .background(Colors.cardSurface.opacity(0.3))
+                    .background(isLightMode ? Color.white.opacity(0.75) : Colors.cardSurface.opacity(0.3))
                     .clipShape(Capsule())
                 }
             }
@@ -2657,10 +2755,22 @@ struct WeekStripView: View {
 }
 
 struct WeekDayCell: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var settingsStore = SettingsStore.shared
     let date: Date
     let isSelected: Bool
     let hasMoodNote: Bool
     let onTap: () -> Void
+    private var isLightMode: Bool {
+        switch settingsStore.themeMode {
+        case .light:
+            return true
+        case .dark:
+            return false
+        case .system:
+            return colorScheme == .light
+        }
+    }
     
     var body: some View {
         VStack(spacing: 8) {
@@ -2670,9 +2780,13 @@ struct WeekDayCell: View {
             VStack(spacing: 3) {
                 Text(dayNum)
                     .font(.system(size: 16, weight: isSelected ? .bold : .regular))
-                    .foregroundColor(isSelected ? .white : Colors.textSecondary)
+                    .foregroundColor(isSelected ? (isLightMode ? Colors.textPrimary : .white) : Colors.textSecondary)
                     .frame(width: 32, height: 32)
-                    .background(isSelected ? Color(red: 0.06, green: 0.45, blue: 0.62) : Color.clear)
+                    .background(
+                        isSelected
+                            ? (isLightMode ? Color(red: 0.90, green: 0.90, blue: 0.90) : Color(red: 0.06, green: 0.45, blue: 0.62))
+                            : Color.clear
+                    )
                     .clipShape(Circle())
 
                 Circle()
@@ -2740,6 +2854,8 @@ private struct PlanItemRowSizePreferenceKey: PreferenceKey {
 
 // Updated PlanItemRow
 struct PlanItemRow: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var settingsStore = SettingsStore.shared
     @Bindable var item: PlanItem
     let selectedDate: Date
     let isCompleted: Bool
@@ -2756,6 +2872,17 @@ struct PlanItemRow: View {
     @State private var rowHeight: CGFloat = 80
     @State private var lastHapticStep: Int = -1
     @State private var dragIntent: DragIntent?
+    private let habitRowScale: CGFloat = 0.9
+    private var isLightMode: Bool {
+        switch settingsStore.themeMode {
+        case .light:
+            return true
+        case .dark:
+            return false
+        case .system:
+            return colorScheme == .light
+        }
+    }
     
     var body: some View {
         ZStack {
@@ -2765,9 +2892,9 @@ struct PlanItemRow: View {
                     ? AnyShapeStyle(
                         LinearGradient(
                             colors: [
-                                Color(red: 0.04, green: 0.08, blue: 0.12).opacity(0.92),
-                                Color(red: 0.06, green: 0.11, blue: 0.17).opacity(0.86),
-                                Color(red: 0.03, green: 0.05, blue: 0.09).opacity(0.92)
+                                isLightMode ? Color.white.opacity(0.98) : Color(red: 0.04, green: 0.08, blue: 0.12).opacity(0.92),
+                                isLightMode ? Color(red: 0.97, green: 0.97, blue: 0.97).opacity(0.98) : Color(red: 0.06, green: 0.11, blue: 0.17).opacity(0.86),
+                                isLightMode ? Color(red: 0.95, green: 0.95, blue: 0.95).opacity(0.98) : Color(red: 0.03, green: 0.05, blue: 0.09).opacity(0.92)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -2776,9 +2903,9 @@ struct PlanItemRow: View {
                     : AnyShapeStyle(
                         LinearGradient(
                             colors: [
-                                Color(red: 0.05, green: 0.07, blue: 0.11).opacity(0.94),
-                                Color(red: 0.09, green: 0.12, blue: 0.17).opacity(0.88),
-                                Color(red: 0.04, green: 0.06, blue: 0.10).opacity(0.94)
+                                isLightMode ? Color.white.opacity(0.98) : Color(red: 0.05, green: 0.07, blue: 0.11).opacity(0.94),
+                                isLightMode ? Color(red: 0.97, green: 0.97, blue: 0.97).opacity(0.98) : Color(red: 0.09, green: 0.12, blue: 0.17).opacity(0.88),
+                                isLightMode ? Color(red: 0.95, green: 0.95, blue: 0.95).opacity(0.98) : Color(red: 0.04, green: 0.06, blue: 0.10).opacity(0.94)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -2793,17 +2920,17 @@ struct PlanItemRow: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                tintColor.opacity(0.38),
-                                tintColor.opacity(0.18),
-                                Color.black.opacity(0.02)
+                                tintColor.opacity(isLightMode ? 0.24 : 0.38),
+                                tintColor.opacity(isLightMode ? 0.12 : 0.18),
+                                isLightMode ? Color.white.opacity(0.01) : Color.black.opacity(0.02)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 86)
+                    .frame(width: isHabitItem ? (86 * habitRowScale) : 86)
                     .padding(.leading, 6)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, isHabitItem ? (6 * habitRowScale) : 6)
                 
                 Spacer(minLength: 0)
             }
@@ -2818,13 +2945,13 @@ struct PlanItemRow: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(item.title)
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(PlanPalette.textPrimary)
+                        .foregroundColor(isLightMode ? Colors.textPrimary : PlanPalette.textPrimary)
                         .strikethrough(isCompleted)
                     
                     if let goalText = goalText {
                         Text(goalText)
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(PlanPalette.textSecondary)
+                            .foregroundColor(isLightMode ? Colors.textSecondary : PlanPalette.textSecondary)
                     }
                 }
                 
@@ -2833,7 +2960,7 @@ struct PlanItemRow: View {
                 if item.type == .habit && !isCompleted {
                     GeometryReader { geo in
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 24))
+                            .font(.system(size: isHabitItem ? (24 * habitRowScale) : 24))
                             .symbolRenderingMode(.hierarchical)
                             .foregroundColor(tintColor)
                             .scaleEffect(quickAddScale)
@@ -2856,26 +2983,38 @@ struct PlanItemRow: View {
                 if let duration = item.defaultDurationSeconds, duration > 0, !isCompleted {
                     Button(action: { onPlay?() }) {
                         Image(systemName: "play.circle.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(Colors.textPrimary)
+                            .font(.system(size: isHabitItem ? (24 * habitRowScale) : 24))
+                            .foregroundColor(isLightMode ? Colors.textPrimary : Colors.textPrimary)
                     }
                     .buttonStyle(.plain)
                 }
                 
                 if isCompleted {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 24))
+                        .font(.system(size: isHabitItem ? (24 * habitRowScale) : 24))
                         .foregroundColor(PlanPalette.accent)
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.vertical, isHabitItem ? (12 * habitRowScale) : 12)
         }
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(isCompleted ? PlanPalette.accent.opacity(0.32) : (isDragging ? tintColor.opacity(0.5) : Color.white.opacity(0.20)), lineWidth: isDragging ? 2 : 1)
+                .stroke(
+                    isCompleted
+                        ? PlanPalette.accent.opacity(0.32)
+                        : (isDragging ? tintColor.opacity(0.5) : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.20))),
+                    lineWidth: isDragging ? 2 : 1
+                )
         )
-        .shadow(color: isCompleted ? PlanPalette.accent.opacity(0.20) : (isDragging ? tintColor.opacity(0.3) : Color.black.opacity(0.16)), radius: isDragging ? 15 : 10, x: 0, y: isDragging ? 6 : 4)
+        .shadow(
+            color: isCompleted
+                ? PlanPalette.accent.opacity(0.20)
+                : (isDragging ? tintColor.opacity(0.3) : (isLightMode ? Color.black.opacity(0.08) : Color.black.opacity(0.16))),
+            radius: isDragging ? 15 : 10,
+            x: 0,
+            y: isDragging ? 6 : 4
+        )
         .background(
             GeometryReader { geo in
                 Color.clear
@@ -3002,8 +3141,8 @@ struct PlanItemRow: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            (isWaterHabit ? Color.blue : tintColor).opacity(isDragging ? 0.35 : 0.24),
-                            (isWaterHabit ? Color.cyan : tintColor).opacity(isDragging ? 0.20 : 0.10)
+                            (isWaterHabit ? Color.blue : tintColor).opacity(isDragging ? (isLightMode ? 0.24 : 0.35) : (isLightMode ? 0.16 : 0.24)),
+                            (isWaterHabit ? Color.cyan : tintColor).opacity(isDragging ? (isLightMode ? 0.16 : 0.20) : (isLightMode ? 0.08 : 0.10))
                         ],
                         startPoint: .leading,
                         endPoint: .trailing
@@ -3035,7 +3174,7 @@ struct PlanItemRow: View {
                     .font(.system(size: iconFontSize, weight: .bold))
                     .foregroundColor(tintColor)
                     .frame(width: iconContainerSize, height: iconContainerSize)
-                    .background(tintColor.opacity(0.14))
+                    .background(tintColor.opacity(isLightMode ? 0.22 : 0.14))
                     .clipShape(Circle())
             } else {
                 Text(item.iconName)
@@ -3046,9 +3185,9 @@ struct PlanItemRow: View {
     }
 
     private var isHabitItem: Bool { item.type == .habit }
-    private var iconFontSize: CGFloat { isHabitItem ? 22.8 : 19.0 }        // +20% for habits
-    private var emojiFontSize: CGFloat { isHabitItem ? 28.8 : 24.0 }       // +20% for habits
-    private var iconContainerSize: CGFloat { isHabitItem ? 50.4 : 42.0 }   // +20% for habits
+    private var iconFontSize: CGFloat { isHabitItem ? (22.8 * habitRowScale) : 19.0 }        // +20% for habits, compacted by 10%
+    private var emojiFontSize: CGFloat { isHabitItem ? (28.8 * habitRowScale) : 24.0 }       // +20% for habits, compacted by 10%
+    private var iconContainerSize: CGFloat { isHabitItem ? (50.4 * habitRowScale) : 42.0 }   // +20% for habits, compacted by 10%
     
     private var isSFIcon: Bool {
         item.iconName.allSatisfy { $0.isASCII }

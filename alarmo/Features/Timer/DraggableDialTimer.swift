@@ -2,6 +2,8 @@ import SwiftUI
 import AudioToolbox
 
 struct DraggableDialTimer: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     @Binding var totalSeconds: Int
     var isRunning: Bool
     var progress: Double // Used when running, 0 to 1
@@ -13,13 +15,17 @@ struct DraggableDialTimer: View {
 
     @State private var isDragging: Bool = false
     @State private var lastDragUpdateTime: TimeInterval = 0
-    
+
+    private var isLightMode: Bool {
+        colorScheme == .light
+    }
+
     private var accentSunYellow: Color {
         Color(red: 0.98, green: 0.84, blue: 0.30)
     }
 
     private var centerAccentColor: Color {
-        semanticColor(for: centerSymbol) ?? color
+        isLightMode ? color : (semanticColor(for: centerSymbol) ?? color)
     }
 
     private var totalMinutes: Int {
@@ -28,10 +34,6 @@ struct DraggableDialTimer: View {
 
     private var remainderMinutes: Int {
         totalMinutes % 60
-    }
-
-    private var completedHours: Int {
-        totalMinutes / 60
     }
 
     // For full-hour values in idle mode, render a full ring like the alarm sunray dial.
@@ -45,32 +47,45 @@ struct DraggableDialTimer: View {
         return Double(remainderMinutes) / 60.0
     }
 
+    private var lightTrackColor: Color {
+        Color(red: 0.83, green: 0.85, blue: 0.92)
+    }
+
+    private var darkTrackColor: Color {
+        Color.white.opacity(0.18)
+    }
+
     var body: some View {
         GeometryReader { geo in
             let size = min(geo.size.width, geo.size.height)
-            let radius = size / 2
             let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
             let trackWidth = size * 0.16
             let ringRadius = (size - trackWidth) / 2
-            let innerDiameter = size * 0.512 // 20% smaller than previous center circle
+            let innerDiameter = size * 0.512
             let logoBadgeDiameter = size * 0.352
             let knobAngle = Angle.degrees((ringFraction * 360) - 90)
 
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.18), style: StrokeStyle(lineWidth: trackWidth, lineCap: .round))
+                    .stroke(isLightMode ? lightTrackColor : darkTrackColor, style: StrokeStyle(lineWidth: trackWidth, lineCap: .round))
                     .frame(width: size, height: size)
 
                 Circle()
                     .trim(from: 0.0, to: ringFraction)
                     .stroke(
                         AngularGradient(
-                            colors: [
-                                color.opacity(0.60),
-                                color,
-                                accentSunYellow.opacity(0.72),
-                                color.opacity(0.70)
-                            ],
+                            colors: isLightMode
+                                ? [
+                                    color.opacity(0.42),
+                                    color.opacity(0.92),
+                                    color.opacity(0.82)
+                                ]
+                                : [
+                                    color.opacity(0.60),
+                                    color,
+                                    accentSunYellow.opacity(0.72),
+                                    color.opacity(0.70)
+                                ],
                             center: .center,
                             startAngle: .degrees(0),
                             endAngle: .degrees(360 * ringFraction)
@@ -79,33 +94,55 @@ struct DraggableDialTimer: View {
                     )
                     .frame(width: size, height: size)
                     .rotationEffect(.degrees(-90))
-                    .shadow(color: color.opacity(0.45), radius: 10, x: 0, y: 4)
+                    .shadow(color: color.opacity(isLightMode ? 0.25 : 0.45), radius: 10, x: 0, y: 4)
                     .animation(.interactiveSpring(response: 0.20, dampingFraction: 0.84), value: ringFraction)
 
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                centerAccentColor.opacity(0.28),
-                                centerAccentColor.opacity(0.14),
-                                Color.white.opacity(0.07)
-                            ],
-                            center: .center,
-                            startRadius: innerDiameter * 0.04,
-                            endRadius: innerDiameter * 0.62
+                if isLightMode {
+                    lightModeCenterReadout(innerDiameter: innerDiameter)
+                        .contentShape(Circle())
+                        .onTapGesture {
+                            onCenterTap?()
+                        }
+                } else {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    centerAccentColor.opacity(0.28),
+                                    centerAccentColor.opacity(0.14),
+                                    Color.white.opacity(0.07)
+                                ],
+                                center: .center,
+                                startRadius: innerDiameter * 0.04,
+                                endRadius: innerDiameter * 0.62
+                            )
                         )
-                    )
-                    .frame(width: innerDiameter, height: innerDiameter)
-                    .overlay(
-                        Circle()
-                            .stroke(centerAccentColor.opacity(0.32), lineWidth: 1.2)
-                    )
+                        .frame(width: innerDiameter, height: innerDiameter)
+                        .overlay(
+                            Circle()
+                                .stroke(centerAccentColor.opacity(0.32), lineWidth: 1.2)
+                        )
 
-                centerSymbolView(logoBadgeDiameter: logoBadgeDiameter)
-                    .contentShape(Circle())
-                    .onTapGesture {
-                        onCenterTap?()
+                    centerSymbolView(logoBadgeDiameter: logoBadgeDiameter)
+                        .contentShape(Circle())
+                        .onTapGesture {
+                            onCenterTap?()
+                        }
+                }
+
+                if isLightMode && ringFraction > 0.001 {
+                    ForEach(0..<64, id: \.self) { i in
+                        let normalized = Double(i) / 64.0
+                        if normalized <= ringFraction {
+                            Capsule()
+                                .fill(color.opacity(0.30))
+                                .frame(width: trackWidth * 0.40, height: 2.2)
+                                .offset(y: -ringRadius + trackWidth * 0.28)
+                                .rotationEffect(.degrees((360 * normalized) - 90))
+                        }
                     }
+                    .frame(width: size, height: size)
+                }
 
                 TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: false)) { timeline in
                     let now = timeline.date.timeIntervalSinceReferenceDate
@@ -118,12 +155,10 @@ struct DraggableDialTimer: View {
                             let seed = seededValue(index: i, salt: 91)
                             let speed = 0.22 + seededValue(index: i, salt: 17) * 0.58
                             let direction = seededValue(index: i, salt: 33) > 0.5 ? 1.0 : -1.0
-                            // Keep particles constrained to the progressed arc only.
                             let arcPosition = seededValue(index: i, salt: 71)
                             let baseAngle = startAngle + (arcPosition * sweep)
                             let angle = baseAngle + direction * now * speed * 0.08
 
-                            // Keep particles on donut surface (within ring thickness), not in background.
                             let radialJitter = (seededValue(index: i, salt: 63) - 0.5) * (trackWidth * 0.70)
                             let offsetRadius = ringRadius + radialJitter
                             let x = cos(angle) * offsetRadius
@@ -148,17 +183,16 @@ struct DraggableDialTimer: View {
                     }
                 }
 
-                // Draggable completion knob.
                 Circle()
-                    .fill(color.opacity(0.95))
+                    .fill(isLightMode ? color.opacity(0.88) : color.opacity(0.95))
                     .frame(width: trackWidth * 0.86, height: trackWidth * 0.86)
                     .overlay(
                         Image(systemName: isDragging ? "arrow.left.and.right" : "arrow.down")
                             .font(.system(size: trackWidth * 0.30, weight: .bold))
-                            .foregroundColor(.black.opacity(0.55))
+                            .foregroundColor(isLightMode ? color.opacity(0.72) : .black.opacity(0.55))
                     )
                     .offset(x: cos(knobAngle.radians) * ringRadius, y: sin(knobAngle.radians) * ringRadius)
-                    .shadow(color: color.opacity(0.48), radius: 8, x: 0, y: 4)
+                    .shadow(color: color.opacity(isLightMode ? 0.20 : 0.48), radius: 8, x: 0, y: 4)
                     .animation(.interactiveSpring(response: 0.18, dampingFraction: 0.82), value: ringFraction)
             }
             .frame(width: size, height: size)
@@ -188,7 +222,6 @@ struct DraggableDialTimer: View {
         let dx = location.x - center.x
         let dy = location.y - center.y
 
-        // Calculate raw angle from 0 at top, clockwise
         var angle = atan2(dy, dx) + .pi / 2
         if angle < 0 { angle += 2 * .pi }
 
@@ -199,7 +232,6 @@ struct DraggableDialTimer: View {
         let currentTotalMinutes = totalSeconds / 60
         let currentRemMinutes = currentTotalMinutes % 60
 
-        // Find smallest difference
         var diff = targetMinutes - currentRemMinutes
         if diff > 30 {
             diff -= 60
@@ -210,13 +242,12 @@ struct DraggableDialTimer: View {
         let newTotalMinutes = currentTotalMinutes + diff
         let newTotalSeconds = newTotalMinutes * 60
 
-        // Minimum 1 minute (60s), Maximum maxSeconds
         let clampedSeconds = max(60, min(newTotalSeconds, maxSeconds))
 
         if clampedSeconds != totalSeconds {
             totalSeconds = clampedSeconds
             UISelectionFeedbackGenerator().selectionChanged()
-            AudioServicesPlaySystemSound(1104) // Tick sound
+            AudioServicesPlaySystemSound(1104)
         }
     }
 
@@ -224,7 +255,7 @@ struct DraggableDialTimer: View {
     private func centerSymbolView(logoBadgeDiameter: CGFloat) -> some View {
         let isEmoji = centerSymbol.allSatisfy({ !$0.isASCII })
 
-        return ZStack {
+        ZStack {
             Circle()
                 .fill(
                     LinearGradient(
@@ -255,6 +286,45 @@ struct DraggableDialTimer: View {
             }
         }
         .frame(width: logoBadgeDiameter, height: logoBadgeDiameter)
+    }
+
+    @ViewBuilder
+    private func lightModeCenterReadout(innerDiameter: CGFloat) -> some View {
+        ZStack {
+            Circle()
+                .fill(Color.white.opacity(0.14))
+                .frame(width: innerDiameter, height: innerDiameter)
+
+            Text("60")
+                .font(.system(size: innerDiameter * 0.112, weight: .bold))
+                .foregroundColor(Colors.textTertiary.opacity(0.8))
+                .offset(y: -innerDiameter * 0.56)
+
+            Text("45")
+                .font(.system(size: innerDiameter * 0.112, weight: .bold))
+                .foregroundColor(Colors.textTertiary.opacity(0.8))
+                .offset(x: -innerDiameter * 0.56, y: -2)
+
+            Text("15")
+                .font(.system(size: innerDiameter * 0.112, weight: .bold))
+                .foregroundColor(Colors.textTertiary.opacity(0.8))
+                .offset(x: innerDiameter * 0.56, y: -2)
+
+            Text("30")
+                .font(.system(size: innerDiameter * 0.112, weight: .bold))
+                .foregroundColor(Colors.textTertiary.opacity(0.8))
+                .offset(y: innerDiameter * 0.56)
+
+            VStack(spacing: innerDiameter * 0.03) {
+                Text("\(totalMinutes)")
+                    .font(.system(size: innerDiameter * 0.34, weight: .regular, design: .serif))
+                    .foregroundColor(Colors.textPrimary)
+                Text("MINS")
+                    .font(.system(size: innerDiameter * 0.16, weight: .black))
+                    .foregroundColor(Colors.textPrimary)
+            }
+        }
+        .frame(width: innerDiameter, height: innerDiameter)
     }
 
     private func seededValue(index: Int, salt: Int) -> Double {

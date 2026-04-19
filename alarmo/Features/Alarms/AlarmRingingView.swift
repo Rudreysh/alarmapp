@@ -310,13 +310,68 @@ struct AlarmRingingView: View {
                 case .squat:
                     SquatMissionView(
                         viewModel: SquatMissionViewModel(
-                            targetSquats: mission.config["squatCount"] ?? 10,
+                            targetSquats: mission.config["squatCount"] ?? 15,
                             onComplete: {
                                 ringCoordinator.completeMission(success: true)
                                 currentMission = nil
                             }
                         )
                     )
+                case .objectHunt:
+                    ObjectHuntMissionView(
+                        onComplete: {
+                            ringCoordinator.completeMission(success: true)
+                            currentMission = nil
+                        }
+                    )
+                case .pushups:
+                    PushupsMissionView(
+                        onComplete: {
+                            ringCoordinator.completeMission(success: true)
+                            currentMission = nil
+                        }
+                    )
+                case .plank:
+                    PlankMissionView(
+                        onComplete: {
+                            ringCoordinator.completeMission(success: true)
+                            currentMission = nil
+                        }
+                    )
+                case .bibleVerse, .quranVerse, .bhagavadGitaVerse, .affirmation:
+                    if let item = ReligiousMissionContentStore.pickRandomItem(for: mission) {
+                        SpokenVerseMissionView(
+                            mission: mission,
+                            verse: item,
+                            onComplete: {
+                                ringCoordinator.completeMission(success: true)
+                                currentMission = nil
+                            }
+                        )
+                    } else {
+                        VStack(spacing: 16) {
+                            Text(mission.title)
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundColor(.white)
+                            Text("Mission is not configured. Edit this alarm and select at least one item.")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(Colors.textSecondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 28)
+                            Button("Complete (Debug)") {
+                                ringCoordinator.completeMission(success: true)
+                                currentMission = nil
+                            }
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 28)
+                            .padding(.vertical, 14)
+                            .background(Colors.accentTeal)
+                            .cornerRadius(14)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Colors.bgPrimary.ignoresSafeArea())
+                    }
                 default:
                     // Generic fallback for ticTacToe, memoryMatch, typing, etc.
                     VStack {

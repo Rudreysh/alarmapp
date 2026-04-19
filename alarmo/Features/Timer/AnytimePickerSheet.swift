@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AnytimePickerSheet: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.colorScheme) private var currentColorScheme
     
     // We can use a Date binding or simple Ints if we just want a time.
     // The screenshot shows a wheel with Hour | Minute | AM/PM
@@ -20,8 +21,7 @@ struct AnytimePickerSheet: View {
                 DatePicker("", selection: $selectedDate, displayedComponents: .hourAndMinute)
                     .datePickerStyle(.wheel)
                     .labelsHidden()
-                    // Force text color if needed, but wheel usually adapts to scheme
-                    .colorScheme(.dark) 
+                    .colorScheme(currentColorScheme)
                 
                 Spacer()
                 

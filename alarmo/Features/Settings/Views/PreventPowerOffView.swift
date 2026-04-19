@@ -1,16 +1,16 @@
 import SwiftUI
 import StoreKit
+import AuthenticationServices
 
 struct PreventPowerOffView: View {
     @ObservedObject var settings = SettingsStore.shared
-    @StateObject private var creditsManager = PenaltyCreditsManager.shared
     @Environment(\.dismiss) var dismiss
 
     @State private var showInfo = false
     @State private var showGuide = false
     @State private var showPenaltyPicker = false
     @State private var showViolationCenter = false
-    @State private var showCreditsSheet = false
+    @State private var showPenaltyInfo = false
     @State private var showAdvancedTriggers = false
 
     private var coreTriggerCount: Int {
@@ -66,21 +66,68 @@ struct PreventPowerOffView: View {
                             trailingText: "\(settings.penaltyCurrency.symbol)\(settings.penaltyAmountEuro)",
                             icon: "eurosign.circle.fill",
                             iconColor: SettingsPalette.accent,
-                            isLast: false
+                            isLast: true
                         ) {
                             showPenaltyPicker = true
                         }
 
-                        SettingsActionRow(
-                            title: "Penalty Credits",
-                            subtitle: "Current balance and credit packs",
-                            trailingText: "\(settings.penaltyCurrency.symbol)\(settings.penaltyCreditsBalance)",
-                            icon: "wallet.pass.fill",
-                            iconColor: .green,
-                            isLast: true
-                        ) {
-                            showCreditsSheet = true
+                        Divider()
+                            .background(Colors.cardStroke)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 6)
+                            .padding(.bottom, 10)
+
+                        penaltySetupCard
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 16)
+                    }
+
+                    sectionCard(title: "Detection History") {
+                        VStack(spacing: 16) {
+                            Text("Detection history")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(Colors.textPrimary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            if settings.violations.isEmpty {
+                                VStack(spacing: 10) {
+                                    Text("Haven't cheated at all.\nKeep it going!")
+                                        .font(.system(size: 20, weight: .semibold))
+                                        .foregroundColor(Colors.textSecondary)
+                                        .multilineTextAlignment(.center)
+                                    Text("⭐️")
+                                        .font(.system(size: 52))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 18)
+                            } else {
+                                ForEach(settings.violations.prefix(5)) { violation in
+                                    HStack(spacing: 12) {
+                                        Circle()
+                                            .fill(violation.status == .charged ? Color.red.opacity(0.18) : Color.orange.opacity(0.18))
+                                            .frame(width: 30, height: 30)
+                                            .overlay(
+                                                Image(systemName: violation.status == .charged ? "exclamationmark.triangle.fill" : "clock")
+                                                    .font(.system(size: 12, weight: .bold))
+                                                    .foregroundColor(violation.status == .charged ? .red : .orange)
+                                            )
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(violation.type.rawValue)
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .foregroundColor(Colors.textPrimary)
+                                            Text(violation.timestamp.formatted(date: .abbreviated, time: .shortened))
+                                                .font(.system(size: 12, weight: .medium))
+                                                .foregroundColor(Colors.textSecondary)
+                                        }
+                                        Spacer()
+                                        Text("\(settings.penaltyCurrency.symbol)\(violation.chargedAmount)")
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundColor(Colors.textPrimary)
+                                    }
+                                }
+                            }
                         }
+                        .padding(16)
                     }
 
                     sectionCard(title: "Core Triggers") {
@@ -116,7 +163,7 @@ struct PreventPowerOffView: View {
 
                         if settings.penaltyRules.triggerSnoozeThresholdEnabled {
                             Divider()
-                                .background(Color.white.opacity(0.1))
+                                .background(Colors.cardStroke)
                                 .padding(.horizontal, 16)
 
                             StepperRow(
@@ -187,11 +234,6 @@ struct PreventPowerOffView: View {
                 .padding(.bottom, 32)
             }
         }
-        .onAppear {
-            if creditsManager.products.isEmpty {
-                Task { await creditsManager.loadProducts() }
-            }
-        }
         .sheet(isPresented: $showInfo) {
             AccountabilityInfoView()
         }
@@ -210,8 +252,8 @@ struct PreventPowerOffView: View {
         .sheet(isPresented: $showViolationCenter) {
             ViolationCenterView()
         }
-        .sheet(isPresented: $showCreditsSheet) {
-            PenaltyCreditsSheet()
+        .sheet(isPresented: $showPenaltyInfo) {
+            PenaltyInfoSheet()
         }
         .sheet(isPresented: $showAdvancedTriggers) {
             PenaltyAdvancedTriggersSheet()
@@ -233,7 +275,7 @@ struct PreventPowerOffView: View {
 
                     Text("Accountability Penalty")
                         .font(.system(size: 32, weight: .black))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                 }
 
                 Text("Global penalty rules")
@@ -248,9 +290,9 @@ struct PreventPowerOffView: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                     .padding(10)
-                    .background(Circle().fill(Color.white.opacity(0.06)))
+                    .background(Circle().fill(Colors.bgPrimary.opacity(0.7)))
             }
         }
         .padding(.horizontal, 4)
@@ -271,11 +313,58 @@ struct PreventPowerOffView: View {
                 tint: .orange
             )
             summaryChip(
-                title: "Credits",
-                value: "\(settings.penaltyCurrency.symbol)\(settings.penaltyCreditsBalance)",
-                icon: "wallet.pass",
+                title: "Card",
+                value: settings.hasValidPenaltyPaymentMethod ? "\(settings.penaltyCardBrand.lowercased()) \(settings.penaltyCardLast4)" : "Not set",
+                icon: "creditcard",
                 tint: .green
             )
+        }
+    }
+
+    private var penaltySetupCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center) {
+                Text("Penalty")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Colors.textPrimary)
+                Spacer()
+                Toggle("", isOn: $settings.penaltyEnabled)
+                    .toggleStyle(SwitchToggleStyle(tint: SettingsPalette.accent))
+                    .labelsHidden()
+            }
+
+            Text("\(settings.penaltyCurrency.symbol)\(settings.penaltyAmountEuro).00 per cheat")
+                .font(.system(size: 56, weight: .black, design: .rounded))
+                .foregroundColor(Colors.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
+
+            HStack(spacing: 12) {
+                Image(systemName: "creditcard.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(SettingsPalette.accent)
+                    .frame(width: 34, height: 34)
+                    .background(SettingsPalette.accent.opacity(0.18))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                Text(settings.hasValidPenaltyPaymentMethod
+                     ? "\(settings.penaltyCardBrand.lowercased()) \(settings.penaltyCardLast4)"
+                     : "No card registered")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(settings.hasValidPenaltyPaymentMethod ? Colors.textPrimary : Colors.textSecondary)
+
+                Spacer()
+
+                Button(settings.hasValidPenaltyPaymentMethod ? "Edit" : "Set penalty") {
+                    showPenaltyInfo = true
+                }
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(Colors.textPrimary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Color.white.opacity(0.16))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
         }
     }
 
@@ -291,7 +380,7 @@ struct PreventPowerOffView: View {
 
             Text(value)
                 .font(.system(size: 18, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
@@ -362,7 +451,7 @@ private struct PenaltyToggleRow: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
 
                     if let subtitle {
                         Text(subtitle)
@@ -383,7 +472,7 @@ private struct PenaltyToggleRow: View {
 
             if !isLast {
                 Divider()
-                    .background(Color.white.opacity(0.1))
+                    .background(Colors.cardStroke)
                     .padding(.leading, 16)
             }
         }
@@ -403,7 +492,7 @@ private struct StepperRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                 Text(valueFormatter(value))
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(Colors.textSecondary)
@@ -415,15 +504,15 @@ private struct StepperRow: View {
                 Button(action: onDecrement) {
                     Image(systemName: "minus")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                         .frame(width: 30, height: 30)
-                        .background(Circle().fill(Color.white.opacity(0.08)))
+                        .background(Circle().fill(Colors.bgPrimary.opacity(0.7)))
                 }
                 .disabled(value <= range.lowerBound)
 
                 Text("\(value)")
                     .font(.system(size: 18, weight: .bold, design: .monospaced))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                     .frame(minWidth: 28)
 
                 Button(action: onIncrement) {
@@ -537,7 +626,7 @@ struct PenaltyAdvancedTriggersSheet: View {
                                 }
                             )
                             Divider()
-                                .background(Color.white.opacity(0.1))
+                                .background(Colors.cardStroke)
                                 .padding(.horizontal, 16)
                             StepperRow(
                                 title: "Low battery exempt",
@@ -554,7 +643,7 @@ struct PenaltyAdvancedTriggersSheet: View {
                                 }
                             )
                             Divider()
-                                .background(Color.white.opacity(0.1))
+                                .background(Colors.cardStroke)
                                 .padding(.horizontal, 16)
                             StepperRow(
                                 title: "Emergency tap target",
@@ -614,6 +703,8 @@ struct PenaltyCreditsSheet: View {
     @StateObject private var creditsManager = PenaltyCreditsManager.shared
     @Environment(\.dismiss) var dismiss
     @State private var purchasingProductId: String?
+    @State private var infoMessage: String?
+    @State private var signingIn = false
 
     var body: some View {
         NavigationStack {
@@ -622,6 +713,45 @@ struct PenaltyCreditsSheet: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 14) {
+                        if !settings.isSignedIn {
+                            SettingsCard {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("Account")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(Colors.textPrimary)
+
+                                    Text("Sign in with Apple to link penalty settings to your profile.")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(Colors.textSecondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+
+                                    SignInWithAppleButton(.continue) { request in
+                                        request.requestedScopes = [.fullName, .email]
+                                    } onCompletion: { result in
+                                        signingIn = false
+                                        switch result {
+                                        case .success(let authorization):
+                                            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+                                                infoMessage = "Could not read your Apple credential."
+                                                return
+                                            }
+                                            settings.completeAppleSignIn(with: credential)
+                                        case .failure(let error):
+                                            if let authError = error as? ASAuthorizationError, authError.code == .canceled {
+                                                return
+                                            }
+                                            infoMessage = error.localizedDescription
+                                        }
+                                    }
+                                    .signInWithAppleButtonStyle(.white)
+                                    .frame(height: 50)
+                                    .clipShape(Capsule())
+                                    .disabled(signingIn)
+                                }
+                                .padding(16)
+                            }
+                        }
+
                         SettingsCard {
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
@@ -641,34 +771,71 @@ struct PenaltyCreditsSheet: View {
                         }
 
                         SettingsCard {
-                            if creditsManager.products.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Payment methods")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(Colors.textPrimary)
+                                Text("Penalty credits are purchased through Apple In-App Purchase. Your App Store payment method (including Apple Pay-backed cards) is used by Apple.")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Colors.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Text("Direct in-app PayPal/card entry for digital credits is not supported in this flow.")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Colors.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .padding(16)
+                        }
+
+                        SettingsCard {
+                            ForEach(Array(creditsManager.packs.enumerated()), id: \.element.id) { index, pack in
+                                let product = creditsManager.productsByPackCredits[pack.creditsEuro]
+                                let isProcessing = purchasingProductId == "pack_\(pack.creditsEuro)"
                                 SettingsActionRow(
-                                    title: "Load credit packs",
-                                    subtitle: "Refresh available App Store products",
-                                    icon: "arrow.clockwise",
-                                    iconColor: SettingsPalette.accent,
-                                    isLast: true
+                                    title: pack.displayName,
+                                    subtitle: isProcessing
+                                        ? "Processing purchase..."
+                                        : (product == nil
+                                            ? "Product not loaded yet. Tap to retry."
+                                            : "Buy with App Store"),
+                                    trailingText: product?.displayPrice ?? "Unavailable",
+                                    icon: "cart.fill",
+                                    iconColor: product == nil ? .orange : .green,
+                                    isLast: false
                                 ) {
-                                    Task { await creditsManager.loadProducts() }
-                                }
-                            } else {
-                                ForEach(Array(creditsManager.products.enumerated()), id: \.element.id) { index, product in
-                                    SettingsActionRow(
-                                        title: product.displayName,
-                                        subtitle: purchasingProductId == product.id ? "Processing purchase..." : "Buy credit pack",
-                                        trailingText: product.displayPrice,
-                                        icon: "cart.fill",
-                                        iconColor: .green,
-                                        isLast: index == creditsManager.products.count - 1
-                                    ) {
-                                        Task {
-                                            purchasingProductId = product.id
-                                            _ = await creditsManager.purchase(product: product)
-                                            purchasingProductId = nil
+                                    Task {
+                                        purchasingProductId = "pack_\(pack.creditsEuro)"
+                                        let success = await creditsManager.purchasePack(creditsEuro: pack.creditsEuro)
+                                        purchasingProductId = nil
+                                        if !success {
+                                            infoMessage = creditsManager.loadErrorMessage ?? "Purchase not completed. Verify App Store login and IAP product status."
                                         }
                                     }
                                 }
                             }
+
+                            SettingsActionRow(
+                                title: creditsManager.isLoadingProducts ? "Loading credit packs..." : "Load credit packs",
+                                subtitle: "Refresh available App Store products",
+                                icon: "arrow.clockwise",
+                                iconColor: SettingsPalette.accent,
+                                isLast: true
+                            ) {
+                                Task { await creditsManager.loadProducts() }
+                            }
+                        }
+
+                        SettingsCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Real purchase testing")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(Colors.textPrimary)
+                                Text("Use a physical device with a Sandbox/TestFlight Apple ID. Create consumable IAP products in App Store Connect. Supported IDs: alarmo.credits.10/.20/.50 and ht.alarmo.credits.10/.20/.50.")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Colors.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .padding(16)
                         }
 
 #if DEBUG
@@ -703,7 +870,293 @@ struct PenaltyCreditsSheet: View {
                     Task { await creditsManager.loadProducts() }
                 }
             }
+            .alert(
+                "Penalty Credits",
+                isPresented: Binding(
+                    get: { infoMessage != nil },
+                    set: { if !$0 { infoMessage = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) {
+                    infoMessage = nil
+                }
+            } message: {
+                Text(infoMessage ?? "")
+            }
         }
+    }
+}
+
+struct PenaltyInfoSheet: View {
+    @ObservedObject var settings = SettingsStore.shared
+    @Environment(\.dismiss) var dismiss
+    @State private var showPenaltyPicker = false
+    @State private var showCardRegistration = false
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                SettingsGlassBackground()
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 16) {
+                        SettingsCard {
+                            SettingsActionRow(
+                                title: "Penalty fee",
+                                trailingText: "\(settings.penaltyCurrency.symbol)\(settings.penaltyAmountEuro).00",
+                                icon: "eurosign.circle.fill",
+                                iconColor: SettingsPalette.accent,
+                                isLast: true
+                            ) {
+                                showPenaltyPicker = true
+                            }
+                        }
+
+                        SettingsCard {
+                            VStack(alignment: .leading, spacing: 14) {
+                                Text("Card info")
+                                    .font(.system(size: 22, weight: .bold))
+                                    .foregroundColor(Colors.textPrimary)
+
+                                if settings.hasValidPenaltyPaymentMethod {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "creditcard.fill")
+                                            .font(.system(size: 18, weight: .bold))
+                                            .foregroundColor(SettingsPalette.accent)
+                                            .frame(width: 34, height: 34)
+                                            .background(SettingsPalette.accent.opacity(0.18))
+                                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("\(settings.penaltyCardBrand.lowercased()) \(settings.penaltyCardLast4)")
+                                                .font(.system(size: 19, weight: .bold))
+                                                .foregroundColor(Colors.textPrimary)
+                                            if !settings.penaltyCardExpiry.isEmpty {
+                                                Text(settings.penaltyCardExpiry)
+                                                    .font(.system(size: 14, weight: .medium))
+                                                    .foregroundColor(Colors.textSecondary)
+                                            }
+                                        }
+                                        Spacer()
+                                        Button("Edit") {
+                                            showCardRegistration = true
+                                        }
+                                        .font(.system(size: 17, weight: .bold))
+                                        .foregroundColor(Colors.textPrimary)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 8)
+                                        .background(Color.white.opacity(0.14))
+                                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    }
+                                } else {
+                                    Button {
+                                        showCardRegistration = true
+                                    } label: {
+                                        Text("Register card")
+                                            .font(.system(size: 38, weight: .black))
+                                            .foregroundColor(.black)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 16)
+                                            .background(.white)
+                                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    }
+                                }
+                            }
+                            .padding(16)
+                        }
+                    }
+                    .padding(16)
+                    .padding(.bottom, 24)
+                }
+            }
+            .navigationTitle("Penalty info")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(Colors.textPrimary)
+                    }
+                }
+            }
+            .sheet(isPresented: $showPenaltyPicker) {
+                PenaltyAmountPickerSheet(
+                    amount: $settings.penaltyAmountEuro,
+                    currency: Binding(
+                        get: { settings.penaltyCurrency },
+                        set: { settings.penaltyCurrency = $0 }
+                    )
+                )
+            }
+            .sheet(isPresented: $showCardRegistration) {
+                PenaltyCardRegistrationSheet()
+            }
+        }
+    }
+}
+
+struct PenaltyCardRegistrationSheet: View {
+    @ObservedObject var settings = SettingsStore.shared
+    @Environment(\.dismiss) var dismiss
+
+    @State private var cardNumber = ""
+    @State private var expiry = ""
+    @State private var cvc = ""
+    @State private var country = "Germany"
+
+    private var digitsOnlyNumber: String { cardNumber.filter(\.isNumber) }
+    private var digitsOnlyExpiry: String { expiry.filter(\.isNumber) }
+    private var isCardFormValid: Bool {
+        digitsOnlyNumber.count >= 12 &&
+        (digitsOnlyExpiry.count == 4 || expiry.count == 5) &&
+        cvc.filter(\.isNumber).count >= 3
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                SettingsGlassBackground()
+
+                VStack(spacing: 16) {
+                    HStack {
+                        Spacer()
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(Colors.textSecondary)
+                                .padding(10)
+                                .background(Circle().fill(Color.white.opacity(0.06)))
+                        }
+                    }
+
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.green.opacity(0.85))
+                        .frame(height: 56)
+                        .overlay(
+                            HStack(spacing: 10) {
+                                Image(systemName: "link")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(.black.opacity(0.8))
+                                Text(settings.appleEmail.isEmpty ? "Use Link account" : settings.appleEmail)
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(.black.opacity(0.8))
+                                Spacer()
+                            }
+                            .padding(.horizontal, 14)
+                        )
+
+                    HStack {
+                        Rectangle().fill(Colors.cardStroke).frame(height: 1)
+                        Text("Or use a card")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Colors.textSecondary)
+                        Rectangle().fill(Colors.cardStroke).frame(height: 1)
+                    }
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Card information")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(Colors.textSecondary)
+
+                        TextField("Card number", text: $cardNumber)
+                            .keyboardType(.numberPad)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .padding(14)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                        HStack(spacing: 10) {
+                            TextField("MM / YY", text: $expiry)
+                                .keyboardType(.numberPad)
+                                .padding(14)
+                                .background(Color.white.opacity(0.08))
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                            TextField("CVC", text: $cvc)
+                                .keyboardType(.numberPad)
+                                .padding(14)
+                                .background(Color.white.opacity(0.08))
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+
+                        Text("Billing address")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(Colors.textSecondary)
+
+                        TextField("Country or region", text: $country)
+                            .padding(14)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+
+                    Text("By providing your card information, you allow Alarmo to charge your card for future penalties according to the enabled rules.")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Colors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Spacer()
+
+                    Button {
+                        saveCard()
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text("Set up")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.black.opacity(0.85))
+                            Spacer()
+                        }
+                        .padding(.vertical, 14)
+                        .background(isCardFormValid ? Color.blue : Color.blue.opacity(0.45))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .disabled(!isCardFormValid)
+                }
+                .padding(16)
+            }
+            .onChange(of: expiry) { _, newValue in
+                let digits = newValue.filter(\.isNumber)
+                if digits.count <= 2 {
+                    expiry = digits
+                } else {
+                    expiry = "\(digits.prefix(2))/\(digits.dropFirst(2).prefix(2))"
+                }
+            }
+            .onAppear {
+                if settings.hasValidPenaltyPaymentMethod {
+                    cardNumber = "**** **** **** \(settings.penaltyCardLast4)"
+                    expiry = settings.penaltyCardExpiry
+                    country = settings.penaltyCardCountry.isEmpty ? "Germany" : settings.penaltyCardCountry
+                }
+            }
+        }
+    }
+
+    private func saveCard() {
+        let cleanDigits = digitsOnlyNumber
+        guard cleanDigits.count >= 4 else { return }
+        settings.penaltyCardLast4 = String(cleanDigits.suffix(4))
+        settings.penaltyCardBrand = detectBrand(cleanDigits)
+        settings.penaltyCardExpiry = expiry
+        settings.penaltyCardCountry = country
+        settings.penaltyPaymentToken = "card_\(UUID().uuidString.prefix(8))"
+        settings.isPenaltyPaymentConnected = true
+        settings.penaltyTermsAccepted = true
+        dismiss()
+    }
+
+    private func detectBrand(_ number: String) -> String {
+        if number.hasPrefix("4") { return "VISA" }
+        if let prefix2 = Int(number.prefix(2)), 51...55 ~= prefix2 { return "Mastercard" }
+        if number.hasPrefix("34") || number.hasPrefix("37") { return "Amex" }
+        if number.hasPrefix("6") { return "Discover" }
+        return "Card"
     }
 }
 
@@ -719,7 +1172,7 @@ struct PenaltyAmountPickerSheet: View {
                 VStack(spacing: 20) {
                     Text("Select penalty amount")
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                         .padding(.top, 16)
 
                     HStack(spacing: 0) {
@@ -768,7 +1221,7 @@ struct AccountabilityInfoView: View {
                     VStack(alignment: .leading, spacing: 18) {
                         Text("How penalties work")
                             .font(.system(size: 24, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
 
                         InfoBullet(text: "Penalties are evaluated only while an alarm session is active (ringing, snoozed, or mission flow).")
                         InfoBullet(text: "iOS does not provide perfect real-time uninstall detection, so tamper checks are best-effort and finalized when the app resumes.")

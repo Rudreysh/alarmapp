@@ -30,7 +30,7 @@ struct GroupedSettingsCard<Content: View>: View {
         VStack(spacing: 0) {
             content
         }
-        .background(Color(white: 0.12)) // Slightly lighter than bgPrimary
+        .background(Colors.cardSurface)
         .cornerRadius(16)
         .padding(.horizontal, 16)
     }

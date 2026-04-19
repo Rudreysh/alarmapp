@@ -2,7 +2,9 @@ import SwiftUI
 
 struct FrequentlyUsedPomoSheet: View {
     @ObservedObject var viewModel: TimerViewModel
+    @ObservedObject var engine: PomodoroEngine
     @Environment(\.dismiss) var dismiss
+    var onPresetApplied: (() -> Void)? = nil
     
     var body: some View {
         ZStack {
@@ -40,6 +42,27 @@ struct FrequentlyUsedPomoSheet: View {
         
         return Button(action: {
             viewModel.applyPreset(preset)
+            if preset.mode == .pomo {
+                let seconds = Int(preset.duration)
+                let lowerName = preset.name.lowercased()
+                let segment: SegmentKind
+                var updatedConfig = engine.config
+
+                if lowerName.contains("short break") {
+                    segment = .shortBreak
+                    updatedConfig.shortBreakSeconds = seconds
+                } else if lowerName.contains("long break") {
+                    segment = .longBreak
+                    updatedConfig.longBreakSeconds = seconds
+                } else {
+                    segment = .focus
+                    updatedConfig.focusSeconds = seconds
+                }
+
+                engine.updateConfig(updatedConfig)
+                engine.applyQuickPreset(name: preset.name, durationSeconds: seconds, segment: segment)
+            }
+            onPresetApplied?()
             dismiss()
         }) {
             HStack(spacing: 8) {

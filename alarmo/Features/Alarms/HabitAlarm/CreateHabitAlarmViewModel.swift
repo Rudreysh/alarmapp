@@ -35,7 +35,7 @@ class CreateHabitAlarmViewModel: ObservableObject {
     
     // Accountability Penalty
     @Published var accountabilityEnabled: Bool = false
-    @Published var blockAppsEnabled: Bool = false
+    @Published var blockAppsEnabled: Bool = true
     @Published var penaltyEnabled: Bool = false
     @Published var penaltyAmountEuro: Int = 1
     @Published var shutdownProtectionEnabled: Bool = false
@@ -81,7 +81,7 @@ class CreateHabitAlarmViewModel: ObservableObject {
             self.wallpaperId = settings.alarmWallpaperId
         }
         self.accountabilityEnabled = settings.accountabilityEnabled
-        self.blockAppsEnabled = settings.blockAppsEnabled
+        self.blockAppsEnabled = false
         self.penaltyEnabled = settings.penaltyEnabled
         self.penaltyAmountEuro = settings.penaltyAmountEuro
         self.bypassSilentMode = settings.alarmRingInSilentModeEnabled

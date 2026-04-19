@@ -12,7 +12,6 @@ struct QuickAlarmView: View {
     @State private var showGentleWakeUpPicker = false
     @State private var showWakeUpCheck = false
     @State private var showTimeZonePicker = false
-    @State private var showPenaltySettings = false
     @State private var showPresetEditor = false
     
     @StateObject private var soundPlayer = SoundPreviewPlayer()
@@ -198,30 +197,26 @@ struct QuickAlarmView: View {
                                 }
                             }
                             
-                            // COMMITMENT PLEDGE
+                            // ALARM LOCK
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("COMMITMENT PLEDGE")
+                                Text("ALARM LOCK")
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(Colors.textSecondary)
                                     .padding(.leading, 16)
                                 
                                 QuickSettingsCardView {
-                                    Toggle(isOn: $viewModel.penaltyEnabled) {
-                                        Text("Enable Penalty")
+                                    Toggle(isOn: $viewModel.blockAppsEnabled) {
+                                        Text("Block all apps until mission is solved")
                                             .foregroundColor(Colors.textPrimary)
                                     }
                                     .padding()
 
-                                    if viewModel.penaltyEnabled {
-                                        Divider().padding(.leading, 16).opacity(0.3)
-                                        MenuRow(
-                                            icon: "slider.horizontal.3",
-                                            title: "Edit Penalty Rules",
-                                            value: "Settings"
-                                        ) {
-                                            showPenaltySettings = true
-                                        }
+                                    Divider().padding(.leading, 16).opacity(0.3)
+                                    Toggle(isOn: $viewModel.shutdownProtectionEnabled) {
+                                        Text("Disable app delete/switch off")
+                                            .foregroundColor(Colors.textPrimary)
                                     }
+                                    .padding()
                                 }
                             }
                             
@@ -287,8 +282,10 @@ struct QuickAlarmView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
-                        viewModel.save(store: alarmStore, scheduler: scheduler)
                         onClose()
+                        DispatchQueue.main.async {
+                            viewModel.save(store: alarmStore, scheduler: scheduler)
+                        }
                     }) {
                         Text("Save")
                             .font(.system(size: 16, weight: .bold))
@@ -339,11 +336,10 @@ struct QuickAlarmView: View {
                 selectedMode: $viewModel.timeZoneMode
             )
         }
-        .sheet(isPresented: $showPenaltySettings) {
-            AccountabilityShieldSettingsView()
-        }
         .onDisappear {
-            soundPlayer.stop()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                soundPlayer.stop()
+            }
         }
     }
     
@@ -378,10 +374,15 @@ struct QuickPresetTile: View {
     let timeStr: String
     let action: () -> Void
     
+    private var displayIcon: String {
+        let trimmed = icon.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "alarm.fill" : trimmed
+    }
+    
     var body: some View {
         Button(action: action) {
             VStack(spacing: 12) {
-                Image(systemName: icon)
+                Image(systemName: displayIcon)
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(color)
                     .frame(width: 44, height: 44)
@@ -443,9 +444,9 @@ private struct QuickPresetManagerSheet: View {
                         HStack(spacing: 12) {
                             Image(systemName: preset.iconName)
                                 .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundColor(Colors.textPrimary)
                                 .frame(width: 30, height: 30)
-                                .background(Circle().fill(Color.white.opacity(0.16)))
+                                .background(Circle().fill(Colors.cardStroke.opacity(0.9)))
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(preset.title)

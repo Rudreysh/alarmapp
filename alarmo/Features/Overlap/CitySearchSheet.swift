@@ -42,11 +42,11 @@ struct CitySearchSheet: View {
                     .padding(12)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(red: 0.12, green: 0.14, blue: 0.18))
+                            .fill(Colors.cardSurface)
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                            .stroke(Colors.cardStroke, lineWidth: 1)
                     )
                     .padding(.horizontal, 16)
                     .padding(.top, 16)
@@ -97,7 +97,7 @@ struct CitySearchSheet: View {
 
                                 if entry.id != filteredCities.last?.id {
                                     Divider()
-                                        .background(Color.white.opacity(0.06))
+                                        .background(Colors.cardStroke)
                                         .padding(.leading, 20)
                                 }
                             }

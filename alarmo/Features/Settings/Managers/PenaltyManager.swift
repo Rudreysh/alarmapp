@@ -38,11 +38,15 @@ class PenaltyManager: ObservableObject {
     
     private func handleAppInterruption(reason: CheatReason) {
         guard isMissionActive else { return }
-        
+
+        // TEMPORARILY DISABLED (Penalty rollout paused):
+        // Penalty event recording/charging is intentionally disabled.
+        // Keep this logic in source control for future implementation.
+        /*
         // Record Cheat
         let event = CheatEvent(reason: reason)
         store.cheatEvents.append(event)
-        
+
         // Apply Penalty if payment is connected
         let amount = store.perCheatAmountCents
         let record = PenaltyRecord(
@@ -51,7 +55,9 @@ class PenaltyManager: ObservableObject {
             cheatEventId: event.id
         )
         store.penaltyRecords.append(record)
-        
+
         print("[PenaltyManager] Recorded CHEAT: \(reason.rawValue). Penalty: \(amount) cents.")
+        */
+        print("[PenaltyManager] Penalty handling disabled. Interruption reason: \(reason.rawValue)")
     }
 }

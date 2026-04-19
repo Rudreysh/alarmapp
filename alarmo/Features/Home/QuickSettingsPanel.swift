@@ -5,6 +5,7 @@ import UserNotifications
 
 struct QuickSettingsPanel: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var alarmStore: AlarmStore
 
     // Persisted quick settings
@@ -38,6 +39,10 @@ struct QuickSettingsPanel: View {
         ("Sleep", "moon.zzz.fill"),
         ("Focus", "target")
     ]
+
+    private var isLightMode: Bool {
+        colorScheme == .light
+    }
 
     var body: some View {
         NavigationStack {
@@ -120,8 +125,9 @@ struct QuickSettingsPanel: View {
 
     private var tabSelector: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 ForEach(Array(tabs.enumerated()), id: \.offset) { index, tab in
+                    let isSelected = selectedTab == index
                     Button {
                         withAnimation(.spring(response: 0.3)) { selectedTab = index }
                     } label: {
@@ -131,15 +137,61 @@ struct QuickSettingsPanel: View {
                             Text(tab.title)
                                 .font(.system(size: 13, weight: .bold))
                         }
-                        .foregroundColor(selectedTab == index ? .black : Colors.textSecondary)
+                        .foregroundColor(isSelected ? Colors.textPrimary : Colors.textSecondary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(Capsule().fill(selectedTab == index ? Colors.accentTeal : Colors.cardSurface))
-                            .overlay(Capsule().stroke(selectedTab == index ? Color.clear : Color.white.opacity(0.06), lineWidth: 1))
+                        .background(
+                            Capsule()
+                                .fill(
+                                    isSelected
+                                        ? LinearGradient(
+                                            colors: isLightMode
+                                                ? [Color.white, Color(red: 0.90, green: 0.96, blue: 1.0)]
+                                                : [Colors.accentTeal.opacity(0.9), Colors.accentTeal.opacity(0.75)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                        : LinearGradient(
+                                            colors: [
+                                                isLightMode ? Color(red: 0.93, green: 0.94, blue: 0.97) : Colors.cardSurface,
+                                                isLightMode ? Color(red: 0.88, green: 0.90, blue: 0.94) : Colors.cardSurface.opacity(0.95)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                )
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(
+                                    isSelected
+                                        ? (isLightMode ? Color(red: 0.55, green: 0.76, blue: 0.96).opacity(0.7) : Color.white.opacity(0.18))
+                                        : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.08)),
+                                    lineWidth: 1
+                                )
+                        )
                     }
                     .buttonStyle(.plain)
                 }
             }
+            .padding(4)
+            .background(
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                isLightMode ? Color.white.opacity(0.98) : Colors.cardSurface.opacity(0.95),
+                                isLightMode ? Color(red: 0.94, green: 0.95, blue: 0.98).opacity(0.98) : Colors.cardSurface.opacity(0.9)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay(
+                Capsule()
+                    .stroke(isLightMode ? Colors.cardStroke : Color.white.opacity(0.08), lineWidth: 1)
+            )
         }
     }
 
@@ -1084,11 +1136,15 @@ struct PresetAlarmButton: View {
     let action: () -> Void
 
     private var timeString: String { String(format: "%02d:%02d", hour, minute) }
+    private var displayIcon: String {
+        let trimmed = icon.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "alarm.fill" : trimmed
+    }
 
     var body: some View {
         Button(action: action) {
             VStack(spacing: 12) {
-                Image(systemName: icon)
+                Image(systemName: displayIcon)
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(iconColor)
                     .frame(width: 44, height: 44)
@@ -1243,7 +1299,7 @@ struct QuickAlarmPresetEditorSheet: View {
                                     .autocorrectionDisabled()
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 10)
-                                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.06)))
+                                    .background(RoundedRectangle(cornerRadius: 10).fill(Colors.cardSurface))
                                     .foregroundColor(Colors.textPrimary)
 
                                 Text("Emoji (optional)")
@@ -1252,7 +1308,7 @@ struct QuickAlarmPresetEditorSheet: View {
                                 TextField("⏰", text: $draft.emoji)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 10)
-                                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.06)))
+                                    .background(RoundedRectangle(cornerRadius: 10).fill(Colors.cardSurface))
                                     .foregroundColor(Colors.textPrimary)
                             }
                         }
@@ -1265,7 +1321,6 @@ struct QuickAlarmPresetEditorSheet: View {
                                 DatePicker("", selection: $draft.time, displayedComponents: .hourAndMinute)
                                     .datePickerStyle(.wheel)
                                     .labelsHidden()
-                                    .colorScheme(.dark)
                                     .frame(maxWidth: .infinity, maxHeight: 170)
                             }
                         }
@@ -1286,7 +1341,7 @@ struct QuickAlarmPresetEditorSheet: View {
                                                 .frame(width: 34, height: 34)
                                                 .background(
                                                     RoundedRectangle(cornerRadius: 8)
-                                                        .fill(draft.icon == icon ? Colors.accentTeal : Color.white.opacity(0.06))
+                                                        .fill(draft.icon == icon ? Colors.accentTeal : Colors.cardSurface)
                                                 )
                                         }
                                         .buttonStyle(.plain)

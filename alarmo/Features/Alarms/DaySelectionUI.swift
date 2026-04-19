@@ -29,7 +29,7 @@ struct DaySelectionRow: View {
                     // Custom Checkbox
                     ZStack {
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(isDaily ? Colors.accentTeal : Color(white: 0.2))
+                            .fill(isDaily ? Colors.accentTeal : Colors.bgSecondary)
                             .frame(width: 22, height: 22)
                         
                         if isDaily {
@@ -136,11 +136,13 @@ struct DayBubble: View {
     let isSelected: Bool
     let action: () -> Void
     
+    private let alarmWeekdayBlue = Color(red: 0.08, green: 0.78, blue: 0.92)
+    
     var body: some View {
         Button(action: action) {
             ZStack {
                 Circle()
-                    .fill(isSelected ? Colors.accentTeal : Color(white: 0.2))
+                    .fill(isSelected ? alarmWeekdayBlue : Colors.bgSecondary)
                     .frame(width: 38, height: 38)
                 
                 Text(label)

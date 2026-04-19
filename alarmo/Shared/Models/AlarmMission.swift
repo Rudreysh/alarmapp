@@ -20,7 +20,14 @@ struct AlarmMission: Codable, Identifiable, Equatable {
         case .qrBarcode: return "QR/Barcode"
         case .householdItemHunt: return "Household Item Hunt"
         case .squat: return "Squat"
+        case .objectHunt: return "Object Hunt"
+        case .pushups: return "Push-ups"
+        case .plank: return "Plank Hold"
         case .breathing: return "Breathing"
+        case .bibleVerse: return "Bible Verse"
+        case .quranVerse: return "Quran Verse"
+        case .bhagavadGitaVerse: return "Bhagavad Gita Verse"
+        case .affirmation: return "Affirmation"
         case .off: return "Off"
         }
     }
@@ -37,7 +44,14 @@ struct AlarmMission: Codable, Identifiable, Equatable {
         case .qrBarcode: return "barcode.viewfinder"
         case .householdItemHunt: return "camera.macro"
         case .squat: return "figure.strengthtraining.traditional"
+        case .objectHunt: return "sparkle.magnifyingglass"
+        case .pushups: return "figure.strengthtraining.functional"
+        case .plank: return "timer.circle"
         case .breathing: return "wind"
+        case .bibleVerse: return "book.closed"
+        case .quranVerse: return "moon.stars"
+        case .bhagavadGitaVerse: return "book.pages"
+        case .affirmation: return "quote.bubble"
         case .off: return "xmark.circle"
         }
     }

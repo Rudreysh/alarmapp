@@ -1,16 +1,18 @@
 import SwiftUI
 
 enum SettingsPalette {
-    static let accent = Color(red: 0.08, green: 0.78, blue: 0.92)
-    static let accentBright = Color(red: 0.28, green: 0.88, blue: 0.98)
-    static let accentDark = Color(red: 0.05, green: 0.34, blue: 0.52)
-    static let cardTop = Color(red: 0.06, green: 0.10, blue: 0.15).opacity(0.94)
-    static let cardBottom = Color(red: 0.04, green: 0.07, blue: 0.10).opacity(0.96)
-    static let accentGradient = LinearGradient(
+    static var accent: Color { Colors.accentTeal }
+    static var accentBright: Color { Colors.accentBlue.opacity(0.9) }
+    static var accentDark: Color { Colors.accentTeal.opacity(0.7) }
+    static var cardTop: Color { Colors.cardSurface.opacity(0.94) }
+    static var cardBottom: Color { Colors.bgSecondary.opacity(0.96) }
+    static var accentGradient: LinearGradient {
+        LinearGradient(
         colors: [accent, accentBright.opacity(0.85), accentDark],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
+    }
 }
 
 struct SettingsGlassBackground: View {
@@ -19,11 +21,9 @@ struct SettingsGlassBackground: View {
     var body: some View {
         LinearGradient(
             colors: [
-                Color.black,
-                Color(red: 0.02, green: 0.04, blue: 0.08),
-                Color(red: 0.03, green: 0.06, blue: 0.11),
-                Color(red: 0.02, green: 0.04, blue: 0.08),
-                Color.black
+                Colors.bgPrimary,
+                Colors.bgSecondary,
+                Colors.bgPrimary
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing

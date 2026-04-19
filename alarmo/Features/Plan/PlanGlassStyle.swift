@@ -1,19 +1,33 @@
 import SwiftUI
 
 enum PlanPalette {
-    static let textPrimary = Color.white.opacity(0.97)
-    static let textSecondary = Color.white.opacity(0.82)
-    static let textMuted = Color.white.opacity(0.66)
+    static var textPrimary: Color { Colors.textPrimary }
+    static var textSecondary: Color { Colors.textSecondary }
+    static var textMuted: Color { Colors.textTertiary }
     static let accent = Color(red: 0.08, green: 0.78, blue: 0.92)
     static let accentStrong = Color(red: 0.05, green: 0.66, blue: 0.84)
     static let accentSoft = Color(red: 0.28, green: 0.88, blue: 0.98)
 }
 
 struct PlanGlassBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var settingsStore = SettingsStore.shared
+
+    private var isLightMode: Bool {
+        switch settingsStore.themeMode {
+        case .light:
+            return true
+        case .dark:
+            return false
+        case .system:
+            return colorScheme == .light
+        }
+    }
+
     var body: some View {
         ZStack {
             // 1. Deep Black Base
-            Color.black
+            (isLightMode ? Colors.bgPrimary : Color.black)
                 .ignoresSafeArea()
             
             // 2. Warm Orange Glow (Bottom Left)
@@ -23,8 +37,8 @@ struct PlanGlassBackground: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color(red: 0.78, green: 0.49, blue: 0.26).opacity(0.5), // #C87D43
-                                Color(red: 0.78, green: 0.49, blue: 0.26).opacity(0.1),
+                                Color(red: 0.78, green: 0.49, blue: 0.26).opacity(isLightMode ? 0.20 : 0.5), // #C87D43
+                                Color(red: 0.78, green: 0.49, blue: 0.26).opacity(isLightMode ? 0.05 : 0.1),
                                 .clear
                             ],
                             center: .center,
@@ -44,8 +58,8 @@ struct PlanGlassBackground: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color(red: 0.37, green: 0.49, blue: 0.54).opacity(0.4), // #5F7D8B
-                                Color(red: 0.82, green: 0.82, blue: 0.82).opacity(0.2), // #D0D0D0 (Light Grey mix)
+                                Color(red: 0.37, green: 0.49, blue: 0.54).opacity(isLightMode ? 0.18 : 0.4), // #5F7D8B
+                                Color(red: 0.82, green: 0.82, blue: 0.82).opacity(isLightMode ? 0.12 : 0.2), // #D0D0D0 (Light Grey mix)
                                 .clear
                             ],
                             center: .center,
@@ -63,7 +77,7 @@ struct PlanGlassBackground: View {
             // Using a high-opacity color mix or material to simulate texture if possible,
             // otherwise just the gradient is the main "pattern".
             Rectangle()
-                .fill(Color.white.opacity(0.02))
+                .fill((isLightMode ? Color.black : Color.white).opacity(0.02))
                 .blendMode(.overlay)
                 .ignoresSafeArea()
         }

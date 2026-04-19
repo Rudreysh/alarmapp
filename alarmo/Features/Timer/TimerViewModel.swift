@@ -228,6 +228,7 @@ class TimerViewModel: ObservableObject {
     func applyPreset(_ preset: TimerPreset) {
         if preset.mode == .pomo {
             selectedMode = .pomo
+            selectedFocusMode = preset.name
             pomoDurationSeconds = preset.duration
             pomoRemainingSeconds = preset.duration
             currentStage = .focus

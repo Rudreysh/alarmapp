@@ -5,9 +5,9 @@ import SwiftUI
 // MARK: - Enums & Models
 
 enum ReportDomain: String, CaseIterable, Identifiable, Sendable {
+    case alarms = "Alarms"
     case habits = "Habits"
     case tasks = "Pomodoro"
-    case alarms = "Alarms"
     var id: String { rawValue }
     
     var icon: String {

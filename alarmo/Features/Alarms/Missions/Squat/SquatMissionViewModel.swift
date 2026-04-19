@@ -39,7 +39,7 @@ class SquatMissionViewModel: ObservableObject {
     private let squatDownThreshold: Double = 0.7  // Low acceleration = going down
     private let squatUpThreshold: Double = 1.3   // High acceleration = pushing back up
     
-    init(targetSquats: Int = 10, onComplete: (() -> Void)? = nil) {
+    init(targetSquats: Int = 15, onComplete: (() -> Void)? = nil) {
         self.targetSquats = targetSquats
         self.onComplete = onComplete
     }

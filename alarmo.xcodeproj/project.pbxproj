@@ -673,6 +673,7 @@
 				INFOPLIST_KEY_NSMotionUsageDescription = "Alarmo mission needs your motion data.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Allow Alarmo to save prepared wallpapers to your Photos.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Allow access to select alarm wallpapers.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Alarmo needs speech recognition access to verify spoken wake-up missions.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSUserTrackingUsageDescription = "Allow tracking to improve ads and personalization.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -717,6 +718,7 @@
 				INFOPLIST_KEY_NSMotionUsageDescription = "Alarmo mission needs your motion data.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Allow Alarmo to save prepared wallpapers to your Photos.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Allow access to select alarm wallpapers.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Alarmo needs speech recognition access to verify spoken wake-up missions.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSUserTrackingUsageDescription = "Allow tracking to improve ads and personalization.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

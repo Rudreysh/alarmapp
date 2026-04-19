@@ -1165,7 +1165,9 @@ struct CreatePlanItemView: View {
                     ForEach(["ml", "L", "oz", "cups"], id: \.self) { u in Button(u) { goalUnit = u } }
                 }
                 Section("Distance") {
-                    ForEach(["km", "mi", "m", "steps"], id: \.self) { u in Button(u) { goalUnit = u } }
+                    ForEach([SettingsStore.shared.preferredHabitDistanceUnit, "m", "steps"], id: \.self) { u in
+                        Button(u) { goalUnit = u }
+                    }
                 }
                 Section("Other") {
                     ForEach(["pages", "chapters", "g", "kg", "cal"], id: \.self) { u in Button(u) { goalUnit = u } }
@@ -1727,13 +1729,15 @@ struct MetricSelectionSheet: View {
     @Binding var unit: String
     
     // Suggestion logic
-    private let quantityCategories: [(String, [String])] = [
-        ("Volume", ["ml", "L", "oz", "cups"]),
-        ("Distance", ["km", "mi", "m", "steps"]),
-        ("Mass", ["kg", "g", "lbs"]),
-        ("Reading", ["pages", "chapters"]),
-        ("Other", ["cal"])
-    ]
+    private var quantityCategories: [(String, [String])] {
+        [
+            ("Volume", ["ml", "L", "oz", "cups"]),
+            ("Distance", [SettingsStore.shared.preferredHabitDistanceUnit, "m", "steps"]),
+            ("Mass", ["kg", "g", "lbs"]),
+            ("Reading", ["pages", "chapters"]),
+            ("Other", ["cal"])
+        ]
+    }
     
     var body: some View {
         NavigationView {

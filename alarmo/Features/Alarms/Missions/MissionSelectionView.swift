@@ -61,8 +61,17 @@ struct MissionSelectionView: View {
                             missionRow(title: "Step", icon: "figure.walk", iconBg: Color.purple.opacity(0.3), type: .step)
                             missionRow(title: "QR/Barcode", icon: "barcode.viewfinder", iconBg: Color.purple.opacity(0.3), type: .qrBarcode)
                             missionRow(title: "Shake", icon: "iphone.radiowaves.left.and.right", iconBg: Color.purple.opacity(0.3), type: .shake)
-                            missionRow(title: "Photo", icon: "camera.fill", iconBg: Color.purple.opacity(0.3), type: .off)
                             missionRow(title: "Squat", icon: "figure.strengthtraining.traditional", iconBg: Color.purple.opacity(0.3), type: .squat)
+                            missionRow(title: "Object Hunt", subtitle: "AI", icon: "sparkle.magnifyingglass", iconBg: Color.purple.opacity(0.3), type: .objectHunt)
+                            missionRow(title: "Push-ups", icon: "figure.strengthtraining.functional", iconBg: Color.purple.opacity(0.3), type: .pushups)
+                            missionRow(title: "Plank Hold", icon: "timer.circle", iconBg: Color.purple.opacity(0.3), type: .plank)
+                        }
+
+                        missionSection(title: "Religion") {
+                            missionRow(title: "Bible Verse", icon: "book.closed", iconBg: Color.orange.opacity(0.25), type: .bibleVerse)
+                            missionRow(title: "Quran Verse", icon: "moon.stars", iconBg: Color.green.opacity(0.25), type: .quranVerse)
+                            missionRow(title: "Bhagavad Gita Verse", icon: "book.pages", iconBg: Color.indigo.opacity(0.25), type: .bhagavadGitaVerse)
+                            missionRow(title: "Affirmation", icon: "quote.bubble", iconBg: Color.pink.opacity(0.25), type: .affirmation)
                         }
                     }
                     .padding(.bottom, 100) // Increased padding to ensure bottom items are easily accessible

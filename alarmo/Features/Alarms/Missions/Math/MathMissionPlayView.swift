@@ -139,6 +139,7 @@ struct MathMissionPlayView: View {
     private var successOverlay: some View {
         ZStack {
             Color.black.opacity(0.6).ignoresSafeArea()
+            MissionEmojiConfettiBackground()
             
             VStack(spacing: 24) {
                 Image(systemName: "hand.thumbsup.fill")

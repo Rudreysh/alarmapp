@@ -13,43 +13,47 @@ enum NotificationTemplateBuilder {
             let name = normalizedAlarmName(context.alarmName)
             content.title = "Alarmo"
             content.subtitle = name
-            content.body = "Time to wake up! Use Snooze or Stop from the lock screen."
+            content.body = condensed(DailyInsightsStore.shared.motivationLine(for: .alarmRing), maxCharacters: 150)
 
         case .alarmSnooze:
             content.title = "Alarmo"
             content.subtitle = normalizedAlarmName(context.alarmName)
-            content.body = "Snoozing. We'll ring again soon."
+            content.body = condensed(DailyInsightsStore.shared.motivationLine(for: .alarmSnooze), maxCharacters: 150)
 
         case .alarmTomorrowCheck:
             content.title = "No alarm for tomorrow"
-            content.body = "Set an alarm now so you don't miss your morning."
+            content.body = condensed(DailyInsightsStore.shared.motivationLine(for: .alarmTomorrowCheck), maxCharacters: 150)
 
         case .bedtimeReminder:
             content.title = "Time to wind down"
             if let fireTimeText = context.fireTimeText, !fireTimeText.isEmpty {
-                content.body = "Your next alarm is at \(fireTimeText). Start preparing for sleep."
+                let line = "Your next alarm is at \(fireTimeText). " + DailyInsightsStore.shared.motivationLine(for: .bedtimeReminder)
+                content.body = condensed(line, maxCharacters: 170)
             } else {
-                content.body = "Start preparing for sleep."
+                content.body = condensed(DailyInsightsStore.shared.motivationLine(for: .bedtimeReminder), maxCharacters: 150)
             }
 
         case .missedAlarmFollowUp:
             content.title = "Alarmo"
             content.subtitle = "You may have missed your alarm"
-            content.body = "Open Alarmo to check and reschedule if needed."
+            content.body = condensed(DailyInsightsStore.shared.motivationLine(for: .missedAlarmFollowUp), maxCharacters: 150)
         case .taskReminder:
             let name = normalizedItemName(context.itemName, fallback: "Task")
             content.title = "Task Reminder"
-            content.body = "\(name) is scheduled now."
+            let line = "\(name) is scheduled now. " + DailyInsightsStore.shared.motivationLine(for: .taskReminder)
+            content.body = condensed(line, maxCharacters: 170)
         case .taskOverdue:
             let name = normalizedItemName(context.itemName, fallback: "Task")
             content.title = "Task still pending"
-            content.body = "\(name) is overdue."
+            let line = "\(name) is overdue. " + DailyInsightsStore.shared.motivationLine(for: .taskOverdue)
+            content.body = condensed(line, maxCharacters: 170)
         case .habitReminder:
             let name = normalizedItemName(context.itemName, fallback: "your habit")
             let detail = normalizedItemName(context.detailText, fallback: "")
             let message = habitReminderMessage(habitName: name, detailText: detail)
             content.title = message.title
-            content.body = message.body
+            let line = message.body + " " + DailyInsightsStore.shared.motivationLine(for: .habitReminder)
+            content.body = condensed(line, maxCharacters: 180)
         case .pomodoroFocusStart:
             content.title = "Focus session started"
             content.body = "Stay in flow. You got this."
@@ -156,5 +160,15 @@ enum NotificationTemplateBuilder {
         }
         let index = abs(hash) % variants.count
         return variants[index]
+    }
+
+    private static func condensed(_ text: String, maxCharacters: Int) -> String {
+        guard text.count > maxCharacters else { return text }
+        let cut = text.index(text.startIndex, offsetBy: maxCharacters)
+        let prefix = String(text[..<cut])
+        if let lastSpace = prefix.lastIndex(of: " ") {
+            return String(prefix[..<lastSpace]) + "…"
+        }
+        return prefix + "…"
     }
 }

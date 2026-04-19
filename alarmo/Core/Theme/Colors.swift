@@ -1,8 +1,10 @@
 import SwiftUI
 import Foundation
+import UIKit
 
 enum Colors {
-    private static let themeKey = "settings.alarmThemeStyleRaw"
+    private static let themeStyleKey = "settings.alarmThemeStyleRaw"
+    private static let themeModeKey = "settings.themeMode"
 
     private struct Palette {
         let bgPrimary: Color
@@ -76,9 +78,46 @@ enum Colors {
         accentBlue: Color(red: 0.573, green: 0.478, blue: 0.890)          // #927AE3
     )
 
+    private static let lightPalette = Palette(
+        bgPrimary: Color(red: 0.975, green: 0.978, blue: 0.982),
+        bgSecondary: Color(red: 0.942, green: 0.951, blue: 0.965),
+        cardSurface: .white,
+        cardStroke: Color.black.opacity(0.08),
+        textPrimary: Color(red: 0.078, green: 0.094, blue: 0.125),
+        textSecondary: Color(red: 0.288, green: 0.338, blue: 0.425),
+        textTertiary: Color(red: 0.482, green: 0.537, blue: 0.631),
+        accentRed: Color(red: 0.867, green: 0.216, blue: 0.333),
+        accentGreen: Color(red: 0.122, green: 0.659, blue: 0.353),
+        accentTeal: Color(red: 0.112, green: 0.612, blue: 0.698),
+        shadow: Color.black.opacity(0.12),
+        tabBarBackground: .white,
+        tabBarInactive: Color(red: 0.545, green: 0.580, blue: 0.651),
+        promoCardBackground: Color(red: 0.937, green: 0.953, blue: 0.976),
+        pillGreen: Color(red: 0.122, green: 0.659, blue: 0.353),
+        sheetGradientTop: Color(red: 0.905, green: 0.943, blue: 0.992),
+        sheetGradientBottom: Color(red: 0.839, green: 0.906, blue: 0.984),
+        saleBadgeStart: Color(red: 0.706, green: 0.851, blue: 0.980),
+        saleBadgeEnd: Color(red: 0.522, green: 0.769, blue: 0.965),
+        accentOrange: Color(red: 0.788, green: 0.424, blue: 0.0),
+        accentBlue: Color(red: 0.279, green: 0.489, blue: 0.906)
+    )
+
     private static var activePalette: Palette {
-        let raw = UserDefaults.standard.string(forKey: themeKey) ?? "default"
-        return raw == "lilac_calm" ? lilacCalmPalette : defaultPalette
+        let styleRaw = UserDefaults.standard.string(forKey: themeStyleKey) ?? "default"
+        if styleRaw == "lilac_calm" {
+            return lilacCalmPalette
+        }
+
+        let modeRaw = UserDefaults.standard.string(forKey: themeModeKey) ?? "Dark"
+        switch modeRaw {
+        case "Light":
+            return lightPalette
+        case "Follow system setting":
+            let isSystemLight = UIScreen.main.traitCollection.userInterfaceStyle == .light
+            return isSystemLight ? lightPalette : defaultPalette
+        default:
+            return defaultPalette
+        }
     }
 
     static var bgPrimary: Color { activePalette.bgPrimary }

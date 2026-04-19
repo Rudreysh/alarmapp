@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 
 struct OverlapView: View {
+    @Environment(\.colorScheme) private var colorScheme
     let preferences: AppPreferences
     @StateObject private var store = OverlapStore.shared
     @State private var showOverlapAnalysis = false
@@ -29,6 +30,7 @@ struct OverlapView: View {
     @FocusState private var searchFocused: Bool
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    private var isLightMode: Bool { colorScheme == .light }
 
     var body: some View {
         ZStack {
@@ -269,7 +271,7 @@ struct OverlapView: View {
 
                 TextField("Search cities...", text: $searchText)
                     .font(.system(size: 16))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                     .focused($searchFocused)
                     .autocorrectionDisabled()
                     .onChange(of: searchFocused) { _, focused in
@@ -311,7 +313,7 @@ struct OverlapView: View {
                 } label: {
                     Text("Cancel")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(Color(red: 0.0, green: 0.7, blue: 0.5))
+                        .foregroundColor(Colors.accentTeal)
                 }
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }
@@ -368,7 +370,7 @@ struct OverlapView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(entry.cityName)
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(isAdded ? Colors.accentTeal : .white)
+                            .foregroundColor(isAdded ? Colors.accentTeal : Colors.textPrimary)
 
                         HStack(spacing: 6) {
                             Text(entry.country)
@@ -392,7 +394,7 @@ struct OverlapView: View {
                     } else {
                         Image(systemName: "plus.circle")
                             .font(.system(size: 18))
-                            .foregroundColor(Color.white.opacity(0.4))
+                            .foregroundColor(Colors.textTertiary)
                     }
                 }
                 .padding(.vertical, 12)
@@ -403,7 +405,7 @@ struct OverlapView: View {
             .disabled(isAdded)
 
             Divider()
-                .background(Color.white.opacity(0.06))
+                .background(Colors.cardStroke)
                 .padding(.leading, 56)
         }
     }
@@ -470,11 +472,11 @@ struct OverlapView: View {
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(red: 0.12, green: 0.14, blue: 0.18))
+                .fill(isLightMode ? Color.white.opacity(0.95) : Color(red: 0.12, green: 0.14, blue: 0.18))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.04), lineWidth: 1)
+                .stroke(isLightMode ? Colors.cardStroke : Color.white.opacity(0.04), lineWidth: 1)
         )
         .contextMenu {
             Button {
@@ -536,11 +538,11 @@ struct OverlapView: View {
                     .padding(.vertical, 8)
                     .background(
                         Capsule()
-                            .fill(Color(red: 0.15, green: 0.17, blue: 0.22))
+                            .fill(isLightMode ? Color.white.opacity(0.95) : Color(red: 0.15, green: 0.17, blue: 0.22))
                     )
                     .overlay(
                         Capsule()
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                            .stroke(isLightMode ? Colors.cardStroke : Color.white.opacity(0.08), lineWidth: 1)
                     )
                     .coachMark(
                         title: "Time Travel",
@@ -589,9 +591,9 @@ struct OverlapView: View {
                     .padding(.vertical, 8)
                     .background(
                         Capsule()
-                            .fill(Color(red: 0.0, green: 0.55, blue: 0.4))
+                            .fill(Colors.accentTeal)
                     )
-                    .shadow(color: Color(red: 0.0, green: 0.6, blue: 0.4).opacity(0.3), radius: 6, y: 3)
+                    .shadow(color: Colors.accentTeal.opacity(0.3), radius: 6, y: 3)
                 }
             }
         }
@@ -743,6 +745,7 @@ struct OverlapView: View {
 // MARK: - City Card View
 
 struct CityCardView: View {
+    @Environment(\.colorScheme) private var colorScheme
     let city: OverlapCity
     let referenceTimeZone: TimeZone
     let adjustedDate: Date
@@ -751,25 +754,46 @@ struct CityCardView: View {
         city.offsetHours(from: referenceTimeZone, at: adjustedDate)
     }
 
+    private var isLightMode: Bool {
+        colorScheme == .light
+    }
+
     private var cardGradient: LinearGradient {
         // Diverse gradients purely based on offset to give each card a distinct look
         let offsets = [-12.0, -8.0, -4.0, 0.0, 4.0, 8.0, 12.0]
         let closest = offsets.min(by: { abs($0 - offsetHours) < abs($1 - offsetHours) }) ?? 0.0
 
         let colors: [Color]
-        switch closest {
-        case -12.0 ... -8.0:
-            colors = [Color(red: 0.1, green: 0.2, blue: 0.35), Color(red: 0.05, green: 0.1, blue: 0.2)] // Deep Oceaan
-        case -4.0:
-            colors = [Color(red: 0.2, green: 0.1, blue: 0.3), Color(red: 0.1, green: 0.05, blue: 0.15)] // Purple Dusk
-        case 0.0:
-            colors = [Color(red: 0.15, green: 0.18, blue: 0.25), Color(red: 0.08, green: 0.1, blue: 0.15)] // Slate reference
-        case 4.0:
-            colors = [Color(red: 0.25, green: 0.15, blue: 0.1), Color(red: 0.15, green: 0.08, blue: 0.05)] // Amber Night
-        case 8.0 ... 12.0:
-            colors = [Color(red: 0.1, green: 0.3, blue: 0.25), Color(red: 0.05, green: 0.15, blue: 0.1)] // Forest Dark
-        default:
-            colors = [Color(red: 0.12, green: 0.14, blue: 0.22), Color(red: 0.06, green: 0.08, blue: 0.12)]
+        if isLightMode {
+            switch closest {
+            case -12.0 ... -8.0:
+                colors = [Color(red: 0.94, green: 0.96, blue: 1.00), Color(red: 0.90, green: 0.94, blue: 1.00)]
+            case -4.0:
+                colors = [Color(red: 0.96, green: 0.94, blue: 1.00), Color(red: 0.92, green: 0.90, blue: 0.99)]
+            case 0.0:
+                colors = [Color(red: 0.97, green: 0.97, blue: 0.98), Color(red: 0.94, green: 0.95, blue: 0.97)]
+            case 4.0:
+                colors = [Color(red: 1.00, green: 0.96, blue: 0.92), Color(red: 0.98, green: 0.93, blue: 0.88)]
+            case 8.0 ... 12.0:
+                colors = [Color(red: 0.94, green: 0.98, blue: 0.95), Color(red: 0.90, green: 0.96, blue: 0.91)]
+            default:
+                colors = [Color.white.opacity(0.98), Color(red: 0.95, green: 0.95, blue: 0.96)]
+            }
+        } else {
+            switch closest {
+            case -12.0 ... -8.0:
+                colors = [Color(red: 0.1, green: 0.2, blue: 0.35), Color(red: 0.05, green: 0.1, blue: 0.2)] // Deep Oceaan
+            case -4.0:
+                colors = [Color(red: 0.2, green: 0.1, blue: 0.3), Color(red: 0.1, green: 0.05, blue: 0.15)] // Purple Dusk
+            case 0.0:
+                colors = [Color(red: 0.15, green: 0.18, blue: 0.25), Color(red: 0.08, green: 0.1, blue: 0.15)] // Slate reference
+            case 4.0:
+                colors = [Color(red: 0.25, green: 0.15, blue: 0.1), Color(red: 0.15, green: 0.08, blue: 0.05)] // Amber Night
+            case 8.0 ... 12.0:
+                colors = [Color(red: 0.1, green: 0.3, blue: 0.25), Color(red: 0.05, green: 0.15, blue: 0.1)] // Forest Dark
+            default:
+                colors = [Color(red: 0.12, green: 0.14, blue: 0.22), Color(red: 0.06, green: 0.08, blue: 0.12)]
+            }
         }
 
         return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -807,7 +831,7 @@ struct CityCardView: View {
                         .font(.system(size: 16))
                     Text(city.displayName)
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                 }
 
                 let offsetStr = city.offsetString(from: referenceTimeZone, at: adjustedDate)
@@ -816,7 +840,7 @@ struct CityCardView: View {
                     .foregroundColor(Colors.accentTeal)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Colors.accentTeal.opacity(0.12))
+                    .background(Colors.accentTeal.opacity(isLightMode ? 0.18 : 0.12))
                     .cornerRadius(6)
             }
 
@@ -827,7 +851,7 @@ struct CityCardView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(dateComps.timeString)
                         .font(.system(size: 34, weight: .bold, design: .monospaced))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                         .monospacedDigit()
                     
                     Image(systemName: isDay ? "sun.max.fill" : "moon.stars.fill")
@@ -837,7 +861,7 @@ struct CityCardView: View {
 
                 Text(dateComps.dayOfWeek.uppercased())
                     .font(.system(size: 9, weight: .black, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(Colors.textSecondary)
                     .kerning(0.5)
             }
         }
@@ -850,7 +874,7 @@ struct CityCardView: View {
                 // Subtle teal glow for active/day cities
                 if isDay {
                     LinearGradient(
-                        colors: [Colors.accentTeal.opacity(0.08), Color.clear],
+                        colors: [Colors.accentTeal.opacity(isLightMode ? 0.05 : 0.08), Color.clear],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -860,8 +884,9 @@ struct CityCardView: View {
         .cornerRadius(24)
         .overlay(
             RoundedRectangle(cornerRadius: 24)
-                .stroke(isDay ? Colors.accentTeal.opacity(0.2) : Color.white.opacity(0.08), lineWidth: 1)
+                .stroke(isDay ? Colors.accentTeal.opacity(0.2) : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.08)), lineWidth: 1)
         )
+        .shadow(color: isLightMode ? Color.black.opacity(0.06) : .clear, radius: 8, x: 0, y: 4)
     }
 }
 

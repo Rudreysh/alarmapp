@@ -1,292 +1,173 @@
 import SwiftUI
 
 struct SettingsRootView: View {
-    @ObservedObject var store = SettingsStore.shared
-    @StateObject var subManager = SubscriptionManager.shared
-    @StateObject var coordinator = SettingsCoordinator()
-    
+    @ObservedObject var preferences: AppPreferences
+    @ObservedObject private var store = SettingsStore.shared
+    @StateObject private var subManager = SubscriptionManager.shared
+    @StateObject private var coordinator = SettingsCoordinator()
+
+    @Environment(\.openURL) private var openURL
+
     @State private var showSignIn = false
-    @State private var showPro = false
-    @State private var showPenalty = false
-    @State private var showProUpsellFlow = false
-    
-    // For ambient background animation
-    @State private var animateItems = false
-    
+    @State private var showDeleteAccountDialog = false
+    @State private var infoAlertMessage: String?
+
+    @AppStorage("settings.localAccountId") private var localAccountId: String = UUID().uuidString
+
+    private let supportEmail = "support@alarmo.app"
+    private let privacyURL = URL(string: "https://alarmo.app/privacy")!
+    private let termsURL = URL(string: "https://alarmo.app/terms")!
+    private let discordURL = URL(string: "https://discord.gg/alarmo")!
+
     var body: some View {
         NavigationStack(path: $coordinator.path) {
             ZStack {
-                // Modern Ambient Background
                 Colors.bgPrimary.ignoresSafeArea()
-                
-                GeometryReader { proxy in
-                    let size = proxy.size
-                    Circle()
-                        .fill(Colors.accentTeal.opacity(0.1))
-                        .frame(width: 250, height: 250)
-                        .blur(radius: 60)
-                        .offset(x: animateItems ? size.width - 150 : -50,
-                                y: animateItems ? -20 : size.height * 0.2)
-                    
-                    Circle()
-                        .fill(Colors.accentBlue.opacity(0.1))
-                        .frame(width: 200, height: 200)
-                        .blur(radius: 60)
-                        .offset(x: animateItems ? -50 : size.width - 100,
-                                y: animateItems ? size.height * 0.5 : 0)
-                }
-                .animation(.easeInOut(duration: 8).repeatForever(autoreverses: true), value: animateItems)
-                .ignoresSafeArea()
-                
+
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: Spacing.xl) {
-                        
-                        // Header
-                        Text("Workspace")
-                            .font(.system(size: 34, weight: .black, design: .rounded))
+                    VStack(alignment: .leading, spacing: Spacing.l) {
+                        Text("Settings")
+                            .font(.system(size: 32, weight: .black, design: .rounded))
                             .foregroundColor(Colors.textPrimary)
                             .padding(.horizontal, Spacing.l)
                             .padding(.top, Spacing.s)
-                        
-                        if !subManager.isPro {
-                            FreePlanSettingsBanner {
-                                showProUpsellFlow = true
+
+                        profileSection
+
+                        section(title: "Preferences") {
+                            // TEMPORARILY DISABLED (Penalty rollout paused):
+                            // Keep penalty route and screen code in the project for future implementation.
+                            // The settings entry is intentionally hidden for now.
+
+                            SettingsCategoryNavRow(
+                                title: settingsStatusTitle(
+                                    base: "Prevent app uninstall",
+                                    enabled: store.triggerUninstallTamperEnabled
+                                ),
+                                icon: "shield",
+                                iconColor: .cyan,
+                                isLast: false
+                            ) {
+                                coordinator.navigate(to: .preventAppUninstall)
                             }
-                            .padding(.horizontal, Spacing.l)
-                            .padding(.bottom, -Spacing.s)
-                        }
-                        
-                        // User Hero Profile Card
-                        VStack(spacing: 0) {
-                            Button(action: { showSignIn = true }) {
-                                HStack(spacing: Spacing.m) {
-                                    ZStack {
-                                        Circle()
-                                            .fill(Colors.bgSecondary)
-                                            .frame(width: 56, height: 56)
-                                        Image(systemName: "person.crop.circle.fill")
-                                            .font(.system(size: 32))
-                                            .foregroundColor(Colors.textSecondary)
-                                    }
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(store.profileDisplayName)
-                                            .font(.system(size: 20, weight: .bold))
-                                            .foregroundColor(Colors.textPrimary)
-                                        Text(store.isSignedIn ? "Manage Apple account session" : "Manage account & sync")
-                                            .font(.system(size: 13, weight: .medium))
-                                            .foregroundColor(Colors.textSecondary)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(Colors.textTertiary)
-                                }
-                                .padding(Spacing.m)
+
+                            SettingsCategoryNavRow(
+                                title: settingsStatusTitle(
+                                    base: "Prevent power-off",
+                                    enabled: store.triggerShutdownAttemptEnabled
+                                ),
+                                icon: "bolt.shield",
+                                iconColor: .green,
+                                isLast: false
+                            ) {
+                                coordinator.navigate(to: .preventPowerOff)
                             }
-                            .buttonStyle(PressedScaleButtonStyle())
-                            
-                            Divider().background(Colors.cardStroke)
-                            
-                            // Horizontal Premium Metric Dashboard
-                            HStack(spacing: 0) {
-                                // Points Metric
-                                NavigationLink(destination: MyPointsView()) {
-                                    VStack(alignment: .center, spacing: 6) {
-                                        HStack(spacing: 4) {
-                                            Image(systemName: "p.circle.fill")
-                                                .foregroundColor(.orange)
-                                            Text("Points")
-                                                .font(.system(size: 12, weight: .semibold))
-                                                .foregroundColor(Colors.textSecondary)
-                                        }
-                                        Text("\(store.points)")
-                                            .font(.system(size: 18, weight: .bold, design: .monospaced))
-                                            .foregroundColor(Colors.textPrimary)
-                                    }
-                                    .padding(.vertical, Spacing.m)
-                                    .frame(maxWidth: .infinity)
-                                }
-                                
-                                Divider().background(Colors.cardStroke)
-                                
-                                // Pro Status
-                                Button(action: { showPro = true }) {
-                                    VStack(alignment: .center, spacing: 6) {
-                                        HStack(spacing: 4) {
-                                            Image(systemName: "bolt.fill")
-                                                .foregroundColor(Colors.accentTeal)
-                                            Text("Status")
-                                                .font(.system(size: 12, weight: .semibold))
-                                                .foregroundColor(Colors.textSecondary)
-                                        }
-                                        Text(subManager.isPro ? "Pro" : "Free")
-                                            .font(.system(size: 18, weight: .bold))
-                                            .foregroundColor(subManager.isPro ? Colors.accentTeal : Colors.textPrimary)
-                                    }
-                                    .padding(.vertical, Spacing.m)
-                                    .frame(maxWidth: .infinity)
-                                }
-                                
-                                Divider().background(Colors.cardStroke)
-                                
-                                // Penalty
-                                Button(action: { 
-                                    if subManager.isPro {
-                                        showPenalty = true 
-                                    } else {
-                                        showProUpsellFlow = true
-                                    }
-                                }) {
-                                    VStack(alignment: .center, spacing: 6) {
-                                        HStack(spacing: 4) {
-                                            Image(systemName: "shield.fill")
-                                                .foregroundColor(.green)
-                                            Text("Penalty")
-                                                .font(.system(size: 12, weight: .semibold))
-                                                .foregroundColor(Colors.textSecondary)
-                                        }
-                                        Text(store.accountabilityEnabled ? "ON" : "OFF")
-                                            .font(.system(size: 18, weight: .bold))
-                                            .foregroundColor(store.accountabilityEnabled ? .green : Colors.textTertiary)
-                                    }
-                                    .padding(.vertical, Spacing.m)
-                                    .frame(maxWidth: .infinity)
-                                }
+
+                            SettingsCategoryNavRow(title: "Notifications", icon: "bell", iconColor: .gray, isLast: false) {
+                                coordinator.navigate(to: .notification)
                             }
-                            .buttonStyle(PressedScaleButtonStyle())
-                        }
-                        .background(Colors.cardSurface)
-                        .cornerRadius(24)
-                        .overlay(RoundedRectangle(cornerRadius: 24).stroke(Colors.cardStroke, lineWidth: 1))
-                        .appShadow(Shadows.card)
-                        .padding(.horizontal, Spacing.l)
-                        
-                        // Essential Config Modules
-                        VStack(spacing: Spacing.m) {
-                            Text("Engine Behavior")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(Colors.textSecondary)
-                                .textCase(.uppercase)
-                                .padding(.horizontal, Spacing.l)
-                                .padding(.bottom, -8)
-                            
-                            VStack(spacing: 0) {
-                                ModularSettingsRow(title: "Alarm", icon: "alarm.fill", isLast: false) {
-                                    coordinator.navigate(to: .alarm)
-                                }
-                                ModularSettingsRow(title: "Habit", icon: "repeat", isLast: false) {
-                                    coordinator.navigate(to: .habit)
-                                }
-                                ModularSettingsRow(title: "Timer", icon: "timer", isLast: false) {
-                                    coordinator.navigate(to: .timer)
-                                }
-                                ModularSettingsRow(title: "Overlap", icon: "square.on.square", isLast: false) {
-                                    coordinator.navigate(to: .overlap)
-                                }
-                                ModularSettingsRow(title: "System Notifications", icon: "bell.badge.fill", isLast: false) {
-                                    coordinator.navigate(to: .notification)
-                                }
-                                ModularSettingsRow(title: "App Configurations", icon: "gearshape.fill", isLast: true) {
-                                    coordinator.navigate(to: .system)
-                                }
-                            }
-                            .background(Colors.cardSurface)
-                            .cornerRadius(24)
-                            .overlay(RoundedRectangle(cornerRadius: 24).stroke(Colors.cardStroke, lineWidth: 1))
-                            .appShadow(Shadows.card)
-                            .padding(.horizontal, Spacing.l)
-                        }
-                        
-                        // Premium Help Banner
-                        Button(action: { coordinator.navigate(to: .optimization) }) {
-                            HStack(spacing: Spacing.m) {
-                                ZStack {
-                                    Circle().fill(Colors.accentTeal.opacity(0.2)).frame(width: 44, height: 44)
-                                    Image(systemName: "exclamationmark.triangle.fill")
-                                        .foregroundColor(Colors.accentTeal)
-                                        .font(.system(size: 20))
-                                }
-                                
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Alarms didn't ring?")
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundColor(Colors.accentTeal)
-                                    Text("Run Alarm Optimizer")
-                                        .font(.system(size: 18, weight: .bold))
-                                        .foregroundColor(.white)
-                                }
-                                
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(Colors.textTertiary)
-                            }
-                            .padding(Spacing.m)
-                            .background(
-                                RoundedRectangle(cornerRadius: 20)
-                                    .fill(LinearGradient(colors: [Colors.bgSecondary, Colors.cardSurface], startPoint: .topLeading, endPoint: .bottomTrailing))
+
+                            SettingsCategoryToggleRow(
+                                title: "Light Mode",
+                                icon: "sun.max",
+                                iconColor: .gray,
+                                isOn: Binding(
+                                    get: { store.themeMode == .light },
+                                    set: { isLightOn in
+                                        store.themeMode = isLightOn ? .light : .dark
+                                    }
+                                ),
+                                isLast: false
                             )
-                            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Colors.accentTeal.opacity(0.3), lineWidth: 1))
-                        }
-                        .appShadow(Shadows.card)
-                        .padding(.horizontal, Spacing.l)
-                        
-                        // Footer Links
-                        HStack(spacing: 30) {
-                            Button("Notice") { coordinator.navigate(to: .notice) }
-                            Button("FAQ") { coordinator.navigate(to: .faq) }
-                            Button("Feedback") {
-                                if let url = URL(string: "mailto:support@alarmo.app") {
-                                    UIApplication.shared.open(url)
-                                }
+
+                            SettingsCategoryNavRow(title: "Alarm", icon: "alarm", iconColor: .orange, isLast: false) {
+                                coordinator.navigate(to: .alarm)
+                            }
+
+                            SettingsCategoryNavRow(title: "Habit", icon: "repeat", iconColor: .green, isLast: false) {
+                                coordinator.navigate(to: .habit)
+                            }
+
+                            SettingsCategoryNavRow(title: "Timer", icon: "timer", iconColor: .blue, isLast: false) {
+                                coordinator.navigate(to: .timer)
+                            }
+
+                            SettingsCategoryNavRow(title: "App Configurations", icon: "gearshape", iconColor: .gray, isLast: true) {
+                                coordinator.navigate(to: .system)
                             }
                         }
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Colors.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, Spacing.m)
-                        
-                        // Developer Tools
-                        #if DEBUG
-                        VStack(spacing: 8) {
-                            Text("Developer Tools")
-                                .font(.caption)
-                                .foregroundColor(Colors.textTertiary)
-                            
-                            Button(action: {
-                                subManager.isPro.toggle()
-                                UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-                            }) {
-                                Text(subManager.isPro ? "Force Free Version" : "Force Pro Version")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 24)
-                                    .padding(.vertical, 12)
-                                    .background(subManager.isPro ? Color.red.opacity(0.8) : Colors.accentTeal)
-                                    .cornerRadius(12)
+
+                        section(title: "Support") {
+                            SettingsCategoryActionRow(title: "Request a Feature", icon: "lightbulb", iconColor: .gray, isLast: false) {
+                                openMail(subject: "Feature Request")
                             }
-                            .buttonStyle(.plain)
+
+                            SettingsCategoryActionRow(title: "Contact Support", icon: "questionmark.circle", iconColor: .gray, isLast: false) {
+                                openMail(subject: "Support Request")
+                            }
+
+                            SettingsCategoryActionRow(title: "Join our Discord", icon: "bubble.left.and.bubble.right", iconColor: .gray, isLast: true) {
+                                openURL(discordURL)
+                            }
                         }
-                        .padding(.top, Spacing.xl)
-                        #endif
-                        
+
+                        section(title: "Legal") {
+                            SettingsCategoryActionRow(title: "Privacy Policy", icon: "lock.shield", iconColor: .gray, isLast: false) {
+                                openURL(privacyURL)
+                            }
+
+                            SettingsCategoryActionRow(title: "Terms of Service", icon: "doc.text", iconColor: .gray, isLast: true) {
+                                openURL(termsURL)
+                            }
+                        }
+
+                        section(title: "Account") {
+                            SettingsCategoryActionRow(title: "Cancel Subscription", icon: "xmark.circle", iconColor: .gray, isLast: false) {
+                                openURL(subManager.manageSubscriptionsURL)
+                            }
+
+                            SettingsCategoryActionRow(title: "Manage Subscription", icon: "creditcard", iconColor: .gray, isLast: false) {
+                                openURL(subManager.manageSubscriptionsURL)
+                            }
+
+                            SettingsCategoryActionRow(title: "Copy Account ID", icon: "doc.on.doc", iconColor: .gray, isLast: false) {
+                                UIPasteboard.general.string = accountIdentifier
+                                infoAlertMessage = "Account ID copied"
+                            }
+
+                            SettingsCategoryActionRow(title: "Delete Account", icon: "trash", iconColor: .red, titleColor: .red, isLast: true) {
+                                showDeleteAccountDialog = true
+                            }
+                        }
+
+                        Text(appVersionFooter)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(Colors.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, Spacing.s)
                     }
-                    .padding(.bottom, AppConstants.tabBarHeight + 40)
+                    .padding(.bottom, AppConstants.tabBarHeight + 24)
                 }
             }
             .navigationDestination(for: SettingsRoute.self) { route in
                 switch route {
+                case .points:
+                    MyPointsView()
+                case .pro:
+                    ProView()
+                case .penalty:
+                    PreventPowerOffView()
+                case .preventAppUninstall:
+                    PreventAppUninstallView()
+                case .preventPowerOff:
+                    PreventPowerOffSettingsView()
                 case .alarm:
                     AlarmSettingsView()
                 case .habit:
-                    SimplePlaceholderView(title: "Habit")
+                    HabitSettingsView()
                 case .timer:
-                    SimplePlaceholderView(title: "Timer")
-                case .overlap:
-                    SimplePlaceholderView(title: "Overlap")
+                    TimerSettingsMenuView(preferences: preferences)
                 case .advanced:
                     AdvancedSettingsView()
                 case .theme:
@@ -311,81 +192,309 @@ struct SettingsRootView: View {
         .fullScreenCover(isPresented: $showSignIn) {
             SignInView()
         }
-        .fullScreenCover(isPresented: $showPro) {
-            ProView()
+        .confirmationDialog("Delete account?", isPresented: $showDeleteAccountDialog, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                store.signOutAppleAccount()
+                localAccountId = UUID().uuidString
+                infoAlertMessage = "Account removed from this device"
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This signs you out and clears local account identity from this device.")
         }
-        .fullScreenCover(isPresented: $showPenalty) {
-            AccountabilityShieldSettingsView()
-        }
-        .fullScreenCover(isPresented: $showProUpsellFlow) {
-            ProUpsellFlowView()
+        .alert(
+            "Settings",
+            isPresented: Binding(
+                get: { infoAlertMessage != nil },
+                set: { if !$0 { infoAlertMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                infoAlertMessage = nil
+            }
+        } message: {
+            Text(infoAlertMessage ?? "")
         }
         .onAppear {
-            animateItems = true
             store.validateAppleCredentialStateIfNeeded()
         }
     }
-}
 
-private struct ModularSettingsRow: View {
-    let title: String
-    let icon: String
-    var trailing: String? = nil
-    let isLast: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: Spacing.m) {
-                Image(systemName: icon)
-                    .font(.system(size: 18))
-                    .foregroundColor(Colors.textSecondary)
-                    .frame(width: 24)
-                
-                Text(title)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Colors.textPrimary)
-                
-                Spacer()
-                
-                if let trailing = trailing {
-                    Text(trailing)
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(Colors.accentTeal)
-                }
-                
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(Colors.textTertiary)
-            }
-            .padding(.vertical, 16)
-            .padding(.horizontal, Spacing.m)
-            .contentShape(Rectangle())
+    private var accountIdentifier: String {
+        let trimmed = store.appleUserId.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? localAccountId : trimmed
+    }
+
+    private var appVersionFooter: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        return "Alarmo v\(version) (\(build))"
+    }
+
+    private func openMail(subject: String) {
+        let encoded = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Support"
+        if let mailURL = URL(string: "mailto:\(supportEmail)?subject=\(encoded)") {
+            openURL(mailURL)
         }
-        .buttonStyle(PressedScaleButtonStyle())
-        .overlay(
-            VStack {
-                if !isLast {
-                    Spacer()
+    }
+
+    private func settingsStatusTitle(base: String, enabled: Bool) -> String {
+        "\(base) • \(enabled ? "on" : "off")"
+    }
+
+    private var profileDisplayTitle: String {
+        if store.isSignedIn {
+            let trimmed = store.profileDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? "Apple Account" : trimmed
+        }
+        return "Sign up or log in"
+    }
+
+    private var profileDisplaySubtitle: String {
+        if store.isSignedIn {
+            let email = store.appleEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+            return email.isEmpty ? "Email not available" : email
+        }
+        return "You are currently on guest mode"
+    }
+
+    private var profileSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Profile")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(Colors.textSecondary)
+                .padding(.horizontal, Spacing.l)
+
+            VStack(spacing: 0) {
+                Button {
+                    showSignIn = true
+                } label: {
+                    VStack(spacing: 10) {
+                        Image(systemName: "person.crop.circle.fill")
+                            .font(.system(size: 58, weight: .regular))
+                            .foregroundColor(Colors.textSecondary.opacity(0.35))
+                            .padding(.top, 4)
+
+                        HStack(spacing: 10) {
+                            Text(profileDisplayTitle)
+                                .font(.system(size: 18, weight: .black, design: .rounded))
+                                .foregroundColor(Colors.textPrimary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .black))
+                                .foregroundColor(Colors.textSecondary)
+                        }
+
+                        Text(profileDisplaySubtitle)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(Colors.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.8)
+                            .padding(.horizontal, 8)
+
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 10)
+                    .padding(.bottom, 12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(PressedScaleButtonStyle())
+
+                Divider()
+                    .background(Colors.cardStroke)
+                    .padding(.horizontal, 14)
+
+                HStack(spacing: 0) {
+                    Button {
+                        coordinator.navigate(to: .points)
+                    } label: {
+                        VStack(spacing: 6) {
+                            HStack(spacing: 4) {
+                                Text("\(store.points)")
+                                    .font(.system(size: 28, weight: .black, design: .rounded))
+                                    .foregroundColor(Colors.textPrimary)
+                                Text("🔥")
+                                    .font(.system(size: 14))
+                            }
+                            Text("my points")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(Colors.textPrimary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PressedScaleButtonStyle())
+
                     Divider()
                         .background(Colors.cardStroke)
-                        .padding(.leading, 56) // align under text roughly
+                        .frame(height: 54)
+
+                    Button {
+                        coordinator.navigate(to: .pro)
+                    } label: {
+                        VStack(spacing: 6) {
+                            Text(subManager.isPro ? "PRO" : "FREE")
+                                .font(.system(size: 24, weight: .black, design: .rounded))
+                                .foregroundColor(Colors.textPrimary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                            Text("subscription")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(Colors.textPrimary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PressedScaleButtonStyle())
                 }
             }
-        )
+            .background(Colors.cardSurface)
+            .cornerRadius(22)
+            .overlay(
+                RoundedRectangle(cornerRadius: 22)
+                    .stroke(Colors.cardStroke, lineWidth: 1)
+            )
+            .padding(.horizontal, Spacing.l)
+        }
+    }
+
+    @ViewBuilder
+    private func section<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(Colors.textSecondary)
+                .padding(.horizontal, Spacing.l)
+
+            VStack(spacing: 0) {
+                content()
+            }
+            .background(Colors.cardSurface)
+            .cornerRadius(22)
+            .overlay(
+                RoundedRectangle(cornerRadius: 22)
+                    .stroke(Colors.cardStroke, lineWidth: 1)
+            )
+            .padding(.horizontal, Spacing.l)
+        }
     }
 }
 
-struct SimplePlaceholderView: View {
+private struct SettingsCategoryNavRow: View {
     let title: String
-    
+    let icon: String
+    let iconColor: Color
+    let isLast: Bool
+    let action: () -> Void
+
     var body: some View {
-        ZStack {
-            Colors.bgPrimary.ignoresSafeArea()
-            Text("\(title) coming soon")
-                .foregroundColor(Colors.textSecondary)
+        Button(action: action) {
+            SettingsCategoryRowBase(title: title, icon: icon, iconColor: iconColor, trailing: AnyView(
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(Colors.textTertiary)
+            ))
         }
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
+        .buttonStyle(PressedScaleButtonStyle())
+        .overlay {
+            if !isLast {
+                VStack {
+                    Spacer()
+                    Divider()
+                        .background(Colors.cardStroke)
+                        .padding(.leading, 58)
+                }
+            }
+        }
+    }
+}
+
+private struct SettingsCategoryActionRow: View {
+    let title: String
+    let icon: String
+    let iconColor: Color
+    var titleColor: Color = Colors.textPrimary
+    let isLast: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            SettingsCategoryRowBase(title: title, icon: icon, iconColor: iconColor, titleColor: titleColor, trailing: AnyView(
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(Colors.textTertiary)
+            ))
+        }
+        .buttonStyle(PressedScaleButtonStyle())
+        .overlay {
+            if !isLast {
+                VStack {
+                    Spacer()
+                    Divider()
+                        .background(Colors.cardStroke)
+                        .padding(.leading, 58)
+                }
+            }
+        }
+    }
+}
+
+private struct SettingsCategoryToggleRow: View {
+    let title: String
+    let icon: String
+    let iconColor: Color
+    @Binding var isOn: Bool
+    let isLast: Bool
+
+    var body: some View {
+        SettingsCategoryRowBase(title: title, icon: icon, iconColor: iconColor, trailing: AnyView(
+            Toggle("", isOn: $isOn)
+                .labelsHidden()
+                .tint(Colors.accentTeal)
+        ))
+        .overlay {
+            if !isLast {
+                VStack {
+                    Spacer()
+                    Divider()
+                        .background(Colors.cardStroke)
+                        .padding(.leading, 58)
+                }
+            }
+        }
+    }
+}
+
+private struct SettingsCategoryRowBase: View {
+    let title: String
+    let icon: String
+    let iconColor: Color
+    var titleColor: Color = Colors.textPrimary
+    let trailing: AnyView
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 20, weight: .medium))
+                .foregroundColor(iconColor)
+                .frame(width: 28)
+
+            Text(title)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(titleColor)
+
+            Spacer()
+
+            trailing
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .contentShape(Rectangle())
     }
 }

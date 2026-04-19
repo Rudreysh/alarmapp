@@ -1418,6 +1418,9 @@ struct HabitStatisticsTabView: View {
     private func rebuildValueByDayCache() {
         var dictionary: [Date: Double] = [:]
         for log in item.completionLogs {
+            if log.note == CompletionLog.skippedMarker {
+                continue
+            }
             let key = calendar.startOfDay(for: log.date)
             if item.metricKind == .time {
                 dictionary[key, default: 0] += Double(log.durationSeconds ?? 0) / 60.0

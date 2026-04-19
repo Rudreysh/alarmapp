@@ -4,11 +4,23 @@ struct QuickAlarmTimePickerView: View {
     @Binding var minutes: Int
     @Binding var seconds: Int
     @Environment(\.dismiss) var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var settingsStore = SettingsStore.shared
+
+    private var isLightMode: Bool {
+        switch settingsStore.themeMode {
+        case .light:
+            return true
+        case .dark:
+            return false
+        case .system:
+            return colorScheme == .light
+        }
+    }
     
     var body: some View {
         ZStack {
-            // Dark background matching the app theme
-            Color(red: 0.06, green: 0.07, blue: 0.10)
+            Colors.bgPrimary
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -43,7 +55,7 @@ struct QuickAlarmTimePickerView: View {
                 ZStack {
                     // Frosted selection bar behind the selected row
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.white.opacity(0.08))
+                        .fill(isLightMode ? Color.black.opacity(0.04) : Color.white.opacity(0.08))
                         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .frame(height: 48)
                     
@@ -91,7 +103,6 @@ struct QuickAlarmTimePickerView: View {
                 Spacer()
             }
         }
-        .colorScheme(.dark)
         .presentationDetents([.height(340)])
         .presentationDragIndicator(.visible)
     }

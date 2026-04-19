@@ -2,14 +2,27 @@ import SwiftUI
 
 /// Simple detail sheet for a city — rename, working hours, star, notes, delete.
 struct CityDetailSheet: View {
+    @Environment(\.colorScheme) private var colorScheme
     @State var city: OverlapCity
     @ObservedObject var store: OverlapStore
+    @ObservedObject private var settingsStore = SettingsStore.shared
     @Environment(\.dismiss) private var dismiss
     @State private var showDeleteConfirm = false
     @FocusState private var notesFocused: Bool
     
     @State private var pickerStart: Date = Date()
     @State private var pickerEnd: Date = Date()
+
+    private var isLightMode: Bool {
+        switch settingsStore.themeMode {
+        case .light:
+            return true
+        case .dark:
+            return false
+        case .system:
+            return colorScheme == .light
+        }
+    }
 
     var body: some View {
         NavigationView {
@@ -27,7 +40,7 @@ struct CityDetailSheet: View {
                                     set: { city.customLabel = $0 }
                                 ))
                                 .font(.system(size: 30, weight: .bold, design: .rounded))
-                                .foregroundColor(.white)
+                                .foregroundColor(Colors.textPrimary)
                                 .textFieldStyle(.plain)
 
                                 Spacer()
@@ -37,7 +50,7 @@ struct CityDetailSheet: View {
                                 } label: {
                                     Image(systemName: city.isStarred ? "star.fill" : "star")
                                         .font(.system(size: 22))
-                                        .foregroundColor(city.isStarred ? .yellow : Color.white.opacity(0.4))
+                                        .foregroundColor(city.isStarred ? .yellow : Colors.textTertiary)
                                 }
                             }
                             .padding(.top, 28)
@@ -50,14 +63,14 @@ struct CityDetailSheet: View {
                                     .font(.system(size: 14, weight: .semibold))
                                 Spacer()
                             }
-                            .foregroundColor(Color.gray)
+                            .foregroundColor(Colors.textSecondary)
                             .padding(.top, -12)
 
                             // ── Working Hours ──
                             VStack(alignment: .leading, spacing: 14) {
                                 Text("Working Hours")
                                     .font(.system(size: 13, weight: .bold))
-                                    .foregroundColor(Color.gray)
+                                    .foregroundColor(Colors.textSecondary)
                                     .textCase(.uppercase)
 
                                 VStack(spacing: 16) {
@@ -65,62 +78,62 @@ struct CityDetailSheet: View {
                                     HStack {
                                         Label("Start", systemImage: "sunrise.fill")
                                             .font(.system(size: 15, weight: .medium))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(Colors.textPrimary)
                                         Spacer()
                                         DatePicker("", selection: $pickerStart, displayedComponents: .hourAndMinute)
                                             .labelsHidden()
-                                            .colorScheme(.dark)
+                                            .colorScheme(isLightMode ? .light : .dark)
                                             .tint(Color(red: 0.0, green: 0.7, blue: 0.5))
                                     }
 
-                                    Divider().background(Color.white.opacity(0.1))
+                                    Divider().background(Colors.cardStroke)
 
                                     // End Time
                                     HStack {
                                         Label("End", systemImage: "sunset.fill")
                                             .font(.system(size: 15, weight: .medium))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(Colors.textPrimary)
                                         Spacer()
                                         DatePicker("", selection: $pickerEnd, displayedComponents: .hourAndMinute)
                                             .labelsHidden()
-                                            .colorScheme(.dark)
+                                            .colorScheme(isLightMode ? .light : .dark)
                                             .tint(Color(red: 0.0, green: 0.7, blue: 0.5))
                                     }
                                 }
                                 .padding(16)
-                                .background(Color.white.opacity(0.05))
+                                .background(Colors.cardSurface)
                                 .cornerRadius(16)
-                                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Colors.cardStroke, lineWidth: 1))
                             }
 
                             // ── Notes ──
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Notes")
                                     .font(.system(size: 13, weight: .bold))
-                                    .foregroundColor(Color.gray)
+                                    .foregroundColor(Colors.textSecondary)
                                     .textCase(.uppercase)
 
                                 if #available(iOS 16.0, *) {
                                     TextEditor(text: $city.notes)
                                         .focused($notesFocused)
                                         .font(.system(size: 15))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(Colors.textPrimary)
                                         .scrollContentBackground(.hidden)
                                         .padding(12)
                                         .frame(height: 100)
-                                        .background(Color.white.opacity(0.05))
+                                        .background(Colors.cardSurface)
                                         .cornerRadius(16)
-                                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Colors.cardStroke, lineWidth: 1))
                                 } else {
                                     TextEditor(text: $city.notes)
                                         .focused($notesFocused)
                                         .font(.system(size: 15))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(Colors.textPrimary)
                                         .padding(12)
                                         .frame(height: 100)
-                                        .background(Color.white.opacity(0.05))
+                                        .background(Colors.cardSurface)
                                         .cornerRadius(16)
-                                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08), lineWidth: 1))
+                                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Colors.cardStroke, lineWidth: 1))
                                 }
                             }
 

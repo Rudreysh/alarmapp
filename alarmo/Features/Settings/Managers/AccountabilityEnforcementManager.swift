@@ -35,6 +35,10 @@ final class AccountabilityEnforcementManager: ObservableObject {
 
     @discardableResult
     func handleFocusEarlyStopPenalty() -> Bool {
+        // TEMPORARILY DISABLED (Penalty rollout paused).
+        // Keep original consume logic below for future implementation.
+        return true
+        /*
         guard settings.penaltyEnabled, settings.penaltyRules.focusEarlyStopTriggersPenalty else { return true }
         return creditsManager.consumeCredits(
             amountEuro: settings.penaltyAmountEuro,
@@ -42,10 +46,14 @@ final class AccountabilityEnforcementManager: ObservableObject {
             note: "Focus session stopped early",
             sourceFocusTaskId: activeFocusTaskId
         )
+        */
     }
 
     @discardableResult
     func handleFocusOverridePenalty() -> Bool {
+        // TEMPORARILY DISABLED (Penalty rollout paused).
+        return true
+        /*
         guard settings.penaltyEnabled, settings.penaltyRules.focusOverrideTriggersPenalty else { return true }
         return creditsManager.consumeCredits(
             amountEuro: settings.penaltyAmountEuro,
@@ -53,6 +61,7 @@ final class AccountabilityEnforcementManager: ObservableObject {
             note: "Attempted to override app block",
             sourceFocusTaskId: activeFocusTaskId
         )
+        */
     }
 
     func beginAlarmEnforcement(alarm: Alarm) {
@@ -75,6 +84,11 @@ final class AccountabilityEnforcementManager: ObservableObject {
 
     @discardableResult
     func handleAlarmExcessSnoozePenalty(alarm: Alarm, snoozeCount: Int = 0) -> Bool {
+        // TEMPORARILY DISABLED (Penalty rollout paused).
+        _ = alarm
+        _ = snoozeCount
+        return true
+        /*
         guard alarm.penaltyEnabled,
               alarm.penaltyRules.triggerSnoozeThresholdEnabled,
               alarm.penaltyRules.alarmSnoozeThreshold > 0,
@@ -87,10 +101,15 @@ final class AccountabilityEnforcementManager: ObservableObject {
             note: "Snooze threshold reached (\(snoozeCount)/\(alarm.penaltyRules.alarmSnoozeThreshold))",
             sourceAlarmId: alarm.id
         )
+        */
     }
 
     @discardableResult
     func handleAlarmMissionFailurePenalty(alarm: Alarm) -> Bool {
+        // TEMPORARILY DISABLED (Penalty rollout paused).
+        _ = alarm
+        return true
+        /*
         guard alarm.penaltyEnabled, alarm.penaltyRules.alarmMissionFailTriggersPenalty else { return true }
         return creditsManager.consumeCredits(
             amountEuro: alarm.penaltyAmountEuro,
@@ -98,6 +117,7 @@ final class AccountabilityEnforcementManager: ObservableObject {
             note: "Mission failed or timed out",
             sourceAlarmId: alarm.id
         )
+        */
     }
 
     func ensureShieldRestoredOnLaunch() {

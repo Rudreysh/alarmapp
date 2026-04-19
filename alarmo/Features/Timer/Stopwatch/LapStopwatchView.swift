@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Main Stopwatch View with Lap/Split Tracking
 
 struct LapStopwatchView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var engine: StopwatchEngine
     @State private var showTargetSheet = false
     @State private var targetMinutes: String = ""
@@ -14,25 +15,55 @@ struct LapStopwatchView: View {
         min(UIScreen.main.bounds.width * 0.72, 280)
     }
 
+    private var isLightMode: Bool {
+        colorScheme == .light
+    }
+
     var body: some View {
         VStack(spacing: 0) {
 
             // MARK: Mode Toggle (Lap / Split)
-            HStack(spacing: 0) {
+            HStack(spacing: 6) {
                 ForEach([("Lap", StopwatchRecordMode.lap), ("Split", .split)], id: \.0) { label, mode in
+                    let isSelected = selectedMode == mode
                     Button {
                         withAnimation(.spring(response: 0.25)) { selectedMode = mode }
                         engine.recordMode = mode
                     } label: {
                         Text(label)
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(selectedMode == mode ? .black : Colors.textSecondary)
+                            .foregroundColor(isSelected ? Colors.textPrimary : Colors.textSecondary)
                             .padding(.vertical, 6)
                             .frame(maxWidth: .infinity)
                             .background(
-                                selectedMode == mode
-                                    ? Capsule().fill(TimerPalette.accent)
-                                    : Capsule().fill(Color.clear)
+                                Capsule()
+                                    .fill(
+                                        isSelected
+                                            ? LinearGradient(
+                                                colors: isLightMode
+                                                    ? [Color.white, Color(red: 0.90, green: 0.96, blue: 1.0)]
+                                                    : [TimerPalette.accent.opacity(0.95), TimerPalette.accent.opacity(0.78)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                            : LinearGradient(
+                                                colors: [
+                                                    isLightMode ? Color(red: 0.93, green: 0.94, blue: 0.97) : Color.white.opacity(0.06),
+                                                    isLightMode ? Color(red: 0.88, green: 0.90, blue: 0.94) : Color.white.opacity(0.03)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                    )
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(
+                                        isSelected
+                                            ? (isLightMode ? Color(red: 0.55, green: 0.76, blue: 0.96).opacity(0.7) : Color.white.opacity(0.20))
+                                            : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.10)),
+                                        lineWidth: 1
+                                    )
                             )
                     }
                 }
@@ -40,7 +71,20 @@ struct LapStopwatchView: View {
             .padding(4)
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Color(red: 0.10, green: 0.12, blue: 0.16))
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                isLightMode ? Color.white.opacity(0.98) : Color(red: 0.10, green: 0.12, blue: 0.16),
+                                isLightMode ? Color(red: 0.94, green: 0.95, blue: 0.98) : Color(red: 0.08, green: 0.10, blue: 0.14)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(isLightMode ? Colors.cardStroke : Color.white.opacity(0.08), lineWidth: 1)
             )
             .padding(.horizontal, 60)
             .padding(.top, 8)
@@ -147,14 +191,14 @@ struct LapStopwatchView: View {
                 .padding(.vertical, 6)
                 .background(
                     Capsule()
-                        .fill(Color(red: 0.10, green: 0.12, blue: 0.16))
+                        .fill(isLightMode ? Color.white.opacity(0.95) : Color(red: 0.10, green: 0.12, blue: 0.16))
                 )
             }
             .padding(.bottom, 8)
 
             // MARK: Lap List
             if !engine.laps.isEmpty {
-                Divider().background(Color.white.opacity(0.07)).padding(.bottom, 4)
+                Divider().background(Colors.cardStroke).padding(.bottom, 4)
 
                 // Header
                 HStack {
@@ -240,7 +284,7 @@ struct LapStopwatchView: View {
                             .foregroundColor(Colors.textSecondary)
                     }
                     .padding()
-                    .background(RoundedRectangle(cornerRadius: 12).fill(Color(red: 0.10, green: 0.12, blue: 0.16)))
+                    .background(RoundedRectangle(cornerRadius: 12).fill(isLightMode ? Color.white.opacity(0.95) : Color(red: 0.10, green: 0.12, blue: 0.16)))
                 }
 
                 // Interval alert
@@ -257,7 +301,7 @@ struct LapStopwatchView: View {
                             .foregroundColor(Colors.textSecondary)
                     }
                     .padding()
-                    .background(RoundedRectangle(cornerRadius: 12).fill(Color(red: 0.10, green: 0.12, blue: 0.16)))
+                    .background(RoundedRectangle(cornerRadius: 12).fill(isLightMode ? Color.white.opacity(0.95) : Color(red: 0.10, green: 0.12, blue: 0.16)))
                 }
 
                 // Clear button
@@ -272,7 +316,7 @@ struct LapStopwatchView: View {
                 Spacer()
             }
             .padding()
-            .background(Color(red: 0.05, green: 0.06, blue: 0.09).ignoresSafeArea())
+            .background(Colors.bgPrimary.ignoresSafeArea())
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Set") {
@@ -294,7 +338,6 @@ struct LapStopwatchView: View {
             }
         }
         .presentationDetents([.medium])
-        .preferredColorScheme(.dark)
     }
 
     private var alertPillText: String {
@@ -311,8 +354,8 @@ struct LapStopwatchView: View {
                 .font(.system(size: size * 0.36, weight: .semibold))
                 .foregroundColor(color)
                 .frame(width: size, height: size)
-                .background(Circle().fill(Color(red: 0.13, green: 0.15, blue: 0.20)))
-                .overlay(Circle().stroke(Color.white.opacity(0.10), lineWidth: 1))
+                .background(Circle().fill(isLightMode ? Color.white.opacity(0.95) : Color(red: 0.13, green: 0.15, blue: 0.20)))
+                .overlay(Circle().stroke(isLightMode ? Colors.cardStroke : Color.white.opacity(0.10), lineWidth: 1))
         }
         .buttonStyle(.plain)
     }

@@ -1,8 +1,33 @@
 import SwiftUI
 
 struct CustomTabBar<Tab: Hashable>: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var settingsStore = SettingsStore.shared
     let tabs: [TabBarItem<Tab>]
     @Binding var selected: Tab
+    
+    private var isLightMode: Bool {
+        switch settingsStore.themeMode {
+        case .light:
+            return true
+        case .dark:
+            return false
+        case .system:
+            return colorScheme == .light
+        }
+    }
+    
+    private var tabBackground: Color {
+        isLightMode ? Color.white : Colors.tabBarBackground
+    }
+    
+    private var selectedTextColor: Color {
+        isLightMode ? Colors.textPrimary : Colors.textPrimary
+    }
+    
+    private var unselectedTextColor: Color {
+        isLightMode ? Colors.tabBarInactive : Colors.tabBarInactive
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,7 +48,7 @@ struct CustomTabBar<Tab: Hashable>: View {
                             Text(item.title)
                                 .font(.system(size: 10, weight: .semibold))
                         }
-                        .foregroundColor(selected == item.id ? Colors.textPrimary : Colors.tabBarInactive)
+                        .foregroundColor(selected == item.id ? selectedTextColor : unselectedTextColor)
                         .frame(width: itemWidth, height: AppConstants.tabBarHeight - 36)
                     }
                     .buttonStyle(.plain)
@@ -34,7 +59,7 @@ struct CustomTabBar<Tab: Hashable>: View {
             .padding(.bottom, 28)
         }
         .frame(height: AppConstants.tabBarHeight, alignment: .top)
-        .background(Colors.tabBarBackground)
+        .background(tabBackground)
     }
 }
 

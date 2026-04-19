@@ -82,7 +82,14 @@ extension UnblockChallenge {
         case .qrBarcode: return "Scan Barcode"
         case .householdItemHunt: return "Item Hunt"
         case .squat: return "Do Squats"
+        case .objectHunt: return "Object Hunt"
+        case .pushups: return "Push-ups"
+        case .plank: return "Plank Hold"
         case .breathing: return "Deep Breathing"
+        case .bibleVerse: return "Bible Verse"
+        case .quranVerse: return "Quran Verse"
+        case .bhagavadGitaVerse: return "Bhagavad Gita Verse"
+        case .affirmation: return "Affirmation"
         case .off: return "None"
         }
     }
@@ -99,7 +106,14 @@ extension UnblockChallenge {
         case .qrBarcode: return "Scan a distant QR code"
         case .householdItemHunt: return "Take a matching item photo"
         case .squat: return "Complete exercise to proceed"
+        case .objectHunt: return "Find and submit a spun object"
+        case .pushups: return "Record and complete push-ups"
+        case .plank: return "Hold a steady plank"
         case .breathing: return "Take 1 deep breath to proceed"
+        case .bibleVerse: return "Read the shown Bible verse aloud"
+        case .quranVerse: return "Read the shown Quran verse aloud"
+        case .bhagavadGitaVerse: return "Read the shown Gita verse aloud"
+        case .affirmation: return "Speak an affirmation aloud"
         case .off: return "No challenge required"
         }
     }
@@ -116,7 +130,14 @@ extension UnblockChallenge {
         case .qrBarcode: return "barcode.viewfinder"
         case .householdItemHunt: return "camera.macro"
         case .squat: return "figure.strengthtraining.traditional"
+        case .objectHunt: return "sparkle.magnifyingglass"
+        case .pushups: return "figure.strengthtraining.functional"
+        case .plank: return "timer.circle"
         case .breathing: return "wind"
+        case .bibleVerse: return "book.closed"
+        case .quranVerse: return "moon.stars"
+        case .bhagavadGitaVerse: return "book.pages"
+        case .affirmation: return "quote.bubble"
         case .off: return "xmark.circle"
         }
     }

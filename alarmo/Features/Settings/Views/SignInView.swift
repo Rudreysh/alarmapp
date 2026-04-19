@@ -5,11 +5,13 @@ struct SignInView: View {
     @ObservedObject var store = SettingsStore.shared
     @Environment(\.dismiss) var dismiss
     @Environment(\.openURL) private var openURL
+    @Environment(\.colorScheme) private var colorScheme
     @State private var alertMessage: String?
     
     private let termsURL = URL(string: "https://alarmo.app/terms")!
     private let privacyURL = URL(string: "https://alarmo.app/privacy")!
     private var canUseAppleSignIn: Bool { EntitlementInspector.hasAppleSignInAccess }
+    private var isLightMode: Bool { colorScheme == .light }
     
     var body: some View {
         ZStack {
@@ -20,7 +22,7 @@ struct SignInView: View {
                     Button(action: { dismiss() }) {
                         Image(systemName: "xmark")
                             .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                     }
                     Spacer()
                 }
@@ -31,17 +33,22 @@ struct SignInView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "icloud.and.arrow.up.fill")
                         .font(.system(size: 64))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                         .padding(.bottom, 8)
                     
                     Text(store.isSignedIn ? "You're signed in" : "Keep your record safe by signing in")
                         .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                         .multilineTextAlignment(.center)
 
                     if store.isSignedIn {
                         Text(store.profileDisplayName)
                             .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(Colors.textSecondary)
+
+                        let email = store.appleEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+                        Text(email.isEmpty ? "Email not available" : email)
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(Colors.textSecondary)
                     }
                 }
@@ -57,10 +64,10 @@ struct SignInView: View {
                         } label: {
                             Text("Sign Out")
                                 .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundColor(isLightMode ? Colors.textPrimary : .white)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 56)
-                                .background(Color.white.opacity(0.18))
+                                .background(isLightMode ? Color.black.opacity(0.08) : Color.white.opacity(0.18))
                                 .clipShape(Capsule())
                         }
                     } else {

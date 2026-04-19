@@ -1,6 +1,9 @@
 import SwiftUI
+import AudioToolbox
 
 struct SunRayTimePickerView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var settingsStore = SettingsStore.shared
     @Binding var hour: Int
     @Binding var minute: Int
     var second: Binding<Int>? = nil // Optional 3rd value
@@ -31,9 +34,14 @@ struct SunRayTimePickerView: View {
     
     // Ring glow pulse animation
     @State private var ringGlowPulse: CGFloat = 0.0
+    @State private var lastTickSoundAt: CFAbsoluteTime = 0
+    var sizeMultiplier: CGFloat = 1.0
     
-    private let size: CGFloat = 240
+    // Base Sunray size. Final size can be increased by `sizeMultiplier`.
+    private let baseSize: CGFloat = 214
+    private var size: CGFloat { baseSize * max(0.8, sizeMultiplier) }
     private let feedback = UISelectionFeedbackGenerator()
+    private let impactFeedback = UIImpactFeedbackGenerator(style: .light)
     
     enum TimeComponent {
         case hour
@@ -62,6 +70,17 @@ struct SunRayTimePickerView: View {
     private var accentSunYellow: Color {
         Color(red: 0.98, green: 0.84, blue: 0.30)
     }
+
+    private var isLightMode: Bool {
+        switch settingsStore.themeMode {
+        case .light:
+            return true
+        case .dark:
+            return false
+        case .system:
+            return colorScheme == .light
+        }
+    }
     
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
@@ -81,7 +100,7 @@ struct SunRayTimePickerView: View {
                         Capsule()
                             .fill(is12HourFormat ? Colors.accentTeal.opacity(0.15) : Color.clear)
                             .overlay(
-                                Capsule().stroke(is12HourFormat ? Colors.accentTeal.opacity(0.5) : Color.white.opacity(0.1), lineWidth: 1)
+                                Capsule().stroke(is12HourFormat ? Colors.accentTeal.opacity(0.5) : Colors.cardStroke, lineWidth: 1)
                             )
                     )
             }
@@ -122,7 +141,7 @@ struct SunRayTimePickerView: View {
                             .frame(width: size + 14, height: size + 14)
                         
                         Circle()
-                            .stroke(Color.white.opacity(0.05), lineWidth: 1)
+                            .stroke(Colors.cardStroke, lineWidth: 1)
                             .frame(width: size, height: size)
                         
                         ForEach(0..<60) { i in
@@ -130,7 +149,11 @@ struct SunRayTimePickerView: View {
                             let isActiveTick = isTickActive(index: i)
                             
                             Capsule()
-                                .fill(isActiveTick ? Colors.accentTeal : Color.white.opacity(i % 5 == 0 ? 0.3 : 0.1))
+                                .fill(
+                                    isActiveTick
+                                    ? Colors.accentTeal
+                                    : (isLightMode ? Colors.textSecondary.opacity(i % 5 == 0 ? 0.28 : 0.14) : Color.white.opacity(i % 5 == 0 ? 0.3 : 0.1))
+                                )
                                 .frame(width: i % 5 == 0 ? 2 : 1, height: i % 5 == 0 ? 10 : 6)
                                 .offset(y: -(size/2))
                                 .rotationEffect(.degrees(Double(i) * 6))
@@ -163,10 +186,10 @@ struct SunRayTimePickerView: View {
                         .stroke(
                             AngularGradient(
                                 colors: [
-                                    Colors.accentBlue.opacity(0.45),
-                                    Colors.accentTeal,
-                                    accentSunYellow.opacity(0.75),
-                                    Colors.accentBlue.opacity(0.7)
+                                    Colors.accentBlue.opacity(0.62),
+                                    Colors.accentTeal.opacity(0.96),
+                                    accentSunYellow.opacity(0.10),
+                                    Colors.accentBlue.opacity(0.80)
                                 ],
                                 center: .center,
                                 startAngle: .degrees(0),
@@ -263,7 +286,7 @@ struct SunRayTimePickerView: View {
                         
                         // Divider
                         Rectangle()
-                            .fill(Color.white.opacity(0.12))
+                            .fill(Colors.cardStroke)
                             .frame(width: 80, height: 1)
                         
                         // Middle Selector (Minute)
@@ -290,7 +313,7 @@ struct SunRayTimePickerView: View {
                         if let secondBinding = second {
                             // Divider
                             Rectangle()
-                                .fill(Color.white.opacity(0.12))
+                                .fill(Colors.cardStroke)
                                 .frame(width: 80, height: 1)
                             
                             // Bottom Selector (Second)
@@ -334,15 +357,16 @@ struct SunRayTimePickerView: View {
                         Capsule()
                             .fill(!is12HourFormat ? Colors.accentTeal.opacity(0.15) : Color.clear)
                             .overlay(
-                                Capsule().stroke(!is12HourFormat ? Colors.accentTeal.opacity(0.5) : Color.white.opacity(0.1), lineWidth: 1)
+                                Capsule().stroke(!is12HourFormat ? Colors.accentTeal.opacity(0.5) : Colors.cardStroke, lineWidth: 1)
                             )
                     )
             }
             .scaleEffect(!is12HourFormat ? 1.05 : 1.0)
             .animation(.spring(), value: is12HourFormat)
         }
-        .padding(.bottom, 4)
-        .frame(height: 275)
+        .padding(.bottom, 8)
+        // Keep enough vertical room so the larger dial never overlaps following UI.
+        .frame(height: size + 92)
         .onAppear {
             // Start the breathing glow animation
             withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
@@ -351,8 +375,7 @@ struct SunRayTimePickerView: View {
         }
         .sheet(isPresented: $showWheelPicker) {
             ZStack {
-                // Dark background matching the app theme
-                Color(red: 0.06, green: 0.07, blue: 0.10)
+                Colors.bgPrimary
                     .ignoresSafeArea()
                 
                 VStack(spacing: 0) {
@@ -366,7 +389,7 @@ struct SunRayTimePickerView: View {
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(Colors.textPrimary.opacity(0.85))
                                 .frame(width: 32, height: 32)
-                                .background(Color.white.opacity(0.12))
+                                .background(isLightMode ? Color.black.opacity(0.06) : Color.white.opacity(0.12))
                                 .clipShape(Circle())
                         }
                     }
@@ -379,7 +402,7 @@ struct SunRayTimePickerView: View {
                     ZStack {
                         // Frosted selection bar behind the selected row
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color.white.opacity(0.08))
+                            .fill(isLightMode ? Color.black.opacity(0.04) : Color.white.opacity(0.08))
                             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .frame(height: 44)
                         
@@ -435,7 +458,6 @@ struct SunRayTimePickerView: View {
                     Spacer()
                 }
             }
-            .colorScheme(.dark)
             .presentationDetents([.height(300)])
             .presentationDragIndicator(.visible)
         }
@@ -496,6 +518,12 @@ struct SunRayTimePickerView: View {
     
     private func triggerFeedback() {
         feedback.selectionChanged()
+        impactFeedback.impactOccurred(intensity: 0.7)
+        let now = CFAbsoluteTimeGetCurrent()
+        if now - lastTickSoundAt > 0.02 {
+            AudioServicesPlaySystemSound(1157) // Native iOS picker wheel tick sound
+            lastTickSoundAt = now
+        }
     }
     
     private func setAM() {

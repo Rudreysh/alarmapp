@@ -118,13 +118,24 @@ final class AccountabilityShieldEngine: ObservableObject {
         note: String,
         confidence: ViolationConfidence = .medium
     ) -> Bool {
+        // TEMPORARILY DISABLED (Penalty rollout paused):
+        // Violation -> penalty pipeline is intentionally OFF.
+        // Keep the full implementation below for future re-enable.
+        _ = alarm
+        _ = session
+        _ = type
+        _ = note
+        _ = confidence
+        return false
+
+        /*
         guard subscription.isPro else {
             print("[Shield] Skip: PRO required")
             return false
         }
         #if !targetEnvironment(simulator)
-        guard settings.hasValidPenaltyPaymentMethod else {
-            print("[Shield] Skip: payment method missing")
+        guard settings.hasPenaltyFundingSource else {
+            print("[Shield] Skip: penalty funding missing (no credits / payment source)")
             return false
         }
         guard settings.penaltyTermsAccepted else {
@@ -207,6 +218,7 @@ final class AccountabilityShieldEngine: ObservableObject {
         autoResolveIfExemptable(&violation)
         updateStoredViolation(violation)
         return true
+        */
     }
 
     func requestExemption(violationId: UUID, reasonCategory: String, reasonText: String?) {
@@ -332,6 +344,12 @@ final class AccountabilityShieldEngine: ObservableObject {
     // MARK: - Grace and charge execution
 
     func processPendingViolations(now: Date = Date()) {
+        // TEMPORARILY DISABLED (Penalty rollout paused):
+        // Pending violation charging is intentionally disabled.
+        _ = now
+        return
+
+        /*
         for violation in settings.violations {
             guard violation.status == .pendingGracePeriod else { continue }
             guard let expiry = violation.gracePeriodExpiresAt, now >= expiry else { continue }
@@ -347,6 +365,7 @@ final class AccountabilityShieldEngine: ObservableObject {
 
             executeCharge(for: violation)
         }
+        */
     }
 
     // MARK: - Private
@@ -385,7 +404,7 @@ final class AccountabilityShieldEngine: ObservableObject {
         updated.chargeAttempts += 1
         updated.lastChargeAttemptAt = Date()
 
-        let consumed = creditsManager.consumeCredits(
+        let chargeResult = creditsManager.chargePenalty(
             amountEuro: max(1, min(10, updated.chargedAmount)),
             eventType: mapToPenaltyEventType(updated.type),
             note: "Grace expired for violation \(updated.id)"
@@ -394,14 +413,14 @@ final class AccountabilityShieldEngine: ObservableObject {
         let transaction = PenaltyTransaction(
             violationId: updated.id,
             amountEuro: updated.chargedAmount,
-            success: consumed,
-            transactionReference: consumed ? "credits-\(UUID().uuidString.prefix(8))" : nil,
-            failureReason: consumed ? nil : "insufficient_credits_or_payment_unavailable"
+            success: chargeResult.success,
+            transactionReference: chargeResult.transactionReference,
+            failureReason: chargeResult.failureReason
         )
         settings.penaltyTransactions.append(transaction)
         updated.transactionId = transaction.id
 
-        if consumed {
+        if chargeResult.success {
             updated.status = .charged
             updateStoredViolation(updated)
             return

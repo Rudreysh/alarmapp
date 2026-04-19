@@ -39,7 +39,7 @@ struct StopwatchHistoryView: View {
                 }
                 .padding(.vertical, 20)
                 .frame(maxWidth: .infinity)
-                .background(Color.white.opacity(0.04))
+                .background(Colors.cardSurface)
                 .padding(.bottom, 8)
 
                 List {
@@ -123,7 +123,7 @@ struct SessionRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(session.label)
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                     Text(session.startedAt.formatted(date: .abbreviated, time: .shortened))
                         .font(.system(size: 12))
                         .foregroundColor(Colors.textTertiary)
@@ -159,10 +159,10 @@ struct SessionRow: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.04))
+                .fill(Colors.cardSurface)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.05), lineWidth: 1)
+                        .stroke(Colors.cardStroke, lineWidth: 1)
                 )
         )
         .contextMenu {

@@ -145,6 +145,7 @@ final class PlanItem {
     var isArchived: Bool
     var archivedAt: Date?
     var isPinned: Bool
+    var habitSortOrder: Int?
     
     // Scheduling
     var anytime: Bool
@@ -190,6 +191,7 @@ final class PlanItem {
         self.isArchived = false
         self.archivedAt = nil
         self.isPinned = false
+        self.habitSortOrder = nil
         self.anytime = anytime
         self.repeatRule = repeatRule
         self.reminderEnabled = false
@@ -316,6 +318,8 @@ enum PriorityLevel: String, CaseIterable, Codable {
 
 @Model
 final class CompletionLog {
+    static let skippedMarker = "__ALARMO_SKIPPED__"
+
     var id: UUID
     var date: Date
     var completed: Bool

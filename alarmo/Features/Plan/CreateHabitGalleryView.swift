@@ -223,11 +223,33 @@ struct CreateHabitGalleryView: View {
         // Map new fields
         newItem.habitIntent = template.habitIntent
         newItem.metricKind = template.metricKind
-        newItem.goalValue = template.goalValue
-        newItem.goalUnit = template.goalUnit
+        let preferredDistanceUnit = SettingsStore.shared.preferredHabitDistanceUnit
+        let (resolvedGoalValue, resolvedGoalUnit) = resolvedDistanceGoal(
+            value: template.goalValue,
+            unit: template.goalUnit,
+            preferredUnit: preferredDistanceUnit
+        )
+        newItem.goalValue = resolvedGoalValue
+        newItem.goalUnit = resolvedGoalUnit
         newItem.autoHealthTracking = inferredHealthTracking(for: template)
         
         selectedTemplateItem = newItem
+    }
+
+    private func resolvedDistanceGoal(value: Double, unit: String, preferredUnit: String) -> (Double, String) {
+        let lowerUnit = unit.lowercased()
+        let isKm = lowerUnit == "km" || lowerUnit.contains("kilometer") || lowerUnit.contains("kilometre")
+        let isMi = lowerUnit == "mi" || lowerUnit.contains("mile")
+
+        guard isKm || isMi else { return (value, unit) }
+
+        if isKm && preferredUnit == "mi" {
+            return ((value * 0.621371).rounded(toPlaces: 1), "mi")
+        }
+        if isMi && preferredUnit == "km" {
+            return ((value / 0.621371).rounded(toPlaces: 1), "km")
+        }
+        return (value, preferredUnit)
     }
     
     private func createCustomHabit() {
@@ -278,6 +300,13 @@ struct CreateHabitGalleryView: View {
         }
 
         return nil
+    }
+}
+
+private extension Double {
+    func rounded(toPlaces places: Int) -> Double {
+        let divisor = pow(10.0, Double(places))
+        return (self * divisor).rounded() / divisor
     }
 }
 

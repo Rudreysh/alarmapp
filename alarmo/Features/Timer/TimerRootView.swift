@@ -10,11 +10,16 @@ struct TimerRootView: View {
     @EnvironmentObject var taskStore: TaskStore
     @EnvironmentObject var pomodoroEngine: PomodoroEngine
     @EnvironmentObject var navStore: NavigationStore
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     let preferences: AppPreferences
     let onClose: () -> Void
     @State private var showQuickActions = false
     @State private var showCoachMark = false
+
+    private var isLightMode: Bool {
+        colorScheme == .light
+    }
     
     init(preferences: AppPreferences = AppPreferences(), onClose: @escaping () -> Void) {
         self.preferences = preferences
@@ -46,31 +51,49 @@ struct TimerRootView: View {
                     Spacer()
                     
                     // Segmented Control
-                    HStack(spacing: 0) {
+                    HStack(spacing: 6) {
                         ForEach(TimerMode.allCases) { mode in
+                            let isSelected = viewModel.selectedMode == mode
                             Text(mode.rawValue)
                                 .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(viewModel.selectedMode == mode ? Colors.textPrimary : Colors.textSecondary)
+                                .foregroundColor(isSelected ? Colors.textPrimary : Colors.textSecondary)
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 16)
                                 .background(
-                                    Group {
-                                        if viewModel.selectedMode == mode {
-                                            Capsule()
-                                                .fill(
-                                                    LinearGradient(
-                                                        colors: [
+                                    Capsule()
+                                        .fill(
+                                            isSelected
+                                                ? LinearGradient(
+                                                    colors: isLightMode
+                                                        ? [
+                                                            Color.white,
+                                                            Color(red: 0.90, green: 0.96, blue: 1.0)
+                                                        ]
+                                                        : [
                                                             Color(red: 0.18, green: 0.21, blue: 0.28).opacity(0.95),
                                                             Color(red: 0.12, green: 0.15, blue: 0.21).opacity(0.95)
                                                         ],
-                                                        startPoint: .topLeading,
-                                                        endPoint: .bottomTrailing
-                                                    )
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
                                                 )
-                                        } else {
-                                            Color.clear
-                                        }
-                                    }
+                                                : LinearGradient(
+                                                    colors: [
+                                                        isLightMode ? Color(red: 0.93, green: 0.94, blue: 0.97) : Color.white.opacity(0.06),
+                                                        isLightMode ? Color(red: 0.88, green: 0.90, blue: 0.94) : Color.white.opacity(0.03)
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                        )
+                                )
+                                .overlay(
+                                    Capsule()
+                                        .stroke(
+                                            isSelected
+                                                ? (isLightMode ? Color(red: 0.55, green: 0.76, blue: 0.96).opacity(0.7) : Color.white.opacity(0.20))
+                                                : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.10)),
+                                            lineWidth: 1
+                                        )
                                 )
                                 .clipShape(Capsule())
                                 .onTapGesture {
@@ -81,13 +104,14 @@ struct TimerRootView: View {
                                 }
                         }
                     }
+                    .padding(4)
                     .background(
                         Capsule()
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        Color(red: 0.12, green: 0.15, blue: 0.20).opacity(0.92),
-                                        Color(red: 0.09, green: 0.12, blue: 0.17).opacity(0.92)
+                                        isLightMode ? Color.white.opacity(0.98) : Color(red: 0.12, green: 0.15, blue: 0.20).opacity(0.92),
+                                        isLightMode ? Color(red: 0.94, green: 0.95, blue: 0.98).opacity(0.98) : Color(red: 0.09, green: 0.12, blue: 0.17).opacity(0.92)
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -96,7 +120,7 @@ struct TimerRootView: View {
                     )
                     .overlay(
                         Capsule()
-                            .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                            .stroke(isLightMode ? Colors.cardStroke.opacity(0.95) : Color.white.opacity(0.10), lineWidth: 1)
                     )
                     .clipShape(Capsule())
                     

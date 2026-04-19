@@ -100,7 +100,7 @@ struct MultiTimerView: View {
                         .font(.system(size: 18, weight: .semibold))
                         .padding()
                         .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.06)))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                 }
                 .padding(.horizontal)
                 

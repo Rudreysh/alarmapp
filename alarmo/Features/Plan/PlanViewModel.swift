@@ -7,6 +7,7 @@ class PlanViewModel: ObservableObject {
     static let habitGoalReachedNotification = Notification.Name("PlanHabitGoalReached")
 
     private let pointsService = PointsService.shared
+    private let settings = SettingsStore.shared
     @Published var selectedDate: Date = Date()
     @Published var isListView: Bool = false
     @Published var showingCreateSheet: Bool = false
@@ -122,40 +123,45 @@ class PlanViewModel: ObservableObject {
         try? context.save()
     }
 
-    func quickIncrement(_ item: PlanItem, context: ModelContext) -> Double {
-        let calendar = Calendar.current
-        let unit = item.goalUnit.lowercased()
-        let increment: Double = {
-            if unit == "ml" { return 250 }
-            if unit == "oz" { return 8 }
-            if unit == "steps" { return 1000 }
-            if unit == "m" || unit == "meters" { return 50 }
-            if unit == "km" || unit == "kilometers" { return 0.5 }
-            // Time-based habits (min, minutes, hr, hours)
-            if unit.contains("min") { return 5 }
-            if unit.contains("hr") || unit.contains("hour") { return 0.25 } // 15 minutes
-            return 1
-        }()
+    func skipHabitForSelectedDate(_ item: PlanItem, context: ModelContext) {
+        guard item.type == .habit else { return }
 
-        return incrementHabit(item, value: increment, context: context)
+        let calendar = Calendar.current
+        let targetDay = calendar.startOfDay(for: selectedDate)
+        let skipTimestamp = calendar.isDateInToday(selectedDate) ? Date() : targetDay
+
+        let existingLogs = item.completionLogs.filter { calendar.isDate($0.date, inSameDayAs: targetDay) }
+        existingLogs.forEach { context.delete($0) }
+
+        let skipLog = CompletionLog(date: skipTimestamp, completed: false)
+        skipLog.note = CompletionLog.skippedMarker
+        item.completionLogs.append(skipLog)
+
+        let event = ActivityEvent(
+            domain: .habit,
+            entityId: item.id,
+            timestampUTC: skipTimestamp,
+            status: .skipped,
+            metadata: ["source": "manual_habit_skip"]
+        )
+        context.insert(event)
+
+        if calendar.isDateInToday(selectedDate) {
+            pointsService.habitSkipped(habitId: item.id, habitName: item.title)
+        }
+
+        item.updatedAt = Date()
+        try? context.save()
+    }
+
+    func quickIncrement(_ item: PlanItem, context: ModelContext) -> Double {
+        return incrementHabit(item, value: defaultIncrement(for: item), context: context)
     }
 
     func incrementHabit(_ item: PlanItem, value: Double? = nil, context: ModelContext) -> Double {
         let calendar = Calendar.current
         let wasGoalMetBefore = item.isGoalMet()
-        let amount: Double = {
-            if let v = value, v > 0 { return v }
-            let unit = item.goalUnit.lowercased()
-            if unit == "ml" { return 250 }
-            if unit == "oz" { return 8 }
-            if unit == "steps" { return 1000 }
-            if unit == "m" || unit == "meters" { return 50 }
-            if unit == "km" || unit == "kilometers" { return 0.5 }
-            // Time-based habits (min, minutes, hr, hours)
-            if unit.contains("min") { return 5 }
-            if unit.contains("hr") || unit.contains("hour") { return 0.25 } // 15 minutes
-            return 1
-        }()
+        let amount = (value != nil && (value ?? 0) > 0) ? (value ?? 1) : defaultIncrement(for: item)
 
         if let existingLog = item.completionLogs.first(where: { calendar.isDateInToday($0.date) }) {
             if item.metricKind == .time {
@@ -201,6 +207,32 @@ class PlanViewModel: ObservableObject {
         item.updatedAt = Date()
         try? context.save()
         return amount
+    }
+
+    private func defaultIncrement(for item: PlanItem) -> Double {
+        let unit = item.goalUnit.lowercased()
+        if unit == "ml" { return 250 }
+        if unit == "oz" { return 8 }
+        if unit.contains("step") { return Double(settings.habitQuickAddStepsIncrement) }
+        if unit == "m" || unit == "meter" || unit == "meters" { return preferredDistanceIncrementInKilometers() * 1000.0 }
+        if unit == "km" || unit.contains("kilometer") || unit.contains("kilometre") {
+            return preferredDistanceIncrementInKilometers()
+        }
+        if unit == "mi" || unit.contains("mile") {
+            return preferredDistanceIncrementInKilometers() * 0.621371
+        }
+        // Time-based habits (min, minutes, hr, hours)
+        if unit.contains("min") { return 5 }
+        if unit.contains("hr") || unit.contains("hour") { return 0.25 } // 15 minutes
+        return 1
+    }
+
+    private func preferredDistanceIncrementInKilometers() -> Double {
+        let raw = max(0.1, settings.habitQuickAddDistanceIncrement)
+        if settings.habitDistanceUnitSystem == .miles {
+            return raw / 0.621371
+        }
+        return raw
     }
 
     func updateHabitValue(_ item: PlanItem, delta: Double, context: ModelContext) {

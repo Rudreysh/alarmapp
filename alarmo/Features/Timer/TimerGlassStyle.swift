@@ -1,11 +1,11 @@
 import SwiftUI
 
 enum TimerPalette {
-    static let accent = Color(red: 0.08, green: 0.78, blue: 0.92)
-    static let accentStrong = Color(red: 0.05, green: 0.66, blue: 0.84)
-    static let accentSoft = Color(red: 0.28, green: 0.88, blue: 0.98)
-    static let cardTop = Color(red: 0.13, green: 0.16, blue: 0.20).opacity(0.90)
-    static let cardBottom = Color(red: 0.08, green: 0.10, blue: 0.14).opacity(0.95)
+    static var accent: Color { Colors.accentTeal }
+    static var accentStrong: Color { Colors.accentBlue.opacity(0.82) }
+    static var accentSoft: Color { Colors.accentBlue.opacity(0.92) }
+    static var cardTop: Color { Colors.cardSurface.opacity(0.90) }
+    static var cardBottom: Color { Colors.bgSecondary.opacity(0.95) }
 }
 
 struct TimerGlassBackground: View {
@@ -14,11 +14,9 @@ struct TimerGlassBackground: View {
     var body: some View {
         LinearGradient(
             colors: [
-                Color.black,
-                Color(red: 0.02, green: 0.03, blue: 0.06),
-                Color(red: 0.03, green: 0.06, blue: 0.10),
-                Color(red: 0.02, green: 0.03, blue: 0.06),
-                Color.black
+                Colors.bgPrimary,
+                Colors.bgSecondary,
+                Colors.bgPrimary
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -85,9 +83,9 @@ extension View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                    .stroke(Colors.cardStroke, lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(0.22), radius: 10, x: 0, y: 5)
+            .shadow(color: Colors.shadow.opacity(0.45), radius: 10, x: 0, y: 5)
     }
 
     func timerNeonFill(cornerRadius: CGFloat = 18) -> some View {

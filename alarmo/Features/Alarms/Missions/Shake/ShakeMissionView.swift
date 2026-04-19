@@ -144,19 +144,24 @@ struct ShakeMissionView: View {
     // MARK: - Success
     
     private var successView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(.green)
-            
-            Text("Good job!")
-                .font(.system(size: 32, weight: .bold))
-                .foregroundColor(.white)
-            
-            Text("You're wide awake now!")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(Colors.textSecondary)
+        ZStack {
+            MissionEmojiConfettiBackground()
+
+            VStack(spacing: 20) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(.green)
+                
+                Text("Good job!")
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundColor(.white)
+                
+                Text("You're wide awake now!")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Colors.textSecondary)
+            }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .transition(.scale.combined(with: .opacity))
     }
     

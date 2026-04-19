@@ -154,7 +154,14 @@ private struct MissionPreviewSheet: View {
         case .qrBarcode: return "Scan a specific QR or Barcode to turn the alarm off."
         case .householdItemHunt: return "Save a household item, then take a matching photo when the alarm rings."
         case .squat: return "Do a set of squats to dismiss the alarm and energize your body."
+        case .objectHunt: return "Spin and find a common object, then capture a similar item to complete the mission."
+        case .pushups: return "Record your push-ups and complete a 15-second challenge to dismiss the alarm."
+        case .plank: return "Hold a steady plank posture for 15 seconds to finish the mission."
         case .breathing: return "Take deep breaths to center your mind and wake up peacefully."
+        case .bibleVerse: return "Read a Bible verse out loud to complete your wake-up mission."
+        case .quranVerse: return "Read a Quran verse out loud to complete your wake-up mission."
+        case .bhagavadGitaVerse: return "Read a Bhagavad Gita verse out loud to complete your wake-up mission."
+        case .affirmation: return "Speak a selected affirmation out loud to complete your wake-up mission."
         case .off: return "Turn off the alarm normally."
         }
     }
@@ -348,12 +355,59 @@ private struct MissionAnimationView: View {
                 .frame(width: 140, height: 60)
                 .background(Colors.cardSurface)
                 .cornerRadius(12)
+            case .objectHunt:
+                HStack {
+                    Image(systemName: "sparkle.magnifyingglass")
+                        .foregroundColor(Colors.accentTeal)
+                        .rotationEffect(.degrees(animate ? 10 : -10))
+                    Text("Found")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Colors.accentTeal)
+                }
+                .frame(width: 140, height: 60)
+                .background(Colors.cardSurface)
+                .cornerRadius(12)
+            case .pushups:
+                HStack {
+                    Image(systemName: "figure.strengthtraining.functional")
+                        .foregroundColor(Colors.accentTeal)
+                        .scaleEffect(animate ? 1.1 : 0.9)
+                    Text("5 reps")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Colors.accentTeal)
+                }
+                .frame(width: 140, height: 60)
+                .background(Colors.cardSurface)
+                .cornerRadius(12)
+            case .plank:
+                HStack {
+                    Image(systemName: "timer.circle")
+                        .foregroundColor(Colors.accentTeal)
+                    Text("15s")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Colors.accentTeal)
+                }
+                .frame(width: 140, height: 60)
+                .background(Colors.cardSurface)
+                .cornerRadius(12)
             case .breathing:
                 HStack {
                     Image(systemName: "wind")
                         .foregroundColor(Colors.accentTeal)
                         .scaleEffect(animate ? 1.2 : 0.8)
                     Text("3/3")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Colors.accentTeal)
+                }
+                .frame(width: 140, height: 60)
+                .background(Colors.cardSurface)
+                .cornerRadius(12)
+            case .bibleVerse, .quranVerse, .bhagavadGitaVerse, .affirmation:
+                VStack(spacing: 5) {
+                    Image(systemName: "waveform")
+                        .foregroundColor(Colors.accentTeal)
+                        .scaleEffect(animate ? 1.1 : 0.9)
+                    Text("Voice Match")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(Colors.accentTeal)
                 }
@@ -505,11 +559,56 @@ private struct MissionAnimationView: View {
                 .frame(width: 140, height: 60)
                 .background(Colors.cardSurface)
                 .cornerRadius(12)
+            case .objectHunt:
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkle.magnifyingglass")
+                        .foregroundColor(Colors.textSecondary)
+                    Text("No match")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Colors.accentRed)
+                }
+                .frame(width: 140, height: 60)
+                .background(Colors.cardSurface)
+                .cornerRadius(12)
+            case .pushups:
+                HStack {
+                    Image(systemName: "figure.strengthtraining.functional")
+                        .foregroundColor(Colors.textSecondary)
+                    Text("1/4")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Colors.accentRed)
+                }
+                .frame(width: 140, height: 60)
+                .background(Colors.cardSurface)
+                .cornerRadius(12)
+            case .plank:
+                HStack {
+                    Image(systemName: "timer.circle")
+                        .foregroundColor(Colors.textSecondary)
+                    Text("4s/15s")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Colors.accentRed)
+                }
+                .frame(width: 140, height: 60)
+                .background(Colors.cardSurface)
+                .cornerRadius(12)
             case .breathing:
                 HStack {
                     Image(systemName: "wind")
                         .foregroundColor(Colors.textSecondary)
                     Text("0/3")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Colors.accentRed)
+                }
+                .frame(width: 140, height: 60)
+                .background(Colors.cardSurface)
+                .cornerRadius(12)
+            case .bibleVerse, .quranVerse, .bhagavadGitaVerse, .affirmation:
+                VStack(spacing: 5) {
+                    Image(systemName: "waveform.slash")
+                        .foregroundColor(Colors.accentRed)
+                        .scaleEffect(animate ? 1.1 : 0.9)
+                    Text("No Match")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(Colors.accentRed)
                 }
