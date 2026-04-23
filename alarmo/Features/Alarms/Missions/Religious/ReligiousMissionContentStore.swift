@@ -37,7 +37,7 @@ enum ReligiousMissionContentStore {
     }
 
     static func defaultSelectionIDs(for type: WakeUpMissionType) -> Set<String> {
-        Set(items(for: type).prefix(6).map(\.id))
+        Set(items(for: type).map(\.id))
     }
 
     static func pickRandomItem(for mission: AlarmMission) -> SpokenVerseItem? {

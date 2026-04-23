@@ -16,80 +16,61 @@ class HealthKitManager: ObservableObject {
     // Request Authorization
     func requestAuthorization(for category: String? = nil) async -> Bool {
         guard isHealthDataAvailable else { return false }
-        
+        guard EntitlementInspector.hasHealthKitAccess else { return false }
+
         var readTypes: Set<HKObjectType> = []
-        var shareTypes: Set<HKSampleType> = []
-        
+
+        func addReadQuantity(_ identifier: HKQuantityTypeIdentifier) {
+            if let type = HKObjectType.quantityType(forIdentifier: identifier) {
+                readTypes.insert(type)
+            }
+        }
+
+        func addReadCategory(_ identifier: HKCategoryTypeIdentifier) {
+            if let type = HKCategoryType.categoryType(forIdentifier: identifier) {
+                readTypes.insert(type)
+            }
+        }
+
         if let category = category {
             switch category {
             case "activity":
-                let steps = HKObjectType.quantityType(forIdentifier: .stepCount)!
-                let walkDistance = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!
-                let cyclingDistance = HKObjectType.quantityType(forIdentifier: .distanceCycling)!
-                let standTime = HKObjectType.quantityType(forIdentifier: .appleStandTime)!
-                let calories = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
-                readTypes.formUnion([steps, walkDistance, cyclingDistance, standTime, calories])
-                shareTypes.formUnion([steps, walkDistance, cyclingDistance, standTime, calories])
+                // Keep onboarding request minimal/read-only to avoid unsupported write prompts.
+                addReadQuantity(.stepCount)
+                addReadQuantity(.distanceWalkingRunning)
             case "steps":
-                let stepCount = HKObjectType.quantityType(forIdentifier: .stepCount)!
-                let walkDistance = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!
-                let calories = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
-                readTypes.insert(stepCount); shareTypes.insert(stepCount)
-                readTypes.insert(walkDistance); shareTypes.insert(walkDistance)
-                readTypes.insert(calories); shareTypes.insert(calories)
+                addReadQuantity(.stepCount)
             case "distance":
-                 let t1 = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!
-                 let t2 = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
-                 readTypes.insert(t1); shareTypes.insert(t1)
-                 readTypes.insert(t2); shareTypes.insert(t2)
+                addReadQuantity(.distanceWalkingRunning)
             case "cycling":
-                 let t1 = HKObjectType.quantityType(forIdentifier: .distanceCycling)!
-                 let t2 = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
-                 readTypes.insert(t1); shareTypes.insert(t1)
-                 readTypes.insert(t2); shareTypes.insert(t2)
+                addReadQuantity(.distanceCycling)
             case "running":
-                // Running needs Steps, Distance, and Calories
-                let t1 = HKObjectType.quantityType(forIdentifier: .stepCount)!
-                let t2 = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!
-                let t3 = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
-                readTypes.insert(t1); shareTypes.insert(t1)
-                readTypes.insert(t2); shareTypes.insert(t2)
-                readTypes.insert(t3); shareTypes.insert(t3)
+                addReadQuantity(.stepCount)
+                addReadQuantity(.distanceWalkingRunning)
             case "sleep":
-                 let type = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis)!
-                 readTypes.insert(type)
-                 shareTypes.insert(type)
+                addReadCategory(.sleepAnalysis)
             case "standing":
-                 let type = HKObjectType.quantityType(forIdentifier: .appleStandTime)!
-                 readTypes.insert(type)
-                 shareTypes.insert(type)
+                addReadQuantity(.appleStandTime)
             case "mindfulness":
-                 let type = HKCategoryType.categoryType(forIdentifier: .mindfulSession)!
-                 readTypes.insert(type)
-                 shareTypes.insert(type)
+                addReadCategory(.mindfulSession)
             default:
                 break
             }
         } else {
-             // Fallback: Request All (as SampleTypes)
-             let allTypes: [HKSampleType] = [
-                HKObjectType.quantityType(forIdentifier: .stepCount)!,
-                HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!,
-                HKObjectType.quantityType(forIdentifier: .distanceCycling)!,
-                HKCategoryType.categoryType(forIdentifier: .sleepAnalysis)!,
-                HKObjectType.quantityType(forIdentifier: .appleStandTime)!,
-                HKCategoryType.categoryType(forIdentifier: .mindfulSession)!
-             ]
-             for t in allTypes {
-                 readTypes.insert(t)
-                 shareTypes.insert(t)
-             }
+            addReadQuantity(.stepCount)
+            addReadQuantity(.distanceWalkingRunning)
+            addReadQuantity(.distanceCycling)
+            addReadCategory(.sleepAnalysis)
+            addReadQuantity(.appleStandTime)
+            addReadCategory(.mindfulSession)
         }
-        
+
         guard !readTypes.isEmpty else { return true }
-        
+
         do {
-            try await healthStore.requestAuthorization(toShare: shareTypes, read: readTypes)
+            // Read-only authorization is enough for Alarmo onboarding and avoids
+            // write-capability mismatches that can destabilize certain health types.
+            try await healthStore.requestAuthorization(toShare: [], read: readTypes)
             return true
         } catch {
             print("HealthKit Authorization Failed: \(error.localizedDescription)")
@@ -159,8 +140,42 @@ class HealthKitManager: ObservableObject {
     // Fetch Sleep in Hours
     func fetchSleep(for date: Date) async -> Double {
         guard canQueryHealthData else { return 0 }
-        let sleepType = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis)!
-        return await fetchTime(for: sleepType, date: date)
+        return await withCheckedContinuation { continuation in
+            let sleepType = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis)!
+            let startOfDay = Calendar.current.startOfDay(for: date)
+            let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
+
+            // Keep overlapping intervals too, because sleep commonly starts before midnight.
+            let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: endOfDay, options: [])
+            let query = HKSampleQuery(
+                sampleType: sleepType,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)]
+            ) { _, samples, _ in
+                guard let categorySamples = samples as? [HKCategorySample], !categorySamples.isEmpty else {
+                    continuation.resume(returning: 0)
+                    return
+                }
+
+                let asleepSamples = categorySamples.filter { self.isAsleepSampleValue($0.value) }
+                let effectiveSamples = asleepSamples.isEmpty
+                    ? categorySamples.filter { $0.value == HKCategoryValueSleepAnalysis.inBed.rawValue }
+                    : asleepSamples
+
+                let intervals = effectiveSamples.compactMap { sample -> DateInterval? in
+                    let clippedStart = max(sample.startDate, startOfDay)
+                    let clippedEnd = min(sample.endDate, endOfDay)
+                    guard clippedEnd > clippedStart else { return nil }
+                    return DateInterval(start: clippedStart, end: clippedEnd)
+                }
+
+                let totalSeconds = self.mergedDuration(of: intervals)
+                continuation.resume(returning: totalSeconds)
+            }
+
+            healthStore.execute(query)
+        }
     }
     
     // Fetch Mindful Minutes
@@ -227,5 +242,31 @@ class HealthKitManager: ObservableObject {
 
     private var canQueryHealthData: Bool {
         isHealthDataAvailable
+    }
+
+    nonisolated private func isAsleepSampleValue(_ value: Int) -> Bool {
+        return value == HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue
+            || value == HKCategoryValueSleepAnalysis.asleepCore.rawValue
+            || value == HKCategoryValueSleepAnalysis.asleepDeep.rawValue
+            || value == HKCategoryValueSleepAnalysis.asleepREM.rawValue
+    }
+
+    nonisolated private func mergedDuration(of intervals: [DateInterval]) -> TimeInterval {
+        guard !intervals.isEmpty else { return 0 }
+        let sorted = intervals.sorted { $0.start < $1.start }
+
+        var total: TimeInterval = 0
+        var current = sorted[0]
+
+        for interval in sorted.dropFirst() {
+            if interval.start <= current.end {
+                current = DateInterval(start: current.start, end: max(current.end, interval.end))
+            } else {
+                total += current.duration
+                current = interval
+            }
+        }
+        total += current.duration
+        return total
     }
 }

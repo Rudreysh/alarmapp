@@ -43,15 +43,15 @@ struct MissionPreviewAlarmView: View {
                         .background(
                             LinearGradient(
                                 colors: [
-                                    Color(red: 0.08, green: 0.78, blue: 0.92),
-                                    Color(red: 0.05, green: 0.66, blue: 0.84)
+                                    Colors.accentTeal,
+                                    Colors.accentBlue
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
                         .cornerRadius(32)
-                        .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3), radius: 15, x: 0, y: 10)
+                        .shadow(color: Colors.shadow.opacity(0.25), radius: 12, x: 0, y: 8)
                     }
 
                     Button(action: { dismiss() }) {
@@ -71,8 +71,11 @@ struct MissionPreviewAlarmView: View {
     }
 
     private var wallpaperBackground: some View {
-        // Simple gradient for preview if no image
-        LinearGradient(colors: [Color(white: 0.1), Color(white: 0.3)], startPoint: .top, endPoint: .bottom)
+        LinearGradient(
+            colors: [Colors.bgSecondary, Colors.bgPrimary],
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
 
     private var currentTimeText: String {

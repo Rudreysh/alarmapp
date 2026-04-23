@@ -172,6 +172,7 @@ struct LapStopwatchView: View {
                 .disabled(engine.state == .idle)
                 .opacity(engine.state == .idle ? 0.35 : 1)
             }
+            .offset(y: -10)
             .padding(.bottom, 12)
 
             // MARK: Target Alert Pill
@@ -188,12 +189,13 @@ struct LapStopwatchView: View {
                 .foregroundColor(engine.targetTime != nil || engine.alertInterval != nil
                                  ? TimerPalette.accent : Colors.textSecondary)
                 .padding(.horizontal, 14)
-                .padding(.vertical, 6)
+                .padding(.vertical, 10)
                 .background(
                     Capsule()
                         .fill(isLightMode ? Color.white.opacity(0.95) : Color(red: 0.10, green: 0.12, blue: 0.16))
                 )
             }
+            .contentShape(Capsule())
             .padding(.bottom, 8)
 
             // MARK: Lap List

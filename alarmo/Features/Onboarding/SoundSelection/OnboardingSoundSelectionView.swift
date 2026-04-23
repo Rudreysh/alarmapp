@@ -128,7 +128,7 @@ struct OnboardingSoundSelectionView: View {
 
             VStack(spacing: 0) {
                 // ─── Progress header ──────────────────────────────────────
-                ProgressHeader(step: 8, total: AppConstants.onboardingTotalSteps)
+                ProgressHeader(step: 9, total: AppConstants.onboardingTotalSteps)
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.l)
                     .padding(.bottom, Spacing.s)
@@ -137,6 +137,7 @@ struct OnboardingSoundSelectionView: View {
                     .screenTitle()
                     .foregroundColor(Colors.textPrimary)
                     .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
                     .padding(.bottom, Spacing.s)
                     .accessibilityAddTraits(.isHeader)
 
@@ -171,6 +172,7 @@ struct OnboardingSoundSelectionView: View {
                     .padding(.bottom, 100)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
             // ─── Next button ───────────────────────────────────────────
             VStack {

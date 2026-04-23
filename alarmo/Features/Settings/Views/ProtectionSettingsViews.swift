@@ -10,21 +10,11 @@ struct PreventAppUninstallView: View {
             SettingsGlassBackground()
 
             VStack(alignment: .leading, spacing: 20) {
-                topBar(title: "Prevent app uninstall")
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("You can't uninstall Alarmo while your alarm is ringing or while mission is in progress.")
-                        .font(.system(size: 34, weight: .black))
-                        .foregroundColor(Colors.textPrimary)
-
-                    Text("Enable this to apply tamper protection and penalty detection during active alarms.")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(Colors.textSecondary)
-                }
+                topBar(title: "Prevent uninstall")
 
                 ProtectionToggleCard(
-                    title: "Prevent app uninstall",
-                    subtitle: "Blocks uninstall bypass while alarm/mission is active.",
+                    title: "Prevent uninstall",
+                    subtitle: "You can't uninstall Alarmo while alarm/mission is active.",
                     isOn: Binding(
                         get: { settings.triggerUninstallTamperEnabled },
                         set: { isOn in

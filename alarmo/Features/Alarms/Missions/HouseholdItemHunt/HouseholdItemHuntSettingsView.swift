@@ -1,28 +1,41 @@
 import SwiftUI
-import PhotosUI
+import AVFoundation
 
 struct HouseholdItemHuntSettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
-    @State private var selectedPhotoItem: PhotosPickerItem?
-    @State private var referenceImage: UIImage?
-    @State private var referenceFilename: String?
-
-    @State private var showCameraPicker = false
-    @State private var showPhotoLibraryPicker = false
-    @State private var showAlarmPreview = false
-    @State private var showMissionPreview = false
-
-    @State private var showMissingReferenceAlert = false
-    @State private var showSaveErrorAlert = false
-    @State private var saveErrorMessage = ""
-
-    let initialFilename: String?
+    let initialMission: AlarmMission
     let onSave: (HouseholdItemHuntMissionConfig) -> Void
 
-    init(initialFilename: String? = nil, onSave: @escaping (HouseholdItemHuntMissionConfig) -> Void) {
-        self.initialFilename = initialFilename
+    @State private var selectedItemIDs: Set<String>
+    @State private var customItems: [HouseholdItemHuntCatalogItem]
+
+    @State private var showSelectedOnly = false
+    @State private var showAlarmPreview = false
+    @State private var showMissionPreview = false
+    @State private var previewMission: AlarmMission?
+
+    @State private var showAddCustomSheet = false
+    @State private var draftCustomName = ""
+    @State private var pendingCustomName = ""
+    @State private var showCustomCameraPicker = false
+    @State private var showCustomPhotoLibraryPicker = false
+
+    @State private var activeAlert: ActiveAlert?
+
+    init(initialMission: AlarmMission, onSave: @escaping (HouseholdItemHuntMissionConfig) -> Void) {
+        self.initialMission = initialMission
         self.onSave = onSave
+        _selectedItemIDs = State(initialValue: HouseholdItemHuntCatalogStore.selectedIDsForEditing(from: initialMission))
+        _customItems = State(initialValue: HouseholdItemHuntCatalogStore.customItems(from: initialMission))
+    }
+
+    private var allItems: [HouseholdItemHuntCatalogItem] {
+        HouseholdItemHuntCatalogStore.builtInItems + customItems
+    }
+
+    private var visibleItems: [HouseholdItemHuntCatalogItem] {
+        showSelectedOnly ? allItems.filter { selectedItemIDs.contains($0.id) } : allItems
     }
 
     var body: some View {
@@ -33,80 +46,87 @@ struct HouseholdItemHuntSettingsView: View {
                 headerView
 
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 24) {
-                        instructionCard
-                        referencePreviewCard
-                        pickerButtons
+                    VStack(alignment: .leading, spacing: 16) {
+                        titleBlock
+                        filterRow
+                        selectionSummary
+                        customActionsRow
+                        itemGrid
                         Spacer(minLength: 120)
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, 22)
+                    .padding(.top, 18)
                 }
             }
 
             footerButtons
         }
         .navigationBarHidden(true)
-        .onAppear {
-            if let initialFilename, !initialFilename.isEmpty {
-                referenceFilename = initialFilename
-                referenceImage = HouseholdItemHuntImageStore.loadReferenceImage(filename: initialFilename)
-            }
-        }
-        .onChange(of: selectedPhotoItem) { _, newValue in
-            guard let item = newValue else { return }
-            Task {
-                if let data = try? await item.loadTransferable(type: Data.self),
-                   let image = UIImage(data: data) {
-                    await MainActor.run {
-                        persistReferenceImage(image)
-                    }
-                }
-                await MainActor.run {
-                    selectedPhotoItem = nil
-                }
-            }
-        }
-        .fullScreenCover(isPresented: $showCameraPicker) {
-            ImagePicker(sourceType: .camera) { image in
-                guard let image else { return }
-                persistReferenceImage(image)
-            }
-            .ignoresSafeArea()
-        }
-        .fullScreenCover(isPresented: $showPhotoLibraryPicker) {
-            ImagePicker(sourceType: .photoLibrary) { image in
-                guard let image else { return }
-                persistReferenceImage(image)
-            }
-            .ignoresSafeArea()
+        .sheet(isPresented: $showAddCustomSheet) {
+            addCustomItemSheet
         }
         .fullScreenCover(isPresented: $showAlarmPreview) {
             MissionPreviewAlarmView(
-                missionTitle: "Household Item Hunt",
-                missionIcon: "camera.macro"
+                missionTitle: initialMission.title,
+                missionIcon: initialMission.iconName
             ) {
-                showAlarmPreview = false
-                showMissionPreview = true
+                launchMissionPreviewAfterAlarmPreview()
             }
         }
         .fullScreenCover(isPresented: $showMissionPreview) {
-            HouseholdItemHuntMissionView(
-                referenceImageFilename: referenceFilename ?? "",
-                onSuccess: {
-                    showMissionPreview = false
-                }
-            )
+            if let previewMission {
+                HouseholdItemHuntMissionView(
+                    mission: previewMission,
+                    onSuccess: {
+                        showMissionPreview = false
+                    }
+                )
+            } else {
+                Colors.bgPrimary
+                    .ignoresSafeArea()
+                    .onAppear {
+                        showMissionPreview = false
+                    }
+            }
         }
-        .alert("Reference image needed", isPresented: $showMissingReferenceAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Please save a household item photo first.")
+        .fullScreenCover(isPresented: $showCustomCameraPicker) {
+            ImagePicker(sourceType: .camera) { image in
+                addCustomObject(from: image)
+            }
+            .ignoresSafeArea()
         }
-        .alert("Could not save image", isPresented: $showSaveErrorAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(saveErrorMessage)
+        .fullScreenCover(isPresented: $showCustomPhotoLibraryPicker) {
+            ImagePicker(sourceType: .photoLibrary) { image in
+                addCustomObject(from: image)
+            }
+            .ignoresSafeArea()
+        }
+        .alert(item: $activeAlert) { alert in
+            switch alert {
+            case .selectionMissing:
+                return Alert(
+                    title: Text("Select at least one item"),
+                    message: Text("Pick one or more household items before previewing or saving this mission."),
+                    dismissButton: .default(Text("OK"))
+                )
+            case .customError(let message):
+                return Alert(
+                    title: Text("Could not add custom object"),
+                    message: Text(message),
+                    dismissButton: .default(Text("OK"))
+                )
+            case .cameraPermissionNeeded:
+                return Alert(
+                    title: Text("Camera permission needed"),
+                    message: Text("Allow camera access to add a custom object photo."),
+                    primaryButton: .default(Text("Open Settings")) {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    },
+                    secondaryButton: .cancel()
+                )
+            }
         }
     }
 
@@ -115,21 +135,33 @@ struct HouseholdItemHuntSettingsView: View {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
+                    .frame(width: 40, height: 40)
+                    .background(Colors.cardSurface)
+                    .overlay(
+                        Circle().stroke(Colors.cardStroke, lineWidth: 1)
+                    )
+                    .clipShape(Circle())
             }
 
             Spacer()
 
             Text("Household Item Hunt")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.white)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(Colors.textPrimary)
 
             Spacer()
 
             Button(action: { dismiss() }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
+                    .frame(width: 40, height: 40)
+                    .background(Colors.cardSurface)
+                    .overlay(
+                        Circle().stroke(Colors.cardStroke, lineWidth: 1)
+                    )
+                    .clipShape(Circle())
             }
         }
         .padding(.horizontal, 24)
@@ -138,93 +170,250 @@ struct HouseholdItemHuntSettingsView: View {
         .background(Colors.bgPrimary)
     }
 
-    private var instructionCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("How it works")
-                .font(.system(size: 17, weight: .bold))
-                .foregroundColor(.white)
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Select Household Items")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(Colors.textPrimary)
 
-            Text("1. Save a photo of any household item.\n2. When alarm rings, take a matching photo.\n3. Mission completes only if the image matches.")
-                .font(.system(size: 14, weight: .medium))
+            Text("If one item is selected, that exact item is used. If multiple are selected, one is chosen randomly each mission.")
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(Colors.textSecondary)
-                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(Colors.cardSurface)
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Colors.cardStroke, lineWidth: 1)
-        )
     }
 
-    private var referencePreviewCard: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 24)
-                .fill(Colors.cardSurface)
-                .aspectRatio(1.25, contentMode: .fit)
-
-            if let referenceImage {
-                Image(uiImage: referenceImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(maxWidth: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
-                    .padding(8)
-            } else {
-                VStack(spacing: 12) {
-                    Image(systemName: "camera.macro")
-                        .font(.system(size: 44))
-                        .foregroundColor(Colors.textSecondary)
-                    Text("No reference photo yet")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Colors.textSecondary)
-                }
+    private var filterRow: some View {
+        HStack(spacing: 10) {
+            filterPill("All Items", active: !showSelectedOnly) {
+                showSelectedOnly = false
+            }
+            filterPill("Selected", active: showSelectedOnly) {
+                showSelectedOnly = true
             }
         }
-        .overlay(
-            RoundedRectangle(cornerRadius: 24)
-                .stroke(Colors.cardStroke, lineWidth: 1)
-        )
     }
 
-    private var pickerButtons: some View {
-        VStack(spacing: 12) {
-            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                HStack {
-                    Image(systemName: "photo.on.rectangle")
-                    Text("Choose from Photos")
-                }
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(Color.white.opacity(0.12))
-                .cornerRadius(14)
-            }
-
-            Button {
-                if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                    showCameraPicker = true
-                } else {
-                    showPhotoLibraryPicker = true
-                }
-            } label: {
-                HStack {
-                    Image(systemName: "camera.fill")
-                    Text(UIImagePickerController.isSourceTypeAvailable(.camera) ? "Take reference photo" : "Choose image (camera unavailable)")
-                }
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(Colors.cardSurface)
+    private func filterPill(_ title: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(active ? .white : Colors.textSecondary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(active ? Colors.accentTeal : Colors.cardSurface)
                 .cornerRadius(14)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .stroke(Colors.cardStroke, lineWidth: 1)
+                        .stroke(active ? Colors.accentTeal : Colors.cardStroke, lineWidth: 1)
                 )
+        }
+    }
+
+    private var selectionSummary: some View {
+        HStack {
+            Text("\(selectedItemIDs.count) selected")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(Colors.textPrimary)
+
+            Spacer()
+
+            Button("Select All") {
+                selectedItemIDs = Set(allItems.map(\.id))
+            }
+            .font(.system(size: 15, weight: .bold))
+            .foregroundColor(Colors.accentTeal)
+
+            Text("•")
+                .foregroundColor(Colors.textSecondary)
+
+            Button("Clear") {
+                selectedItemIDs.removeAll()
+            }
+            .font(.system(size: 15, weight: .bold))
+            .foregroundColor(Colors.accentRed)
+        }
+    }
+
+    private var customActionsRow: some View {
+        HStack {
+            Button(action: {
+                draftCustomName = ""
+                showAddCustomSheet = true
+            }) {
+                Label("Add Custom Object", systemImage: "plus.circle.fill")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Colors.textPrimary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Colors.cardSurface)
+                    .cornerRadius(14)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Colors.cardStroke, lineWidth: 1)
+                    )
+            }
+
+            Spacer()
+
+            if !customItems.isEmpty {
+                Text("\(customItems.count) custom")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Colors.textSecondary)
+            }
+        }
+    }
+
+    private var itemGrid: some View {
+        Group {
+            if visibleItems.isEmpty {
+                VStack(spacing: 10) {
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 26))
+                        .foregroundColor(Colors.textSecondary)
+                    Text("No selected items yet")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Colors.textSecondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+            } else {
+                let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
+                LazyVGrid(columns: columns, spacing: 14) {
+                    ForEach(visibleItems) { item in
+                        itemCard(item)
+                    }
+                }
+            }
+        }
+    }
+
+    private func itemCard(_ item: HouseholdItemHuntCatalogItem) -> some View {
+        let isSelected = selectedItemIDs.contains(item.id)
+        return Button {
+            if isSelected {
+                selectedItemIDs.remove(item.id)
+            } else {
+                selectedItemIDs.insert(item.id)
+            }
+        } label: {
+            VStack(spacing: 12) {
+                ZStack {
+                    ZStack {
+                        Circle()
+                            .fill(isSelected ? Colors.accentTeal.opacity(0.22) : Colors.bgSecondary)
+                            .frame(width: 56, height: 56)
+                        Text(item.emoji)
+                            .font(.system(size: 30))
+                    }
+                }
+
+                Text(item.name)
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundColor(Colors.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.82)
+                    .frame(maxWidth: .infinity, alignment: .center)
+
+                Text("Custom")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Colors.textSecondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Colors.bgSecondary)
+                    .cornerRadius(8)
+                    .opacity(item.isCustom ? 1 : 0)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 148, maxHeight: 148, alignment: .center)
+            .background(
+                LinearGradient(
+                    colors: isSelected
+                        ? [Colors.accentTeal.opacity(0.18), Colors.cardSurface]
+                        : [Colors.cardSurface, Colors.cardSurface],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(isSelected ? Colors.accentTeal : Colors.cardStroke, lineWidth: isSelected ? 2 : 1)
+            )
+            .cornerRadius(18)
+            .overlay(alignment: .topTrailing) {
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(Colors.accentTeal)
+                        .padding(10)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var addCustomItemSheet: some View {
+        NavigationStack {
+            ZStack {
+                Colors.bgPrimary.ignoresSafeArea()
+
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Add Custom Object")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(Colors.textPrimary)
+
+                    Text("Name your object, then add a reference image to train this mission.")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Colors.textSecondary)
+
+                    TextField("Object name (e.g. Car Keys)", text: $draftCustomName)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Colors.textPrimary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(Colors.cardSurface)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Colors.cardStroke, lineWidth: 1)
+                        )
+
+                    Button(action: { startCustomAddFlow(useCamera: true) }) {
+                        Label("Take Reference Photo", systemImage: "camera.fill")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Colors.accentTeal)
+                            .cornerRadius(14)
+                    }
+
+                    Button(action: { startCustomAddFlow(useCamera: false) }) {
+                        Label("Choose from Library", systemImage: "photo.on.rectangle")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(Colors.textPrimary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Colors.cardSurface)
+                            .cornerRadius(14)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .stroke(Colors.cardStroke, lineWidth: 1)
+                            )
+                    }
+
+                    Spacer()
+                }
+                .padding(20)
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Close") {
+                        showAddCustomSheet = false
+                    }
+                    .foregroundColor(Colors.textPrimary)
+                }
             }
         }
     }
@@ -234,30 +423,21 @@ struct HouseholdItemHuntSettingsView: View {
             Spacer()
 
             HStack(spacing: 16) {
-                Button {
-                    guard referenceFilename != nil else {
-                        showMissingReferenceAlert = true
-                        return
-                    }
-                    showAlarmPreview = true
-                } label: {
+                Button(action: startPreview) {
                     Text("Preview")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
-                        .background(Color.white.opacity(0.12))
+                        .background(Colors.cardSurface)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 32)
+                                .stroke(Colors.cardStroke, lineWidth: 1)
+                        )
                         .cornerRadius(32)
                 }
 
-                Button {
-                    guard let referenceFilename else {
-                        showMissingReferenceAlert = true
-                        return
-                    }
-                    onSave(HouseholdItemHuntMissionConfig(referenceImageFilename: referenceFilename))
-                    dismiss()
-                } label: {
+                Button(action: saveMission) {
                     Text("Done")
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.white)
@@ -266,30 +446,165 @@ struct HouseholdItemHuntSettingsView: View {
                         .background(
                             LinearGradient(
                                 colors: [
-                                    Color(red: 0.08, green: 0.78, blue: 0.92),
-                                    Color(red: 0.05, green: 0.66, blue: 0.84)
+                                    Colors.accentTeal,
+                                    Colors.accentBlue
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
                         .cornerRadius(32)
-                        .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3), radius: 15, x: 0, y: 10)
+                        .shadow(color: Colors.shadow.opacity(0.25), radius: 12, x: 0, y: 8)
                 }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
+            .background(
+                LinearGradient(
+                    colors: [Colors.bgPrimary.opacity(0), Colors.bgPrimary],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 120)
+                .offset(y: -40)
+                .allowsHitTesting(false)
+            )
         }
     }
 
-    private func persistReferenceImage(_ image: UIImage) {
+    private func startPreview() {
+        guard !selectedItemIDs.isEmpty else {
+            activeAlert = .selectionMissing
+            return
+        }
+        previewMission = buildMissionForCurrentSelection()
+        showAlarmPreview = true
+    }
+
+    private func launchMissionPreviewAfterAlarmPreview() {
+        guard previewMission != nil else { return }
+        showAlarmPreview = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            if previewMission != nil {
+                showMissionPreview = true
+            }
+        }
+    }
+
+    private func saveMission() {
+        guard !selectedItemIDs.isEmpty else {
+            activeAlert = .selectionMissing
+            return
+        }
+        let config = HouseholdItemHuntMissionConfig(
+            selectedItemIDs: Array(selectedItemIDs).sorted(),
+            referenceImageFilename: initialMission.customData[HouseholdItemHuntCatalogStore.referenceImageFilenameKey],
+            customItemsJSON: HouseholdItemHuntCatalogStore.serializedCustomItems(customItems)
+        )
+        onSave(config)
+        dismiss()
+    }
+
+    private func buildMissionForCurrentSelection() -> AlarmMission {
+        var updatedMission = AlarmMission(
+            type: initialMission.type,
+            difficulty: initialMission.difficulty,
+            rounds: initialMission.rounds,
+            config: initialMission.config,
+            customData: initialMission.customData
+        )
+        updatedMission.customData[HouseholdItemHuntCatalogStore.selectedItemIDsKey] = HouseholdItemHuntCatalogStore.serializedIDs(selectedItemIDs)
+
+        if let serialized = HouseholdItemHuntCatalogStore.serializedCustomItems(customItems), !serialized.isEmpty {
+            updatedMission.customData[HouseholdItemHuntCatalogStore.customItemsKey] = serialized
+        } else {
+            updatedMission.customData.removeValue(forKey: HouseholdItemHuntCatalogStore.customItemsKey)
+        }
+        return updatedMission
+    }
+
+    private func startCustomAddFlow(useCamera: Bool) {
+        let trimmedName = draftCustomName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            activeAlert = .customError("Enter an object name before adding a photo.")
+            return
+        }
+
+        pendingCustomName = trimmedName
+        showAddCustomSheet = false
+
+        if useCamera {
+            guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    showCustomPhotoLibraryPicker = true
+                }
+                return
+            }
+
+            switch AVCaptureDevice.authorizationStatus(for: .video) {
+            case .authorized:
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    showCustomCameraPicker = true
+                }
+            case .notDetermined:
+                AVCaptureDevice.requestAccess(for: .video) { granted in
+                    DispatchQueue.main.async {
+                        if granted {
+                            showCustomCameraPicker = true
+                        } else {
+                            activeAlert = .cameraPermissionNeeded
+                        }
+                    }
+                }
+            case .denied, .restricted:
+                activeAlert = .cameraPermissionNeeded
+            @unknown default:
+                activeAlert = .cameraPermissionNeeded
+            }
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                showCustomPhotoLibraryPicker = true
+            }
+        }
+    }
+
+    private func addCustomObject(from image: UIImage?) {
+        guard let image else { return }
+        guard !pendingCustomName.isEmpty else {
+            activeAlert = .customError("Object name is missing. Please try adding it again.")
+            return
+        }
+
         do {
-            let filename = try HouseholdItemHuntImageStore.saveReferenceImage(image, replacing: referenceFilename)
-            referenceFilename = filename
-            referenceImage = HouseholdItemHuntImageStore.loadReferenceImage(filename: filename) ?? image
+            let filename = try HouseholdItemHuntImageStore.saveReferenceImage(image)
+            let newItem = HouseholdItemHuntCatalogStore.makeCustomItem(
+                name: pendingCustomName,
+                referenceImageFilename: filename,
+                existingCustomItems: customItems
+            )
+            customItems.append(newItem)
+            selectedItemIDs.insert(newItem.id)
+            pendingCustomName = ""
+            draftCustomName = ""
         } catch {
-            saveErrorMessage = error.localizedDescription
-            showSaveErrorAlert = true
+            activeAlert = .customError(error.localizedDescription)
+        }
+    }
+}
+
+private enum ActiveAlert: Identifiable {
+    case selectionMissing
+    case customError(String)
+    case cameraPermissionNeeded
+
+    var id: String {
+        switch self {
+        case .selectionMissing:
+            return "selectionMissing"
+        case .customError(let message):
+            return "customError:\(message)"
+        case .cameraPermissionNeeded:
+            return "cameraPermissionNeeded"
         }
     }
 }

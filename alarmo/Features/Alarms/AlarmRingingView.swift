@@ -72,60 +72,21 @@ struct AlarmRingingView: View {
 
                 HStack(spacing: Spacing.m) {
                     if ringCoordinator.isPreviewMode {
-                        Button(action: { ringCoordinator.stopRinging() }) {
-                            Text("Dismiss and start \(ringCoordinator.activeAlarm?.name ?? "alarm")")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, Spacing.m)
-                                .background(
-                                    LinearGradient(
-                                        colors: [
-                                            Color(red: 0.08, green: 0.78, blue: 0.92),
-                                            Color(red: 0.05, green: 0.66, blue: 0.84)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .cornerRadius(Radii.button)
-                                .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3), radius: 15, x: 0, y: 10)
+                        PrimaryButton(
+                            title: "Dismiss and start \(ringCoordinator.activeAlarm?.name ?? "alarm")",
+                            style: .blueGlass
+                        ) {
+                            ringCoordinator.stopRinging()
                         }
                     } else {
-                        Button(action: { ringCoordinator.snooze() }) {
-                            Text("Snooze")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(Colors.textPrimary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, Spacing.m)
-                                .background(Color.yellow.opacity(0.9))
-                                .cornerRadius(Radii.button)
-                        }
+                        snoozeActionButton
 
-                        Button(action: {
+                        PrimaryButton(title: "Stop", style: .blueGlass) {
                             if let mission = ringCoordinator.activeAlarm?.missions.first(where: { $0.type != .off }) {
                                 currentMission = mission
                             } else {
                                 ringCoordinator.dismissTapped()
                             }
-                        }) {
-                            Text("Stop")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(Colors.textPrimary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, Spacing.m)
-                                .background(
-                                    LinearGradient(
-                                        colors: [
-                                            Color(red: 0.08, green: 0.78, blue: 0.92),
-                                            Color(red: 0.05, green: 0.66, blue: 0.84)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .cornerRadius(Radii.button)
-                                .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3), radius: 15, x: 0, y: 10)
                         }
                     }
                 }
@@ -275,47 +236,20 @@ struct AlarmRingingView: View {
                         )
                     )
                 case .householdItemHunt:
-                    if let filename = mission.customData["referenceImageFilename"], !filename.isEmpty {
-                        HouseholdItemHuntMissionView(
-                            referenceImageFilename: filename,
-                            onSuccess: {
-                                ringCoordinator.completeMission(success: true)
-                                currentMission = nil
-                            }
-                        )
-                    } else {
-                        VStack(spacing: 16) {
-                            Text("Household Item Hunt")
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundColor(.white)
-                            Text("Mission is not configured. Edit this alarm and set a reference image.")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(Colors.textSecondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 28)
-                            Button("Complete (Debug)") {
-                                ringCoordinator.completeMission(success: true)
-                                currentMission = nil
-                            }
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 28)
-                            .padding(.vertical, 14)
-                            .background(Colors.accentTeal)
-                            .cornerRadius(14)
+                    HouseholdItemHuntMissionView(
+                        mission: mission,
+                        onSuccess: {
+                            ringCoordinator.completeMission(success: true)
+                            currentMission = nil
                         }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Colors.bgPrimary.ignoresSafeArea())
-                    }
+                    )
                 case .squat:
-                    SquatMissionView(
-                        viewModel: SquatMissionViewModel(
-                            targetSquats: mission.config["squatCount"] ?? 15,
-                            onComplete: {
-                                ringCoordinator.completeMission(success: true)
-                                currentMission = nil
-                            }
-                        )
+                    ExerciseCameraMissionView(
+                        mission: mission,
+                        onComplete: {
+                            ringCoordinator.completeMission(success: true)
+                            currentMission = nil
+                        }
                     )
                 case .objectHunt:
                     ObjectHuntMissionView(
@@ -326,6 +260,7 @@ struct AlarmRingingView: View {
                     )
                 case .pushups:
                     PushupsMissionView(
+                        mission: mission,
                         onComplete: {
                             ringCoordinator.completeMission(success: true)
                             currentMission = nil
@@ -339,39 +274,13 @@ struct AlarmRingingView: View {
                         }
                     )
                 case .bibleVerse, .quranVerse, .bhagavadGitaVerse, .affirmation:
-                    if let item = ReligiousMissionContentStore.pickRandomItem(for: mission) {
-                        SpokenVerseMissionView(
-                            mission: mission,
-                            verse: item,
-                            onComplete: {
-                                ringCoordinator.completeMission(success: true)
-                                currentMission = nil
-                            }
-                        )
-                    } else {
-                        VStack(spacing: 16) {
-                            Text(mission.title)
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundColor(.white)
-                            Text("Mission is not configured. Edit this alarm and select at least one item.")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(Colors.textSecondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 28)
-                            Button("Complete (Debug)") {
-                                ringCoordinator.completeMission(success: true)
-                                currentMission = nil
-                            }
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 28)
-                            .padding(.vertical, 14)
-                            .background(Colors.accentTeal)
-                            .cornerRadius(14)
+                    ReligiousMissionLaunchView(
+                        mission: mission,
+                        onComplete: {
+                            ringCoordinator.completeMission(success: true)
+                            currentMission = nil
                         }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Colors.bgPrimary.ignoresSafeArea())
-                    }
+                    )
                 default:
                     // Generic fallback for ticTacToe, memoryMatch, typing, etc.
                     VStack {
@@ -438,6 +347,34 @@ struct AlarmRingingView: View {
         return alarm.visualOutputSettings.alarmScreen.enabled &&
             (alarm.visualOutputSettings.alarmScreen.mode == .quotes ||
              alarm.visualOutputSettings.alarmScreen.mode == .both)
+    }
+
+    private var snoozeActionButton: some View {
+        Button(action: { ringCoordinator.snooze() }) {
+            Text("Snooze")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(Color.black.opacity(0.82))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, Spacing.m)
+                .background(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 1.00, green: 0.88, blue: 0.33),
+                            Color(red: 0.98, green: 0.78, blue: 0.18)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(Color.white.opacity(0.28), lineWidth: 1)
+                )
+                .shadow(color: Color.yellow.opacity(0.28), radius: 12, x: 0, y: 7)
+        }
+        .buttonStyle(PressedScaleButtonStyle())
+        .accessibilityLabel(Text("Snooze"))
     }
 
     private func wallpaperImage() -> UIImage? {

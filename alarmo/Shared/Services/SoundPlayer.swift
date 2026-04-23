@@ -197,7 +197,9 @@ final class SoundPlayer {
     
     private func playLocalFile(url: URL, volume: Float, fadeDuration: TimeInterval) {
         do {
-            try AudioRouteManager.configurePlaybackSession(duckOthers: false)
+            // Use dedicated alarm audio session to override the silent/mute switch.
+            // The .playback category is the key to bypassing the physical mute toggle.
+            try AudioRouteManager.configureAlarmSession()
             
             player = try AVAudioPlayer(contentsOf: url)
             player?.numberOfLoops = -1

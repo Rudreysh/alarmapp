@@ -3,8 +3,9 @@ import SwiftUI
 struct QuickAlarmView: View {
     @ObservedObject var alarmStore: AlarmStore
     let onClose: () -> Void
+    private let isEditingExistingAlarm: Bool
     
-    @StateObject private var viewModel = QuickAlarmViewModel()
+    @StateObject private var viewModel: QuickAlarmViewModel
     @State private var showSoundEditor = false
     @State private var showWallpaperPicker = false
     @State private var showTimePicker = false
@@ -13,9 +14,21 @@ struct QuickAlarmView: View {
     @State private var showWakeUpCheck = false
     @State private var showTimeZonePicker = false
     @State private var showPresetEditor = false
+    @State private var showLabelEditor = false
     
     @StateObject private var soundPlayer = SoundPreviewPlayer()
-    private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
+    private let scheduler: AlarmSchedulerProtocol = AlarmManagerFacade.shared
+
+    init(
+        alarmStore: AlarmStore,
+        onClose: @escaping () -> Void,
+        existingAlarm: Alarm? = nil
+    ) {
+        self.alarmStore = alarmStore
+        self.onClose = onClose
+        self.isEditingExistingAlarm = existingAlarm != nil
+        _viewModel = StateObject(wrappedValue: QuickAlarmViewModel(existingAlarm: existingAlarm))
+    }
     
     var body: some View {
         NavigationView {
@@ -29,6 +42,38 @@ struct QuickAlarmView: View {
                 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
+                        if isEditingExistingAlarm {
+                            Button {
+                                showLabelEditor = true
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Text(viewModel.alarmEmoji.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "⚡️" : viewModel.alarmEmoji)
+                                        .font(.system(size: 26))
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.6)
+                                    Text(viewModel.alarmName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Quick Alarm" : viewModel.alarmName)
+                                        .font(.system(size: 20, weight: .bold))
+                                        .foregroundColor(Colors.textPrimary)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Image(systemName: "pencil")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(Colors.textSecondary)
+                                }
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 14)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .fill(Colors.cardSurface)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .stroke(Colors.cardStroke, lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, 20)
+                        }
                         
                         // Main Timer Display
                         Button(action: { showTimePicker = true }) {
@@ -105,6 +150,24 @@ struct QuickAlarmView: View {
                                 .foregroundColor(Colors.accentTeal)
                             }
                             .padding(.horizontal, 24)
+
+                            if !viewModel.selectedPresetIDs.isEmpty {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(Colors.accentTeal)
+                                    Text("\(viewModel.selectedPresetIDs.count) selected")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(Colors.textSecondary)
+                                    Spacer()
+                                    Button("Clear") {
+                                        viewModel.clearPresetSelections()
+                                    }
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(Colors.accentTeal)
+                                }
+                                .padding(.horizontal, 24)
+                            }
                             
                             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                                 ForEach(viewModel.presets) { preset in
@@ -113,7 +176,8 @@ struct QuickAlarmView: View {
                                         color: colorForPreset(preset.colorKey),
                                         title: preset.title,
                                         timeStr: preset.timeLabel,
-                                        action: { viewModel.setPreset(preset) }
+                                        isSelected: viewModel.selectedPresetIDs.contains(preset.id),
+                                        action: { viewModel.togglePresetSelection(preset) }
                                     )
                                 }
                             }
@@ -122,7 +186,6 @@ struct QuickAlarmView: View {
                         
                         // Settings Section
                         VStack(spacing: 24) {
-                            
                             // SOUND & BEHAVIOR
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("SOUND & BEHAVIOR")
@@ -206,14 +269,14 @@ struct QuickAlarmView: View {
                                 
                                 QuickSettingsCardView {
                                     Toggle(isOn: $viewModel.blockAppsEnabled) {
-                                        Text("Block all apps until mission is solved")
+                                        Text("Prevent App Uninstall")
                                             .foregroundColor(Colors.textPrimary)
                                     }
                                     .padding()
 
                                     Divider().padding(.leading, 16).opacity(0.3)
                                     Toggle(isOn: $viewModel.shutdownProtectionEnabled) {
-                                        Text("Disable app delete/switch off")
+                                        Text("Prevent Switch Off")
                                             .foregroundColor(Colors.textPrimary)
                                     }
                                     .padding()
@@ -315,6 +378,12 @@ struct QuickAlarmView: View {
         .sheet(isPresented: $showPresetEditor) {
             QuickPresetManagerSheet(viewModel: viewModel)
         }
+        .sheet(isPresented: $showLabelEditor) {
+            QuickAlarmLabelEditorView(
+                name: $viewModel.alarmName,
+                emoji: $viewModel.alarmEmoji
+            )
+        }
         .sheet(isPresented: $showAccountabilityInfo) {
             AccountabilityInfoView()
         }
@@ -372,22 +441,37 @@ struct QuickPresetTile: View {
     let color: Color
     let title: String
     let timeStr: String
+    let isSelected: Bool
     let action: () -> Void
     
     private var displayIcon: String {
         let trimmed = icon.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "alarm.fill" : trimmed
     }
+
+    private var emojiIcon: String? {
+        quickPresetEmoji(from: displayIcon)
+    }
     
     var body: some View {
         Button(action: action) {
             VStack(spacing: 12) {
-                Image(systemName: displayIcon)
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(color)
-                    .frame(width: 44, height: 44)
-                    .background(color.opacity(0.12))
-                    .cornerRadius(12)
+                Group {
+                    if let emojiIcon {
+                        Text(emojiIcon)
+                            .font(.system(size: 30))
+                            .frame(width: 44, height: 44)
+                            .background(color.opacity(0.12))
+                            .cornerRadius(12)
+                    } else {
+                        Image(systemName: displayIcon)
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundColor(color)
+                            .frame(width: 44, height: 44)
+                            .background(color.opacity(0.12))
+                            .cornerRadius(12)
+                    }
+                }
                 
                 VStack(spacing: 2) {
                     Text(title)
@@ -402,7 +486,21 @@ struct QuickPresetTile: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Colors.cardSurface))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Colors.cardStroke, lineWidth: 1))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(
+                        isSelected ? Colors.accentTeal : Colors.cardStroke,
+                        lineWidth: isSelected ? 2 : 1
+                    )
+            )
+            .overlay(alignment: .topTrailing) {
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(Colors.accentTeal)
+                        .padding(8)
+                }
+            }
         }
         .buttonStyle(.plain)
     }
@@ -442,11 +540,18 @@ private struct QuickPresetManagerSheet: View {
                 Section("Your Presets") {
                     ForEach(viewModel.presets) { preset in
                         HStack(spacing: 12) {
-                            Image(systemName: preset.iconName)
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(Colors.textPrimary)
-                                .frame(width: 30, height: 30)
-                                .background(Circle().fill(Colors.cardStroke.opacity(0.9)))
+                            Group {
+                                if let emojiIcon = quickPresetEmoji(from: preset.iconName) {
+                                    Text(emojiIcon)
+                                        .font(.system(size: 20))
+                                } else {
+                                    Image(systemName: preset.iconName)
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(Colors.textPrimary)
+                                }
+                            }
+                            .frame(width: 30, height: 30)
+                            .background(Circle().fill(Colors.cardStroke.opacity(0.9)))
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(preset.title)
@@ -504,20 +609,22 @@ private struct QuickPresetManagerSheet: View {
             QuickPresetEditor(
                 title: "Edit Preset",
                 initialName: preset.title,
+                initialIconName: preset.iconName,
                 initialMinutes: preset.minutes,
                 initialSeconds: preset.seconds
-            ) { name, minutes, seconds in
-                viewModel.updatePreset(id: preset.id, title: name, minutes: minutes, seconds: seconds)
+            ) { name, minutes, seconds, emoji in
+                viewModel.updatePreset(id: preset.id, title: name, minutes: minutes, seconds: seconds, emoji: emoji)
             }
         }
         .sheet(isPresented: $showCreatePreset) {
             QuickPresetEditor(
                 title: "New Preset",
                 initialName: "",
+                initialIconName: "",
                 initialMinutes: 10,
                 initialSeconds: 0
-            ) { name, minutes, seconds in
-                viewModel.addCustomPreset(title: name, minutes: minutes, seconds: seconds)
+            ) { name, minutes, seconds, emoji in
+                viewModel.addCustomPreset(title: name, minutes: minutes, seconds: seconds, emoji: emoji)
             }
         }
     }
@@ -526,28 +633,33 @@ private struct QuickPresetManagerSheet: View {
 private struct QuickPresetEditor: View {
     let title: String
     let initialName: String
+    let initialIconName: String
     let initialMinutes: Int
     let initialSeconds: Int
-    let onSave: (String, Int, Int) -> Void
+    let onSave: (String, Int, Int, String?) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var name: String
+    @State private var emojiIcon: String
     @State private var minutes: Int
     @State private var seconds: Int
 
     init(
         title: String,
         initialName: String,
+        initialIconName: String,
         initialMinutes: Int,
         initialSeconds: Int,
-        onSave: @escaping (String, Int, Int) -> Void
+        onSave: @escaping (String, Int, Int, String?) -> Void
     ) {
         self.title = title
         self.initialName = initialName
+        self.initialIconName = initialIconName
         self.initialMinutes = initialMinutes
         self.initialSeconds = initialSeconds
         self.onSave = onSave
         _name = State(initialValue: initialName)
+        _emojiIcon = State(initialValue: quickPresetEmoji(from: initialIconName) ?? "")
         _minutes = State(initialValue: initialMinutes)
         _seconds = State(initialValue: initialSeconds)
     }
@@ -558,6 +670,24 @@ private struct QuickPresetEditor: View {
                 Section("Preset Name") {
                     TextField("Enter name", text: $name)
                         .textInputAutocapitalization(.words)
+                }
+
+                Section("Preset Emoji (Optional)") {
+                    TextField("Add emoji", text: $emojiIcon)
+                        .onChange(of: emojiIcon) { _, newValue in
+                            emojiIcon = normalizedEmojiInput(newValue)
+                        }
+                    Text("Examples")
+                        .font(.caption)
+                        .foregroundColor(Colors.textSecondary)
+                    HStack(spacing: 10) {
+                        ForEach(["⏰", "⚡️", "📚", "🧘", "🏃", "💪", "😴", "🧠"], id: \.self) { emoji in
+                            Button(emoji) {
+                                emojiIcon = emoji
+                            }
+                            .font(.system(size: 22))
+                        }
+                    }
                 }
 
                 Section("Time") {
@@ -573,11 +703,80 @@ private struct QuickPresetEditor: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        onSave(name, minutes, seconds)
+                        onSave(name, minutes, seconds, emojiIcon.isEmpty ? nil : emojiIcon)
                         dismiss()
                     }
                 }
             }
         }
     }
+
+    private func normalizedEmojiInput(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = trimmed.first else { return "" }
+        return String(first)
+    }
+}
+
+private struct QuickAlarmLabelEditorView: View {
+    @Binding var name: String
+    @Binding var emoji: String
+    @Environment(\.dismiss) private var dismiss
+    @State private var showEmojiPicker = false
+
+    private let quickEmojiSuggestions = ["⚡️", "⏰", "🌅", "🚀", "📚", "💪", "🧠", "🌙"]
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Alarm Name") {
+                    TextField("Quick Alarm", text: $name)
+                }
+
+                Section("Emoji (multiple supported)") {
+                    TextField("⚡️⏰", text: $emoji)
+                    Text("You can add one or many emojis.")
+                        .font(.caption)
+                        .foregroundColor(Colors.textSecondary)
+                    Button {
+                        showEmojiPicker = true
+                    } label: {
+                        Label("Browse Emoji Library", systemImage: "magnifyingglass")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    HStack(spacing: 12) {
+                        ForEach(quickEmojiSuggestions, id: \.self) { item in
+                            Button(item) {
+                                emoji += item
+                            }
+                            .font(.system(size: 24))
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Label")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .sheet(isPresented: $showEmojiPicker) {
+            EmojiPickerView { selected in
+                emoji += selected
+            }
+        }
+    }
+}
+
+private let quickPresetEmojiPrefix = "emoji:"
+
+private func quickPresetEmoji(from iconName: String) -> String? {
+    guard iconName.hasPrefix(quickPresetEmojiPrefix) else { return nil }
+    let raw = String(iconName.dropFirst(quickPresetEmojiPrefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+    return raw.isEmpty ? nil : raw
 }

@@ -32,7 +32,7 @@ struct CreateHabitAlarmView: View {
     // Services
     @StateObject private var soundPlayer = SoundPreviewPlayer()
     @ObservedObject private var settingsStore = SettingsStore.shared
-    private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
+    private let scheduler: AlarmSchedulerProtocol = AlarmManagerFacade.shared
     
     init(alarmStore: AlarmStore, existingAlarm: Alarm? = nil, onClose: @escaping () -> Void) {
         self.alarmStore = alarmStore
@@ -325,14 +325,14 @@ struct CreateHabitAlarmView: View {
                         SectionHeader(title: "Alarm Lock")
                         GroupedSettingsCard {
                             Toggle(isOn: $viewModel.blockAppsEnabled) {
-                                Text("Block all apps until mission is solved")
+                                Text("Prevent App Uninstall")
                                     .foregroundColor(Colors.textPrimary)
                             }
                             .padding()
 
                             Divider().padding(.leading, 16).opacity(0.3)
                             Toggle(isOn: $viewModel.shutdownProtectionEnabled) {
-                                Text("Disable app delete/switch off")
+                                Text("Prevent Switch Off")
                                     .foregroundColor(Colors.textPrimary)
                             }
                             .padding()
@@ -496,11 +496,24 @@ struct CreateHabitAlarmView: View {
                     updateMission(updatedMission)
                 }
             } else if mission.type == .householdItemHunt {
-                HouseholdItemHuntSettingsView(
-                    initialFilename: mission.customData["referenceImageFilename"]
-                ) { config in
-                    var updatedMission = AlarmMission(type: .householdItemHunt)
-                    updatedMission.customData["referenceImageFilename"] = config.referenceImageFilename
+                HouseholdItemHuntSettingsView(initialMission: mission) { config in
+                    var updatedMission = AlarmMission(
+                        type: .householdItemHunt,
+                        difficulty: mission.difficulty,
+                        rounds: mission.rounds,
+                        config: mission.config,
+                        customData: mission.customData
+                    )
+                    let selectedSet = Set(config.selectedItemIDs)
+                    updatedMission.customData[HouseholdItemHuntCatalogStore.selectedItemIDsKey] = HouseholdItemHuntCatalogStore.serializedIDs(selectedSet)
+                    if let legacyReference = config.referenceImageFilename, !legacyReference.isEmpty {
+                        updatedMission.customData[HouseholdItemHuntCatalogStore.referenceImageFilenameKey] = legacyReference
+                    }
+                    if let customItemsJSON = config.customItemsJSON, !customItemsJSON.isEmpty {
+                        updatedMission.customData[HouseholdItemHuntCatalogStore.customItemsKey] = customItemsJSON
+                    } else {
+                        updatedMission.customData.removeValue(forKey: HouseholdItemHuntCatalogStore.customItemsKey)
+                    }
                     updateMission(updatedMission)
                 }
             } else if mission.type == .qrBarcode {
@@ -533,9 +546,11 @@ struct CreateHabitAlarmView: View {
                     updateMission(updatedMission)
                 }
             } else if mission.type == .squat {
-                SquatMissionSettingsView { squatCount in
-                    var updatedMission = AlarmMission(type: .squat)
-                    updatedMission.config = ["squatCount": squatCount]
+                SquatMissionSettingsView(initialMission: mission) { updatedMission in
+                    updateMission(updatedMission)
+                }
+            } else if mission.type == .pushups {
+                PushupsMissionSettingsView(initialMission: mission) { updatedMission in
                     updateMission(updatedMission)
                 }
             } else {

@@ -18,13 +18,20 @@ struct SessionInterventionView: View {
     
     @State private var activeMission: UnblockChallenge? = nil
     @State private var showingMission: Bool = false
+    @State private var showingStopConfirm: Bool = false
     
-    // Mocked blocked app icons
-    private let blockedAppEmojis: [(String, String)] = [
-        ("🎬", "YouTube"), ("📸", "Instagram"), ("🐦", "X"),
-        ("💬", "WhatsApp"), ("🎵", "TikTok"), ("🧭", "Safari"),
-        ("📺", "Netflix"), ("🎮", "Roblox"), ("💬", "Slack"),
-        ("🍬", "Candy Crush"), ("📒", "Notion"), ("💬", "Messages")
+    // Modern icon set shown in the intervention cloud
+    private let blockedAppIcons: [FocusOrbIcon] = [
+        FocusOrbIcon(symbol: "play.rectangle.fill", colors: [Colors.accentRed, Colors.accentOrange]),
+        FocusOrbIcon(symbol: "camera.fill", colors: [Colors.accentBlue, Colors.accentTeal]),
+        FocusOrbIcon(symbol: "message.fill", colors: [Colors.accentGreen, Colors.accentTeal]),
+        FocusOrbIcon(symbol: "gamecontroller.fill", colors: [Colors.accentBlue, Colors.accentGreen]),
+        FocusOrbIcon(symbol: "music.note", colors: [Colors.accentTeal, Colors.accentBlue]),
+        FocusOrbIcon(symbol: "paperplane.fill", colors: [Colors.accentBlue, Colors.accentTeal]),
+        FocusOrbIcon(symbol: "tv.fill", colors: [Colors.accentRed, Colors.accentBlue]),
+        FocusOrbIcon(symbol: "envelope.fill", colors: [Colors.accentBlue, Colors.accentGreen]),
+        FocusOrbIcon(symbol: "safari.fill", colors: [Colors.accentTeal, Colors.accentGreen]),
+        FocusOrbIcon(symbol: "bubble.left.and.bubble.right.fill", colors: [Colors.accentGreen, Colors.accentBlue])
     ]
     
     var body: some View {
@@ -38,6 +45,12 @@ struct SessionInterventionView: View {
             Group {
                 if showingMission, let mission = activeMission {
                     missionView(for: mission)
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .trailing).combined(with: .opacity),
+                            removal: .move(edge: .leading).combined(with: .opacity)
+                        ))
+                } else if showingStopConfirm {
+                    stopConfirmationView
                         .transition(.asymmetric(
                             insertion: .move(edge: .trailing).combined(with: .opacity),
                             removal: .move(edge: .leading).combined(with: .opacity)
@@ -103,7 +116,7 @@ struct SessionInterventionView: View {
                 // Stop session
                 challengeButton(
                     title: "Stop Session",
-                    subtitle: enabledChallenges.isEmpty ? "This will unblock your apps" : "Complete a mission to stop",
+                    subtitle: "Review one more option before stopping",
                     icon: "lock.open.fill",
                     gradient: LinearGradient(
                         colors: [TimerPalette.accentSoft.opacity(0.9), TimerPalette.accent.opacity(0.8)],
@@ -112,10 +125,8 @@ struct SessionInterventionView: View {
                     ),
                     textColor: .white
                 ) {
-                    if enabledChallenges.isEmpty {
-                        onStopConfirmed()
-                    } else {
-                        launchChallenge(for: .onStop)
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        showingStopConfirm = true
                     }
                 }
                 
@@ -129,6 +140,85 @@ struct SessionInterventionView: View {
             }
             .padding(.horizontal, 28)
             .padding(.bottom, 60)
+        }
+    }
+
+    // MARK: - Stop Confirmation
+    private var stopConfirmationView: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            floatingAppIcons
+                .frame(height: 290)
+                .padding(.bottom, 8)
+
+            VStack(spacing: 10) {
+                Text("Take a break instead?")
+                    .font(.system(size: 30, weight: .bold))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+
+                Text("You can pause for 15 minutes and continue your focus streak after that.")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(Color.white.opacity(0.62))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 28)
+            }
+
+            Spacer()
+
+            VStack(spacing: 14) {
+                if breakMode != .hardcore {
+                    challengeButton(
+                        title: "Take 15m Break",
+                        subtitle: breakMode == .harder ? "Complete a mission to unlock temporary break" : "Apps unlock for 15 minutes",
+                        icon: "pause.fill",
+                        gradient: LinearGradient(
+                            colors: [Color.white.opacity(0.95), Color.white.opacity(0.78)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        textColor: .black.opacity(0.8)
+                    ) {
+                        if breakMode == .harder {
+                            launchChallenge(for: .onBreak)
+                        } else {
+                            onTakeBreak()
+                        }
+                    }
+                }
+
+                challengeButton(
+                    title: "Stop Session",
+                    subtitle: enabledChallenges.isEmpty ? "End and unblock now" : "Pressing this now starts your stop mission",
+                    icon: "stop.fill",
+                    gradient: LinearGradient(
+                        colors: [Colors.accentRed.opacity(0.96), Colors.accentRed.opacity(0.78)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    textColor: .white
+                ) {
+                    if enabledChallenges.isEmpty {
+                        onStopConfirmed()
+                    } else {
+                        launchChallenge(for: .onStop)
+                    }
+                }
+
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        showingStopConfirm = false
+                    }
+                }) {
+                    Text("Back")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.52))
+                }
+                .padding(.top, 2)
+            }
+            .padding(.horizontal, 28)
+            .padding(.bottom, 56)
         }
     }
     
@@ -183,11 +273,17 @@ struct SessionInterventionView: View {
                     )
                 )
             case .squat:
-                SquatMissionView(
-                    viewModel: SquatMissionViewModel(
-                        targetSquats: 15,
-                        onComplete: { handleMissionSuccess() }
-                    )
+                ExerciseCameraMissionView(
+                    mission: AlarmMission(
+                        type: .squat,
+                        difficulty: 2,
+                        rounds: 1,
+                        config: [
+                            ExerciseMissionConfigResolver.sharedCountKey: 15,
+                            "squatCount": 15
+                        ]
+                    ),
+                    onComplete: { handleMissionSuccess() }
                 )
             case .objectHunt:
                 ObjectHuntMissionView(
@@ -195,6 +291,15 @@ struct SessionInterventionView: View {
                 )
             case .pushups:
                 PushupsMissionView(
+                    mission: AlarmMission(
+                        type: .pushups,
+                        difficulty: 2,
+                        rounds: 1,
+                        config: [
+                            ExerciseMissionConfigResolver.sharedCountKey: 15,
+                            "pushupCount": 15
+                        ]
+                    ),
                     onComplete: { handleMissionSuccess() }
                 )
             case .plank:
@@ -317,10 +422,9 @@ struct SessionInterventionView: View {
             let cx = geo.size.width / 2
             let cy = geo.size.height / 2
             ZStack {
-                ForEach(Array(blockedAppEmojis.prefix(10).enumerated()), id: \.offset) { index, item in
+                ForEach(Array(blockedAppIcons.prefix(10).enumerated()), id: \.offset) { index, item in
                     FloatingAppIcon(
-                        emoji: item.0,
-                        name: item.1,
+                        icon: item,
                         index: index,
                         totalCount: 10,
                         centerX: cx,
@@ -586,9 +690,8 @@ private struct FocusHouseholdItemHuntMissionView: View {
 
 // MARK: - Floating App Icon (animated orbiting icon)
 
-struct FloatingAppIcon: View {
-    let emoji: String
-    let name: String
+private struct FloatingAppIcon: View {
+    let icon: FocusOrbIcon
     let index: Int
     let totalCount: Int
     let centerX: CGFloat
@@ -612,17 +715,25 @@ struct FloatingAppIcon: View {
     }
     
     var body: some View {
-        Text(emoji)
-            .font(.system(size: 36))
-            .frame(width: 58, height: 58)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.white.opacity(0.10))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        ZStack {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: icon.colors,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
                     )
-            )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.white.opacity(0.30), lineWidth: 1)
+                )
+
+            Image(systemName: icon.symbol)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.white)
+        }
+            .frame(width: 58, height: 58)
             .shadow(color: .black.opacity(0.35), radius: 8, x: 0, y: 4)
             // position() places anchor point at the given coordinate within the parent
             .position(x: posX, y: posY)
@@ -650,4 +761,9 @@ struct FloatingAppIcon: View {
             }
         }
     }
+}
+
+private struct FocusOrbIcon {
+    let symbol: String
+    let colors: [Color]
 }

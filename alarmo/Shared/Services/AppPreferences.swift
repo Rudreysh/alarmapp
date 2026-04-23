@@ -77,6 +77,8 @@ protocol AppPreferencesProtocol: AnyObject {
 }
 
 final class AppPreferences: ObservableObject, AppPreferencesProtocol {
+    private static let defaultAlarmSoundName = "Cockpit Alert"
+
     @Published var onboardingCompleted: Bool { 
         didSet { 
             defaults.set(onboardingCompleted, forKey: Keys.onboardingCompleted)
@@ -269,10 +271,20 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
             defaults.set(126, forKey: Keys.onboardingRepeatMask)
         }
         self.onboardingRepeatMask = defaults.integer(forKey: Keys.onboardingRepeatMask)
-        if defaults.object(forKey: Keys.onboardingSoundName) == nil {
-            defaults.set("Addams Family", forKey: Keys.onboardingSoundName)
+        let storedOnboardingSound = defaults.string(forKey: Keys.onboardingSoundName)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let legacyInvalidOnboardingSoundNames: Set<String> = [
+            "",
+            "default",
+            "orkney",
+            "addams family"
+        ]
+        let normalizedStoredOnboardingSound = storedOnboardingSound?.lowercased() ?? ""
+        if storedOnboardingSound == nil ||
+            legacyInvalidOnboardingSoundNames.contains(normalizedStoredOnboardingSound) {
+            defaults.set(Self.defaultAlarmSoundName, forKey: Keys.onboardingSoundName)
         }
-        self.onboardingSoundName = defaults.string(forKey: Keys.onboardingSoundName) ?? "Addams Family"
+        self.onboardingSoundName = defaults.string(forKey: Keys.onboardingSoundName) ?? Self.defaultAlarmSoundName
         if defaults.object(forKey: Keys.onboardingSoundVolume) == nil {
             defaults.set(0.8, forKey: Keys.onboardingSoundVolume)
         }

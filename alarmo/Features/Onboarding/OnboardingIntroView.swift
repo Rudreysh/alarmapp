@@ -4,7 +4,6 @@ struct OnboardingIntroView: View {
     let onNext: () -> Void
     var onSkip: (() -> Void)? = nil
     
-    @State private var animateItems = false
     @State private var currentPage = 0
 
     var body: some View {
@@ -18,17 +17,14 @@ struct OnboardingIntroView: View {
                     .fill(backgroundColors.0.opacity(0.15))
                     .frame(width: 300, height: 300)
                     .blur(radius: 60)
-                    .offset(x: animateItems ? size.width - 200 : -50,
-                            y: animateItems ? -50 : size.height * 0.4)
+                    .offset(x: size.width - 200, y: -50)
                 
                 Circle()
                     .fill(backgroundColors.1.opacity(0.15))
                     .frame(width: 250, height: 250)
                     .blur(radius: 60)
-                    .offset(x: animateItems ? -100 : size.width - 150,
-                            y: animateItems ? size.height * 0.5 : 0)
+                    .offset(x: -100, y: size.height * 0.5)
             }
-            .animation(.easeInOut(duration: 7).repeatForever(autoreverses: true), value: animateItems)
             .animation(.easeInOut(duration: 0.5), value: currentPage)
             .ignoresSafeArea()
 
@@ -71,14 +67,9 @@ struct OnboardingIntroView: View {
                 }
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, 48) // Elevated like the other screens
-                .opacity(animateItems ? 1 : 0)
-                .animation(.easeIn(duration: 0.5).delay(0.6), value: animateItems)
                 // Also let the button title animate
                 .animation(.easeInOut, value: currentPage)
             }
-        }
-        .onAppear {
-            animateItems = true
         }
     }
     
@@ -100,26 +91,14 @@ struct OnboardingIntroView: View {
 
                 VStack(spacing: Spacing.m) {
                     bentoCard(icon: "alarm.fill", color: Colors.accentTeal, title: "Smart Alarms", subtitle: "Wake up reliably with alarm missions and louder fallback options.", height: 138)
-                        .scaleEffect(animateItems ? 1 : 0.9)
-                        .opacity(animateItems ? 1 : 0)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.1), value: animateItems)
 
                     HStack(spacing: Spacing.m) {
                         bentoCard(icon: "timer", color: Color.orange, title: "Pomodoro", subtitle: "Stay in deep focus.", height: 124)
-                            .scaleEffect(animateItems ? 1 : 0.9)
-                            .opacity(animateItems ? 1 : 0)
-                            .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.2), value: animateItems)
 
                         bentoCard(icon: "checklist.checked", color: Color.green, title: "Habits", subtitle: "Build consistent streaks.", height: 124)
-                            .scaleEffect(animateItems ? 1 : 0.9)
-                            .opacity(animateItems ? 1 : 0)
-                            .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.3), value: animateItems)
                     }
 
                     bentoCard(icon: "chart.xyaxis.line", color: Colors.accentBlue, title: "Progress Reports", subtitle: "Track your daily and weekly consistency at a glance.", height: 116)
-                        .scaleEffect(animateItems ? 1 : 0.9)
-                        .opacity(animateItems ? 1 : 0)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.4), value: animateItems)
                 }
                 .padding(.horizontal, Spacing.l)
                 .padding(.top, Spacing.xl)
@@ -135,14 +114,8 @@ struct OnboardingIntroView: View {
 
                 VStack(spacing: Spacing.m) {
                     bentoCard(icon: "shield.lefthalf.filled", color: Color.orange, title: "App Blocking", subtitle: "Block distracting apps during focus sessions and alarm missions.", height: 138)
-                        .scaleEffect(animateItems ? 1 : 0.9)
-                        .opacity(animateItems ? 1 : 0)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.1), value: animateItems)
 
                     bentoCard(icon: "globe.americas.fill", color: Colors.accentBlue, title: "Time Overlap", subtitle: "Find shared windows across time zones for meetings and collaboration.", height: 138)
-                        .scaleEffect(animateItems ? 1 : 0.9)
-                        .opacity(animateItems ? 1 : 0)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.2), value: animateItems)
                 }
                 .padding(.horizontal, Spacing.l)
                 .padding(.top, Spacing.xl)
@@ -168,8 +141,6 @@ struct OnboardingIntroView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Spacing.l)
         .padding(.top, Spacing.m)
-        .opacity(animateItems ? 1 : 0)
-        .offset(y: animateItems ? 0 : 20)
     }
     
     // Bento Card Builder

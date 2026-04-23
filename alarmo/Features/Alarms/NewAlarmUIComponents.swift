@@ -128,6 +128,13 @@ private struct FocusDialAlarmTimePickerView: View {
         return String(format: "%02d:%02d%@", displayHour, minute, period)
     }
 
+    private var wakeUpTimeValueLabel: String {
+        if is12HourFormat {
+            return "\(centerTimeLabel) \(periodLabel)"
+        }
+        return centerTimeLabel
+    }
+
     private var centerTimeLabel: String {
         let displayHour = is12HourFormat ? ((hour % 12) == 0 ? 12 : (hour % 12)) : hour
         return String(format: "%02d:%02d", displayHour, minute)
@@ -164,6 +171,22 @@ private struct FocusDialAlarmTimePickerView: View {
             alarmRingBlue.opacity(0.78),
             alarmRingBlue.opacity(0.80)
         ]
+    }
+
+    private var topReferenceLabel: String {
+        is12HourFormat ? "12AM" : "00"
+    }
+
+    private var rightReferenceLabel: String {
+        is12HourFormat ? "6AM" : "06"
+    }
+
+    private var bottomReferenceLabel: String {
+        is12HourFormat ? "12PM" : "12"
+    }
+
+    private var leftReferenceLabel: String {
+        is12HourFormat ? "6PM" : "18"
     }
 
     var body: some View {
@@ -203,6 +226,8 @@ private struct FocusDialAlarmTimePickerView: View {
                     .shadow(color: ringGradientColors[0].opacity(0.46), radius: 10)
                     .animation(.interactiveSpring(response: 0.2, dampingFraction: 0.82), value: progress)
 
+                dialReferenceLabels
+
                 Circle()
                     .fill(
                         RadialGradient(
@@ -226,8 +251,11 @@ private struct FocusDialAlarmTimePickerView: View {
                                 .font(.system(size: 20, weight: .semibold))
                                 .foregroundColor(Colors.textSecondary)
                             Text(centerTimeLabel)
-                                .font(.system(size: 34, weight: .black, design: .monospaced))
+                                .font(.system(size: is12HourFormat ? 34 : 31, weight: .black, design: .monospaced))
                                 .foregroundColor(Colors.textPrimary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.78)
+                                .frame(maxWidth: ringSize * 0.46)
                             if !periodLabel.isEmpty {
                                 Text(periodLabel)
                                     .font(.system(size: 12, weight: .bold, design: .monospaced))
@@ -254,11 +282,76 @@ private struct FocusDialAlarmTimePickerView: View {
                     }
             )
 
+            Button {
+                showWheelPicker = true
+            } label: {
+                HStack(spacing: 6) {
+                    Text("Wake up at")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundColor(Colors.accentTeal.opacity(0.95))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                        .layoutPriority(1)
+
+                    Text(wakeUpTimeValueLabel)
+                        .font(.system(size: 16, weight: .bold, design: .monospaced))
+                        .foregroundColor(Colors.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                        .layoutPriority(1)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Colors.textSecondary.opacity(0.85))
+                }
+                .padding(.horizontal, 12)
+                .frame(maxWidth: ringSize + 20)
+                .lineLimit(1)
+            }
+            .buttonStyle(.plain)
+
         }
         .frame(height: 332)
         .sheet(isPresented: $showWheelPicker) {
             focusDialWheelSheet
         }
+    }
+
+    private var dialReferenceLabels: some View {
+        let axisOffset = ringSize * 0.30
+
+        return ZStack {
+            VStack(spacing: 2) {
+                Text(topReferenceLabel)
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundColor(Colors.textPrimary.opacity(0.92))
+                Image(systemName: "moon.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Colors.accentTeal.opacity(0.9))
+            }
+            .offset(y: -axisOffset)
+
+            Text(leftReferenceLabel)
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundColor(Colors.textPrimary.opacity(0.92))
+                .offset(x: -axisOffset, y: 0)
+
+            Text(rightReferenceLabel)
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundColor(Colors.textPrimary.opacity(0.92))
+                .offset(x: axisOffset, y: 0)
+
+            VStack(spacing: 2) {
+                Image(systemName: "sun.max.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Colors.accentTeal.opacity(0.9))
+                Text(bottomReferenceLabel)
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundColor(Colors.textPrimary.opacity(0.92))
+            }
+            .offset(y: axisOffset)
+        }
+        .allowsHitTesting(false)
     }
 
     private var knobView: some View {
@@ -269,10 +362,9 @@ private struct FocusDialAlarmTimePickerView: View {
             .fill(ringGradientColors[1].opacity(0.95))
             .frame(width: ringWidth * 0.8, height: ringWidth * 0.8)
             .overlay(
-                Image(systemName: "arrow.left.and.right")
+                Image(systemName: "alarm.fill")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(Colors.textSecondary)
-                    .opacity(isDragging ? 1 : 0)
+                    .foregroundColor(Colors.textPrimary.opacity(isDragging ? 1.0 : 0.95))
             )
             .offset(x: cos(angle.radians) * radius, y: sin(angle.radians) * radius)
             .animation(.interactiveSpring(response: 0.2, dampingFraction: 0.85), value: progress)
@@ -467,6 +559,7 @@ struct LabelSettingsView: View {
     @Binding var emoji: String
     @Binding var showEmojiPicker: Bool
     @Environment(\.dismiss) var dismiss
+    private let suggestedEmojis = ["🌞", "⏰", "🔥", "💪", "🚀", "🎯", "⭐️", "😴"]
     
     var body: some View {
         NavigationView {
@@ -475,10 +568,12 @@ struct LabelSettingsView: View {
                 VStack(spacing: 24) {
                     Button(action: { showEmojiPicker = true }) {
                         Text(emoji)
-                            .font(.system(size: 60))
+                            .font(.system(size: 48))
                             .frame(width: 100, height: 100)
                             .background(Colors.cardSurface)
                             .clipShape(Circle())
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.4)
                     }
                     
                     TextField("Alarm Name", text: $name)
@@ -489,6 +584,30 @@ struct LabelSettingsView: View {
                         .cornerRadius(12)
                         .foregroundColor(Colors.textPrimary)
                         .padding(.horizontal)
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Emoji (multiple supported)")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Colors.textSecondary)
+
+                        TextField("🌞⏰", text: $emoji)
+                            .font(.system(size: 22))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .background(Colors.cardSurface)
+                            .cornerRadius(12)
+                            .foregroundColor(Colors.textPrimary)
+
+                        HStack(spacing: 10) {
+                            ForEach(suggestedEmojis, id: \.self) { item in
+                                Button(item) {
+                                    emoji += item
+                                }
+                                .font(.system(size: 26))
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
                     
                     Spacer()
                 }

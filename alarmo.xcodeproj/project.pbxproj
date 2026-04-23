@@ -81,9 +81,22 @@
 		FC3816525A8E7A5D79B9A590 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		96C8C57C2F9A7DAB00037B14 /* Exceptions for "alarmo" folder in "alarmo" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 967E8BE92F13F4990060F3D8 /* alarmo */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		967E8BEC2F13F4990060F3D8 /* alarmo */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				96C8C57C2F9A7DAB00037B14 /* Exceptions for "alarmo" folder in "alarmo" target */,
+			);
 			path = alarmo;
 			sourceTree = "<group>";
 		};
@@ -466,7 +479,7 @@
 				DEVELOPMENT_TEAM = S8C43TQHMP;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = /Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoWidget/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmo.AlarmoWidget;
 				PRODUCT_NAME = AlarmoWidget;
@@ -484,7 +497,7 @@
 				DEVELOPMENT_TEAM = S8C43TQHMP;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = /Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoShieldUI/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmo.AlarmoShieldUI;
 				PRODUCT_NAME = AlarmoShieldUI;
@@ -503,7 +516,7 @@
 				DEVELOPMENT_TEAM = S8C43TQHMP;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = /Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoWidget/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmo.AlarmoWidget;
 				PRODUCT_NAME = AlarmoWidget;
@@ -523,7 +536,7 @@
 				DEVELOPMENT_TEAM = S8C43TQHMP;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = /Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoShieldUI/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmo.AlarmoShieldUI;
 				PRODUCT_NAME = AlarmoShieldUI;
@@ -665,6 +678,8 @@
 				DEVELOPMENT_TEAM = S8C43TQHMP;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = alarmo/Info.plist;
+				INFOPLIST_KEY_NSAlarmKitUsageDescription = "Alarmo uses AlarmKit to schedule system-level alarms on supported iOS versions.";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Alarmo needs access to your media library to import custom alarm sounds.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Alarmo needs camera access to scan QR/Barcodes for missions.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Habit would like to access your steps to track your goals.";
@@ -678,10 +693,11 @@
 				INFOPLIST_KEY_NSUserTrackingUsageDescription = "Allow tracking to improve ads and personalization.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "(audio)";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -710,6 +726,8 @@
 				DEVELOPMENT_TEAM = S8C43TQHMP;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = alarmo/Info.plist;
+				INFOPLIST_KEY_NSAlarmKitUsageDescription = "Alarmo uses AlarmKit to schedule system-level alarms on supported iOS versions.";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Alarmo needs access to your media library to import custom alarm sounds.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Alarmo needs camera access to scan QR/Barcodes for missions.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Habit would like to access your steps to track your goals.";
@@ -723,10 +741,11 @@
 				INFOPLIST_KEY_NSUserTrackingUsageDescription = "Allow tracking to improve ads and personalization.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "(audio)";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -752,7 +771,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = S8C43TQHMP;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmoTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -773,7 +792,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmoTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -794,7 +813,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = S8C43TQHMP;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmoUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -814,7 +833,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmoUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";

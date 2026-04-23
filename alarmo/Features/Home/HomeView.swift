@@ -13,9 +13,11 @@ struct HomeView: View {
     @State private var showCreateHabit = false
     @State private var showTimer = false
     @State private var selectedAlarm: Alarm?
+    @State private var selectedQuickAlarm: Alarm?
     @State private var selectedHabitAlarm: Alarm?
     @State private var openAlarmActionsId: UUID? = nil
     @State private var showQuickSettings = false
+    @State private var isReorderingAlarms = false
     @State private var showEditAlarmCoachMark = false
     @State private var showHomeQuickSettingsCoachMark = false
     @State private var showHomeToggleCoachMark = false
@@ -23,7 +25,7 @@ struct HomeView: View {
     @State private var showDeleteAlarmCoachMark = false
     @State private var showAddAlarmCoachMark = false
     @AppStorage("qs_sortOrder") private var sortOrder = 0
-    private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
+    private let scheduler: AlarmSchedulerProtocol = AlarmManagerFacade.shared
     let appPreferences: AppPreferences
 
     init(viewModel: HomeViewModel, alarmStore: AlarmStore, appPreferences: AppPreferences = AppPreferences()) {
@@ -104,6 +106,14 @@ struct HomeView: View {
             )
             .background(ClearBackgroundView()) // Helper needed for transparency in fullScreenCover
         }
+        .fullScreenCover(item: $selectedQuickAlarm) { alarm in
+            QuickAlarmView(
+                alarmStore: alarmStore,
+                onClose: { selectedQuickAlarm = nil },
+                existingAlarm: alarm
+            )
+            .background(ClearBackgroundView())
+        }
         .fullScreenCover(isPresented: $showCreateHabit) {
             CreateHabitAlarmView(
                 alarmStore: alarmStore,
@@ -118,7 +128,10 @@ struct HomeView: View {
             )
         }
         .fullScreenCover(isPresented: $showTimer) {
-            TimerRootView(onClose: { showTimer = false })
+            TimerRootView(onClose: {
+                navStore.selectedTab = .alarm
+                showTimer = false
+            })
         }
         .sheet(isPresented: $showQuickSettings) {
             QuickSettingsPanel(alarmStore: alarmStore)
@@ -310,126 +323,187 @@ struct HomeView: View {
     
     private var alarmList: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                Text(nextRingHeaderText(now: context.date))
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(Colors.textPrimary)
+            let baseAlarms = (isReorderingAlarms || sortOrder == 3)
+                ? alarmStore.alarms
+                : alarmStore.sortedAlarms(by: sortOrder)
+            let displayedAlarms = baseAlarms
+
+            HStack {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text(nextRingHeaderText(now: context.date, alarms: displayedAlarms))
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(Colors.textPrimary)
+                }
+                Spacer()
+                if displayedAlarms.count > 1 {
+                    Button(isReorderingAlarms ? "Done" : "Edit") {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+                            if !isReorderingAlarms {
+                                sortOrder = 3
+                                openAlarmActionsId = nil
+                            }
+                            isReorderingAlarms.toggle()
+                        }
+                    }
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(Colors.accentTeal)
+                }
             }
             
             LazyVStack(spacing: Spacing.m) {
-                let sortedAlarms = alarmStore.sortedAlarms(by: sortOrder)
-                ForEach(Array(sortedAlarms.enumerated()), id: \.element.id) { index, alarm in
-                    SwipeableAlarmRow(
-                        isForcedRevealed: Binding(get: { index == 0 ? showDeleteAlarmCoachMark : false }, set: { _ in }),
-                        onDelete: {
-                            scheduler.cancel(alarmId: alarm.id)
-                            alarmStore.remove(id: alarm.id) 
-                        }
-                    ) {
+                ForEach(Array(displayedAlarms.enumerated()), id: \.element.id) { index, alarm in
+                    if isReorderingAlarms {
                         AlarmCardView(
                             alarm: alarm,
                             openActionsAlarmId: $openAlarmActionsId,
-                            onToggle: { isEnabled in
-                                alarmStore.toggleEnabled(id: alarm.id, enabled: isEnabled)
-                                var updated = alarm
-                                updated.enabled = isEnabled
-                                scheduler.schedule(alarm: updated)
+                            onToggle: { _ in },
+                            onDelete: {},
+                            onDuplicate: {},
+                            onSkipOnce: {},
+                            onPreview: {},
+                            isReorderMode: true
+                        )
+                        .draggable(alarm.id.uuidString)
+                        .dropDestination(for: String.self) { items, _ in
+                            guard let payload = items.first else { return false }
+                            return handleDrop(on: alarm.id, payload: payload)
+                        }
+                        .zIndex(openAlarmActionsId == alarm.id ? 100_000 : (openAlarmActionsId == nil ? 0 : -100))
+                    } else {
+                        SwipeableAlarmRow(
+                            isForcedRevealed: Binding(get: { index == 0 ? showDeleteAlarmCoachMark : false }, set: { _ in }),
+                            rowAlarmId: alarm.id,
+                            activeMenuAlarmId: openAlarmActionsId,
+                            onEdit: {
+                                switch alarm.type {
+                                case .wakeUp: selectedAlarm = alarm
+                                case .habit: selectedHabitAlarm = alarm
+                                case .quick: selectedQuickAlarm = alarm
+                                }
                             },
                             onDelete: {
                                 scheduler.cancel(alarmId: alarm.id)
                                 alarmStore.remove(id: alarm.id)
-                            },
-                            onDuplicate: {
-                                let newAlarm = alarm.duplicate()
-                                alarmStore.add(newAlarm)
-                                if newAlarm.enabled {
-                                    scheduler.schedule(alarm: newAlarm)
-                                }
-                            },
-                            onSkipOnce: {
-                                var updated = alarm
-                                updated.isSkippedOnce.toggle()
-                                alarmStore.update(updated)
-                            },
-                            onPreview: {
-                                ringCoordinator.startPreview(alarm: alarm)
                             }
-                        )
-                        .coachMark(
-                            title: "Edit",
-                            subtitle: "Double tap to customize settings.",
-                            isVisible: Binding(get: { index == 0 ? showEditAlarmCoachMark : false }, set: { showEditAlarmCoachMark = $0 }),
-                            alignment: .top,
-                            pointDirection: .bottom,
-                            arrowAlignment: .center,
-                            arrowOffsetX: 0,
-                            bubbleOffsetX: 0,
-                            bubbleOffsetY: -100,
-                            color: .red
-                        )
-                        .coachMark(
-                            title: "On/Off",
-                            subtitle: "Toggle to activate.",
-                            isVisible: Binding(get: { index == 0 ? showHomeToggleCoachMark : false }, set: { showHomeToggleCoachMark = $0 }),
-                            alignment: .topTrailing,
-                            pointDirection: .bottom,
-                            arrowAlignment: .trailing,
-                            arrowOffsetX: -24,
-                            bubbleOffsetX: 0,
-                            bubbleOffsetY: -60,
-                            color: .red
-                        )
-                        .coachMark(
-                            title: "Actions",
-                            subtitle: "Duplicate, preview, or delete.",
-                            isVisible: Binding(get: { index == 0 ? showHomeActionsCoachMark : false }, set: { showHomeActionsCoachMark = $0 }),
-                            alignment: .bottomTrailing,
-                            pointDirection: .top,
-                            arrowAlignment: .trailing,
-                            arrowOffsetX: -16,
-                            bubbleOffsetX: 0,
-                            bubbleOffsetY: 54,
-                            color: .red
-                        )
-                        .coachMark(
-                            title: "Delete",
-                            subtitle: "Slide left to delete.",
-                            isVisible: Binding(get: { index == 0 ? showDeleteAlarmCoachMark : false }, set: { showDeleteAlarmCoachMark = $0 }),
-                            alignment: .trailing,
-                            pointDirection: .bottom,
-                            arrowAlignment: .trailing,
-                            arrowOffsetX: -24,
-                            bubbleOffsetX: -20,
-                            bubbleOffsetY: -64,
-                            color: .red
-                        )
-                        .zIndex(index == 0 && (showHomeToggleCoachMark || showHomeActionsCoachMark || showEditAlarmCoachMark || showDeleteAlarmCoachMark) ? 100 : 0)
-
-                        .onTapGesture(count: 2) {
-                            if index == 0 && !appPreferences.hasSeenEditAlarmTooltip {
-                                appPreferences.hasSeenEditAlarmTooltip = true
-                                showEditAlarmCoachMark = false
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                                    showHomeToggleCoachMark = true
+                        ) {
+                            AlarmCardView(
+                                alarm: alarm,
+                                openActionsAlarmId: $openAlarmActionsId,
+                                onToggle: { isEnabled in
+                                    alarmStore.toggleEnabled(id: alarm.id, enabled: isEnabled)
+                                    var updated = alarm
+                                    updated.enabled = isEnabled
+                                    scheduler.schedule(alarm: updated)
+                                },
+                                onDelete: {
+                                    scheduler.cancel(alarmId: alarm.id)
+                                    alarmStore.remove(id: alarm.id)
+                                },
+                                onDuplicate: {
+                                    let newAlarm = alarm.duplicate()
+                                    alarmStore.add(newAlarm)
+                                    if newAlarm.enabled {
+                                        scheduler.schedule(alarm: newAlarm)
+                                    }
+                                },
+                                onSkipOnce: {
+                                    var updated = alarm
+                                    updated.isSkippedOnce.toggle()
+                                    alarmStore.update(updated)
+                                },
+                                onPreview: {
+                                    ringCoordinator.startPreview(alarm: alarm)
+                                },
+                                isReorderMode: false
+                            )
+                            .coachMark(
+                                title: "Edit",
+                                subtitle: "Double tap to customize settings.",
+                                isVisible: Binding(get: { index == 0 ? showEditAlarmCoachMark : false }, set: { showEditAlarmCoachMark = $0 }),
+                                alignment: .top,
+                                pointDirection: .bottom,
+                                arrowAlignment: .center,
+                                arrowOffsetX: 0,
+                                bubbleOffsetX: 0,
+                                bubbleOffsetY: -100,
+                                color: .red
+                            )
+                            .coachMark(
+                                title: "On/Off",
+                                subtitle: "Toggle to activate.",
+                                isVisible: Binding(get: { index == 0 ? showHomeToggleCoachMark : false }, set: { showHomeToggleCoachMark = $0 }),
+                                alignment: .topTrailing,
+                                pointDirection: .bottom,
+                                arrowAlignment: .trailing,
+                                arrowOffsetX: -24,
+                                bubbleOffsetX: 0,
+                                bubbleOffsetY: -60,
+                                color: .red
+                            )
+                            .coachMark(
+                                title: "Actions",
+                                subtitle: "Duplicate, preview, or delete.",
+                                isVisible: Binding(get: { index == 0 ? showHomeActionsCoachMark : false }, set: { showHomeActionsCoachMark = $0 }),
+                                alignment: .bottomTrailing,
+                                pointDirection: .top,
+                                arrowAlignment: .trailing,
+                                arrowOffsetX: -16,
+                                bubbleOffsetX: 0,
+                                bubbleOffsetY: 54,
+                                color: .red
+                            )
+                            .coachMark(
+                                title: "Delete",
+                                subtitle: "Slide left to delete.",
+                                isVisible: Binding(get: { index == 0 ? showDeleteAlarmCoachMark : false }, set: { showDeleteAlarmCoachMark = $0 }),
+                                alignment: .trailing,
+                                pointDirection: .bottom,
+                                arrowAlignment: .trailing,
+                                arrowOffsetX: -24,
+                                bubbleOffsetX: -20,
+                                bubbleOffsetY: -64,
+                                color: .red
+                            )
+                            .zIndex(index == 0 && (showHomeToggleCoachMark || showHomeActionsCoachMark || showEditAlarmCoachMark || showDeleteAlarmCoachMark) ? 100 : 0)
+                            .onTapGesture(count: 2) {
+                                if index == 0 && !appPreferences.hasSeenEditAlarmTooltip {
+                                    appPreferences.hasSeenEditAlarmTooltip = true
+                                    showEditAlarmCoachMark = false
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                        showHomeToggleCoachMark = true
+                                    }
                                 }
-                            }
-                            switch alarm.type {
-                            case .wakeUp: selectedAlarm = alarm
-                            case .habit: selectedHabitAlarm = alarm
-                            case .quick: break
+                                switch alarm.type {
+                                case .wakeUp: selectedAlarm = alarm
+                                case .habit: selectedHabitAlarm = alarm
+                                case .quick: selectedQuickAlarm = alarm
+                                }
                             }
                         }
+                        .zIndex(openAlarmActionsId == alarm.id ? 100_000 : (openAlarmActionsId == nil ? 0 : -100))
                     }
                 }
+            }
+            .dropDestination(for: String.self) { items, _ in
+                guard let payload = items.first,
+                      let draggedId = UUID(uuidString: payload),
+                      let source = alarmStore.alarms.firstIndex(where: { $0.id == draggedId }) else { return false }
+                withAnimation(.spring(response: 0.24, dampingFraction: 0.9)) {
+                    alarmStore.moveAlarm(from: source, to: alarmStore.alarms.count)
+                    sortOrder = 3
+                }
+                return true
             }
         }
     }
     
     private var noAlarmsView: some View {
-        Text("No upcoming alarms")
-            .font(.system(size: 30, weight: .bold))
-            .foregroundColor(Colors.textPrimary)
-            .padding(.top, Spacing.s)
+        VStack(alignment: .leading, spacing: 10) {
+            Text("No upcoming alarms")
+                .font(.system(size: 30, weight: .bold))
+                .foregroundColor(Colors.textPrimary)
+                .padding(.top, Spacing.s)
+        }
     }
     
     private var fabOverlay: some View {
@@ -566,15 +640,19 @@ struct HomeView: View {
         }
     }
 
-    private func nextRingHeaderText(now: Date) -> String {
-        let enabledAlarms = alarmStore.alarms.filter(\.enabled)
-        guard !enabledAlarms.isEmpty else { return "No enabled alarm  >" }
+    private func nextRingHeaderText(now: Date, alarms: [Alarm]) -> String {
+        let enabledAlarms = alarms.filter(\.enabled)
+        guard !enabledAlarms.isEmpty else {
+            return "No enabled alarm  >"
+        }
 
         let nextFire = enabledAlarms
             .compactMap { AlarmStore.nextFireDate(for: $0, from: now) }
             .min()
 
-        guard let target = nextFire else { return "No upcoming ring  >" }
+        guard let target = nextFire else {
+            return "No upcoming ring  >"
+        }
         return "\(formatCountdownRelative(to: target, from: now, includePrefix: true))  >"
     }
 
@@ -598,6 +676,21 @@ struct HomeView: View {
 
         return includePrefix ? "Ring in \(base)" : base
     }
+
+    private func handleDrop(on targetID: UUID, payload: String) -> Bool {
+        guard let draggedID = UUID(uuidString: payload),
+              draggedID != targetID,
+              let source = alarmStore.alarms.firstIndex(where: { $0.id == draggedID }),
+              let target = alarmStore.alarms.firstIndex(where: { $0.id == targetID }) else {
+            return false
+        }
+
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.9)) {
+            alarmStore.moveAlarm(from: source, to: target > source ? target + 1 : target)
+            sortOrder = 3
+        }
+        return true
+    }
 }
 
 private struct AlarmCardView: View {
@@ -608,6 +701,7 @@ private struct AlarmCardView: View {
     let onDuplicate: () -> Void
     let onSkipOnce: () -> Void
     let onPreview: () -> Void
+    let isReorderMode: Bool
 
     private let weekdays: [String] = ["S", "M", "T", "W", "T", "F", "S"]
     private var showActionsMenu: Bool { openActionsAlarmId == alarm.id }
@@ -700,22 +794,31 @@ private struct AlarmCardView: View {
             
             // RIGHT: Toggle & Actions
             VStack(alignment: .trailing, spacing: 10) {
-                Toggle("", isOn: Binding(
-                    get: { alarm.enabled },
-                    set: { onToggle($0) }
-                ))
-                .labelsHidden()
-                .toggleStyle(SwitchToggleStyle(tint: Colors.accentTeal))
-                .scaleEffect(0.85)
-                .frame(width: 48, height: 28)
-                
-                Button(action: toggleActionsMenu) {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 16, weight: .bold))
+                if isReorderMode {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.system(size: 18, weight: .bold))
                         .foregroundColor(Colors.textSecondary)
-                        .frame(width: 32, height: 32)
-                        .background(Colors.bgPrimary.opacity(0.4))
-                        .clipShape(Circle())
+                        .frame(width: 34, height: 34)
+                        .background(Colors.bgPrimary.opacity(0.35))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                } else {
+                    Toggle("", isOn: Binding(
+                        get: { alarm.enabled },
+                        set: { onToggle($0) }
+                    ))
+                    .labelsHidden()
+                    .toggleStyle(SwitchToggleStyle(tint: Colors.accentTeal))
+                    .scaleEffect(0.85)
+                    .frame(width: 48, height: 28)
+                    
+                    Button(action: toggleActionsMenu) {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(Colors.textSecondary)
+                            .frame(width: 32, height: 32)
+                            .background(Colors.bgPrimary.opacity(0.4))
+                            .clipShape(Circle())
+                    }
                 }
             }
         }
@@ -788,7 +891,7 @@ private struct AlarmCardView: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .topTrailing)))
             }
         }
-        .zIndex(showActionsMenu ? 10 : 0)
+        .zIndex(showActionsMenu ? 100_000 : 0)
     }
 
     private func isDayEnabled(index: Int) -> Bool {
@@ -874,24 +977,44 @@ private struct AlarmCardView: View {
 
 private struct SwipeableAlarmRow<Content: View>: View {
     @Binding var isForcedRevealed: Bool
+    let rowAlarmId: UUID
+    let activeMenuAlarmId: UUID?
+    let onEdit: () -> Void
     let onDelete: () -> Void
     @ViewBuilder let content: () -> Content
 
     @State private var offset: CGFloat = 0
     @GestureState private var dragOffset: CGFloat = 0
 
-    private let maxOffset: CGFloat = -86
-    private let revealThreshold: CGFloat = -50
+    private let maxOffset: CGFloat = -166
+    private let revealThreshold: CGFloat = -84
 
     var body: some View {
         ZStack(alignment: .trailing) {
-            Button(action: onDelete) {
-                Image(systemName: "trash.fill")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(width: 64, height: 64)
-                    .background(Color.red)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+            HStack(spacing: 8) {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.18)) { offset = 0 }
+                    onEdit()
+                }) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 64, height: 64)
+                        .background(Colors.accentTeal)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                }
+
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.18)) { offset = 0 }
+                    onDelete()
+                }) {
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 64, height: 64)
+                        .background(Color.red)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                }
             }
             .padding(.trailing, 4)
 
@@ -929,6 +1052,12 @@ private struct SwipeableAlarmRow<Content: View>: View {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     offset = 0
                 }
+            }
+        }
+        .onChange(of: activeMenuAlarmId) { _, newValue in
+            guard let openId = newValue, openId != rowAlarmId else { return }
+            withAnimation(.easeInOut(duration: 0.18)) {
+                offset = 0
             }
         }
     }

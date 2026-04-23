@@ -126,9 +126,9 @@ class ShutdownDetectionService: ObservableObject {
         lastLogKey = dedupeKey
         lastLogAt = Date()
         
-        // Find all alarms that should be checked
+        // Find alarms that explicitly enabled the relevant protection.
         let alarmsToLog = alarmStore.alarms.filter { alarm in
-            alarm.id == targetId && alarm.shutdownProtectionEnabled
+            alarm.id == targetId && isProtectionEnabled(for: alarm, attemptType: type)
         }
         
         print("[ShutdownDetection] Found \(alarmsToLog.count) alarms to check. Target ID: \(targetId.uuidString)")
@@ -144,10 +144,8 @@ class ShutdownDetectionService: ObservableObject {
             
             // Apply penalty if alarm was ringing and penalty is enabled
             if isRinging && alarm.penaltyEnabled {
-                let violation: AlarmViolationType = (type == .appTerminated) ? .uninstallTamper : .shutdownAttempt
-                let isTriggerEnabled = (violation == .shutdownAttempt)
-                    ? settings.penaltyRules.triggerShutdownAttemptEnabled
-                    : settings.penaltyRules.triggerUninstallTamperEnabled
+                let violation = violationType(for: alarm, attemptType: type)
+                let isTriggerEnabled = isTriggerEnabled(for: violation)
 
                 if isTriggerEnabled {
                     let consumed = ringCoordinator?.handleViolation(
@@ -170,6 +168,42 @@ class ShutdownDetectionService: ObservableObject {
                 alarmStore.update(updatedAlarm)
                 print("[ShutdownDetection] Logged \(type.rawValue) for alarm '\(alarm.name)' (Ringing: \(isRinging))")
             }
+        }
+    }
+
+    private func isProtectionEnabled(for alarm: Alarm, attemptType: ShutdownAttempt.ShutdownAttemptType) -> Bool {
+        switch attemptType {
+        case .appTerminated:
+            // Termination can indicate uninstall tamper OR forced shutdown-style bypass.
+            return alarm.blockAppsEnabled || alarm.shutdownProtectionEnabled
+        case .appBackground, .deviceLock:
+            return alarm.shutdownProtectionEnabled
+        case .unknown:
+            return alarm.blockAppsEnabled || alarm.shutdownProtectionEnabled
+        }
+    }
+
+    private func violationType(for alarm: Alarm, attemptType: ShutdownAttempt.ShutdownAttemptType) -> AlarmViolationType {
+        switch attemptType {
+        case .appTerminated:
+            // If uninstall protection is ON, treat termination as uninstall/tamper behavior.
+            if alarm.blockAppsEnabled {
+                return .uninstallTamper
+            }
+            return .shutdownAttempt
+        case .appBackground, .deviceLock, .unknown:
+            return .shutdownAttempt
+        }
+    }
+
+    private func isTriggerEnabled(for violation: AlarmViolationType) -> Bool {
+        switch violation {
+        case .shutdownAttempt:
+            return settings.penaltyRules.triggerShutdownAttemptEnabled
+        case .uninstallTamper:
+            return settings.penaltyRules.triggerUninstallTamperEnabled
+        default:
+            return false
         }
     }
 }

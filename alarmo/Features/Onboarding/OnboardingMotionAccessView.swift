@@ -16,36 +16,42 @@ struct OnboardingMotionAccessView: View {
             Colors.bgPrimary.ignoresSafeArea()
             
             VStack(spacing: 0) {
-                ProgressHeader(step: 5, total: AppConstants.onboardingTotalSteps)
+                ProgressHeader(step: 6, total: AppConstants.onboardingTotalSteps)
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.m)
                     .padding(.bottom, Spacing.s)
                 
                 Spacer()
                 
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .center, spacing: 14) {
                     // Custom Icon
                     Image(systemName: "figure.run.circle.fill")
-                        .font(.system(size: 60, weight: .semibold))
+                        .font(.system(size: 48, weight: .semibold))
                         .foregroundColor(Color(red: 0.98, green: 0.60, blue: 0.33))
-                        .padding(24)
+                        .padding(20)
                         .background(Colors.cardSurface)
-                        .cornerRadius(24)
-                        .padding(.bottom, 12)
+                        .cornerRadius(20)
+                        .padding(.bottom, 10)
                     
                     Text("Permission to Access Motion Data")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .font(.system(size: 24, weight: .bold))
                         .foregroundColor(Colors.textPrimary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
                         .fixedSize(horizontal: false, vertical: true)
                     
                     Text("Motion data powers live movement tracking for activity-based habits. If disabled, live tracking features will be limited.")
-                        .font(.system(size: 17, weight: .medium))
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
-                        .lineSpacing(4)
+                        .lineSpacing(2)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(.horizontal, 32)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, Spacing.l)
+                .frame(maxWidth: .infinity, alignment: .center)
                 
                 Spacer()
                 
@@ -69,9 +75,10 @@ struct OnboardingMotionAccessView: View {
                     }
                     .disabled(isRequesting)
                 }
-                .padding(.horizontal, 32)
+                .padding(.horizontal, Spacing.l)
                 .padding(.bottom, 24)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             
             if showMotionPrompt {
                 customMotionOverlay

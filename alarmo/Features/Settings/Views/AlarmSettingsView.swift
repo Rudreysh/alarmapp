@@ -219,10 +219,25 @@ struct AlarmSettingsView: View {
     private func requestSilentModePermission() {
         NotificationManager.shared.requestPermission { _ in
             Task {
-                let status = await NotificationManager.shared.currentAlarmDeliveryStatus()
+                async let deliveryStatusTask = NotificationManager.shared.currentAlarmDeliveryStatus()
+                async let diagnosticsTask = AlarmManagerFacade.shared.diagnosticsSnapshot()
+                let status = await deliveryStatusTask
+                let diagnostics = await diagnosticsTask
                 await MainActor.run {
                     if !status.notificationsAuthorized {
                         permissionMessage = "Enable notifications for Alarmo in iPhone Settings to ring alarms."
+                        return
+                    }
+                    if !status.alertEnabled || !status.lockScreenEnabled {
+                        permissionMessage = "Enable Alerts and Lock Screen notifications for Alarmo so alarms appear while your phone is locked."
+                        return
+                    }
+                    if status.scheduledDeliveryEnabled && !status.timeSensitiveEnabled {
+                        permissionMessage = "Scheduled Summary is on and Time Sensitive is off. Alarm notifications can be delayed until unlock."
+                        return
+                    }
+                    if !diagnostics.alarmKitSupported {
+                        permissionMessage = "AlarmKit is unavailable on this iPhone/iOS (\(diagnostics.iOSVersion)). Alarmo uses notification fallback here, and silent-mode override may be limited."
                         return
                     }
                     if EntitlementInspector.hasCriticalAlertsAccess {
@@ -230,7 +245,7 @@ struct AlarmSettingsView: View {
                             ? "Critical Alerts are enabled. Alarms can ring over silent mode."
                             : "Enable Critical Alerts for Alarmo in iPhone Settings to ring over silent mode."
                     } else {
-                        permissionMessage = "Notifications are enabled. This build does not include Critical Alerts entitlement, so silent-mode override may be limited."
+                        permissionMessage = "Notifications are enabled. On older iOS without AlarmKit/Critical Alerts, alarms may not play sound in Silent mode."
                     }
                 }
             }

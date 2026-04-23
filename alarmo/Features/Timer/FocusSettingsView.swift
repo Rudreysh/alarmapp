@@ -3,6 +3,7 @@ import SwiftUI
 struct FocusSettingsView: View {
     @ObservedObject var preferences: AppPreferences
     @Environment(\.dismiss) var dismiss
+    @State private var showStartNewTask = false
     
     var body: some View {
         NavigationView {
@@ -31,6 +32,11 @@ struct FocusSettingsView: View {
                     ScrollView {
                         VStack(spacing: 24) {
                             FocusSettingsSection(title: "Settings") {
+                                Button(action: { showStartNewTask = true }) {
+                                    FocusSettingsNavigationRow(title: "Start New Task", value: "")
+                                }
+                                .buttonStyle(.plain)
+                                Divider().background(Colors.cardStroke)
                                 NavigationLink(destination: PomoSettingsView(preferences: preferences)) {
                                     FocusSettingsNavigationRow(title: "Pomodoro Settings", value: "")
                                 }
@@ -53,6 +59,9 @@ struct FocusSettingsView: View {
                 }
             }
             .navigationBarHidden(true)
+        }
+        .sheet(isPresented: $showStartNewTask) {
+            DetailedNewTaskView()
         }
     }
 }

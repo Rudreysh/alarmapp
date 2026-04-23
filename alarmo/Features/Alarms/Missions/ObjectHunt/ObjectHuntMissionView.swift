@@ -51,7 +51,7 @@ struct ObjectHuntMissionView: View {
                 header
 
                 Text("Find this object")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(Colors.textSecondary)
 
                 roulette
@@ -61,8 +61,8 @@ struct ObjectHuntMissionView: View {
                     Text(currentObject.emoji)
                         .font(.system(size: 56))
                     Text(currentObject.name)
-                        .font(.system(size: 34, weight: .black))
-                        .foregroundColor(.white)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(Colors.textPrimary)
                 }
                 .padding(.top, 6)
 
@@ -84,10 +84,14 @@ struct ObjectHuntMissionView: View {
                     Button(action: startSpin) {
                         Label("Respin", systemImage: "arrow.triangle.2.circlepath")
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(Color.white.opacity(0.14))
+                            .background(Colors.cardSurface)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18)
+                                    .stroke(Colors.cardStroke, lineWidth: 1)
+                            )
                             .cornerRadius(18)
                     }
                     .disabled(spinning || isEvaluating)
@@ -101,8 +105,8 @@ struct ObjectHuntMissionView: View {
                             .background(
                                 LinearGradient(
                                     colors: [
-                                        Color(red: 0.08, green: 0.78, blue: 0.92),
-                                        Color(red: 0.05, green: 0.66, blue: 0.84)
+                                        Colors.accentTeal,
+                                        Colors.accentBlue
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -159,15 +163,18 @@ struct ObjectHuntMissionView: View {
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
                     .frame(width: 44, height: 44)
-                    .background(Color.white.opacity(0.12))
+                    .background(Colors.cardSurface)
+                    .overlay(
+                        Circle().stroke(Colors.cardStroke, lineWidth: 1)
+                    )
                     .clipShape(Circle())
             }
 
             Spacer()
 
             Text("Object Hunt")
-                .font(.system(size: 22, weight: .black))
-                .foregroundColor(.white)
+                .font(.system(size: 19, weight: .bold))
+                .foregroundColor(Colors.textPrimary)
 
             Spacer()
 
@@ -192,7 +199,7 @@ struct ObjectHuntMissionView: View {
                             .font(.system(size: isCenter ? 42 : 30))
                         Text(item.name)
                             .font(.system(size: isCenter ? 16 : 12, weight: .bold))
-                            .foregroundColor(isCenter ? .white : Colors.textSecondary)
+                            .foregroundColor(isCenter ? Colors.textPrimary : Colors.textSecondary)
                             .lineLimit(1)
                     }
                     .frame(maxWidth: .infinity)
@@ -271,7 +278,7 @@ struct ObjectHuntMissionView: View {
             await MainActor.run {
                 isEvaluating = false
                 if matched {
-                    feedbackColor = .green
+                    feedbackColor = Colors.accentGreen
                     feedbackText = "Matched \(currentObject.name). Mission complete."
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
 

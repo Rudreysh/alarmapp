@@ -3,6 +3,7 @@ import Foundation
 enum TimerMode: String, CaseIterable, Identifiable, Codable {
     case pomo = "Pomodoro"
     case stopwatch = "Stopwatch"
+    case countdown = "Countdown"
     
     var id: String { self.rawValue }
 }

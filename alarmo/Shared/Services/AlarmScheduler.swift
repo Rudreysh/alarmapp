@@ -9,17 +9,22 @@ protocol AlarmSchedulerProtocol {
     func cancelRuntimeRingNotifications(for alarm: Alarm)
 }
 
-final class AlarmScheduler: AlarmSchedulerProtocol {
+final class AlarmSchedulerLegacyNotification: AlarmSchedulerProtocol {
     private let orchestrator = NotificationOrchestrator.shared
     // Runtime follow-ups for repeating alarms (kept under budget for multiple alarms).
-    private let shortRingFollowUpOffsets: [TimeInterval] = AlarmScheduler.makeShortRingFollowUpOffsets()
+    private let shortRingFollowUpOffsets: [TimeInterval] = AlarmSchedulerLegacyNotification.makeShortRingFollowUpOffsets()
     // Long-chain follow-ups for one-shot/snooze alarms to keep ringing reminders active.
-    private let extendedRingFollowUpOffsets: [TimeInterval] = AlarmScheduler.makeExtendedRingFollowUpOffsets()
+    private let extendedRingFollowUpOffsets: [TimeInterval] = AlarmSchedulerLegacyNotification.makeExtendedRingFollowUpOffsets()
     private let notificationSupportedExtensions: Set<String> = ["wav", "aiff", "caf"]
     private let fallbackAlarmSoundKey = "cockpitalert"
     private let maxNotificationSoundDuration: TimeInterval = 29.5
 
     func schedule(alarm: Alarm) {
+        // Legacy path audit note:
+        // - This scheduler relies on UNUserNotificationCenter local notifications.
+        // - It can deliver reminder-style alerts while locked, but cannot guarantee
+        //   native Clock-app alarm behavior in Silent mode on older iOS.
+        // Foreground alarm audio is handled separately via AVAudioSession in SoundPlayer.
         // ALWAYS cancel first to clean up any previous state/variation of this alarm
         cancel(alarmId: alarm.id)
         
@@ -171,9 +176,9 @@ final class AlarmScheduler: AlarmSchedulerProtocol {
     }
 
     private func shouldUseCriticalAlertSound(for alarm: Alarm) -> Bool {
-        guard EntitlementInspector.hasCriticalAlertsAccess else { return false }
-        // Honor existing alarm intent toggles that indicate "always loud / bypass silent".
-        return alarm.bypassSilentMode || alarm.extraLoudEnabled
+        // All alarms should use critical alert sounds when the entitlement is available.
+        // Critical alerts bypass the silent switch and Do Not Disturb — essential for alarm apps.
+        return EntitlementInspector.hasCriticalAlertsAccess
     }
 
     func scheduleSnooze(alarm: Alarm, totalSeconds: Int) {
@@ -348,14 +353,14 @@ final class AlarmScheduler: AlarmSchedulerProtocol {
     }
 
     private static func makeShortRingFollowUpOffsets() -> [TimeInterval] {
-        // Repeating alarms get a multi-hour chain while preserving global slot budget.
-        makeRingFollowUpOffsets(maxCount: 48)
+        // Repeating alarms use a compact chain to avoid lock-screen notification flooding.
+        makeRingFollowUpOffsets(maxCount: 12)
     }
 
     private static func makeExtendedRingFollowUpOffsets() -> [TimeInterval] {
         // iOS allows ~64 pending local notifications per app.
-        // Reserve one for the base alarm and use the rest for follow-ups.
-        makeRingFollowUpOffsets(maxCount: 63)
+        // Reserve one for the base alarm and keep a moderate follow-up chain.
+        makeRingFollowUpOffsets(maxCount: 24)
     }
 
     private static func makeRingFollowUpOffsets(maxCount: Int) -> [TimeInterval] {
@@ -373,13 +378,11 @@ final class AlarmScheduler: AlarmSchedulerProtocol {
             }
         }
 
-        // iOS banners cannot be pinned forever by app code. To mimic "always visible",
-        // keep re-alerting aggressively while respecting pending request limits.
-        append(Array(stride(from: 5, through: 60, by: 5))) // every 5s for first minute
-        append(Array(stride(from: 75, through: 10 * 60, by: 15))) // every 15s up to 10m
-        append(Array(stride(from: (10 * 60) + 30, through: 30 * 60, by: 30))) // every 30s up to 30m
-        append(Array(stride(from: 31 * 60, through: 120 * 60, by: 60))) // every 1m up to 2h
-        append(Array(stride(from: 125 * 60, through: 360 * 60, by: 5 * 60))) // every 5m up to 6h
+        // Reminder-style fallback cadence for legacy path:
+        // enough retries to avoid misses, but not aggressive enough to spam lock screen.
+        append([30, 60, 90, 120, 180, 240, 300]) // first 5 minutes
+        append(Array(stride(from: 8 * 60, through: 30 * 60, by: 2 * 60))) // every 2m up to 30m
+        append(Array(stride(from: 35 * 60, through: 120 * 60, by: 5 * 60))) // every 5m up to 2h
 
         return offsets
     }

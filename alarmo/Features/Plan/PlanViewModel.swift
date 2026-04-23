@@ -486,7 +486,8 @@ class PlanViewModel: ObservableObject {
             return "distance"
         }
 
-        if (unit.contains("hour") || unit == "h" || unit == "hr"), (title.contains("sleep") || title.contains("nap")) {
+        if (unit.contains("hour") || unit == "h" || unit == "hr" || unit.contains("min")),
+           (title.contains("sleep") || title.contains("nap")) {
             return "sleep"
         }
 

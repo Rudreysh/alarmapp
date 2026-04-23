@@ -19,7 +19,7 @@ struct CreateWakeUpAlarmView: View {
     @State private var showTimeZonePicker = false
     @StateObject private var soundPlayer = SoundPreviewPlayer()
     @ObservedObject private var settingsStore = SettingsStore.shared
-    private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
+    private let scheduler: AlarmSchedulerProtocol = AlarmManagerFacade.shared
     @State private var showingLocalTimePreview = true // Default to floating mode if custom TZ
     @State private var showAlarmAccessAlert = false
     @State private var alarmAccessAlertMessage = "Enable notification access for reliable alarm ringing."
@@ -182,7 +182,7 @@ struct CreateWakeUpAlarmView: View {
                                 .foregroundColor(Colors.textPrimary)
                                 .focused($nameFocused)
 
-                            Button(action: { nameFocused = true }) {
+                            Button(action: { showNameEditor = true }) {
                                 Image(systemName: "pencil")
                                     .foregroundColor(Colors.textSecondary)
                             }
@@ -449,7 +449,7 @@ struct CreateWakeUpAlarmView: View {
                             .zIndex(showPenaltyCoachMark ? 100 : 0)
                         GroupedSettingsCard {
                             Toggle(isOn: $viewModel.draft.blockAppsEnabled) {
-                                Text("Block all apps until mission is solved")
+                                Text("Prevent App Uninstall")
                                     .foregroundColor(Colors.textPrimary)
                             }
                             .padding()
@@ -464,7 +464,7 @@ struct CreateWakeUpAlarmView: View {
 
                             Divider().padding(.leading, 16).opacity(0.3)
                             Toggle(isOn: $viewModel.draft.shutdownProtectionEnabled) {
-                                Text("Disable app delete/switch off")
+                                Text("Prevent Switch Off")
                                     .foregroundColor(Colors.textPrimary)
                             }
                             .padding()
@@ -747,11 +747,24 @@ struct CreateWakeUpAlarmView: View {
                     updateMission(updatedMission)
                 }
             } else if mission.type == .householdItemHunt {
-                HouseholdItemHuntSettingsView(
-                    initialFilename: mission.customData["referenceImageFilename"]
-                ) { config in
-                    var updatedMission = AlarmMission(type: .householdItemHunt)
-                    updatedMission.customData["referenceImageFilename"] = config.referenceImageFilename
+                HouseholdItemHuntSettingsView(initialMission: mission) { config in
+                    var updatedMission = AlarmMission(
+                        type: .householdItemHunt,
+                        difficulty: mission.difficulty,
+                        rounds: mission.rounds,
+                        config: mission.config,
+                        customData: mission.customData
+                    )
+                    let selectedSet = Set(config.selectedItemIDs)
+                    updatedMission.customData[HouseholdItemHuntCatalogStore.selectedItemIDsKey] = HouseholdItemHuntCatalogStore.serializedIDs(selectedSet)
+                    if let legacyReference = config.referenceImageFilename, !legacyReference.isEmpty {
+                        updatedMission.customData[HouseholdItemHuntCatalogStore.referenceImageFilenameKey] = legacyReference
+                    }
+                    if let customItemsJSON = config.customItemsJSON, !customItemsJSON.isEmpty {
+                        updatedMission.customData[HouseholdItemHuntCatalogStore.customItemsKey] = customItemsJSON
+                    } else {
+                        updatedMission.customData.removeValue(forKey: HouseholdItemHuntCatalogStore.customItemsKey)
+                    }
                     updateMission(updatedMission)
                 }
             } else if mission.type == .qrBarcode {
@@ -784,9 +797,11 @@ struct CreateWakeUpAlarmView: View {
                     updateMission(updatedMission)
                 }
             } else if mission.type == .squat {
-                SquatMissionSettingsView { squatCount in
-                    var updatedMission = AlarmMission(type: .squat)
-                    updatedMission.config = ["squatCount": squatCount]
+                SquatMissionSettingsView(initialMission: mission) { updatedMission in
+                    updateMission(updatedMission)
+                }
+            } else if mission.type == .pushups {
+                PushupsMissionSettingsView(initialMission: mission) { updatedMission in
                     updateMission(updatedMission)
                 }
             } else if mission.type == .bibleVerse ||
@@ -974,6 +989,21 @@ private extension CreateWakeUpAlarmView {
             }
             if !delivery.soundEnabled {
                 alarmAccessAlertMessage = "Notification sounds are turned off for Alarmo. Turn sounds on so alarms ring audibly."
+                showAlarmAccessAlert = true
+                return
+            }
+            if !delivery.alertEnabled {
+                alarmAccessAlertMessage = "Alert notifications are turned off for Alarmo. Enable Alerts so alarms appear on screen."
+                showAlarmAccessAlert = true
+                return
+            }
+            if !delivery.lockScreenEnabled {
+                alarmAccessAlertMessage = "Lock Screen alerts are off for Alarmo. Enable Lock Screen notifications so alarms are visible while your phone is locked."
+                showAlarmAccessAlert = true
+                return
+            }
+            if delivery.scheduledDeliveryEnabled && !delivery.timeSensitiveEnabled {
+                alarmAccessAlertMessage = "Scheduled Summary is on and Time Sensitive is off. Alarms may be delayed until you unlock the phone."
                 showAlarmAccessAlert = true
                 return
             }

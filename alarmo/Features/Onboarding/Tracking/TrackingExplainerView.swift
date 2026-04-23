@@ -31,7 +31,7 @@ struct TrackingExplainerView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                ProgressHeader(step: 11, total: AppConstants.onboardingTotalSteps)
+                ProgressHeader(step: 12, total: AppConstants.onboardingTotalSteps)
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.m)
                     .padding(.bottom, Spacing.s)
@@ -39,15 +39,15 @@ struct TrackingExplainerView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 6) {
                         Image(systemName: "hand.raised.fill")
-                            .font(.system(size: 24))
+                            .font(.system(size: 19))
                             .foregroundColor(Colors.accentTeal)
                             
                         Text("Personalized Experience.")
-                            .font(.system(size: 34, weight: .black, design: .rounded))
+                            .font(.system(size: 27, weight: .bold))
                             .foregroundColor(Colors.textPrimary)
                         
                         Text("Alarmo can securely tailor ads to your interests.")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundColor(Colors.textSecondary)
                             .lineSpacing(2)
                     }
@@ -95,6 +95,7 @@ struct TrackingExplainerView: View {
                 }
                 Spacer(minLength: 0)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .safeAreaInset(edge: .bottom) {
                 PrimaryButton(title: "Next", style: .blueGlass) {
                     onNext() // Bypass tracking request

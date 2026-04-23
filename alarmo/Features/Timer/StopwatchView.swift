@@ -5,15 +5,12 @@ struct StopwatchView: View {
     let preferences: AppPreferences
     @ObservedObject var swEngine: StopwatchEngine
     @ObservedObject var multiStore: MultiTimerStore
-    @ObservedObject var countdownStore: CountdownPresetStore
-    @ObservedObject var countdownEngine: CountdownEngine
     
     @State private var subMode: StopwatchSubMode = .standard
     
     enum StopwatchSubMode: String, CaseIterable, Identifiable {
         case standard = "Standard"
         case parallel = "Parallel"
-        case countdown = "Presets"
         case history = "History"
         var id: String { self.rawValue }
     }
@@ -54,9 +51,6 @@ struct StopwatchView: View {
                         .transition(.asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .trailing)))
                 case .parallel:
                     MultiTimerView(store: multiStore)
-                        .transition(.move(edge: .trailing))
-                case .countdown:
-                    CountdownPresetView(store: countdownStore, engine: countdownEngine)
                         .transition(.move(edge: .trailing))
                 case .history:
                     StopwatchHistoryView(engine: swEngine)

@@ -95,8 +95,10 @@ class TimerViewModel: ObservableObject {
     private func logEngineStart() {
         if selectedMode == .pomo {
             print("[PomoEngine] start mode=\(currentStage) duration=\(preferences.pomoDurationMinutes) shortBreak=\(preferences.shortBreakMinutes)")
-        } else {
+        } else if selectedMode == .stopwatch {
             print("[StopwatchEngine] start settings=active")
+        } else {
+            print("[CountdownEngine] start with preset configuration")
         }
     }
     
@@ -111,7 +113,7 @@ class TimerViewModel: ObservableObject {
         if selectedMode == .pomo {
             pomoRemainingSeconds = pomoDurationSeconds
             currentStage = .focus
-        } else {
+        } else if selectedMode == .stopwatch {
             stopwatchElapsedSeconds = 0
         }
         
@@ -128,7 +130,7 @@ class TimerViewModel: ObservableObject {
             } else {
                 handlePomoEnd()
             }
-        } else {
+        } else if selectedMode == .stopwatch {
             stopwatchElapsedSeconds += 1
         }
     }
@@ -233,8 +235,12 @@ class TimerViewModel: ObservableObject {
             pomoRemainingSeconds = preset.duration
             currentStage = .focus
             stopTimer()
-        } else {
+        } else if preset.mode == .stopwatch {
             selectedMode = .stopwatch
+            selectedFocusMode = preset.name
+            stopTimer()
+        } else {
+            selectedMode = .countdown
             selectedFocusMode = preset.name
             stopTimer()
         }
@@ -251,7 +257,12 @@ class TimerViewModel: ObservableObject {
     }
     
     var timeDisplay: String {
-        let totalSeconds = Int(selectedMode == .pomo ? pomoRemainingSeconds : stopwatchElapsedSeconds)
+        let totalSeconds: Int
+        if selectedMode == .pomo {
+            totalSeconds = Int(pomoRemainingSeconds)
+        } else {
+            totalSeconds = Int(stopwatchElapsedSeconds)
+        }
         let hours = totalSeconds / 3600
         let minutes = (totalSeconds % 3600) / 60
         let seconds = totalSeconds % 60

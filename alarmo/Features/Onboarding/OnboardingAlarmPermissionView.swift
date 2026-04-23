@@ -1,29 +1,37 @@
 import SwiftUI
 import UserNotifications
 
-private enum NotificationPermissionState {
+#if canImport(AlarmKit)
+import AlarmKit
+#endif
+
+private enum AlarmPermissionStepState {
     case notDetermined
     case authorized
     case denied
+    case unavailable
 }
 
-struct OnboardingReportsInsightsView: View {
+struct OnboardingAlarmPermissionView: View {
     @ObservedObject var viewModel: OnboardingViewModel
     let onNext: () -> Void
 
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var isRequesting = false
-    @State private var notificationState: NotificationPermissionState = .notDetermined
+    @State private var alarmState: AlarmPermissionStepState = .notDetermined
+    @State private var showAlarmPrompt = false
+    @State private var showPermissionDeniedAlert = false
+    @State private var showPermissionErrorAlert = false
+    @State private var permissionErrorMessage = "Alarm permission request failed."
     @State private var showNotificationsDeniedAlert = false
-    @State private var showNotificationPrompt = false
 
     var body: some View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                ProgressHeader(step: 3, total: AppConstants.onboardingTotalSteps)
+                ProgressHeader(step: 4, total: AppConstants.onboardingTotalSteps)
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.m)
                     .padding(.bottom, Spacing.s)
@@ -32,9 +40,9 @@ struct OnboardingReportsInsightsView: View {
 
                 VStack(alignment: .center, spacing: 16) {
                     ZStack(alignment: .topTrailing) {
-                        Image(systemName: "bell.badge.fill")
+                        Image(systemName: "alarm.fill")
                             .font(.system(size: 48, weight: .semibold))
-                            .foregroundColor(Color(red: 0.98, green: 0.36, blue: 0.36))
+                            .foregroundColor(Color(red: 0.98, green: 0.62, blue: 0.27))
                             .padding(20)
                             .background(Colors.cardSurface)
                             .cornerRadius(20)
@@ -46,7 +54,7 @@ struct OnboardingReportsInsightsView: View {
                     }
                     .padding(.bottom, 8)
 
-                    Text("Don’t Miss Important Reports and Insights")
+                    Text("Allow Alarms to Ring on Lock Screen")
                         .font(.system(size: 24, weight: .bold))
                         .foregroundColor(Colors.textPrimary)
                         .lineLimit(2)
@@ -55,7 +63,7 @@ struct OnboardingReportsInsightsView: View {
                         .frame(maxWidth: .infinity)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Text("Enable notifications so Alarmo can alert you for reports, reminders, and alarm events.")
+                    Text("On iOS 26+, Alarm permission enables true system alarm behavior so alarms can ring while the phone is locked and in Silent mode.")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
                         .lineSpacing(2)
@@ -91,8 +99,8 @@ struct OnboardingReportsInsightsView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
-            if showNotificationPrompt {
-                notificationPromptOverlay
+            if showAlarmPrompt {
+                alarmPromptOverlay
                     .zIndex(1)
             }
 
@@ -113,11 +121,11 @@ struct OnboardingReportsInsightsView: View {
             }
         }
         .task {
-            await refreshNotificationState()
+            await refreshAlarmState()
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
-            Task { await refreshNotificationState() }
+            Task { await refreshAlarmState() }
         }
         .alert("Notifications Disabled", isPresented: $showNotificationsDeniedAlert) {
             Button("Continue", role: .cancel) {
@@ -127,28 +135,48 @@ struct OnboardingReportsInsightsView: View {
                 openAppSettings()
             }
         } message: {
-            Text("Notifications are currently disabled for Alarmo. Enable notifications in Settings for reliable alarm and report alerts.")
+            Text("Alarm permission requires Notifications to be enabled first. Enable notifications for Alarmo, then try again.")
+        }
+        .alert("Alarm Permission Needed", isPresented: $showPermissionDeniedAlert) {
+            Button("Continue", role: .cancel) {
+                onNext()
+            }
+            Button("Open Settings") {
+                openAppSettings()
+            }
+        } message: {
+            Text("To use system alarm behavior, enable Alarm permission for Alarmo in Settings.")
+        }
+        .alert("Alarm Permission Request Failed", isPresented: $showPermissionErrorAlert) {
+            Button("Continue", role: .cancel) {
+                onNext()
+            }
+            Button("Open Settings") {
+                openAppSettings()
+            }
+        } message: {
+            Text(permissionErrorMessage)
         }
     }
 
-    private var notificationPromptOverlay: some View {
+    private var alarmPromptOverlay: some View {
         ZStack {
             Color.black.opacity(0.52).ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 16) {
-                Text("\"Alarmo\" would like to send you notifications")
+                Text("Allow \"Alarmo\" to schedule alarms and timers?")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(Colors.textPrimary)
                     .lineSpacing(3)
 
-                Text("Notifications may include alerts, sounds, and badges. These can be configured in Settings.")
+                Text("This lets Alarmo ring on Lock Screen and in Silent mode using iOS system alarm behavior.")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(Color.white.opacity(0.72))
                     .lineSpacing(3)
 
                 HStack(spacing: 12) {
                     Button {
-                        showNotificationPrompt = false
+                        showAlarmPrompt = false
                         onNext()
                     } label: {
                         Text("Don't Allow")
@@ -161,8 +189,8 @@ struct OnboardingReportsInsightsView: View {
                     }
 
                     Button {
-                        showNotificationPrompt = false
-                        Task { await requestNotificationFromPrompt() }
+                        showAlarmPrompt = false
+                        Task { await requestAlarmPermissionFlow() }
                     } label: {
                         Text("Allow")
                             .font(.system(size: 16, weight: .bold))
@@ -184,45 +212,76 @@ struct OnboardingReportsInsightsView: View {
 
     @MainActor
     private func handleContinueTapped() async {
-        switch notificationState {
+        switch alarmState {
         case .authorized:
             onNext()
         case .denied:
-            showNotificationsDeniedAlert = true
+            showPermissionDeniedAlert = true
+        case .unavailable:
+            #if targetEnvironment(simulator)
+            permissionErrorMessage = "AlarmKit permission cannot be reliably requested in the iOS Simulator. Use a physical iPhone/iPad on iOS 26+."
+            showPermissionErrorAlert = true
+            #else
+            onNext()
+            #endif
         case .notDetermined:
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                showNotificationPrompt = true
+                showAlarmPrompt = true
             }
         }
     }
 
     @MainActor
-    private func requestNotificationFromPrompt() async {
+    private func requestAlarmPermissionFlow() async {
         isRequesting = true
-        let granted = await NotificationManager.shared.ensureAuthorization()
-        await refreshNotificationState()
+
+        let notificationsGranted = await NotificationManager.shared.ensureAuthorization()
+        if !notificationsGranted {
+            isRequesting = false
+            showNotificationsDeniedAlert = true
+            return
+        }
+
+        let granted = await AlarmManagerFacade.shared.requestAlarmAuthorizationIfNeeded()
+        await refreshAlarmState()
         isRequesting = false
 
-        if granted || notificationState == .authorized {
+        if granted || alarmState == .authorized {
             onNext()
-        } else {
-            showNotificationsDeniedAlert = true
+            return
         }
+
+        if alarmState == .denied {
+            showPermissionDeniedAlert = true
+            return
+        }
+
+        permissionErrorMessage = AlarmKitSchedulingMessenger.shared.latestMessage()
+        showPermissionErrorAlert = true
     }
 
     @MainActor
-    private func refreshNotificationState() async {
-        let settings = await UNUserNotificationCenter.current().notificationSettings()
-        switch settings.authorizationStatus {
-        case .authorized, .provisional, .ephemeral:
-            notificationState = .authorized
-        case .denied:
-            notificationState = .denied
-        case .notDetermined:
-            notificationState = .notDetermined
-        @unknown default:
-            notificationState = .notDetermined
+    private func refreshAlarmState() async {
+#if targetEnvironment(simulator)
+        alarmState = .unavailable
+#else
+#if canImport(AlarmKit)
+        if #available(iOS 26.0, *) {
+            switch AlarmManager.shared.authorizationState {
+            case .authorized:
+                alarmState = .authorized
+            case .denied:
+                alarmState = .denied
+            case .notDetermined:
+                alarmState = .notDetermined
+            @unknown default:
+                alarmState = .notDetermined
+            }
+            return
         }
+#endif
+        alarmState = .unavailable
+#endif
     }
 
     private func openAppSettings() {

@@ -13,7 +13,7 @@ final class AlarmRingCoordinator: ObservableObject {
 
     private let soundPlayer = SoundPlayer()
     private let hapticsPlayer = HapticsPlayer()
-    private let scheduler: AlarmSchedulerProtocol = AlarmScheduler()
+    private let scheduler: AlarmSchedulerProtocol = AlarmManagerFacade.shared
     private weak var alarmStore: AlarmStore?
     private weak var foregroundScheduler: AlarmForegroundScheduler?
     private var modelContext: ModelContext?
@@ -27,7 +27,7 @@ final class AlarmRingCoordinator: ObservableObject {
     private var missionTimeoutWorkItem: DispatchWorkItem?
     private var snoozeTransitionInFlight: Bool = false
     
-    func configure(alarmStore: AlarmStore, foregroundScheduler: AlarmForegroundScheduler, modelContext: ModelContext) {
+    func configure(alarmStore: AlarmStore, foregroundScheduler: AlarmForegroundScheduler?, modelContext: ModelContext) {
         self.alarmStore = alarmStore
         self.foregroundScheduler = foregroundScheduler
         self.modelContext = modelContext
@@ -49,6 +49,10 @@ final class AlarmRingCoordinator: ObservableObject {
         guard let alarm = alarmStore?.alarm(by: id) else {
              print("[AlarmRingCoordinator] ❌ Alarm not found in store: \(alarmId)")
              return
+        }
+
+        Task {
+            await AlarmManagerFacade.shared.markAlarmFired(id: alarm.id)
         }
 
         // Once user engages with the ring flow, clear one-shot/snooze follow-up notifications.
@@ -80,7 +84,11 @@ final class AlarmRingCoordinator: ObservableObject {
         
         // PERSISTENCE: Record that an alarm is ringing for dirty shutdown detection
         UserDefaults.standard.set(alarm.id.uuidString, forKey: "last_ringing_alarm_id")
-        tamperService.begin(alarmId: alarm.id)
+        if alarm.blockAppsEnabled {
+            tamperService.begin(alarmId: alarm.id)
+        } else {
+            tamperService.end()
+        }
         
         accountabilityManager.beginAlarmEnforcement(alarm: alarm)
         shieldEngine.sessionDidStart(alarm: alarm, session: activeSession)

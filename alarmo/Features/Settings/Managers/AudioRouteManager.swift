@@ -39,6 +39,18 @@ class AudioRouteManager: ObservableObject {
         try session.setActive(true)
     }
 
+    /// Configure audio session specifically for alarm ringing.
+    /// Uses `.playback` category which is the only reliable way to bypass the silent switch.
+    /// Also sets the session as active with `.notifyOthersOnDeactivation` so other audio ducks.
+    static func configureAlarmSession() throws {
+        let session = AVAudioSession.sharedInstance()
+        // .playback category ignores the silent/mute switch on iOS.
+        // No options = force output to speaker (not bluetooth) for maximum audibility.
+        try session.setCategory(.playback, mode: .default, options: [])
+        try session.setActive(true, options: [.notifyOthersOnDeactivation])
+        print("[AudioRouteManager] 🔔 Alarm audio session configured (.playback, override silent)")
+    }
+
     private static func currentModeFromDefaults() -> SoundOutputMode {
         guard
             let raw = UserDefaults.standard.string(forKey: soundOutputModeDefaultsKey),

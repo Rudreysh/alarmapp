@@ -1,4 +1,5 @@
 import UIKit
+import AVFoundation
 
 final class AlarmAppDelegate: NSObject, UIApplicationDelegate {
     func application(
@@ -6,6 +7,20 @@ final class AlarmAppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         _ = NotificationManager.shared
+
+        // Pre-configure audio session to .playback so alarm sounds override the silent switch.
+        // This must be done early so the session is ready before any notification triggers playback.
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default, options: [])
+            try session.setActive(true)
+            print("[AlarmAppDelegate] ✅ Audio session pre-configured for alarm playback")
+        } catch {
+            print("[AlarmAppDelegate] ⚠️ Failed to pre-configure audio session: \(error)")
+        }
+
+        // AlarmKit authorization is requested from explicit UI flows (onboarding/settings)
+        // and before scheduling. Avoid launch-time prompts that can trap onboarding.
 
         // Initialize Accountability Penalty and reconcile any previous session (e.g. force close)
         // Replaced by call in AppRootView using correctly injected dependencies

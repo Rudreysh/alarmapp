@@ -12,10 +12,9 @@ struct TimerRootView: View {
     @EnvironmentObject var navStore: NavigationStore
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
+    @State private var hasTriggeredSwipeClose = false
     let preferences: AppPreferences
     let onClose: () -> Void
-    @State private var showQuickActions = false
-    @State private var showCoachMark = false
 
     private var isLightMode: Bool {
         colorScheme == .light
@@ -40,118 +39,13 @@ struct TimerRootView: View {
             TimerGlassBackground()
             
             VStack(spacing: 0) {
-                // Toolbar
-                HStack {
-                    Button(action: onClose) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundColor(Colors.textPrimary)
-                    }
-                    
-                    Spacer()
-                    
-                    // Segmented Control
-                    HStack(spacing: 6) {
-                        ForEach(TimerMode.allCases) { mode in
-                            let isSelected = viewModel.selectedMode == mode
-                            Text(mode.rawValue)
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(isSelected ? Colors.textPrimary : Colors.textSecondary)
-                                .padding(.vertical, 8)
-                                .padding(.horizontal, 16)
-                                .background(
-                                    Capsule()
-                                        .fill(
-                                            isSelected
-                                                ? LinearGradient(
-                                                    colors: isLightMode
-                                                        ? [
-                                                            Color.white,
-                                                            Color(red: 0.90, green: 0.96, blue: 1.0)
-                                                        ]
-                                                        : [
-                                                            Color(red: 0.18, green: 0.21, blue: 0.28).opacity(0.95),
-                                                            Color(red: 0.12, green: 0.15, blue: 0.21).opacity(0.95)
-                                                        ],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                                : LinearGradient(
-                                                    colors: [
-                                                        isLightMode ? Color(red: 0.93, green: 0.94, blue: 0.97) : Color.white.opacity(0.06),
-                                                        isLightMode ? Color(red: 0.88, green: 0.90, blue: 0.94) : Color.white.opacity(0.03)
-                                                    ],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                        )
-                                )
-                                .overlay(
-                                    Capsule()
-                                        .stroke(
-                                            isSelected
-                                                ? (isLightMode ? Color(red: 0.55, green: 0.76, blue: 0.96).opacity(0.7) : Color.white.opacity(0.20))
-                                                : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.10)),
-                                            lineWidth: 1
-                                        )
-                                )
-                                .clipShape(Capsule())
-                                .onTapGesture {
-                                    withAnimation(.spring()) {
-                                        viewModel.selectedMode = mode
-                                        viewModel.stopTimer()
-                                    }
-                                }
-                        }
-                    }
-                    .padding(4)
-                    .background(
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        isLightMode ? Color.white.opacity(0.98) : Color(red: 0.12, green: 0.15, blue: 0.20).opacity(0.92),
-                                        isLightMode ? Color(red: 0.94, green: 0.95, blue: 0.98).opacity(0.98) : Color(red: 0.09, green: 0.12, blue: 0.17).opacity(0.92)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    )
-                    .overlay(
-                        Capsule()
-                            .stroke(isLightMode ? Colors.cardStroke.opacity(0.95) : Color.white.opacity(0.10), lineWidth: 1)
-                    )
-                    .clipShape(Capsule())
-                    
-                    Spacer()
-                    
-                    Button(action: {
-                        toggleQuickActionsMenu()
-                        if preferences.hasSeenTimerTooltip == false {
-                            preferences.hasSeenTimerTooltip = true
-                            showCoachMark = false
-                        }
-                    }) {
-                        Image(systemName: "ellipsis")
-                            .font(.system(size: 20))
-                            .foregroundColor(Colors.textPrimary)
-                            .coachMark(
-                                title: "Actions",
-                                subtitle: "Customize settings here.",
-                                isVisible: $showCoachMark,
-                                alignment: .bottomTrailing,
-                                pointDirection: .top,
-                                arrowAlignment: .trailing,
-                                arrowOffsetX: -10,
-                                bubbleOffsetX: 0,
-                                bubbleOffsetY: 90,
-                                color: .red
-                            )
-                            .frame(width: 56, height: 24, alignment: .trailing)
-                    }
+                // Header row + mode row
+                VStack(spacing: 10) {
+                    timerHeaderBar
+                        .padding(.horizontal, Spacing.l)
+                    modeSelector
+                        .padding(.horizontal, Spacing.m)
                 }
-                .padding(.horizontal, Spacing.l)
                 .padding(.top, Spacing.m)
                 
                 // Content
@@ -159,82 +53,26 @@ struct TimerRootView: View {
                     if viewModel.selectedMode == .pomo {
                         PomoTimerView(viewModel: viewModel, engine: pomodoroEngine)
                             .transition(.asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .trailing)))
-                    } else {
+                    } else if viewModel.selectedMode == .stopwatch {
                         StopwatchView(
                             viewModel: viewModel,
                             preferences: preferences,
                             swEngine: stopwatchEngine,
-                            multiStore: multiTimerStore,
-                            countdownStore: countdownStore,
-                            countdownEngine: countdownEngine
+                            multiStore: multiTimerStore
                         )
                         .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
+                    } else {
+                        CountdownPresetView(store: countdownStore, engine: countdownEngine)
+                            .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .clipped()
             }
             .padding(.bottom, AppConstants.tabBarHeight)
-
-            if showQuickActions {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        closeQuickActionsMenu()
-                    }
-
-                VStack {
-                    HStack {
-                        Spacer()
-                        VStack(spacing: 0) {
-                            quickActionRow(icon: "slider.horizontal.3", title: "Focus Settings") {
-                                viewModel.showFocusSettings = true
-                            }
-                            Divider().background(Colors.cardStroke)
-                            quickActionRow(icon: "list.bullet.rectangle", title: "Add Record") {
-                                viewModel.showAddFocusRecord = true
-                            }
-                            Divider().background(Colors.cardStroke)
-                            quickActionRow(icon: "plus", title: "Add Timer") {
-                                viewModel.showAddTimer = true
-                            }
-                        }
-                        .background(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .fill(Color.white.opacity(0.10))
-                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18)
-                                .stroke(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.24), Color.white.opacity(0.10)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        )
-                        .shadow(color: Color.black.opacity(0.26), radius: 12, x: 0, y: 8)
-                        .frame(width: 220)
-                    }
-                    .padding(.top, 62)
-                    .padding(.trailing, Spacing.l)
-                    Spacer()
-                }
-            }
         }
         .onAppear {
             bindStopwatchLifecycle()
-            if !preferences.hasSeenTimerTooltip {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    withAnimation {
-                        showCoachMark = true
-                    }
-                }
-            }
         }
         .sheet(isPresented: $viewModel.showPomoDurationPicker) {
             PomoDurationPickerSheet(viewModel: viewModel)
@@ -278,6 +116,7 @@ struct TimerRootView: View {
         .onReceive(navStore.$requestedTimerMode) { _ in
             handleNavigationRequest()
         }
+        .simultaneousGesture(closeSwipeGesture)
     }
     
     private func handleNavigationRequest() {
@@ -290,41 +129,157 @@ struct TimerRootView: View {
         }
     }
 
-    private func toggleQuickActionsMenu() {
-        withTransaction(Transaction(animation: nil)) {
-            showQuickActions.toggle()
-        }
-    }
-
-    private func closeQuickActionsMenu() {
-        withTransaction(Transaction(animation: nil)) {
-            showQuickActions = false
-        }
-    }
-
-    private func quickActionRow(icon: String, title: String, action: @escaping () -> Void) -> some View {
-        Button(action: {
-            closeQuickActionsMenu()
-            action()
-        }) {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.12))
-                        .frame(width: 28, height: 28)
-                    Image(systemName: icon)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Colors.textPrimary)
+    private var modeSelector: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(TimerMode.allCases) { mode in
+                    let isSelected = viewModel.selectedMode == mode
+                    Text(mode.rawValue)
+                        .font(.system(size: 14, weight: .bold))
+                        .lineLimit(1)
+                        .foregroundColor(isSelected ? .white : Colors.textSecondary)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 10)
+                        .frame(width: modeTabWidth(for: mode))
+                        .background(Capsule().fill(modeFillGradient(isSelected: isSelected)))
+                        .overlay(
+                            Capsule()
+                                .stroke(modeStrokeColor(isSelected: isSelected), lineWidth: 1)
+                        )
+                        .clipShape(Capsule())
+                        .onTapGesture {
+                            withAnimation(.spring()) {
+                                if viewModel.selectedMode == .countdown && mode != .countdown {
+                                    countdownEngine.pause()
+                                }
+                                viewModel.selectedMode = mode
+                                viewModel.stopTimer()
+                            }
+                        }
                 }
-                Text(title)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(Colors.textPrimary)
-                Spacer()
             }
-            .padding(.horizontal, 14)
-            .frame(height: 50)
+            .padding(2)
+            .padding(.trailing, 6)
+        }
+        .scrollClipDisabled()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 42)
+        .background(
+            Capsule()
+                .fill(modeContainerGradient)
+        )
+        .overlay(
+            Capsule()
+                .stroke(isLightMode ? Colors.cardStroke.opacity(0.95) : Color.white.opacity(0.10), lineWidth: 1)
+        )
+        .clipShape(Capsule())
+    }
+
+    private var timerHeaderBar: some View {
+        HStack {
+            closeButton
+            Spacer()
+            Text("Timer")
+                .font(.headline)
+                .foregroundColor(Colors.textPrimary)
+            Spacer()
+            headerMenuButton
+        }
+    }
+
+    private func modeTabWidth(for mode: TimerMode) -> CGFloat {
+        switch mode {
+        case .pomo, .stopwatch:
+            return 104
+        case .countdown:
+            return 124
+        }
+    }
+
+    private var closeButton: some View {
+        Button(action: onClose) {
+            Image(systemName: "xmark")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(Colors.textPrimary)
+                .frame(width: 40, height: 40)
+                .background(
+                    Circle()
+                        .fill(isLightMode ? Color.black.opacity(0.10) : Color.white.opacity(0.16))
+                )
+                .overlay(
+                    Circle()
+                        .stroke(isLightMode ? Colors.cardStroke.opacity(0.95) : Color.white.opacity(0.20), lineWidth: 1)
+                )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(Text("Close timer"))
+    }
+
+    private var headerMenuButton: some View {
+        Button(action: { viewModel.showFocusSettings = true }) {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(Colors.textPrimary)
+                .frame(width: 40, height: 40)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("Timer settings"))
+    }
+
+    private var modeContainerGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                isLightMode ? Color.white.opacity(0.98) : Color(red: 0.12, green: 0.15, blue: 0.20).opacity(0.92),
+                isLightMode ? Color(red: 0.94, green: 0.95, blue: 0.98).opacity(0.98) : Color(red: 0.09, green: 0.12, blue: 0.17).opacity(0.92)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private func modeFillGradient(isSelected: Bool) -> LinearGradient {
+        if isSelected {
+            return LinearGradient(
+                colors: [TimerPalette.accent, TimerPalette.accent.opacity(0.78)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+
+        return LinearGradient(
+            colors: [
+                isLightMode ? Color(red: 0.93, green: 0.94, blue: 0.97) : Color.white.opacity(0.06),
+                isLightMode ? Color(red: 0.88, green: 0.90, blue: 0.94) : Color.white.opacity(0.03)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private func modeStrokeColor(isSelected: Bool) -> Color {
+        if isSelected {
+            return TimerPalette.accent.opacity(0.85)
+        }
+
+        return isLightMode ? Colors.cardStroke : Color.white.opacity(0.10)
+    }
+
+    private var closeSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 18)
+            .onChanged { value in
+                let startedNearTop = value.startLocation.y <= 140
+                let verticalDistance = value.translation.height
+                let horizontalDrift = abs(value.translation.width)
+                guard startedNearTop,
+                      verticalDistance > 120,
+                      horizontalDrift < 90,
+                      !hasTriggeredSwipeClose else { return }
+                hasTriggeredSwipeClose = true
+                onClose()
+            }
+            .onEnded { _ in
+                hasTriggeredSwipeClose = false
+            }
     }
 
     private func bindStopwatchLifecycle() {

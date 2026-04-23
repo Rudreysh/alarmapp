@@ -40,6 +40,10 @@ final class TamperDetectionService: ObservableObject {
               activeAlarm.id == activeId else {
             return
         }
+        guard activeAlarm.blockAppsEnabled else {
+            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Keys.lastHeartbeatAt)
+            return
+        }
 
         let last = UserDefaults.standard.double(forKey: Keys.lastHeartbeatAt)
         guard last > 0 else { return }

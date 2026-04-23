@@ -83,6 +83,10 @@ struct AddTimerView: View {
                                 radioButton(mode: .stopwatch, title: "Stopwatch") {
                                     EmptyView()
                                 }
+                                Divider().background(Colors.cardStroke)
+                                radioButton(mode: .countdown, title: "Countdown") {
+                                    EmptyView()
+                                }
                             }
                             .background(Colors.cardSurface)
                             .cornerRadius(12)
@@ -100,7 +104,15 @@ struct AddTimerView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        let finalName = name.isEmpty ? (timerMode == .pomo ? "Focus" : "Stopwatch") : name
+                        let defaultName: String
+                        if timerMode == .pomo {
+                            defaultName = "Focus"
+                        } else if timerMode == .stopwatch {
+                            defaultName = "Stopwatch"
+                        } else {
+                            defaultName = "Countdown"
+                        }
+                        let finalName = name.isEmpty ? defaultName : name
                         onSave?(finalName, selectedIcon, timerMode, pomoMinutes)
                         dismiss()
                     }

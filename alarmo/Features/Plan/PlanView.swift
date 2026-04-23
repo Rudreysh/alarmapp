@@ -58,11 +58,11 @@ struct PlanView: View {
     // I will use a fullScreenCover to show a wrapper for PomoTimerView.
     
     @State private var floatingBubbles: [FloatingBubble] = []
-    private let floatingActionButtonBottomPadding: CGFloat = 90
-    private let floatingActionButtonSize: CGFloat = 56
+    private let floatingActionButtonBottomPadding: CGFloat = AppConstants.tabBarHeight + Spacing.l
+    private let floatingActionButtonSize: CGFloat = 62
     private var listBottomClearance: CGFloat {
         // Keep bottom rows clearly above the floating + button and tab bar.
-        AppConstants.tabBarHeight + floatingActionButtonBottomPadding + (floatingActionButtonSize * 0.5) + 22
+        floatingActionButtonBottomPadding + (floatingActionButtonSize * 0.5) + 22
     }
     
     struct FloatingBubble: Identifiable {
@@ -367,26 +367,28 @@ struct PlanView: View {
                 }
             }) {
                 Image(systemName: "plus")
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.system(size: 26, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
-                    .planGlassCircle(size: 56, fillOpacity: 0.13)
-                    .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
+                    .frame(width: 62, height: 62)
+                    .background(Colors.accentTeal)
+                    .clipShape(Circle())
+                    .appShadow(Shadows.card)
                     .coachMark(
                         title: "Create Habit",
                         subtitle: "Tap to add habit.",
                         isVisible: $showCoachMark,
-                        alignment: .topLeading,
+                        alignment: .topTrailing,
                         pointDirection: .bottom,
-                        arrowAlignment: .leading,
-                        arrowOffsetX: 24,
+                        arrowAlignment: .trailing,
+                        arrowOffsetX: -24,
                         bubbleOffsetX: 0,
                         bubbleOffsetY: -80,
                         color: .red
                     )
             }
-            .padding(.leading, 20)
+            .padding(.trailing, Spacing.l)
             .padding(.bottom, floatingActionButtonBottomPadding)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             .zIndex(4)
 
             if showHabitCelebration {
@@ -1494,13 +1496,13 @@ struct MoodPromptBanner: View {
                     ForEach(MoodType.allCases) { mood in
                         VStack(spacing: 2) {
                             Text(mood.emoji)
-                                .font(.system(size: 16))
-                                .frame(width: 27, height: 27)
+                                .font(.system(size: 19))
+                                .frame(width: 32, height: 32)
                                 .background(mood.tint.opacity(0.28))
                                 .clipShape(Circle())
                                 .overlay(
                                     Circle()
-                                        .stroke(selectedMood == mood ? Color.white.opacity(0.6) : Color.clear, lineWidth: 1.5)
+                                        .stroke(selectedMood == mood ? Colors.textPrimary.opacity(0.45) : Color.clear, lineWidth: 1.5)
                                 )
                             Text(mood.title)
                                 .font(.system(size: 9, weight: .medium))
@@ -1513,39 +1515,42 @@ struct MoodPromptBanner: View {
                 Button(action: onTrackTap) {
                     Text("Track mood")
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(.black.opacity(0.92))
+                        .foregroundColor(Colors.textPrimary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
-                        .background(Color.white)
-                        .clipShape(Capsule())
+                        .background(
+                            Capsule()
+                                .fill(Colors.cardSurface)
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(Colors.cardStroke, lineWidth: 1)
+                        )
                 }
                 .buttonStyle(.plain)
             }
             .padding(11)
             .background(
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.27, green: 0.28, blue: 0.85),
-                        Color(red: 0.42, green: 0.42, blue: 0.92),
-                        Color(red: 0.61, green: 0.74, blue: 0.35)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+                Colors.bgPrimary
             )
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    .stroke(Colors.cardStroke, lineWidth: 1)
             )
+            .shadow(color: Colors.shadow.opacity(0.14), radius: 12, x: 0, y: 6)
 
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(Colors.textSecondary)
                     .frame(width: 22, height: 22)
-                    .background(Color.black.opacity(0.24))
+                    .background(Colors.cardSurface)
                     .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(Colors.cardStroke, lineWidth: 1)
+                    )
             }
             .buttonStyle(.plain)
             .padding(8)
@@ -2368,6 +2373,9 @@ private extension MoodSegment {
 private struct MoodHeatMap: View {
     let records: [String: String]
     let endDate: Date
+    @State private var selectedDate: Date?
+
+    private typealias CellData = (date: Date, score: Double, hasEntry: Bool)
 
     private let calendar = Calendar.current
     private let columns = 12
@@ -2375,44 +2383,124 @@ private struct MoodHeatMap: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Mood Heat Map")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(Colors.textPrimary)
-
-            HStack(alignment: .top, spacing: 8) {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(Array(weekdayLabels.enumerated()), id: \.offset) { _, day in
-                        Text(day)
-                            .font(.caption2)
-                            .foregroundColor(Colors.textSecondary)
-                            .frame(width: 12, height: 16, alignment: .leading)
-                    }
-                }
-
-                VStack(spacing: 6) {
-                    ForEach(0..<7, id: \.self) { row in
-                        HStack(spacing: 6) {
-                            ForEach(0..<columns, id: \.self) { column in
-                                let cell = cellFor(row: row, column: column)
-                                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                    .fill(cellColor(score: cell.score, hasEntry: cell.hasEntry, date: cell.date))
-                                    .frame(width: 20, height: 16)
-                            }
-                        }
-                    }
-                }
+            titleView
+            gridCard
+            selectionSummary
+        }
+        .onAppear {
+            if selectedDate == nil {
+                selectedDate = calendar.startOfDay(for: endDate)
             }
-            .padding(12)
-            .background(Color.white.opacity(0.06))
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
-            )
         }
     }
 
-    private var scoreByDay: [Date: Double] {
+    private var titleView: some View {
+        Text("Mood Heat Map")
+            .font(.system(size: 16, weight: .bold))
+            .foregroundColor(Colors.textPrimary)
+    }
+
+    private var gridCard: some View {
+        HStack(alignment: .top, spacing: 8) {
+            weekdayColumn
+            gridRows
+        }
+        .padding(12)
+        .background(Color.white.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
+    }
+
+    private var weekdayColumn: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(Array(weekdayLabels.enumerated()), id: \.offset) { _, day in
+                Text(day)
+                    .font(.caption2)
+                    .foregroundColor(Colors.textSecondary)
+                    .frame(width: 12, height: 16, alignment: .leading)
+            }
+        }
+    }
+
+    private var gridRows: some View {
+        VStack(spacing: 6) {
+            ForEach(0..<7, id: \.self) { row in
+                gridRow(row)
+            }
+        }
+    }
+
+    private func gridRow(_ row: Int) -> some View {
+        HStack(spacing: 6) {
+            ForEach(0..<columns, id: \.self) { column in
+                let cell = cellFor(row: row, column: column)
+                heatMapCell(cell)
+            }
+        }
+    }
+
+    private func heatMapCell(_ cell: CellData) -> some View {
+        let isSelected = isSelectedDate(cell.date)
+        return RoundedRectangle(cornerRadius: 4, style: .continuous)
+            .fill(cellColor(score: cell.score, hasEntry: cell.hasEntry, date: cell.date))
+            .overlay(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .stroke(isSelected ? Color.white.opacity(0.9) : Color.clear, lineWidth: 1.5)
+            )
+            .overlay {
+                if isSelected {
+                    Text(cell.hasEntry ? "\(Int((cell.score * 100).rounded()))" : "0")
+                        .font(.system(size: 7, weight: .bold))
+                        .foregroundColor(Colors.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+            }
+            .frame(width: 20, height: 16)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard cell.date <= calendar.startOfDay(for: endDate) else { return }
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    selectedDate = cell.date
+                }
+            }
+    }
+
+    private var selectionSummary: some View {
+        HStack(spacing: 8) {
+            if let selectedDate {
+                let data = moodDataByDay[selectedDate]
+                let score = data?.score ?? 0
+                let entries = data?.entries ?? 0
+
+                Text(selectedDate.formatted(.dateTime.day().month(.abbreviated).year()))
+                    .font(.caption)
+                    .foregroundColor(Colors.textPrimary)
+
+                Spacer()
+
+                Text(entries > 0 ? "Score \(Int((score * 100).rounded()))%" : "No check-in")
+                    .font(.caption)
+                    .foregroundColor(Colors.textSecondary)
+            } else {
+                Text("Tap a rectangle to view mood value")
+                    .font(.caption)
+                    .foregroundColor(Colors.textSecondary)
+                Spacer()
+            }
+        }
+        .padding(.horizontal, 2)
+    }
+
+    private func isSelectedDate(_ date: Date) -> Bool {
+        guard let selectedDate else { return false }
+        return calendar.isDate(date, inSameDayAs: selectedDate)
+    }
+
+    private var moodDataByDay: [Date: (score: Double, entries: Int)] {
         var bucket: [Date: [Double]] = [:]
         for (key, rawMood) in records {
             let parts = key.split(separator: "|")
@@ -2422,9 +2510,13 @@ private struct MoodHeatMap: View {
             let day = calendar.startOfDay(for: date)
             bucket[day, default: []].append(score(for: mood))
         }
-        var map: [Date: Double] = [:]
+
+        var map: [Date: (score: Double, entries: Int)] = [:]
         for (day, values) in bucket where !values.isEmpty {
-            map[day] = values.reduce(0, +) / Double(values.count)
+            map[day] = (
+                score: values.reduce(0, +) / Double(values.count),
+                entries: values.count
+            )
         }
         return map
     }
@@ -2434,12 +2526,12 @@ private struct MoodHeatMap: View {
         return calendar.date(byAdding: .day, value: -((columns - 1) * 7), to: weekStart) ?? weekStart
     }
 
-    private func cellFor(row: Int, column: Int) -> (date: Date, score: Double, hasEntry: Bool) {
+    private func cellFor(row: Int, column: Int) -> CellData {
         let dayIndex = (column * 7) + row
         let date = calendar.date(byAdding: .day, value: dayIndex, to: startDate) ?? startDate
         let key = calendar.startOfDay(for: date)
-        let value = scoreByDay[key] ?? 0
-        return (key, value, scoreByDay[key] != nil)
+        let value = moodDataByDay[key]?.score ?? 0
+        return (key, value, moodDataByDay[key] != nil)
     }
 
     private func cellColor(score: Double, hasEntry: Bool, date: Date) -> Color {

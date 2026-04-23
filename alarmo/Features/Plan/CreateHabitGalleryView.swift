@@ -291,7 +291,8 @@ struct CreateHabitGalleryView: View {
             return "distance"
         }
 
-        if (unit.contains("hour") || unit == "h" || unit == "hr"), title.contains("sleep") {
+        if (unit.contains("hour") || unit == "h" || unit == "hr" || unit.contains("min")),
+           (title.contains("sleep") || title.contains("nap")) {
             return "sleep"
         }
 

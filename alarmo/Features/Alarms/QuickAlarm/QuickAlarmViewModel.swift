@@ -37,6 +37,8 @@ struct QuickAlarmPreset: Identifiable, Codable, Equatable {
 class QuickAlarmViewModel: ObservableObject {
     @Published var minutes: Int = 0
     @Published var seconds: Int = 0
+    @Published var alarmName: String
+    @Published var alarmEmoji: String
     @Published var selectedSoundId: String
     @Published var selectedWallpaperId: String
     @Published var volume: Float
@@ -59,6 +61,7 @@ class QuickAlarmViewModel: ObservableObject {
     @Published var dailyMotivationEnabled: Bool = false
     @Published var visualOutputSettings: AlarmVisualOutputSettings
     @Published var presets: [QuickAlarmPreset] = []
+    @Published var selectedPresetIDs: Set<UUID> = []
     
     // For UI State
     @Published var fireDateString: String = ""
@@ -71,23 +74,37 @@ class QuickAlarmViewModel: ObservableObject {
     private let soundPlayer = SoundPlayer()
     private let settingsStore = SettingsStore.shared
     private let presetsStorageKey = "quick_alarm_presets_v1"
+    private static let emojiIconPrefix = "emoji:"
     private let customPresetIconPool = ["timer", "clock.fill", "bolt.fill", "moon.zzz.fill", "target"]
     private let customPresetColorPool = ["teal", "blue", "indigo", "purple", "green", "orange"]
+    private let editingAlarm: Alarm?
     
-    init(defaults: AppPreferences = AppPreferences()) {
-        self.selectedSoundId = defaults.onboardingSoundName
-        self.selectedWallpaperId = settingsStore.alarmWallpaperId.isEmpty ? defaults.onboardingWallpaperId : settingsStore.alarmWallpaperId
-        self.volume = defaults.onboardingSoundVolume
-        self.accountabilityEnabled = settingsStore.accountabilityEnabled
-        self.blockAppsEnabled = false
-        self.penaltyEnabled = settingsStore.penaltyEnabled
-        self.penaltyAmountEuro = settingsStore.penaltyAmountEuro
-        self.shutdownProtectionEnabled = settingsStore.preventPowerOffEnabled
-        self.bypassSilentMode = settingsStore.alarmRingInSilentModeEnabled
-        self.dailyMotivationEnabled = settingsStore.alarmDailyMotivationEnabled
-        self.visualOutputSettings = settingsStore.alarmVisualOutputSettings
+    init(existingAlarm: Alarm? = nil, defaults: AppPreferences = AppPreferences()) {
+        self.editingAlarm = existingAlarm
+        self.alarmName = existingAlarm?.name ?? "Quick Alarm"
+        self.alarmEmoji = existingAlarm?.emoji ?? "⚡️"
+        self.selectedSoundId = existingAlarm?.soundName ?? defaults.onboardingSoundName
+        self.selectedWallpaperId = existingAlarm?.wallpaperId ?? (settingsStore.alarmWallpaperId.isEmpty ? defaults.onboardingWallpaperId : settingsStore.alarmWallpaperId)
+        self.volume = existingAlarm?.soundVolume ?? defaults.onboardingSoundVolume
+        self.accountabilityEnabled = existingAlarm.map { $0.enforcementMode != .none } ?? settingsStore.accountabilityEnabled
+        self.blockAppsEnabled = existingAlarm?.blockAppsEnabled ?? false
+        self.penaltyEnabled = existingAlarm?.penaltyEnabled ?? settingsStore.penaltyEnabled
+        self.penaltyAmountEuro = existingAlarm?.penaltyAmountEuro ?? settingsStore.penaltyAmountEuro
+        self.shutdownProtectionEnabled = existingAlarm?.shutdownProtectionEnabled ?? settingsStore.preventPowerOffEnabled
+        self.bypassSilentMode = existingAlarm?.bypassSilentMode ?? settingsStore.alarmRingInSilentModeEnabled
+        self.dailyMotivationEnabled = existingAlarm?.dailyMotivationEnabled ?? settingsStore.alarmDailyMotivationEnabled
+        self.visualOutputSettings = existingAlarm?.visualOutputSettings ?? settingsStore.alarmVisualOutputSettings
+        self.gentleWakeUpSeconds = existingAlarm?.gentleWakeUpSeconds ?? 0
+        self.wakeUpCheckEnabled = existingAlarm?.wakeUpCheckEnabled ?? false
+        self.timeZoneMode = existingAlarm?.timeZoneMode ?? .local
+        self.timeZoneIdentifier = existingAlarm?.timeZoneIdentifier
+        self.timeZoneCity = existingAlarm?.timeZoneCity
         self.presets = Self.loadStoredPresets(forKey: presetsStorageKey) ?? Self.defaultPresets
-        updateDateString()
+        if let existingAlarm {
+            applyExistingAlarmTime(existingAlarm)
+        } else {
+            updateDateString()
+        }
         startTimer()
     }
     
@@ -105,23 +122,41 @@ class QuickAlarmViewModel: ObservableObject {
         setPreset(minutes: preset.minutes, seconds: preset.seconds)
     }
 
-    func addCustomPreset(title: String, minutes: Int, seconds: Int) {
+    func togglePresetSelection(_ preset: QuickAlarmPreset) {
+        if selectedPresetIDs.contains(preset.id) {
+            selectedPresetIDs.remove(preset.id)
+        } else {
+            selectedPresetIDs.insert(preset.id)
+            // Keep main timer preview aligned to the latest selection.
+            setPreset(preset)
+        }
+    }
+
+    func clearPresetSelections() {
+        selectedPresetIDs.removeAll()
+    }
+
+    func addCustomPreset(title: String, minutes: Int, seconds: Int, emoji: String? = nil) {
         let clampedMinutes = max(0, minutes)
         let clampedSeconds = max(0, min(59, seconds))
         let safeTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Custom" : title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let icon = customPresetIconPool[presets.count % customPresetIconPool.count]
+        let fallbackIcon = customPresetIconPool[presets.count % customPresetIconPool.count]
+        let icon = normalizedPresetIcon(rawEmoji: emoji, fallbackSymbol: fallbackIcon)
         let color = customPresetColorPool[presets.count % customPresetColorPool.count]
         let preset = QuickAlarmPreset(iconName: icon, colorKey: color, title: safeTitle, minutes: clampedMinutes, seconds: clampedSeconds)
         presets.append(preset)
         persistPresets()
     }
 
-    func updatePreset(id: UUID, title: String, minutes: Int, seconds: Int) {
+    func updatePreset(id: UUID, title: String, minutes: Int, seconds: Int, emoji: String? = nil) {
         guard let index = presets.firstIndex(where: { $0.id == id }) else { return }
         let safeTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? presets[index].title : title.trimmingCharacters(in: .whitespacesAndNewlines)
         presets[index].title = safeTitle
         presets[index].minutes = max(0, minutes)
         presets[index].seconds = max(0, min(59, seconds))
+        if let emoji {
+            presets[index].iconName = normalizedPresetIcon(rawEmoji: emoji, fallbackSymbol: presets[index].iconName)
+        }
         persistPresets()
     }
 
@@ -161,72 +196,135 @@ class QuickAlarmViewModel: ObservableObject {
             self?.updateDateString()
         }
     }
+
+    private func applyExistingAlarmTime(_ alarm: Alarm) {
+        let now = Date()
+        let remainingSeconds: Int
+        if let next = AlarmStore.nextFireDate(for: alarm, from: now) {
+            remainingSeconds = max(1, Int(next.timeIntervalSince(now)))
+        } else {
+            remainingSeconds = 60
+        }
+        minutes = remainingSeconds / 60
+        seconds = remainingSeconds % 60
+        updateDateString()
+    }
     
     func save(store: AlarmStore, scheduler: AlarmSchedulerProtocol) {
+        if editingAlarm == nil, !selectedPresetIDs.isEmpty {
+            let selectedPresets = presets.filter { selectedPresetIDs.contains($0.id) }
+            let now = Date()
+            for (index, preset) in selectedPresets.enumerated() {
+                let finalSeconds = max(1, (preset.minutes * 60) + preset.seconds)
+                let alarm = buildAlarm(
+                    finalSeconds: finalSeconds,
+                    id: UUID(),
+                    createdAt: now.addingTimeInterval(TimeInterval(index)),
+                    nameOverride: preset.title
+                )
+                store.add(alarm)
+                DispatchQueue.global(qos: .utility).async {
+                    scheduler.schedule(alarm: alarm)
+                }
+            }
+            return
+        }
+
         // Validation: If 0, bump to 1 minute
         let finalSeconds = totalSeconds == 0 ? 60 : totalSeconds
+        let alarmId = editingAlarm?.id ?? UUID()
+        let createdAt = editingAlarm?.createdAt ?? Date()
+        let alarm = buildAlarm(finalSeconds: finalSeconds, id: alarmId, createdAt: createdAt)
         
-        // Calculate fire date
-        let fireDate = Date().addingTimeInterval(TimeInterval(finalSeconds))
-        let calendar = Calendar.current
-        let comps = calendar.dateComponents([.hour, .minute, .second], from: fireDate)
-        
-        let shouldBlockApps = blockAppsEnabled
-        let enforcementMode: EnforcementMode = shouldBlockApps ? .blockApps : .none
-
-        let alarmId = UUID()
-        let alarm = Alarm(
-            id: alarmId,
-            type: .quick,
-            name: "Quick Alarm",
-            emoji: "⚡️",
-            hour: comps.hour ?? 0,
-            minute: comps.minute ?? 0,
-            second: comps.second ?? 0,
-            isDaily: false,
-            repeatMask: 0,
-            enabled: true,
-            wakeUpCheckEnabled: wakeUpCheckEnabled,
-            soundName: selectedSoundId,
-            soundVolume: volume,
-            vibrateEnabled: vibrateEnabled,
-            gentleWakeUpSeconds: gentleWakeUpSeconds,
-            timeReminderEnabled: false,
-            weatherReminderEnabled: false,
-            labelReminderEnabled: false,
-            extraLoudEnabled: false,
-            bypassSilentMode: bypassSilentMode,
-            timeZoneMode: timeZoneMode,
-            timeZoneIdentifier: timeZoneIdentifier,
-            timeZoneCity: timeZoneCity,
-            snoozeMinutes: 5,
-            snoozeSeconds: 0,
-            snoozeCount: 3,
-            wallpaperId: selectedWallpaperId,
-            dailyMotivationEnabled: dailyMotivationEnabled,
-            visualOutputSettings: AlarmVisualOutputSettings.migratedFromLegacy(
-                wallpaperId: selectedWallpaperId,
-                dailyMotivationEnabled: dailyMotivationEnabled
-            ),
-            createdAt: Date(),
-            enforcementMode: enforcementMode,
-            blockAppsEnabled: shouldBlockApps,
-            blockedSelectionData: settingsStore.blockedAppsSelectionData,
-            penaltyEnabled: false,
-            penaltyAmountEuro: penaltyAmountEuro,
-            penaltyStrategy: .credits,
-            penaltyRules: .default,
-            shutdownProtectionEnabled: shutdownProtectionEnabled
-        )
-        
-        print("[QuickAlarm] Saving alarm for +\(finalSeconds) sec (at: \(alarm.timeString))")
-        store.add(alarm)
+        if editingAlarm == nil {
+            print("[QuickAlarm] Saving alarm for +\(finalSeconds) sec (at: \(alarm.timeString))")
+            store.add(alarm)
+        } else {
+            print("[QuickAlarm] Updating alarm \(alarm.id) for +\(finalSeconds) sec (at: \(alarm.timeString))")
+            store.update(alarm)
+        }
         
         // Scheduling can be expensive (sound staging + multiple notification requests).
         // Keep it off main so Save-to-dismiss stays responsive.
         DispatchQueue.global(qos: .utility).async {
             scheduler.schedule(alarm: alarm)
         }
+    }
+
+    private func buildAlarm(
+        finalSeconds: Int,
+        id: UUID,
+        createdAt: Date,
+        nameOverride: String? = nil
+    ) -> Alarm {
+        let fireDate = Date().addingTimeInterval(TimeInterval(finalSeconds))
+        let calendar = Calendar.current
+        let comps = calendar.dateComponents([.hour, .minute, .second], from: fireDate)
+        let shouldBlockApps = blockAppsEnabled
+        let enforcementMode: EnforcementMode = shouldBlockApps ? .blockApps : .none
+
+        let normalizedName = nameOverride
+            ?? alarmName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedName = normalizedName.isEmpty ? "Quick Alarm" : normalizedName
+        let resolvedEmoji = alarmEmoji.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "⚡️"
+            : alarmEmoji
+
+        return Alarm(
+            id: id,
+            type: .quick,
+            name: resolvedName,
+            emoji: resolvedEmoji,
+            hour: comps.hour ?? 0,
+            minute: comps.minute ?? 0,
+            second: comps.second ?? 0,
+            isDaily: editingAlarm?.isDaily ?? false,
+            repeatMask: editingAlarm?.repeatMask ?? 0,
+            enabled: true,
+            wakeUpCheckEnabled: wakeUpCheckEnabled,
+            soundName: selectedSoundId,
+            soundVolume: volume,
+            vibrateEnabled: vibrateEnabled,
+            gentleWakeUpSeconds: gentleWakeUpSeconds,
+            timeReminderEnabled: editingAlarm?.timeReminderEnabled ?? false,
+            weatherReminderEnabled: editingAlarm?.weatherReminderEnabled ?? false,
+            labelReminderEnabled: editingAlarm?.labelReminderEnabled ?? false,
+            extraLoudEnabled: editingAlarm?.extraLoudEnabled ?? false,
+            bypassSilentMode: bypassSilentMode,
+            timeZoneMode: timeZoneMode,
+            timeZoneIdentifier: timeZoneIdentifier,
+            timeZoneCity: timeZoneCity,
+            snoozeMinutes: editingAlarm?.snoozeMinutes ?? 5,
+            snoozeSeconds: editingAlarm?.snoozeSeconds ?? 0,
+            snoozeCount: editingAlarm?.snoozeCount ?? 3,
+            wallpaperId: selectedWallpaperId,
+            dailyMotivationEnabled: dailyMotivationEnabled,
+            visualOutputSettings: AlarmVisualOutputSettings.migratedFromLegacy(
+                wallpaperId: selectedWallpaperId,
+                dailyMotivationEnabled: dailyMotivationEnabled
+            ),
+            createdAt: createdAt,
+            isSkippedOnce: false,
+            missions: editingAlarm?.missions ?? [],
+            enforcementMode: enforcementMode,
+            blockAppsEnabled: shouldBlockApps,
+            blockedSelectionData: editingAlarm?.blockedSelectionData ?? settingsStore.blockedAppsSelectionData,
+            penaltyEnabled: editingAlarm?.penaltyEnabled ?? false,
+            penaltyAmountEuro: penaltyAmountEuro,
+            penaltyStrategy: editingAlarm?.penaltyStrategy ?? .credits,
+            penaltyRules: editingAlarm?.penaltyRules ?? .default,
+            lastPenaltyEventAt: editingAlarm?.lastPenaltyEventAt,
+            penaltyEventLog: editingAlarm?.penaltyEventLog ?? [],
+            shutdownProtectionEnabled: shutdownProtectionEnabled,
+            shutdownAttemptLog: editingAlarm?.shutdownAttemptLog ?? []
+        )
+    }
+
+    private func normalizedPresetIcon(rawEmoji: String?, fallbackSymbol: String) -> String {
+        let candidate = rawEmoji?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !candidate.isEmpty else { return fallbackSymbol }
+        guard let firstChar = candidate.first else { return fallbackSymbol }
+        return Self.emojiIconPrefix + String(firstChar)
     }
 
     private func persistPresets() {

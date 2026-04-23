@@ -2,14 +2,28 @@ import Foundation
 import Combine
 import UserNotifications
 
+#if canImport(AlarmKit)
+import AlarmKit
+#endif
+
 struct AlarmDeliveryStatus {
     let notificationsAuthorized: Bool
     let soundEnabled: Bool
+    let alertEnabled: Bool
+    let lockScreenEnabled: Bool
     let timeSensitiveEnabled: Bool
+    let scheduledDeliveryEnabled: Bool
     let criticalEnabled: Bool
 
     var canRingAudibly: Bool {
         notificationsAuthorized && soundEnabled
+    }
+
+    var canShowOnLockScreenImmediately: Bool {
+        notificationsAuthorized
+        && alertEnabled
+        && lockScreenEnabled
+        && (!scheduledDeliveryEnabled || timeSensitiveEnabled)
     }
 }
 
@@ -18,7 +32,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
     private weak var ringCoordinator: AlarmRingCoordinator?
     private weak var alarmStore: AlarmStore?
-    private let alarmScheduler: AlarmSchedulerProtocol = AlarmScheduler()
+    private let alarmScheduler: AlarmSchedulerProtocol = AlarmManagerFacade.shared
     private let alarmRecoveryLookbackSeconds: TimeInterval = 7 * 60
     private let pendingAlarmStartKey = "alarmo.pendingNotificationAlarmStarts"
     private var pendingAlarmStarts: Set<String> = []
@@ -40,6 +54,32 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         registerCategories()
         checkStatus()
         drainPendingAlarmStarts()
+        startAlarmKitObservation()
+    }
+
+    /// Observe AlarmKit alarm state changes on iOS 26+.
+    /// For AlarmKit alarms we intentionally keep presentation on Apple's
+    /// system alarm surface (Lock Screen / StandBy / Dynamic Island) instead
+    /// of launching Alarmo's custom full-screen ringing UI.
+    private func startAlarmKitObservation() {
+#if canImport(AlarmKit)
+        if #available(iOS 26.0, *) {
+            Task { @MainActor in
+                let manager = AlarmManager.shared
+                for await alarms in manager.alarmUpdates {
+                    for alarm in alarms {
+                        if alarm.state == .alerting {
+                            let alarmId = alarm.id.uuidString
+                            print("[NotificationManager] 🔔 AlarmKit alarm alerting: \(alarmId)")
+                            // Do not call startOrQueueAlarm here. AlarmKit owns
+                            // the ringing UI/controls for alerting alarms.
+                            await AlarmManagerFacade.shared.markAlarmFired(id: alarm.id)
+                        }
+                    }
+                }
+            }
+        }
+#endif
     }
     
     func checkStatus() {
@@ -82,11 +122,24 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         let authorized = (settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional || settings.authorizationStatus == .ephemeral)
         let soundEnabled = settings.soundSetting == .enabled
+        let alertEnabled = settings.alertSetting == .enabled
+        let lockScreenEnabled: Bool
+        if #available(iOS 14.0, *) {
+            lockScreenEnabled = settings.lockScreenSetting == .enabled
+        } else {
+            lockScreenEnabled = true
+        }
         let timeSensitiveEnabled: Bool
         if #available(iOS 15.0, *) {
             timeSensitiveEnabled = settings.timeSensitiveSetting == .enabled
         } else {
             timeSensitiveEnabled = true
+        }
+        let scheduledDeliveryEnabled: Bool
+        if #available(iOS 15.0, *) {
+            scheduledDeliveryEnabled = settings.scheduledDeliverySetting == .enabled
+        } else {
+            scheduledDeliveryEnabled = false
         }
         let criticalEnabled: Bool
         if #available(iOS 12.0, *) {
@@ -97,7 +150,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         return AlarmDeliveryStatus(
             notificationsAuthorized: authorized,
             soundEnabled: soundEnabled,
+            alertEnabled: alertEnabled,
+            lockScreenEnabled: lockScreenEnabled,
             timeSensitiveEnabled: timeSensitiveEnabled,
+            scheduledDeliveryEnabled: scheduledDeliveryEnabled,
             criticalEnabled: criticalEnabled
         )
     }
@@ -113,6 +169,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     /// If the app is opened manually while alarm notifications are still actively re-alerting,
     /// recover the ringing session and show the in-app Snooze/Stop UI.
     func recoverAlarmFromDeliveredNotificationsIfNeeded() {
+        // On the AlarmKit path, the system alarm surface is primary. We should not
+        // resurrect the app's legacy notification-based ringing overlay.
+        if AlarmManagerFacade.shared.selectedPath == .alarmKit { return }
+
         guard ringCoordinator?.isRinging != true else { return }
         UNUserNotificationCenter.current().getDeliveredNotifications { [weak self] delivered in
             guard let self else { return }
@@ -224,6 +284,9 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         if notification.request.content.userInfo["alarmId"] != nil {
+            // Ensure audio session is configured to override silent switch BEFORE starting playback.
+            try? AudioRouteManager.configureAlarmSession()
+
             // Foreground alarm notifications should immediately transition to the in-app ringing UI.
             handle(notification: notification)
             if ringCoordinator?.isRinging == true {
@@ -240,6 +303,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         let action = response.actionIdentifier
+
+        // If user tapped the alarm notification from lock screen, configure audio immediately
+        if response.notification.request.content.userInfo["alarmId"] != nil {
+            try? AudioRouteManager.configureAlarmSession()
+        }
+
         if action == AppNotificationAction.alarmStop {
             handleAlarmStopAction(notification: response.notification)
         } else if action == AppNotificationAction.alarmSnooze {

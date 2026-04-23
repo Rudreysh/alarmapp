@@ -52,6 +52,9 @@ struct MissionRowView: View {
             Text(option.title)
                 .font(.system(size: 16, weight: .bold))
                 .foregroundColor(isSelected ? Colors.textPrimary : Colors.textSecondary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.bottom, Spacing.xs)
                 
             if let onPreview = onPreview {
@@ -107,6 +110,9 @@ struct MissionRowView: View {
             Text(option.title)
                 .font(.system(size: 16, weight: .bold))
                 .foregroundColor(isSelected ? Colors.textPrimary : Colors.textSecondary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+                .fixedSize(horizontal: false, vertical: true)
                 
             Spacer()
             

@@ -11,38 +11,44 @@ struct OnboardingLiveActivitiesView: View {
             Colors.bgPrimary.ignoresSafeArea()
             
             VStack(spacing: 0) {
-                ProgressHeader(step: 6, total: AppConstants.onboardingTotalSteps)
+                ProgressHeader(step: 7, total: AppConstants.onboardingTotalSteps)
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.m)
                     .padding(.bottom, Spacing.s)
                 
                 Spacer()
                 
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .center, spacing: 14) {
                     // Custom Icon
                     ZStack {
                         Colors.cardSurface
-                            .frame(width: 108, height: 108)
-                            .cornerRadius(24)
+                            .frame(width: 88, height: 88)
+                            .cornerRadius(20)
                         Image(systemName: "bolt.circle.fill")
-                            .font(.system(size: 60, weight: .regular))
+                            .font(.system(size: 48, weight: .regular))
                             .foregroundColor(Colors.accentTeal)
                     }
-                    .padding(.bottom, 12)
+                    .padding(.bottom, 10)
                     
                     Text("Live Habit Tracking")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .font(.system(size: 24, weight: .bold))
                         .foregroundColor(Colors.textPrimary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
                         .fixedSize(horizontal: false, vertical: true)
                     
                     Text("Track your active focus timers, alarms, and accountability missions directly from your Lock Screen in real-time without opening the app.")
-                        .font(.system(size: 17, weight: .medium))
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
-                        .lineSpacing(4)
+                        .lineSpacing(2)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(.horizontal, 32)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, Spacing.l)
+                .frame(maxWidth: .infinity, alignment: .center)
                 
                 Spacer()
                 
@@ -64,9 +70,10 @@ struct OnboardingLiveActivitiesView: View {
                     }
                     .disabled(isRequesting)
                 }
-                .padding(.horizontal, 32)
+                .padding(.horizontal, Spacing.l)
                 .padding(.bottom, 24)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
     }
 }

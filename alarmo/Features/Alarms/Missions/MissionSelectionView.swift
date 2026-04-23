@@ -30,22 +30,8 @@ struct MissionSelectionView: View {
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 30) {
-                        // Reward section (top bit in IMG_0)
-                        HStack(spacing: 12) {
-                            ZStack {
-                                Circle().fill(Color.red.opacity(0.2)).frame(width: 40, height: 40)
-                                Image(systemName: "hand.tap.fill").foregroundColor(.red)
-                            }
-                            VStack(alignment: .leading) {
-                                Text("Tap for Lucky ticket").font(.system(size: 16, weight: .bold))
-                                Text("REWARD").font(.system(size: 10, weight: .bold)).foregroundColor(.orange)
-                            }
-                        }
-                        .padding(.horizontal, 20)
-
                         missionSection(title: "Popular mission") {
                             missionRow(title: "Household Item Hunt", subtitle: "AI", icon: "magnifyingglass", iconBg: Color.red.opacity(0.3), type: .householdItemHunt)
-                            missionRow(title: "Tap for Lucky ticket", subtitle: "REWARD", icon: "hand.tap.fill", iconBg: Color.red.opacity(0.3), type: .off)
                         }
                         
                         missionSection(title: "Wake your brain") {
@@ -54,7 +40,6 @@ struct MissionSelectionView: View {
                             missionRow(title: "Tic Tac Toe", icon: "xmark.square.fill", iconBg: Color.cyan.opacity(0.3), type: .ticTacToe)
                             missionRow(title: "Typing", icon: "keyboard.fill", iconBg: Color.cyan.opacity(0.3), type: .typing)
                             missionRow(title: "Math", icon: "plus.forwardslash.minus", iconBg: Color.cyan.opacity(0.3), type: .math)
-                            missionRow(title: "Missing Symbol", subtitle: "Coming Soon", icon: "square.grid.3x3.fill", iconBg: Color.cyan.opacity(0.3), type: .off)
                         }
                         
                         missionSection(title: "Wake your body") {
@@ -62,9 +47,7 @@ struct MissionSelectionView: View {
                             missionRow(title: "QR/Barcode", icon: "barcode.viewfinder", iconBg: Color.purple.opacity(0.3), type: .qrBarcode)
                             missionRow(title: "Shake", icon: "iphone.radiowaves.left.and.right", iconBg: Color.purple.opacity(0.3), type: .shake)
                             missionRow(title: "Squat", icon: "figure.strengthtraining.traditional", iconBg: Color.purple.opacity(0.3), type: .squat)
-                            missionRow(title: "Object Hunt", subtitle: "AI", icon: "sparkle.magnifyingglass", iconBg: Color.purple.opacity(0.3), type: .objectHunt)
                             missionRow(title: "Push-ups", icon: "figure.strengthtraining.functional", iconBg: Color.purple.opacity(0.3), type: .pushups)
-                            missionRow(title: "Plank Hold", icon: "timer.circle", iconBg: Color.purple.opacity(0.3), type: .plank)
                         }
 
                         missionSection(title: "Religion") {

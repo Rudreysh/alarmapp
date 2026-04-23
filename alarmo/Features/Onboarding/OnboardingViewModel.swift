@@ -16,8 +16,7 @@ final class OnboardingViewModel: ObservableObject {
         self.permissionService = permissionService
         self.wallpaperLoader = wallpaperLoader
         self.fileStorage = fileStorage
-        
-        restoreRecoveryStep()
+        resetRecoveryStep()
         
         $navigationPath
             .dropFirst()
@@ -32,27 +31,10 @@ final class OnboardingViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    private func restoreRecoveryStep() {
-        let savedRaw = UserDefaults.standard.integer(forKey: recoveryKey)
-        if savedRaw > OnboardingStep.intro.rawValue, let step = OnboardingStep(rawValue: savedRaw) {
-            state.currentStep = step
-            rebuildPath(upTo: step)
-        }
-    }
-    
-    private func rebuildPath(upTo current: OnboardingStep) {
-        var rebuilt: [OnboardingStep] = []
-        let allSteps: [OnboardingStep] = [
-            .setTime, .wallpaper, .wallpaperPreview, .notifications, 
-            .screenTimeAccess, .motionAccess, .liveActivities, .healthAccess, 
-            .soundSelection, .soundVolume, .missionStub, .trackingExplainer, .paywall
-        ]
-        for step in allSteps {
-            if step.rawValue <= current.rawValue {
-                rebuilt.append(step)
-            }
-        }
-        self.navigationPath = rebuilt
+    private func resetRecoveryStep() {
+        UserDefaults.standard.removeObject(forKey: recoveryKey)
+        state.currentStep = .intro
+        navigationPath = []
     }
 
     var selectedHour: Int {
@@ -90,6 +72,12 @@ final class OnboardingViewModel: ObservableObject {
     func setStep(_ step: OnboardingStep) {
         state.currentStep = step
         UserDefaults.standard.set(step.rawValue, forKey: recoveryKey)
+    }
+
+    func startSetupFlowFromIntroCTA() {
+        state.currentStep = .setTime
+        navigationPath = [.setTime]
+        UserDefaults.standard.set(OnboardingStep.setTime.rawValue, forKey: recoveryKey)
     }
 
     private var cancellables = Set<AnyCancellable>()

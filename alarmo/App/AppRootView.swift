@@ -1,10 +1,11 @@
 import SwiftUI
 import Combine
 import SwiftData
+import UIKit
 
 struct AppRootView: View {
     @StateObject private var onboardingViewModel = OnboardingViewModel()
-    @StateObject private var appPreferences = AppPreferences()
+    @StateObject private var appPreferences: AppPreferences
     @StateObject private var alarmStore = AlarmStore()
     @StateObject private var ringCoordinator = AlarmRingCoordinator()
     @StateObject private var notificationManager: NotificationManager = NotificationManager.shared
@@ -15,12 +16,23 @@ struct AppRootView: View {
     @Environment(\.modelContext) var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @State private var foregroundScheduler: AlarmForegroundScheduler?
-    @State private var showingMainTab = false
+    @State private var showingMainTab: Bool
     @State private var didRunAppListMigration = false
     @StateObject private var accountabilityManager = AccountabilityEnforcementManager.shared
     @StateObject private var shutdownDetectionService = ShutdownDetectionService()
     @StateObject private var tamperDetectionService = TamperDetectionService.shared
+    @State private var showLegacyAlarmModeNotice = false
+    @State private var showAlarmKitFailureNotice = false
+    @State private var alarmKitFailureMessage = "AlarmKit scheduling failed."
     @AppStorage("settings.alarmThemeStyleRaw") private var appThemeStyleRaw: String = AlarmThemeStyle.default.rawValue
+
+    init() {
+        let preferences = AppPreferences()
+        _appPreferences = StateObject(wrappedValue: preferences)
+        // Resolve onboarding/main-tab state up-front to avoid a one-frame onboarding flash
+        // that can look like "Next" skipped onboarding and jumped to Home.
+        _showingMainTab = State(initialValue: Self.initialMainTabState(from: preferences))
+    }
 
     var body: some View {
         let _ = print("[AppRootView] body re-evaluating. onboardingCompleted: \(appPreferences.onboardingCompleted), showingMainTab: \(showingMainTab), appThemeStyle: \(appThemeStyleRaw)")
@@ -44,16 +56,19 @@ struct AppRootView: View {
             
             updateViewState()
             if foregroundScheduler == nil {
-                let scheduler = AlarmForegroundScheduler(alarmStore: alarmStore, ringCoordinator: ringCoordinator)
-                foregroundScheduler = scheduler
-                ringCoordinator.configure(alarmStore: alarmStore, foregroundScheduler: scheduler, modelContext: modelContext)
+                let alarmScheduler = AlarmManagerFacade.shared
+                if alarmScheduler.selectedPath == .legacyNotification {
+                    let scheduler = AlarmForegroundScheduler(alarmStore: alarmStore, ringCoordinator: ringCoordinator)
+                    foregroundScheduler = scheduler
+                    ringCoordinator.configure(alarmStore: alarmStore, foregroundScheduler: scheduler, modelContext: modelContext)
+                    scheduler.start()
+                } else {
+                    foregroundScheduler = nil
+                    ringCoordinator.configure(alarmStore: alarmStore, foregroundScheduler: nil, modelContext: modelContext)
+                }
                 notificationManager.configure(ringCoordinator: ringCoordinator, alarmStore: alarmStore)
                 notificationManager.recoverAlarmFromDeliveredNotificationsIfNeeded()
-                let alarmScheduler = AlarmScheduler()
-                for alarm in alarmStore.alarms where alarm.enabled {
-                    alarmScheduler.schedule(alarm: alarm)
-                }
-                scheduler.start()
+                alarmScheduler.reconcilePersistedAlarms(alarmStore.alarms)
             }
             NotificationOrchestrator.shared.reconcileAlarmLifecycleNotifications(alarms: alarmStore.alarms)
             shutdownDetectionService.startMonitoring(alarmStore: alarmStore, ringCoordinator: ringCoordinator, ringingAlarmId: ringCoordinator.activeAlarm?.id)
@@ -84,10 +99,14 @@ struct AppRootView: View {
             foregroundScheduler?.scheduleNext()
             NotificationOrchestrator.shared.reconcileAlarmLifecycleNotifications(alarms: alarmStore.alarms)
         }
-        .onReceive(appPreferences.objectWillChange) { _ in
-            DispatchQueue.main.async {
-                updateViewState()
-            }
+        .onChange(of: appPreferences.onboardingCompleted) { _, _ in
+            updateViewState()
+        }
+        .onChange(of: appPreferences.forceShowOnboardingNextLaunch) { _, _ in
+            updateViewState()
+        }
+        .onChange(of: appPreferences.devAlwaysShowOnboarding) { _, _ in
+            updateViewState()
         }
         .onChange(of: ringCoordinator.activeAlarm) { newAlarm in
             shutdownDetectionService.startMonitoring(alarmStore: alarmStore, ringCoordinator: ringCoordinator, ringingAlarmId: newAlarm?.id)
@@ -127,6 +146,27 @@ struct AppRootView: View {
             navigationStore.selectedTab = .timer
             navigationStore.requestedTimerMode = .stopwatch
         }
+        .onReceive(NotificationCenter.default.publisher(for: .legacyAlarmModeNoticeRequested)) { _ in
+            showLegacyAlarmModeNotice = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .alarmKitSchedulingFailureNoticeRequested)) { _ in
+            alarmKitFailureMessage = AlarmKitSchedulingMessenger.shared.latestMessage()
+            showAlarmKitFailureNotice = true
+        }
+        .alert("Alarm Compatibility", isPresented: $showLegacyAlarmModeNotice) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("This iPhone is using the notification fallback path. Alarms still schedule and notify, but silent-mode override depends on iOS capabilities and permissions.")
+        }
+        .alert("AlarmKit Required", isPresented: $showAlarmKitFailureNotice) {
+            Button("Open Settings") {
+                guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                UIApplication.shared.open(url)
+            }
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(alarmKitFailureMessage)
+        }
     }
     
     private func updateViewState() {
@@ -139,6 +179,13 @@ struct AppRootView: View {
                 showingMainTab = newState
             }
         }
+    }
+
+    private static func initialMainTabState(from preferences: AppPreferences) -> Bool {
+        let shouldForceOnboarding =
+            preferences.forceShowOnboardingNextLaunch ||
+            (preferences.devAlwaysShowOnboarding && !preferences.onboardingCompleted)
+        return !shouldForceOnboarding && preferences.onboardingCompleted
     }
 
     private func hasPendingLiveActivityOpenRequest() -> Bool {

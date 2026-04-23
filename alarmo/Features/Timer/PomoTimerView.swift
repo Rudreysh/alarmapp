@@ -39,9 +39,9 @@ struct PomoTimerView: View {
         static let timerReadoutBaseFactor: CGFloat = 0.22
         static let timerReadoutMinimumSize: CGFloat = 28
 
-        static let resetScale: CGFloat = 0.60
+        static let resetScale: CGFloat = 0.78
         static let resetBaseSize: CGFloat = 26
-        static let resetButtonFrame: CGFloat = 24
+        static let resetButtonFrame: CGFloat = 31.2
         static let timerResetSpacing: CGFloat = 10
 
         static let emojiChipSpacing: CGFloat = 10
@@ -53,6 +53,7 @@ struct PomoTimerView: View {
 
         static let appBlockListIconSize: CGFloat = 11
         static let appBlockListLabelSize: CGFloat = 13
+        static let idleControlsLift: CGFloat = -50
     }
 
     private var activeParallelSession: ParallelFocusSession? {
@@ -97,6 +98,7 @@ struct PomoTimerView: View {
             let isDenseLayout = availableHeight < 760 || engine.parallelSessions.count > 1
             let topInset = isDenseLayout ? Spacing.s : Spacing.m
             let topSectionSpacer = isDenseLayout ? CGFloat(6) : CGFloat(16)
+            let controlsTopSpacer = isDenseLayout ? CGFloat(2) : CGFloat(8)
             let diameter = min(availableWidth * 0.75, availableHeight * 0.45)
             let middleDialDiameter = diameter * 0.60 // 20% smaller than previous center dial size
             let ringSectionSpacing = isDenseLayout ? CGFloat(18) : CGFloat(24)
@@ -107,45 +109,47 @@ struct PomoTimerView: View {
                 // Main Timer UI
                 VStack(spacing: 0) {
                     // Task Selection Header
-                    Button(action: { showTaskSelection = true }) {
-                        HStack(spacing: Layout.selectorItemSpacing) {
-                            Text(activeTaskDisplayName())
-                                .font(.system(size: 20, weight: .semibold))
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                                .minimumScaleFactor(0.85)
-                            
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 16))
-                                .foregroundColor(TimerPalette.accent)
-                            
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(Colors.textSecondary)
+                    HStack(spacing: 10) {
+                        Button(action: { showTaskSelection = true }) {
+                            HStack(spacing: Layout.selectorItemSpacing) {
+                                Text(activeTaskDisplayName())
+                                    .font(.system(size: 20, weight: .semibold))
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .minimumScaleFactor(0.85)
+                                
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(TimerPalette.accent)
+                                
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(Colors.textSecondary)
+                            }
+                            .foregroundColor(Colors.textPrimary)
+                            .padding(.horizontal, Layout.selectorHorizontalPadding)
+                            .padding(.vertical, Layout.selectorVerticalPadding)
+                            .background(
+                                Capsule()
+                                    .fill(primaryChipFill)
+                                    .background(.ultraThinMaterial, in: Capsule())
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: primaryChipStrokeGradient,
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 1
+                                    )
+                            )
+                            .shadow(color: isLightMode ? Color.black.opacity(0.08) : Color.black.opacity(0.28), radius: 10, x: 0, y: 5)
                         }
-                        .foregroundColor(Colors.textPrimary)
-                        .padding(.horizontal, Layout.selectorHorizontalPadding)
-                        .padding(.vertical, Layout.selectorVerticalPadding)
-                        .background(
-                            Capsule()
-                                .fill(primaryChipFill)
-                                .background(.ultraThinMaterial, in: Capsule())
-                        )
-                        .overlay(
-                            Capsule()
-                                .stroke(
-                                    LinearGradient(
-                                        colors: primaryChipStrokeGradient,
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        )
-                        .shadow(color: isLightMode ? Color.black.opacity(0.08) : Color.black.opacity(0.28), radius: 10, x: 0, y: 5)
+                        .buttonStyle(.plain)
+                        .fixedSize(horizontal: true, vertical: false)
                     }
-                    .buttonStyle(.plain)
-                    .fixedSize(horizontal: true, vertical: false)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.top, topInset)
                     
@@ -364,59 +368,65 @@ struct PomoTimerView: View {
                         }
                     }
                     
-                    Spacer(minLength: topSectionSpacer)
+                    Spacer(minLength: controlsTopSpacer)
                     
                     // Controls
                     VStack(spacing: Spacing.m) {
                         if case .idle = engine.state.phase {
-                            idleControlRow
+                            VStack(spacing: Spacing.m) {
+                                idleControlRow
+                                    .padding(.horizontal, Spacing.l)
+                                
+                                Button {
+                                    // Ensure selected block list + snapshot are synced before starting.
+                                    // This avoids needing a no-op "Save" after app relaunch.
+                                    syncBlockListToEngine()
+                                    engine.start(taskId: activeTaskId)
+                                    if showTimerStartCoachMark {
+                                        showTimerStartCoachMark = false
+                                        viewModel.preferences.hasSeenTimerStartTooltip = true
+                                    }
+                                }
+                                label: {
+                                    HStack(spacing: 10) {
+                                        Text("Start")
+                                            .font(.system(size: 18, weight: .black))
+                                        Image(systemName: "play.fill")
+                                            .font(.system(size: 16, weight: .bold))
+                                    }
+                                    .foregroundColor(.black)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 16)
+                                    .background(
+                                        Capsule()
+                                            .fill(TimerPalette.accent)
+                                    )
+                                }
+                                .buttonStyle(.plain)
                                 .padding(.horizontal, Spacing.l)
-                            
-                            Button {
-                                // Ensure selected block list + snapshot are synced before starting.
-                                // This avoids needing a no-op "Save" after app relaunch.
-                                syncBlockListToEngine()
-                                engine.start(taskId: activeTaskId)
-                                if showTimerStartCoachMark {
-                                    showTimerStartCoachMark = false
-                                    viewModel.preferences.hasSeenTimerStartTooltip = true
-                                }
-                            }
-                            label: {
-                                HStack(spacing: 10) {
-                                    Text("Start")
-                                        .font(.system(size: 18, weight: .black))
-                                    Image(systemName: "play.fill")
-                                        .font(.system(size: 16, weight: .bold))
-                                }
-                                .foregroundColor(.black)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(
-                                    Capsule()
-                                        .fill(TimerPalette.accent)
+                                .coachMark(
+                                    title: "Start",
+                                    subtitle: "Begin session.",
+                                    isVisible: $showTimerStartCoachMark,
+                                    alignment: .top,
+                                    pointDirection: .bottom,
+                                    arrowAlignment: .center,
+                                    arrowOffsetX: 0,
+                                    bubbleOffsetX: 0,
+                                    bubbleOffsetY: -80,
+                                    color: .red
                                 )
                             }
-                            .buttonStyle(.plain)
-                            .padding(.horizontal, Spacing.l)
-                            .coachMark(
-                                title: "Start",
-                                subtitle: "Begin session.",
-                                isVisible: $showTimerStartCoachMark,
-                                alignment: .top,
-                                pointDirection: .bottom,
-                                arrowAlignment: .center,
-                                arrowOffsetX: 0,
-                                bubbleOffsetX: 0,
-                                bubbleOffsetY: -80,
-                                color: .red
-                            )
+                            .offset(y: Layout.idleControlsLift)
                         } else {
                             // Running / Paused Controls
                             // We use a ZStack/Overlay approach to keep the main buttons (Music, Play, Stop)
                             // perfectly stable and centered. The Break button appears to the left without
                             // shifting the others.
-                            HStack(spacing: 44) {
+                            let runningControlSpacing: CGFloat = 24
+                            let manualBreakLeadingOffset: CGFloat = -(56 + runningControlSpacing)
+
+                            HStack(spacing: runningControlSpacing) {
                                 // Ambient Sound Toggle/Select
                                 Button(action: {
                                     if viewModel.ambientSoundName.isEmpty {
@@ -503,7 +513,7 @@ struct PomoTimerView: View {
                                         .overlay(Circle().stroke(circularControlStroke, lineWidth: 1))
                                         .shadow(color: circularControlShadow, radius: 6, x: 0, y: 3)
                                 }
-                                .padding(.leading, -100) // 56 (width) + 44 (spacing)
+                                .padding(.leading, manualBreakLeadingOffset) // 56 (button) + runningControlSpacing
                                 .opacity(engine.isRunning ? 0 : 1)
                                 .disabled(engine.isRunning)
                                 .animation(.easeInOut(duration: 0.2), value: engine.isRunning)

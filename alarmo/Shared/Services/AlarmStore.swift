@@ -7,37 +7,82 @@ final class AlarmStore: ObservableObject {
 
     private let fileURL: URL
     private let persistenceQueue = DispatchQueue(label: "alarm.store.persistence", qos: .utility)
+    private let persistenceQueueKey = DispatchSpecificKey<Void>()
 
     init(fileManager: FileManager = .default) {
         let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
         self.fileURL = documents.appendingPathComponent("alarms.json")
+        self.persistenceQueue.setSpecific(key: persistenceQueueKey, value: ())
         load()
     }
 
     init(fileURL: URL) {
         self.fileURL = fileURL
+        self.persistenceQueue.setSpecific(key: persistenceQueueKey, value: ())
         load()
     }
 
     func add(_ alarm: Alarm) {
         alarms.append(alarm)
-        persistAsync()
+        if alarm.type == .quick {
+            persistSync()
+        } else {
+            persistAsync()
+        }
     }
 
     func update(_ alarm: Alarm) {
         guard let index = alarms.firstIndex(where: { $0.id == alarm.id }) else { return }
         alarms[index] = alarm
-        persistAsync()
+        if alarm.type == .quick {
+            persistSync()
+        } else {
+            persistAsync()
+        }
     }
 
     func remove(id: UUID) {
+        let removedWasQuick = alarms.first(where: { $0.id == id })?.type == .quick
         alarms.removeAll { $0.id == id }
-        persistAsync()
+        if removedWasQuick {
+            persistSync()
+        } else {
+            persistAsync()
+        }
     }
 
     func toggleEnabled(id: UUID, enabled: Bool) {
         guard let index = alarms.firstIndex(where: { $0.id == id }) else { return }
         alarms[index].enabled = enabled
+        if alarms[index].type == .quick {
+            persistSync()
+        } else {
+            persistAsync()
+        }
+    }
+
+    func moveAlarmUp(id: UUID) {
+        guard let index = alarms.firstIndex(where: { $0.id == id }), index > 0 else { return }
+        alarms.swapAt(index, index - 1)
+        persistAsync()
+    }
+
+    func moveAlarmDown(id: UUID) {
+        guard let index = alarms.firstIndex(where: { $0.id == id }), index < alarms.count - 1 else { return }
+        alarms.swapAt(index, index + 1)
+        persistAsync()
+    }
+
+    func moveAlarm(from sourceIndex: Int, to destinationIndex: Int) {
+        guard alarms.indices.contains(sourceIndex) else { return }
+        guard destinationIndex >= 0 && destinationIndex <= alarms.count else { return }
+        guard sourceIndex != destinationIndex else { return }
+
+        var reordered = alarms
+        let moved = reordered.remove(at: sourceIndex)
+        let targetIndex = destinationIndex > sourceIndex ? destinationIndex - 1 : destinationIndex
+        reordered.insert(moved, at: max(0, min(targetIndex, reordered.count)))
+        alarms = reordered
         persistAsync()
     }
 
@@ -45,7 +90,7 @@ final class AlarmStore: ObservableObject {
 
     /// Apply snooze duration to all alarms and reschedule
     func applyGlobalSnooze(minutes: Int) {
-        let scheduler = AlarmScheduler()
+        let scheduler = AlarmManagerFacade.shared
         for index in alarms.indices {
             alarms[index].snoozeMinutes = minutes
         }
@@ -76,7 +121,7 @@ final class AlarmStore: ObservableObject {
     /// Original masks are persisted so toggling off restores per-alarm settings.
     func applySkipWeekends(_ skip: Bool) {
         let key = "alarmo.qs.originalRepeatMasks"
-        let scheduler = AlarmScheduler()
+        let scheduler = AlarmManagerFacade.shared
 
         if skip {
             // Save original masks before stripping weekend days
@@ -121,6 +166,8 @@ final class AlarmStore: ObservableObject {
             }
         case 2: // Recently added
             return alarms.sorted { $0.createdAt > $1.createdAt }
+        case 3: // Manual order
+            return alarms
         default: // Sort by time
             return alarms.sorted { a, b in
                 let aMin = a.hour * 60 + a.minute
@@ -133,7 +180,7 @@ final class AlarmStore: ObservableObject {
     /// Smart Wake: shift alarm times earlier by windowMinutes, or restore originals.
     func applySmartWake(enabled: Bool, windowMinutes: Int) {
         let key = "alarmo.qs.smartWakeOriginals"
-        let scheduler = AlarmScheduler()
+        let scheduler = AlarmManagerFacade.shared
 
         if enabled {
             var originals: [String: [String: Int]] = [:]
@@ -250,14 +297,30 @@ final class AlarmStore: ObservableObject {
         let snapshot = alarms
         let destination = fileURL
         persistenceQueue.async {
-            do {
-                let data = try JSONEncoder().encode(snapshot)
-                try data.write(to: destination, options: [.atomic])
-            } catch {
-                #if DEBUG
-                print("[AlarmStore] Persist failed: \(error)")
-                #endif
+            Self.writeSnapshot(snapshot, to: destination)
+        }
+    }
+
+    private func persistSync() {
+        let snapshot = alarms
+        let destination = fileURL
+        if DispatchQueue.getSpecific(key: persistenceQueueKey) != nil {
+            Self.writeSnapshot(snapshot, to: destination)
+        } else {
+            persistenceQueue.sync {
+                Self.writeSnapshot(snapshot, to: destination)
             }
+        }
+    }
+
+    private static func writeSnapshot(_ snapshot: [Alarm], to destination: URL) {
+        do {
+            let data = try JSONEncoder().encode(snapshot)
+            try data.write(to: destination, options: [.atomic])
+        } catch {
+            #if DEBUG
+            print("[AlarmStore] Persist failed: \(error)")
+            #endif
         }
     }
 }

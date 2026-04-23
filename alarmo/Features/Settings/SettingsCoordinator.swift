@@ -14,6 +14,7 @@ enum SettingsRoute: Hashable {
     case theme
     case soundOutput
     case notification
+    case alarmCapabilities
     case system
     case faq
     case optimization

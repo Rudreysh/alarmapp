@@ -5,7 +5,6 @@ struct OnboardingScreenTimeAccessView: View {
     let onNext: () -> Void
     
     @State private var isRequesting = false
-    @State private var showPrompt = false
     @State private var systemSettingsDeniedAlert = false
     @StateObject private var screenTimeManager = ScreenTimeAuthorizationManager.shared
 
@@ -14,37 +13,42 @@ struct OnboardingScreenTimeAccessView: View {
             Colors.bgPrimary.ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // Let's assume Screen Time is the new step 4, shifting motion to 5, live actions to 6, health to 7, sound to 8...
-                ProgressHeader(step: 4, total: AppConstants.onboardingTotalSteps)
+                ProgressHeader(step: 5, total: AppConstants.onboardingTotalSteps)
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.m)
                     .padding(.bottom, Spacing.s)
                 
                 Spacer()
                 
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .center, spacing: 14) {
                     // Custom Icon
                     Image(systemName: "hourglass.circle.fill")
-                        .font(.system(size: 60, weight: .semibold))
+                        .font(.system(size: 48, weight: .semibold))
                         .foregroundColor(Colors.accentTeal)
-                        .padding(24)
+                        .padding(20)
                         .background(Colors.cardSurface)
-                        .cornerRadius(24)
-                        .padding(.bottom, 12)
+                        .cornerRadius(20)
+                        .padding(.bottom, 10)
                     
                     Text("Permission for Screen Time")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .font(.system(size: 24, weight: .bold))
                         .foregroundColor(Colors.textPrimary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
                         .fixedSize(horizontal: false, vertical: true)
                     
                     Text("Screen Time permissions are required for the Accountability features, allowing Alarmo to block distracting apps while you focus.")
-                        .font(.system(size: 17, weight: .medium))
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
-                        .lineSpacing(4)
+                        .lineSpacing(2)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(.horizontal, 32)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, Spacing.l)
+                .frame(maxWidth: .infinity, alignment: .center)
                 
                 Spacer()
                 
@@ -62,21 +66,15 @@ struct OnboardingScreenTimeAccessView: View {
                     .disabled(isRequesting)
                     
                     PrimaryButton(title: "Continue", style: .blueGlass) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            showPrompt = true
-                        }
+                        requestAccess()
                     }
                     .disabled(isRequesting)
                 }
-                .padding(.horizontal, 32)
+                .padding(.horizontal, Spacing.l)
                 .padding(.bottom, 24)
             }
-            
-            if showPrompt {
-                customOverlay
-                    .zIndex(1)
-            }
-            
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
             if isRequesting {
                 Color.black.opacity(0.40).ignoresSafeArea()
                     .zIndex(2)
@@ -107,58 +105,8 @@ struct OnboardingScreenTimeAccessView: View {
         }
     }
     
-    private var customOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.52).ignoresSafeArea()
-            
-            VStack(alignment: .leading, spacing: 14) {
-                Text("\"Alarmo\" would like to access Screen Time.")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(Colors.textPrimary)
-                    .lineSpacing(2)
-                
-                Text("This allows Alarmo to enforce accountability missions by blocking distractions during your active tasks.")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(Color.white.opacity(0.7))
-                    .lineSpacing(3)
-                
-                HStack(spacing: 12) {
-                    Button {
-                        showPrompt = false
-                        onNext()
-                    } label: {
-                        Text("Don't Allow")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Color.white.opacity(0.15))
-                            .clipShape(Capsule())
-                    }
-                    
-                    Button {
-                        showPrompt = false
-                        requestAccess()
-                    } label: {
-                        Text("Allow")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Colors.accentBlue)
-                            .clipShape(Capsule())
-                    }
-                }
-                .padding(.top, 8)
-            }
-            .padding(24)
-            .background(Color(red: 0.12, green: 0.12, blue: 0.12))
-            .cornerRadius(24)
-            .padding(.horizontal, 24)
-        }
-    }
-    
     private func requestAccess() {
+        screenTimeManager.refreshStatus()
         guard screenTimeManager.state != .approved else {
             onNext()
             return

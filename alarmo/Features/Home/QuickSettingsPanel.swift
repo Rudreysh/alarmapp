@@ -1,5 +1,6 @@
 import SwiftUI
 import UserNotifications
+import UIKit
 
 // MARK: - Quick Settings Panel
 
@@ -28,6 +29,7 @@ struct QuickSettingsPanel: View {
     @State private var showAllDisabledConfirm = false
     @State private var feedbackMessage: String? = nil
     @State private var quickPresets: [AlarmQuickPreset] = []
+    @State private var selectedQuickPresetIDs: Set<UUID> = []
     @State private var isManagingPresets = false
     @State private var showPresetEditor = false
     @State private var editingPresetID: UUID? = nil
@@ -97,7 +99,12 @@ struct QuickSettingsPanel: View {
                         .foregroundColor(Colors.textPrimary)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
+                    Button("Done") {
+                        if !selectedQuickPresetIDs.isEmpty {
+                            addSelectedPresetAlarms(showFeedback: false)
+                        }
+                        dismiss()
+                    }
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(Colors.accentTeal)
                 }
@@ -741,6 +748,10 @@ struct QuickSettingsPanel: View {
                             withAnimation { sortOrder = 2 }
                             showFeedback("Newest alarms first")
                         }
+                        SortOptionButton(title: "↕️ Manual", isSelected: sortOrder == 3) {
+                            withAnimation { sortOrder = 3 }
+                            showFeedback("Manual order enabled")
+                        }
                     }
                 }
             }
@@ -752,7 +763,7 @@ struct QuickSettingsPanel: View {
     private var quickPresetsSection: some View {
         VStack(spacing: 12) {
             HStack {
-                sectionHeader(icon: "clock.badge.plus", title: "Quick Presets", subtitle: "Create, edit, and run your own templates")
+                sectionHeader(icon: "alarm.fill", title: "Quick Presets", subtitle: "Create, edit, and run your own templates")
                 VStack(spacing: 8) {
                     Button {
                         openCreatePreset()
@@ -800,6 +811,37 @@ struct QuickSettingsPanel: View {
                     }
                 }
             } else {
+                if !selectedQuickPresetIDs.isEmpty {
+                    HStack(spacing: 10) {
+                        Label("\(selectedQuickPresetIDs.count) selected", systemImage: "checkmark.circle.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Colors.textSecondary)
+
+                        Spacer()
+
+                        Button("Clear") {
+                            withAnimation(.spring(response: 0.24, dampingFraction: 0.9)) {
+                                selectedQuickPresetIDs.removeAll()
+                            }
+                        }
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Colors.accentTeal)
+
+                        Button {
+                            addSelectedPresetAlarms()
+                        } label: {
+                            Text("Add Selected")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.black)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .background(Capsule().fill(Colors.accentTeal))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 4)
+                }
+
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     ForEach(quickPresets) { preset in
                         ZStack(alignment: .topTrailing) {
@@ -808,22 +850,23 @@ struct QuickSettingsPanel: View {
                                 iconColor: preset.iconColor,
                                 name: preset.name,
                                 hour: preset.hour,
-                                minute: preset.minute
+                                minute: preset.minute,
+                                isSelected: selectedQuickPresetIDs.contains(preset.id)
                             ) {
                                 if isManagingPresets {
                                     openEditPreset(preset)
                                 } else {
-                                    addPresetAlarm(hour: preset.hour, minute: preset.minute, name: preset.name, emoji: preset.emoji)
-                                    showFeedback("\(preset.name) alarm added!")
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { dismiss() }
+                                    togglePresetSelection(preset.id)
                                 }
                             }
                             .contextMenu {
                                 Button {
-                                    addPresetAlarm(hour: preset.hour, minute: preset.minute, name: preset.name, emoji: preset.emoji)
-                                    showFeedback("\(preset.name) alarm added!")
+                                    togglePresetSelection(preset.id)
                                 } label: {
-                                    Label("Add Alarm", systemImage: "alarm")
+                                    Label(
+                                        selectedQuickPresetIDs.contains(preset.id) ? "Unselect" : "Select",
+                                        systemImage: selectedQuickPresetIDs.contains(preset.id) ? "checkmark.circle.fill" : "circle"
+                                    )
                                 }
                                 Button {
                                     openEditPreset(preset)
@@ -877,7 +920,7 @@ struct QuickSettingsPanel: View {
                         Text("Custom presets create new alarms")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(Colors.textPrimary)
-                        Text("Tap Add to create templates, Manage to edit times and names. New alarms are enabled with daily repeat.")
+                        Text("Tap Add Selected to create alarms for the next occurrence of each selected preset time.")
                             .font(.system(size: 12))
                             .foregroundColor(Colors.textTertiary)
                     }
@@ -890,7 +933,7 @@ struct QuickSettingsPanel: View {
 
     private func sectionHeader(icon: String, title: String, subtitle: String) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: icon)
+            Image(systemName: resolvedSymbolName(icon))
                 .font(.system(size: 20))
                 .foregroundColor(Colors.accentTeal)
                 .frame(width: 36, height: 36)
@@ -907,6 +950,10 @@ struct QuickSettingsPanel: View {
             Spacer()
         }
         .padding(.bottom, 4)
+    }
+
+    private func resolvedSymbolName(_ name: String) -> String {
+        UIImage(systemName: name) == nil ? "alarm.fill" : name
     }
 
     private func showFeedback(_ message: String) {
@@ -959,6 +1006,7 @@ struct QuickSettingsPanel: View {
 
     private func deletePreset(_ preset: AlarmQuickPreset) {
         quickPresets.removeAll(where: { $0.id == preset.id })
+        selectedQuickPresetIDs.remove(preset.id)
         saveQuickPresets()
         showFeedback("Preset deleted")
     }
@@ -1030,19 +1078,30 @@ struct QuickSettingsPanel: View {
 
     // MARK: - Preset Alarm Creation
 
-    private func addPresetAlarm(hour: Int, minute: Int, name: String, emoji: String) {
+    private func addPresetAlarm(hour: Int, minute: Int, name: String, emoji: String, createdAt: Date = Date()) {
+        let now = Date()
+        let calendar = Calendar.current
+        var target = DateComponents()
+        target.hour = hour
+        target.minute = minute
+        target.second = 0
+
+        let fireDate = calendar.nextDate(after: now, matching: target, matchingPolicy: .nextTime) ?? now.addingTimeInterval(60)
+        let fire = calendar.dateComponents([.hour, .minute, .second], from: fireDate)
+
         let alarm = Alarm(
             id: UUID(),
             type: .wakeUp,
             name: name,
             emoji: emoji,
-            hour: hour,
-            minute: minute,
-            isDaily: true,
-            repeatMask: RepeatMask.allDays,
+            hour: fire.hour ?? hour,
+            minute: fire.minute ?? minute,
+            second: fire.second ?? 0,
+            isDaily: false,
+            repeatMask: 0,
             enabled: true,
             wakeUpCheckEnabled: false,
-            soundName: "default",
+            soundName: "Cockpit Alert",
             soundVolume: Float(alarmVolume),
             vibrateEnabled: vibrationEnabled,
             gentleWakeUpSeconds: 0,
@@ -1053,10 +1112,43 @@ struct QuickSettingsPanel: View {
             snoozeMinutes: globalSnoozeEnabled ? snoozeMinutes : 0,
             snoozeCount: 0,
             wallpaperId: "default",
-            createdAt: Date()
+            createdAt: createdAt
         )
         alarmStore.add(alarm)
-        AlarmScheduler().schedule(alarm: alarm)
+        AlarmManagerFacade.shared.schedule(alarm: alarm)
+    }
+
+    private func togglePresetSelection(_ id: UUID) {
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.9)) {
+            if selectedQuickPresetIDs.contains(id) {
+                selectedQuickPresetIDs.remove(id)
+            } else {
+                selectedQuickPresetIDs.insert(id)
+            }
+        }
+    }
+
+    private func addSelectedPresetAlarms(showFeedback: Bool = true) {
+        let selected = quickPresets.filter { selectedQuickPresetIDs.contains($0.id) }
+        guard !selected.isEmpty else { return }
+
+        let now = Date()
+        for (index, preset) in selected.enumerated() {
+            addPresetAlarm(
+                hour: preset.hour,
+                minute: preset.minute,
+                name: preset.name,
+                emoji: preset.emoji,
+                createdAt: now.addingTimeInterval(TimeInterval(index))
+            )
+        }
+
+        if showFeedback {
+            self.showFeedback(selected.count == 1 ? "1 preset alarm added!" : "\(selected.count) preset alarms added!")
+        }
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.9)) {
+            selectedQuickPresetIDs.removeAll()
+        }
     }
 }
 
@@ -1133,6 +1225,7 @@ struct PresetAlarmButton: View {
     let name: String
     let hour: Int
     let minute: Int
+    let isSelected: Bool
     let action: () -> Void
 
     private var timeString: String { String(format: "%02d:%02d", hour, minute) }
@@ -1164,7 +1257,18 @@ struct PresetAlarmButton: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Colors.cardSurface))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Colors.cardStroke, lineWidth: 1))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(isSelected ? Colors.accentTeal : Colors.cardStroke, lineWidth: isSelected ? 2 : 1)
+            )
+            .overlay(alignment: .topTrailing) {
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(Colors.accentTeal)
+                        .padding(8)
+                }
+            }
         }
         .buttonStyle(.plain)
     }

@@ -10,7 +10,7 @@ struct AlarmDraft: Equatable {
     var selectedWeekdays: Set<Int>
     var enabled: Bool = true
     var wakeUpCheckEnabled: Bool = false
-    var soundName: String = "Orkney"
+    var soundName: String = "Cockpit Alert"
     var soundVolume: Float = 0.8
     var vibrateEnabled: Bool = true
     var gentleWakeUpSeconds: Int = 30
@@ -45,7 +45,7 @@ struct AlarmDraft: Equatable {
         self.second = defaultSecond
         self.selectedWeekdays = Set(RepeatMask.weekdays(from: defaultRepeatMask))
         self.isDaily = defaultRepeatMask == RepeatMask.allDays
-        self.soundName = defaultSoundName.isEmpty ? "Orkney" : defaultSoundName
+        self.soundName = defaultSoundName.isEmpty ? "Cockpit Alert" : defaultSoundName
         self.soundVolume = defaultSoundVolume
         self.wallpaperId = Self.resolveWallpaperId(defaultWallpaperId)
         self.visualOutputSettings = AlarmVisualOutputSettings.migratedFromLegacy(

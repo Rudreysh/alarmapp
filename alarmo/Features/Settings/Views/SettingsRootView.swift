@@ -41,7 +41,7 @@ struct SettingsRootView: View {
 
                             SettingsCategoryNavRow(
                                 title: settingsStatusTitle(
-                                    base: "Prevent app uninstall",
+                                    base: "Prevent uninstall",
                                     enabled: store.triggerUninstallTamperEnabled
                                 ),
                                 icon: "shield",
@@ -65,6 +65,10 @@ struct SettingsRootView: View {
 
                             SettingsCategoryNavRow(title: "Notifications", icon: "bell", iconColor: .gray, isLast: false) {
                                 coordinator.navigate(to: .notification)
+                            }
+
+                            SettingsCategoryNavRow(title: "Alarm Compatibility", icon: "waveform.path.ecg", iconColor: .cyan, isLast: false) {
+                                coordinator.navigate(to: .alarmCapabilities)
                             }
 
                             SettingsCategoryToggleRow(
@@ -176,6 +180,8 @@ struct SettingsRootView: View {
                     SoundOutputView()
                 case .notification:
                     NotificationSettingsView()
+                case .alarmCapabilities:
+                    AlarmCapabilitiesView()
                 case .system:
                     SystemConfigurationView()
                 case .faq:

@@ -10,50 +10,12 @@ struct OnboardingFlowView: View {
                 NavigationStack(path: $viewModel.navigationPath) {
             OnboardingIntroView(onNext: {
                 withAnimation(.easeInOut) {
-                    viewModel.nextStep()
-                    viewModel.navigationPath.append(.setTime)
+                    viewModel.startSetupFlowFromIntroCTA()
                 }
             }, onSkip: {
-                // Skip directly to main app
+                // Skip the tutorial slides and go straight to the setup steps
                 withAnimation(.easeInOut) {
-                    appPreferences.devAlwaysShowOnboarding = false
-                    appPreferences.onboardingCompleted = true
-                    appPreferences.forceShowOnboardingNextLaunch = false
-                    // Ensure the first Home open after onboarding can show the intro discount flow.
-                    appPreferences.hasShownFirstHomeDiscountFlow = false
-                    appPreferences.onboardingAlarmEnabled = true
-                    
-                    // Create a default alarm if none exists, using current defaults
-                    if alarmStore.alarms.isEmpty {
-                        let newAlarm = Alarm(
-                            id: UUID(),
-                            name: "Morning Alarm",
-                            emoji: "🌞",
-                            hour: 8,
-                            minute: 0,
-                            second: 0,
-                            isDaily: true,
-                            repeatMask: RepeatMask.monToSat, // Added
-                            enabled: true,
-                            wakeUpCheckEnabled: false, // Added
-                            soundName: "Orkney",
-                            soundVolume: 1.0,
-                            vibrateEnabled: true, // Added
-                            gentleWakeUpSeconds: 30, // Added
-                            timeReminderEnabled: false, // Added
-                            weatherReminderEnabled: false, // Added
-                            labelReminderEnabled: false, // Added
-                            extraLoudEnabled: false, // Added
-                            snoozeMinutes: 5, // Added
-                            snoozeCount: 3, // Added
-                            wallpaperId: "default", // Added
-                            dailyMotivationEnabled: viewModel.state.dailyMotivationEnabled,
-                            createdAt: Date()
-                        )
-                        alarmStore.add(newAlarm)
-                        appPreferences.hasAnyAlarm = true
-                    }
-                    viewModel.completeOnboarding()
+                    viewModel.startSetupFlowFromIntroCTA()
                 }
             })
             .navigationDestination(for: OnboardingStep.self) { step in
@@ -92,6 +54,13 @@ struct OnboardingFlowView: View {
                     }
                 case .notifications:
                     OnboardingReportsInsightsView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.alarmPermission)
+                            viewModel.navigationPath.append(.alarmPermission)
+                        }
+                    }
+                case .alarmPermission:
+                    OnboardingAlarmPermissionView(viewModel: viewModel) {
                         withAnimation(.easeInOut) {
                             viewModel.setStep(.screenTimeAccess)
                             viewModel.navigationPath.append(.screenTimeAccess)
@@ -172,7 +141,7 @@ struct OnboardingFlowView: View {
                             appPreferences.onboardingAlarmSecond = viewModel.selectedSecond
                             appPreferences.onboardingRepeatMask = RepeatMask.monToSat
                             appPreferences.onboardingAlarmEnabled = true
-                            appPreferences.onboardingSoundName = viewModel.state.selectedSoundName ?? "Orkney"
+                            appPreferences.onboardingSoundName = viewModel.state.selectedSoundName ?? "Cockpit Alert"
                             appPreferences.onboardingSoundVolume = viewModel.state.selectedVolume
                             appPreferences.onboardingWallpaperId = viewModel.state.selectedWallpaper?.id ?? "default"
                             let newAlarm = Alarm(
@@ -186,7 +155,7 @@ struct OnboardingFlowView: View {
                                 repeatMask: RepeatMask.monToSat,
                                 enabled: true,
                                 wakeUpCheckEnabled: false,
-                                soundName: viewModel.state.selectedSoundName ?? "Orkney",
+                                soundName: viewModel.state.selectedSoundName ?? "Cockpit Alert",
                                 soundVolume: viewModel.state.selectedVolume,
                                 vibrateEnabled: true,
                                 gentleWakeUpSeconds: 30,
@@ -221,7 +190,7 @@ struct OnboardingFlowView: View {
                             appPreferences.onboardingAlarmSecond = viewModel.selectedSecond
                             appPreferences.onboardingRepeatMask = RepeatMask.monToSat
                             appPreferences.onboardingAlarmEnabled = true
-                            appPreferences.onboardingSoundName = viewModel.state.selectedSoundName ?? "Orkney"
+                            appPreferences.onboardingSoundName = viewModel.state.selectedSoundName ?? "Cockpit Alert"
                             appPreferences.onboardingSoundVolume = viewModel.state.selectedVolume
                             appPreferences.onboardingWallpaperId = viewModel.state.selectedWallpaper?.id ?? "default"
                             let newAlarm = Alarm(
@@ -235,7 +204,7 @@ struct OnboardingFlowView: View {
                                 repeatMask: RepeatMask.monToSat,
                                 enabled: true,
                                 wakeUpCheckEnabled: false,
-                                soundName: viewModel.state.selectedSoundName ?? "Orkney",
+                                soundName: viewModel.state.selectedSoundName ?? "Cockpit Alert",
                                 soundVolume: viewModel.state.selectedVolume,
                                 vibrateEnabled: true,
                                 gentleWakeUpSeconds: 30,

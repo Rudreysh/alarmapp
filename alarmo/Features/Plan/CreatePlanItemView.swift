@@ -451,10 +451,12 @@ struct CreatePlanItemView: View {
         }
         
         // 3. Time (Sleep, Stand)
-        if u.contains("hour") || u == "h" || u == "hr" {
+        let isTimeUnit = u.contains("hour") || u == "h" || u == "hr" || u.contains("min")
+        if isTimeUnit {
             if t.contains("sleep") || t.contains("nap") {
                 return "sleep"
-            } else if t.contains("stand") {
+            }
+            if t.contains("stand") {
                 return "standing"
             }
         }

@@ -18,7 +18,285 @@ enum HouseholdItemHuntMissionError: LocalizedError {
 }
 
 struct HouseholdItemHuntMissionConfig: Codable, Equatable {
-    var referenceImageFilename: String
+    var selectedItemIDs: [String] = []
+    var referenceImageFilename: String? = nil
+    var customItemsJSON: String? = nil
+}
+
+enum HouseholdItemHuntCatalogSection: String, CaseIterable, Identifiable {
+    case household
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .household: return "Household Items"
+        }
+    }
+}
+
+struct HouseholdItemHuntCatalogItem: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let emoji: String
+    let keywords: [String]
+    let referenceImageFilename: String?
+
+    var isCustom: Bool { referenceImageFilename != nil }
+
+    init(
+        id: String,
+        name: String,
+        emoji: String,
+        keywords: [String],
+        referenceImageFilename: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.emoji = emoji
+        self.keywords = keywords
+        self.referenceImageFilename = referenceImageFilename
+    }
+}
+
+enum HouseholdItemHuntCatalogStore {
+    static let selectedItemIDsKey = "selectedItemIDs"
+    static let referenceImageFilenameKey = "referenceImageFilename"
+    static let customItemsKey = "customItems"
+
+    static var builtInItems: [HouseholdItemHuntCatalogItem] {
+        householdItems
+    }
+
+    static var allItems: [HouseholdItemHuntCatalogItem] {
+        builtInItems
+    }
+
+    static func allItems(for mission: AlarmMission) -> [HouseholdItemHuntCatalogItem] {
+        builtInItems + customItems(from: mission)
+    }
+
+    static func items(in section: HouseholdItemHuntCatalogSection) -> [HouseholdItemHuntCatalogItem] {
+        switch section {
+        case .household: return householdItems
+        }
+    }
+
+    static func item(withID id: String) -> HouseholdItemHuntCatalogItem? {
+        allItems.first { $0.id == id }
+    }
+
+    static func configuredSelectionIDs(from mission: AlarmMission) -> Set<String> {
+        guard let stored = mission.customData[selectedItemIDsKey], !stored.isEmpty else {
+            return []
+        }
+        let allIDs = Set(allItems(for: mission).map(\.id))
+        let ids = Set(
+            stored
+                .split(separator: ",")
+                .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+        )
+        return ids.intersection(allIDs)
+    }
+
+    static func selectedIDsForEditing(from mission: AlarmMission) -> Set<String> {
+        let configured = configuredSelectionIDs(from: mission)
+        return configured.isEmpty ? defaultSelectionIDs : configured
+    }
+
+    static func selectedItems(for mission: AlarmMission) -> [HouseholdItemHuntCatalogItem] {
+        let missionItems = allItems(for: mission)
+        let configured = configuredSelectionIDs(from: mission)
+        if configured.isEmpty {
+            if let legacyReference = mission.customData[referenceImageFilenameKey], !legacyReference.isEmpty {
+                return []
+            }
+            return defaultItems
+        }
+
+        return missionItems.filter { configured.contains($0.id) }
+    }
+
+    static func pickRandomItem(for mission: AlarmMission) -> HouseholdItemHuntCatalogItem? {
+        selectedItems(for: mission).randomElement()
+    }
+
+    static func serializedIDs(_ ids: Set<String>) -> String {
+        ids.sorted().joined(separator: ",")
+    }
+
+    static func customItems(from mission: AlarmMission) -> [HouseholdItemHuntCatalogItem] {
+        guard let raw = mission.customData[customItemsKey], !raw.isEmpty else { return [] }
+        guard let data = raw.data(using: .utf8) else { return [] }
+        guard let decoded = try? JSONDecoder().decode([StoredCustomItem].self, from: data) else { return [] }
+
+        return decoded.compactMap { stored in
+            guard !stored.id.isEmpty,
+                  !stored.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  let filename = stored.referenceImageFilename,
+                  !filename.isEmpty else {
+                return nil
+            }
+
+            let generatedKeywords = keywords(from: stored.name)
+            let mergedKeywords = Array(Set((stored.keywords ?? []) + generatedKeywords)).sorted()
+            return HouseholdItemHuntCatalogItem(
+                id: stored.id,
+                name: stored.name,
+                emoji: stored.emoji.isEmpty ? "🧩" : stored.emoji,
+                keywords: mergedKeywords.isEmpty ? generatedKeywords : mergedKeywords,
+                referenceImageFilename: filename
+            )
+        }
+    }
+
+    static func serializedCustomItems(_ items: [HouseholdItemHuntCatalogItem]) -> String? {
+        let customItems = items.filter { $0.isCustom }
+        guard !customItems.isEmpty else { return nil }
+
+        let payload = customItems.map {
+            StoredCustomItem(
+                id: $0.id,
+                name: $0.name,
+                emoji: $0.emoji,
+                keywords: $0.keywords,
+                referenceImageFilename: $0.referenceImageFilename
+            )
+        }
+        guard let data = try? JSONEncoder().encode(payload) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func makeCustomItem(
+        name: String,
+        referenceImageFilename: String,
+        existingCustomItems: [HouseholdItemHuntCatalogItem]
+    ) -> HouseholdItemHuntCatalogItem {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let emoji = customEmojiPool[existingCustomItems.count % customEmojiPool.count]
+        return HouseholdItemHuntCatalogItem(
+            id: "custom_\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))",
+            name: trimmedName,
+            emoji: emoji,
+            keywords: keywords(from: trimmedName),
+            referenceImageFilename: referenceImageFilename
+        )
+    }
+
+    static func matches(item: HouseholdItemHuntCatalogItem, labels: [String]) -> Bool {
+        let normalizedLabels = labels.map(normalizeToken)
+        let normalizedKeywords = item.keywords.map(normalizeToken)
+
+        if item.id == "keys", isLikelyModernKeyMatch(labels: normalizedLabels) {
+            return true
+        }
+
+        for label in normalizedLabels {
+            if normalizedKeywords.contains(where: { label.contains($0) || $0.contains(label) }) {
+                return true
+            }
+        }
+        return false
+    }
+
+    static func primaryDetectedLabel(from labels: [String]) -> String? {
+        guard let top = labels.first else { return nil }
+        let cleaned = top
+            .split(separator: ",")
+            .first
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+        guard let cleaned, !cleaned.isEmpty else { return nil }
+        return cleaned.lowercased()
+    }
+
+    static func articlePhrase(for noun: String) -> String {
+        guard let first = noun.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().first else {
+            return noun
+        }
+        let article = "aeiou".contains(first) ? "an" : "a"
+        return "\(article) \(noun)"
+    }
+
+    static var defaultSelectionIDs: Set<String> {
+        Set(defaultItems.prefix(8).map(\.id))
+    }
+
+    private static var defaultItems: [HouseholdItemHuntCatalogItem] {
+        householdItems
+    }
+
+    nonisolated private static func normalizeToken(_ text: String) -> String {
+        text.lowercased()
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    nonisolated private static func keywords(from name: String) -> [String] {
+        let lowered = normalizeToken(name)
+        let parts = lowered
+            .split(separator: " ")
+            .map(String.init)
+            .filter { $0.count > 1 }
+        return Array(Set(([lowered] + parts))).sorted()
+    }
+
+    nonisolated private static func isLikelyModernKeyMatch(labels: [String]) -> Bool {
+        let disallowedToolWords = ["hammer", "screwdriver", "wrench", "drill", "pliers", "saw", "spanner"]
+        for label in labels {
+            if label.contains("key") && !label.contains("keyboard") {
+                return true
+            }
+            if label.contains("keychain") || label.contains("fob") || label.contains("car key") || label.contains("door key") {
+                return true
+            }
+            if label.contains("tool") && !disallowedToolWords.contains(where: label.contains) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static let customEmojiPool = ["🧩", "📸", "🏷️", "📦", "🪄", "🔎", "🛍️", "🧸"]
+
+    private struct StoredCustomItem: Codable {
+        let id: String
+        let name: String
+        let emoji: String
+        let keywords: [String]?
+        let referenceImageFilename: String?
+    }
+
+    private static let householdItems: [HouseholdItemHuntCatalogItem] = [
+        .init(id: "toothbrush", name: "Toothbrush", emoji: "🪥", keywords: ["toothbrush", "brush", "electric toothbrush"]),
+        .init(id: "running_faucet", name: "Running Faucet", emoji: "🚰", keywords: ["faucet", "tap", "running water", "sink"]),
+        .init(id: "shoes", name: "Shoes", emoji: "👟", keywords: ["shoe", "sneaker", "footwear"]),
+        .init(id: "fridge", name: "Fridge", emoji: "🧊", keywords: ["fridge", "refrigerator"]),
+        .init(id: "keys", name: "Keys", emoji: "🗝️", keywords: ["keys", "key", "keychain", "house key", "car key", "door key", "key fob", "fob"]),
+        .init(id: "coffee_mug", name: "Coffee Mug", emoji: "☕️", keywords: ["mug", "coffee mug", "cup"]),
+        .init(id: "mirror", name: "Mirror", emoji: "🪞", keywords: ["mirror", "looking glass"]),
+        .init(id: "water_bottle", name: "Water Bottle", emoji: "🍶", keywords: ["water bottle", "bottle", "flask"]),
+        .init(id: "dustpan", name: "Dustpan", emoji: "🪣", keywords: ["dustpan", "scoop"]),
+        .init(id: "toilet", name: "Toilet", emoji: "🚽", keywords: ["toilet", "toilet bowl"]),
+        .init(id: "book", name: "Book", emoji: "📚", keywords: ["book", "notebook", "novel"]),
+        .init(id: "lamp", name: "Lamp", emoji: "💡", keywords: ["lamp", "desk lamp", "light"]),
+        .init(id: "tv_remote", name: "TV Remote", emoji: "📺", keywords: ["remote", "remote control", "tv remote"]),
+        .init(id: "front_door", name: "Front Door", emoji: "🚪", keywords: ["door", "front door"]),
+        .init(id: "stove", name: "Stove", emoji: "🍳", keywords: ["stove", "oven", "range"]),
+        .init(id: "lotion_bottle", name: "Lotion Bottle", emoji: "🧴", keywords: ["lotion", "lotion bottle", "bottle"]),
+        .init(id: "soap", name: "Soap", emoji: "🧼", keywords: ["soap", "soap bar", "liquid soap"]),
+        .init(id: "plant", name: "Plant", emoji: "🪴", keywords: ["plant", "flowerpot", "potted plant"]),
+        .init(id: "plate", name: "Plate", emoji: "🍽️", keywords: ["plate", "dish"]),
+        .init(id: "towel", name: "Towel", emoji: "🧺", keywords: ["towel", "bath towel"]),
+        .init(id: "backpack", name: "Backpack", emoji: "🎒", keywords: ["backpack", "bag", "school bag"]),
+        .init(id: "headphones", name: "Headphones", emoji: "🎧", keywords: ["headphones", "headset", "earphones"]),
+        .init(id: "shower", name: "Shower", emoji: "🚿", keywords: ["shower", "shower head"]),
+        .init(id: "tape", name: "Tape", emoji: "🧻", keywords: ["tape", "adhesive tape", "scotch tape"])
+    ]
 }
 
 enum HouseholdItemHuntImageStore {

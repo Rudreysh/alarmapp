@@ -176,9 +176,33 @@ struct PlanItemDetailView: View {
                 // Bottom Actions
                 VStack(spacing: 10) {
                     if let duration = item.defaultDurationSeconds, duration > 0 {
-                        PrimaryButton(title: "Start Focus", iconName: "play.fill", style: .blueGlass) {
-                            startFocus()
+                        Button(action: startFocus) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "play.fill")
+                                    .font(.system(size: 16, weight: .bold))
+                                Text("Start Focus")
+                                    .font(.system(size: 18, weight: .bold))
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [itemColor.opacity(0.78), itemColor],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(itemColor.opacity(0.35), lineWidth: 1)
+                            )
+                            .shadow(color: itemColor.opacity(0.35), radius: 12, x: 0, y: 8)
                         }
+                        .buttonStyle(.plain)
                         .padding(.horizontal, 24)
                     }
 
@@ -578,7 +602,7 @@ struct GenericHabitProgressView: View {
     private let progressUpdater = PlanViewModel()
     
     var body: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 14) {
             Spacer().frame(height: 6)
 
             ZStack {
@@ -621,15 +645,15 @@ struct GenericHabitProgressView: View {
                 }
             }
 
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 Text(formattedProgressValue)
-                    .font(.system(size: 40, weight: .heavy, design: .rounded))
+                    .font(.system(size: 32, weight: .heavy, design: .rounded))
                     .foregroundColor(Colors.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
 
                 Text("\(displayUnit) • of \(formattedGoalValue) goal")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(Colors.textSecondary)
 
                 Text(progressStatusText)
@@ -637,7 +661,7 @@ struct GenericHabitProgressView: View {
                     .foregroundColor(progress >= 1 ? itemColor : Colors.textSecondary)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
+            .padding(.vertical, 10)
             .padding(.horizontal, 20)
             .background(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -806,9 +830,9 @@ private struct HabitDailySnapshot: Identifiable {
 }
 
 private enum HabitTrendGranularity: String, CaseIterable, Identifiable {
-    case day = "D"
     case week = "W"
     case month = "M"
+    case year = "Y"
 
     var id: String { rawValue }
 }
@@ -825,11 +849,26 @@ private struct HabitTrendPoint: Identifiable {
     var id: Date { startDate }
 }
 
+private extension View {
+    func habitStatisticsSurface(cornerRadius: CGFloat) -> some View {
+        background(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Colors.cardSurface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(Colors.cardStroke, lineWidth: 1)
+        )
+    }
+}
+
 struct HabitStatisticsTabView: View {
     @Bindable var item: PlanItem
     let itemColor: Color
+    @Environment(\.colorScheme) private var colorScheme
+    @ObservedObject private var settingsStore = SettingsStore.shared
 
-    @State private var selectedGranularity: HabitTrendGranularity = .month
+    @State private var selectedGranularity: HabitTrendGranularity = .week
     @State private var selectedTrendPoint: HabitTrendPoint?
     @State private var cachedValueByDay: [Date: Double] = [:]
     private let calendar = Calendar.current
@@ -840,8 +879,8 @@ struct HabitStatisticsTabView: View {
                 topSummaryCard
                 streakHeroCard
                 metricGrid
-                trendGranularityPicker
                 trendChartCard
+                consistencyTrendCard
                 heatMapCard
             }
             .padding(.horizontal, 16)
@@ -879,7 +918,7 @@ struct HabitStatisticsTabView: View {
             }
         }
         .padding(16)
-        .planGlassPanel(cornerRadius: 20, fillOpacity: 0.10)
+        .habitStatisticsSurface(cornerRadius: 20)
     }
 
     private var streakHeroCard: some View {
@@ -907,7 +946,7 @@ struct HabitStatisticsTabView: View {
                             Circle()
                                 .trim(from: 0, to: max(0.03, day.intensity))
                                 .stroke(
-                                    day.goalMet ? Color(red: 0.98, green: 0.58, blue: 0.24) : itemColor.opacity(0.8),
+                                    day.goalMet ? trendPrimaryBlue : itemColor.opacity(0.8),
                                     style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
                                 )
                                 .rotationEffect(.degrees(-90))
@@ -925,7 +964,16 @@ struct HabitStatisticsTabView: View {
             }
         }
         .padding(16)
-        .planGlassPanel(cornerRadius: 18, fillOpacity: 0.08)
+        .habitStatisticsSurface(cornerRadius: 18)
+    }
+
+    private var consistencyTrendCard: some View {
+        ConsistencyTrendCard(
+            title: "Consistency",
+            dailyRates: consistencyRateByDay,
+            maxReferenceDate: Date(),
+            accentColor: trendAccentColor
+        )
     }
 
     private var metricGrid: some View {
@@ -958,119 +1006,183 @@ struct HabitStatisticsTabView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .planGlassPanel(cornerRadius: 16, fillOpacity: 0.08)
-    }
-
-    private var trendGranularityPicker: some View {
-        HStack(spacing: 8) {
-            ForEach(HabitTrendGranularity.allCases) { granularity in
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        selectedGranularity = granularity
-                        selectedTrendPoint = nil
-                    }
-                } label: {
-                    Text(granularity.rawValue)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(selectedGranularity == granularity ? Colors.textPrimary : Colors.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
-                        .background(
-                            RoundedRectangle(cornerRadius: 11, style: .continuous)
-                                .fill(selectedGranularity == granularity ? itemColor.opacity(0.22) : Color.white.opacity(0.06))
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(6)
-        .planGlassPanel(cornerRadius: 15, fillOpacity: 0.08)
+        .habitStatisticsSurface(cornerRadius: 16)
     }
 
     private var trendChartCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Trend")
-                    .font(.headline)
-                    .foregroundColor(Colors.textPrimary)
-                Spacer()
-                if let selected = selectedTrendPoint {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("Total \(formatMetric(selected.value)) \(item.goalUnit)")
-                            .font(.caption)
+        let points = trendPoints
+        let selectedPoint = activeTrendPoint(from: points)
+
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                HStack(spacing: 10) {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(trendIconBackground)
+                        .frame(width: 34, height: 34)
+                        .overlay {
+                            Image(systemName: trendMetricSymbol)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(trendAccentColor)
+                        }
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Trend")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(Colors.textPrimary)
+                        Text(item.title)
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundColor(Colors.textSecondary)
-                        Text(trendDateLabel(for: selected))
-                            .font(.caption2)
-                            .foregroundColor(Colors.textSecondary)
-                    }
-                } else {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("Avg \(formatMetric(averageValue)) \(item.goalUnit)")
-                            .font(.caption)
-                            .foregroundColor(Colors.textSecondary)
-                        Text(deltaFromAverageText)
-                            .font(.caption2)
-                            .foregroundColor(deltaFromAverageColor)
+                            .lineLimit(1)
                     }
                 }
+
+                Spacer()
+
+                Menu {
+                    ForEach(HabitTrendGranularity.allCases) { granularity in
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                selectedGranularity = granularity
+                                selectedTrendPoint = trendPoints.last
+                            }
+                        } label: {
+                            if selectedGranularity == granularity {
+                                Label(granularityDisplayName(granularity), systemImage: "checkmark")
+                            } else {
+                                Text(granularityDisplayName(granularity))
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(granularityDisplayName(selectedGranularity))
+                            .font(.system(size: 13, weight: .semibold))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundColor(Colors.textPrimary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(trendMenuBackground)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
+            HStack(alignment: .lastTextBaseline, spacing: 18) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(trendMetricText(selectedPoint?.value ?? 0, lowercasedUnit: true))
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundColor(Colors.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.58)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Average")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Colors.textSecondary)
+                    Text(trendMetricText(trendAverageValue))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Colors.textPrimary)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            if let selectedPoint {
+                Text(trendDateLabel(for: selectedPoint))
+                    .font(.caption)
+                    .foregroundColor(Colors.textSecondary)
             }
 
             HStack(alignment: .bottom, spacing: 8) {
-                VStack(spacing: 0) {
-                    ForEach(chartTickValues.reversed(), id: \.self) { tick in
-                        Text(formatMetric(tick))
-                            .font(.caption2)
-                            .foregroundColor(Colors.textSecondary)
-                            .frame(height: chartDrawingHeight / CGFloat(chartTickValues.count - 1), alignment: .top)
-                    }
-                }
-                .frame(width: 56, alignment: .trailing)
+                trendYAxisReference
+                    .frame(width: 52, height: chartDrawingHeight)
+                    .padding(.bottom, trendPlotBottomInset)
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     ZStack(alignment: .bottomLeading) {
-                        VStack(spacing: 0) {
-                            ForEach(chartTickValues.reversed(), id: \.self) { _ in
-                                Rectangle()
-                                    .fill(Color.white.opacity(0.09))
-                                    .frame(height: chartDrawingHeight / CGFloat(chartTickValues.count - 1))
-                            }
-                        }
-                        .frame(width: chartContentWidth, height: chartDrawingHeight, alignment: .bottom)
+                        trendReferenceGrid(width: chartContentWidth)
+                            .frame(width: chartContentWidth, height: chartDrawingHeight)
+                            .padding(.bottom, trendPlotBottomInset)
 
-                        // Average line
-                        Rectangle()
-                            .fill(itemColor.opacity(0.45))
-                            .frame(width: chartContentWidth, height: 1)
-                            .offset(y: -averageLineOffsetY)
+                        HStack(alignment: .bottom, spacing: 10) {
+                            ForEach(points) { point in
+                                let isSelected = selectedPoint?.id == point.id
 
-                        HStack(alignment: .bottom, spacing: 8) {
-                            ForEach(trendPoints) { point in
-                                VStack(spacing: 6) {
-                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                        .fill(barColor(for: point))
-                                        .frame(width: barWidth, height: barHeight(for: point))
+                                VStack(spacing: trendBarVerticalSpacing) {
+                                    if isSelected {
+                                        Text(trendBubbleText(for: point.value))
+                                            .font(.system(size: 10, weight: .semibold))
+                                            .foregroundColor(trendBubbleTextColor)
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.72)
+                                            .fixedSize(horizontal: true, vertical: false)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                                    .fill(trendBubbleBackground)
+                                            )
+                                            .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                                    } else {
+                                        Color.clear.frame(height: trendBubbleHeight)
+                                    }
+
+                                    ZStack(alignment: .bottom) {
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(trendTrackColor)
+                                            .frame(width: barWidth, height: chartDrawingHeight)
+
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(trendBarGradient(for: point, isSelected: isSelected))
+                                            .frame(width: barWidth, height: barHeight(for: point))
+                                            .shadow(
+                                                color: isSelected ? trendAccentColor.opacity(isLightTheme ? 0.18 : 0.30) : .clear,
+                                                radius: 8,
+                                                x: 0,
+                                                y: 4
+                                            )
+                                    }
+
                                     Text(point.label)
-                                        .font(.caption2)
-                                        .foregroundColor(Colors.textSecondary)
+                                        .font(.system(size: 11, weight: isSelected ? .bold : .semibold))
+                                        .foregroundColor(isSelected ? Colors.textPrimary : trendAxisLabelColor)
+                                        .frame(height: trendLabelHeight)
                                 }
+                                .frame(width: barWidth + 8, height: trendBarsTotalHeight, alignment: .bottom)
                                 .contentShape(Rectangle())
                                 .onTapGesture {
-                                    selectedTrendPoint = point
+                                    withAnimation(.spring(response: 0.26, dampingFraction: 0.84)) {
+                                        selectedTrendPoint = point
+                                    }
                                 }
-                                .onLongPressGesture(minimumDuration: 0.08) {
-                                    selectedTrendPoint = point
+                                .onLongPressGesture(minimumDuration: 0.06) {
+                                    withAnimation(.easeInOut(duration: 0.12)) {
+                                        selectedTrendPoint = point
+                                    }
                                 }
                             }
                         }
-                        .frame(height: chartDrawingHeight + 22, alignment: .bottom)
-                        .padding(.horizontal, 4)
+                        .padding(.horizontal, 2)
                     }
-                    .frame(width: chartContentWidth, height: chartDrawingHeight + 22, alignment: .bottom)
+                    .frame(width: chartContentWidth, height: trendBarsTotalHeight, alignment: .bottom)
                 }
             }
         }
-        .padding(14)
-        .planGlassPanel(cornerRadius: 18, fillOpacity: 0.08)
+        .padding(16)
+        .habitStatisticsSurface(cornerRadius: 24)
+        .onAppear {
+            if selectedTrendPoint == nil {
+                selectedTrendPoint = trendPoints.last
+            }
+        }
+        .onChange(of: selectedGranularity) { _, _ in
+            selectedTrendPoint = trendPoints.last
+        }
     }
 
     private var heatMapCard: some View {
@@ -1082,14 +1194,15 @@ struct HabitStatisticsTabView: View {
                 endDate: Date(),
                 valueByDay: valueByDay,
                 goalValue: item.goalValue,
-                habitIntent: item.habitIntent ?? .build
+                habitIntent: item.habitIntent ?? .build,
+                goalUnit: item.goalUnit
             )
             Text("Each square is one day from the last 12 weeks.")
                 .font(.caption)
                 .foregroundColor(Colors.textSecondary)
         }
         .padding(14)
-        .planGlassPanel(cornerRadius: 18, fillOpacity: 0.08)
+        .habitStatisticsSurface(cornerRadius: 18)
     }
 
     private var dailySnapshots: [HabitDailySnapshot] {
@@ -1112,12 +1225,12 @@ struct HabitStatisticsTabView: View {
 
     private var trendPoints: [HabitTrendPoint] {
         switch selectedGranularity {
-        case .day:
-            return dailyTrendPoints()
         case .week:
             return weeklyTrendPoints()
         case .month:
             return monthlyTrendPoints()
+        case .year:
+            return yearlyTrendPoints()
         }
     }
 
@@ -1141,6 +1254,30 @@ struct HabitStatisticsTabView: View {
 
     private var valueByDay: [Date: Double] {
         cachedValueByDay
+    }
+
+    private var consistencyRateByDay: [Date: Double] {
+        let today = calendar.startOfDay(for: Date())
+        let fallbackStart = calendar.date(byAdding: .day, value: -540, to: today) ?? today
+        let createdDay = calendar.startOfDay(for: item.createdAt)
+        let startDay = max(createdDay, fallbackStart)
+        guard startDay <= today else { return [:] }
+
+        let loggedDays = Set(valueByDay.keys.map { calendar.startOfDay(for: $0) })
+        var rates: [Date: Double] = [:]
+        var cursor = startDay
+
+        while cursor <= today {
+            let day = calendar.startOfDay(for: cursor)
+            let value = valueByDay[day] ?? 0
+            let hasLog = loggedDays.contains(day)
+            rates[day] = didMeetGoal(value: value, hasLog: hasLog) ? 1 : 0
+
+            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = nextDay
+        }
+
+        return rates
     }
 
     private var successDays: Int {
@@ -1175,6 +1312,122 @@ struct HabitStatisticsTabView: View {
         let delta = latestValue - averageValue
         if abs(delta) < 0.0001 { return Colors.textSecondary }
         return delta > 0 ? .green : .red
+    }
+
+    private var isLightTheme: Bool {
+        switch settingsStore.themeMode {
+        case .light:
+            return true
+        case .dark:
+            return false
+        case .system:
+            return colorScheme == .light
+        }
+    }
+
+    private var trendAccentColor: Color {
+        trendPrimaryBlue
+    }
+
+    private var trendPrimaryBlue: Color {
+        Color(red: 0.08, green: 0.78, blue: 0.92)
+    }
+
+    private var trendSecondaryBlue: Color {
+        Color(red: 0.05, green: 0.66, blue: 0.84)
+    }
+
+    private var trendAverageValue: Double {
+        let points = trendPoints
+        guard !points.isEmpty else { return 0 }
+        return points.map(\.value).reduce(0, +) / Double(points.count)
+    }
+
+    private var trendMenuBackground: Color {
+        trendPrimaryBlue.opacity(isLightTheme ? 0.20 : 0.30)
+    }
+
+    private var trendIconBackground: Color {
+        trendPrimaryBlue.opacity(isLightTheme ? 0.22 : 0.30)
+    }
+
+    private var trendTrackColor: Color {
+        trendSecondaryBlue.opacity(isLightTheme ? 0.20 : 0.30)
+    }
+
+    private var trendAxisLabelColor: Color {
+        isLightTheme ? Colors.textPrimary.opacity(0.72) : Colors.textPrimary.opacity(0.84)
+    }
+
+    private var trendBubbleBackground: Color {
+        isLightTheme ? Color.black.opacity(0.82) : Color.white.opacity(0.88)
+    }
+
+    private var trendBubbleTextColor: Color {
+        isLightTheme ? .white : Color.black.opacity(0.92)
+    }
+
+    private var trendMetricSymbol: String {
+        if item.goalUnit.lowercased().contains("step") {
+            return "figure.walk"
+        }
+        if item.metricKind == .time {
+            return "timer"
+        }
+        return "chart.bar.fill"
+    }
+
+    private func granularityDisplayName(_ granularity: HabitTrendGranularity) -> String {
+        switch granularity {
+        case .week:
+            return "Weekly"
+        case .month:
+            return "Monthly"
+        case .year:
+            return "Yearly"
+        }
+    }
+
+    private func activeTrendPoint(from points: [HabitTrendPoint]) -> HabitTrendPoint? {
+        guard !points.isEmpty else { return nil }
+        if let selectedTrendPoint,
+           let matching = points.first(where: { $0.id == selectedTrendPoint.id }) {
+            return matching
+        }
+        return points.last
+    }
+
+    private func trendBarGradient(for point: HabitTrendPoint, isSelected: Bool) -> LinearGradient {
+        if isSelected {
+            return LinearGradient(
+                colors: [
+                    trendPrimaryBlue.opacity(0.95),
+                    trendSecondaryBlue.opacity(0.78)
+                ],
+                startPoint: .bottom,
+                endPoint: .top
+            )
+        }
+
+        if point.hasLog {
+            return LinearGradient(
+                colors: [
+                    trendAccentColor.opacity(isLightTheme ? 0.38 : 0.42),
+                    trendAccentColor.opacity(isLightTheme ? 0.22 : 0.26)
+                ],
+                startPoint: .bottom,
+                endPoint: .top
+            )
+        }
+
+        return LinearGradient(
+            colors: [
+                trendAccentColor.opacity(isLightTheme ? 0.18 : 0.22),
+                trendAccentColor.opacity(isLightTheme ? 0.08 : 0.12)
+            ],
+            startPoint: .bottom,
+            endPoint: .top
+        )
     }
 
     private var streakMotivation: String {
@@ -1257,7 +1510,21 @@ struct HabitStatisticsTabView: View {
         return symbols[weekday]
     }
 
-    private var chartDrawingHeight: CGFloat { 172 }
+    private var chartDrawingHeight: CGFloat { 92 }
+
+    private var trendBubbleHeight: CGFloat { 24 }
+
+    private var trendLabelHeight: CGFloat { 14 }
+
+    private var trendBarVerticalSpacing: CGFloat { 6 }
+
+    private var trendPlotBottomInset: CGFloat {
+        trendLabelHeight + trendBarVerticalSpacing
+    }
+
+    private var trendBarsTotalHeight: CGFloat {
+        trendBubbleHeight + trendBarVerticalSpacing + chartDrawingHeight + trendBarVerticalSpacing + trendLabelHeight
+    }
 
     private var chartContentWidth: CGFloat {
         CGFloat(trendPoints.count) * (barWidth + 8)
@@ -1265,13 +1532,57 @@ struct HabitStatisticsTabView: View {
 
     private var chartMaxValue: Double {
         let base = max(trendPoints.map(\.value).max() ?? 0, item.goalValue, 1)
-        return roundedAxisCeiling(base * 1.12)
+        let rounded = roundedAxisCeiling(base * 1.12)
+        if trendDisplayUnit.lowercased() == "km" {
+            return max(10, rounded)
+        }
+        return rounded
     }
 
     private var chartTickValues: [Double] {
         let steps = 4
         return (0...steps).map { index in
             (chartMaxValue / Double(steps)) * Double(index)
+        }
+    }
+
+    private var trendYAxisReference: some View {
+        GeometryReader { proxy in
+            let values = chartTickValues
+            let steps = max(values.count - 1, 1)
+
+            ZStack(alignment: .topTrailing) {
+                ForEach(Array(values.enumerated()), id: \.offset) { index, value in
+                    let progress = CGFloat(index) / CGFloat(steps)
+                    let y = proxy.size.height - (progress * proxy.size.height)
+
+                    Text(formatMetric(value))
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(Colors.textSecondary)
+                        .position(x: proxy.size.width - 2, y: y)
+                }
+            }
+        }
+    }
+
+    private func trendReferenceGrid(width: CGFloat) -> some View {
+        Canvas { context, size in
+            let steps = max(chartTickValues.count - 1, 1)
+            for index in 0...steps {
+                let progress = CGFloat(index) / CGFloat(steps)
+                let y = size.height - (progress * size.height)
+
+                var path = Path()
+                path.move(to: CGPoint(x: 0, y: y))
+                path.addLine(to: CGPoint(x: size.width, y: y))
+
+                let isBaseline = index == 0
+                context.stroke(
+                    path,
+                    with: .color(Colors.cardStroke.opacity(isBaseline ? 0.95 : 0.65)),
+                    style: StrokeStyle(lineWidth: isBaseline ? 1.2 : 1, dash: isBaseline ? [] : [4, 3])
+                )
+            }
         }
     }
 
@@ -1301,9 +1612,9 @@ struct HabitStatisticsTabView: View {
 
     private var barWidth: CGFloat {
         switch selectedGranularity {
-        case .day: return 18
-        case .week: return 24
-        case .month: return 28
+        case .week: return 26
+        case .month: return 14
+        case .year: return 22
         }
     }
 
@@ -1311,24 +1622,22 @@ struct HabitStatisticsTabView: View {
         let formatter = DateFormatter()
         formatter.locale = Locale.current
         switch selectedGranularity {
-        case .day:
+        case .week:
             formatter.setLocalizedDateFormatFromTemplate("d MMM yyyy")
             return formatter.string(from: point.startDate)
-        case .week:
-            formatter.setLocalizedDateFormatFromTemplate("d MMM")
-            let start = formatter.string(from: point.startDate)
-            let end = formatter.string(from: point.endDate)
-            return "\(start) – \(end)"
         case .month:
+            formatter.setLocalizedDateFormatFromTemplate("d MMM yyyy")
+            return formatter.string(from: point.startDate)
+        case .year:
             formatter.setLocalizedDateFormatFromTemplate("MMM yyyy")
             return formatter.string(from: point.startDate)
         }
     }
 
-    private func dailyTrendPoints() -> [HabitTrendPoint] {
+    private func weeklyTrendPoints() -> [HabitTrendPoint] {
         let today = calendar.startOfDay(for: Date())
-        return (0..<30).compactMap { offset in
-            guard let date = calendar.date(byAdding: .day, value: -(29 - offset), to: today) else { return nil }
+        return (0..<7).compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: -(6 - offset), to: today) else { return nil }
             let key = calendar.startOfDay(for: date)
             let value = valueByDay[key] ?? 0
             let hasLog = valueByDay.keys.contains(key)
@@ -1340,35 +1649,7 @@ struct HabitStatisticsTabView: View {
                 hasLog: hasLog,
                 goalMet: goalMet,
                 intensity: intensity(value: value, hasLog: hasLog),
-                label: shortDayLabel(key)
-            )
-        }
-    }
-
-    private func weeklyTrendPoints() -> [HabitTrendPoint] {
-        let today = calendar.startOfDay(for: Date())
-        let currentWeekStart = calendar.dateInterval(of: .weekOfYear, for: today)?.start ?? today
-
-        return (0..<12).compactMap { index in
-            guard let start = calendar.date(byAdding: .weekOfYear, value: -(11 - index), to: currentWeekStart),
-                  let end = calendar.date(byAdding: .day, value: 6, to: start) else { return nil }
-
-            let days = (0..<7).compactMap { day -> Date? in
-                calendar.date(byAdding: .day, value: day, to: start).map { calendar.startOfDay(for: $0) }
-            }
-            let value = days.reduce(0.0) { $0 + (valueByDay[$1] ?? 0) }
-            let hasLog = days.contains { valueByDay.keys.contains($0) }
-            let goalMet = hasLog && didMeetGoal(value: value / 7.0, hasLog: true)
-            let weekNum = calendar.component(.weekOfYear, from: start)
-
-            return HabitTrendPoint(
-                startDate: start,
-                endDate: end,
-                value: value,
-                hasLog: hasLog,
-                goalMet: goalMet,
-                intensity: intensity(value: value / 7.0, hasLog: hasLog),
-                label: "W\(weekNum)"
+                label: "\(calendar.component(.day, from: key))"
             )
         }
     }
@@ -1376,18 +1657,45 @@ struct HabitStatisticsTabView: View {
     private func monthlyTrendPoints() -> [HabitTrendPoint] {
         let today = calendar.startOfDay(for: Date())
         let currentMonthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: today)) ?? today
+        let currentDayNumber = calendar.component(.day, from: today)
+
+        return (0..<currentDayNumber).compactMap { dayOffset in
+            guard let dayDate = calendar.date(byAdding: .day, value: dayOffset, to: currentMonthStart) else { return nil }
+            let key = calendar.startOfDay(for: dayDate)
+            let value = valueByDay[key] ?? 0
+            let hasLog = valueByDay.keys.contains(key)
+            let goalMet = didMeetGoal(value: value, hasLog: hasLog)
+
+            return HabitTrendPoint(
+                startDate: key,
+                endDate: key,
+                value: value,
+                hasLog: hasLog,
+                goalMet: goalMet,
+                intensity: intensity(value: value, hasLog: hasLog),
+                label: "\(calendar.component(.day, from: key))"
+            )
+        }
+    }
+
+    private func yearlyTrendPoints() -> [HabitTrendPoint] {
+        let today = calendar.startOfDay(for: Date())
+        let currentMonthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: today)) ?? today
 
         return (0..<12).compactMap { index in
             guard let start = calendar.date(byAdding: .month, value: -(11 - index), to: currentMonthStart),
-                  let monthRange = calendar.range(of: .day, in: .month, for: start),
-                  let end = calendar.date(byAdding: .day, value: monthRange.count - 1, to: start) else { return nil }
+                  let monthRange = calendar.range(of: .day, in: .month, for: start) else { return nil }
 
-            let days = (0..<monthRange.count).compactMap { day -> Date? in
+            guard let monthEnd = calendar.date(byAdding: .day, value: monthRange.count - 1, to: start) else { return nil }
+            let end = calendar.isDate(start, equalTo: today, toGranularity: .month) ? today : monthEnd
+            let intervalDayCount = (calendar.dateComponents([.day], from: start, to: end).day ?? 0) + 1
+
+            let days = (0..<max(intervalDayCount, 0)).compactMap { day -> Date? in
                 calendar.date(byAdding: .day, value: day, to: start).map { calendar.startOfDay(for: $0) }
             }
             let value = days.reduce(0.0) { $0 + (valueByDay[$1] ?? 0) }
             let hasLog = days.contains { valueByDay.keys.contains($0) }
-            let dayCount = Double(max(monthRange.count, 1))
+            let dayCount = Double(max(days.count, 1))
             let goalMet = hasLog && didMeetGoal(value: value / dayCount, hasLog: true)
             let monthSymbol = calendar.shortMonthSymbols[calendar.component(.month, from: start) - 1]
 
@@ -1408,6 +1716,34 @@ struct HabitStatisticsTabView: View {
             return Int(value.rounded()).formatted(.number.grouping(.automatic))
         }
         return value.formatted(.number.precision(.fractionLength(0...2)))
+    }
+
+    private var trendDisplayUnit: String {
+        let raw = item.goalUnit.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = raw.lowercased()
+        if lower == "km" || lower.contains("kilometer") || lower.contains("kilometre") { return "km" }
+        if lower == "mi" || lower.contains("mile") { return "mi" }
+        if lower == "m" || lower == "meter" || lower == "meters" || lower == "metre" || lower == "metres" { return "m" }
+        if lower == "min" || lower == "mins" || lower == "minute" || lower == "minutes" { return "min" }
+        if lower == "hr" || lower == "hrs" || lower == "hour" || lower == "hours" { return "hr" }
+        return raw
+    }
+
+    private var isDistanceTrendUnit: Bool {
+        let unit = trendDisplayUnit.lowercased()
+        return unit == "km" || unit == "mi" || unit == "m"
+    }
+
+    private func trendMetricText(_ value: Double, lowercasedUnit: Bool = false) -> String {
+        let unit = lowercasedUnit ? trendDisplayUnit.lowercased() : trendDisplayUnit
+        return "\(formatMetric(value)) \(unit)"
+    }
+
+    private func trendBubbleText(for value: Double) -> String {
+        if isDistanceTrendUnit {
+            return trendMetricText(value, lowercasedUnit: true)
+        }
+        return formatMetric(value)
     }
 
     private func dayLabelText(_ day: HabitDailySnapshot) -> String {
@@ -1437,45 +1773,104 @@ struct HabitHeatMapGrid: View {
     let valueByDay: [Date: Double]
     let goalValue: Double
     let habitIntent: HabitIntent
+    let goalUnit: String
+    @State private var selectedDate: Date?
 
     private let calendar = Calendar.current
     private let weekdayLabels = ["S", "M", "T", "W", "T", "F", "S"]
     private let columns = 12
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(Array(weekdayLabels.enumerated()), id: \.offset) { _, day in
-                    Text(day)
-                        .font(.caption2)
-                        .foregroundColor(Colors.textSecondary)
-                        .frame(width: 12, height: 16, alignment: .leading)
+        VStack(spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(weekdayLabels.enumerated()), id: \.offset) { _, day in
+                        Text(day)
+                            .font(.caption2)
+                            .foregroundColor(Colors.textSecondary)
+                            .frame(width: 12, height: 16, alignment: .leading)
+                    }
                 }
-            }
 
-            VStack(spacing: 6) {
-                ForEach(0..<7, id: \.self) { row in
-                    HStack(spacing: 6) {
-                        ForEach(0..<columns, id: \.self) { column in
-                            let cell = cellFor(row: row, column: column)
-                            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .fill(cellColor(for: cell))
-                                .frame(width: 20, height: 16)
+                VStack(spacing: 6) {
+                    ForEach(0..<7, id: \.self) { row in
+                        HStack(spacing: 6) {
+                            ForEach(0..<columns, id: \.self) { column in
+                                let cell = cellFor(row: row, column: column)
+                                let isSelected = selectedDate != nil && calendar.isDate(cell.date, inSameDayAs: selectedDate!)
+                                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                    .fill(cellColor(for: cell))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                            .stroke(isSelected ? Color.white.opacity(0.9) : Color.clear, lineWidth: 1.5)
+                                    )
+                                    .overlay {
+                                        if isSelected {
+                                            Text(cell.hasLog ? compactValueLabel(cell.rawValue) : "0")
+                                                .font(.system(size: 7, weight: .bold))
+                                                .foregroundColor(Colors.textPrimary)
+                                                .lineLimit(1)
+                                                .minimumScaleFactor(0.7)
+                                        }
+                                    }
+                                    .frame(width: 20, height: 16)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        guard cell.date <= calendar.startOfDay(for: endDate) else { return }
+                                        withAnimation(.easeInOut(duration: 0.15)) {
+                                            selectedDate = cell.date
+                                        }
+                                    }
+                            }
                         }
                     }
                 }
             }
+
+            HStack(spacing: 8) {
+                if let selectedDate {
+                    let key = calendar.startOfDay(for: selectedDate)
+                    let rawValue = valueByDay[key] ?? 0
+                    let hasLog = valueByDay.keys.contains(key)
+
+                    Text(selectedDate.formatted(.dateTime.day().month(.abbreviated).year()))
+                        .font(.caption)
+                        .foregroundColor(Colors.textPrimary)
+
+                    Spacer()
+
+                    if hasLog {
+                        Text("\(formattedValue(rawValue)) \(goalUnit) • \(Int((heatIntensity(value: rawValue, hasLog: true) * 100).rounded()))%")
+                            .font(.caption)
+                            .foregroundColor(Colors.textSecondary)
+                    } else {
+                        Text("No log")
+                            .font(.caption)
+                            .foregroundColor(Colors.textSecondary)
+                    }
+                } else {
+                    Text("Tap a rectangle to view value")
+                        .font(.caption)
+                        .foregroundColor(Colors.textSecondary)
+                    Spacer()
+                }
+            }
+        }
+        .onAppear {
+            if selectedDate == nil {
+                selectedDate = calendar.startOfDay(for: endDate)
+            }
         }
     }
 
-    private func cellFor(row: Int, column: Int) -> (date: Date, intensity: Double, hasLog: Bool) {
+    private func cellFor(row: Int, column: Int) -> (date: Date, intensity: Double, hasLog: Bool, rawValue: Double) {
         let baseStart = heatMapStartDate
         let dayIndex = (column * 7) + row
         let date = calendar.date(byAdding: .day, value: dayIndex, to: baseStart) ?? baseStart
         let key = calendar.startOfDay(for: date)
         let value = valueByDay[key] ?? 0
         let hasLog = valueByDay.keys.contains(key)
-        return (key, heatIntensity(value: value, hasLog: hasLog), hasLog)
+        return (key, heatIntensity(value: value, hasLog: hasLog), hasLog, value)
     }
 
     private var heatMapStartDate: Date {
@@ -1483,7 +1878,7 @@ struct HabitHeatMapGrid: View {
         return calendar.date(byAdding: .day, value: -((columns - 1) * 7), to: currentWeekStart) ?? currentWeekStart
     }
 
-    private func cellColor(for cell: (date: Date, intensity: Double, hasLog: Bool)) -> Color {
+    private func cellColor(for cell: (date: Date, intensity: Double, hasLog: Bool, rawValue: Double)) -> Color {
         if cell.date > calendar.startOfDay(for: endDate) {
             return Color.clear
         }
@@ -1513,6 +1908,23 @@ struct HabitHeatMapGrid: View {
             let normalized = 1 - min(max(value / goalValue, 0), 1)
             return max(0.1, normalized)
         }
+    }
+
+    private func formattedValue(_ value: Double) -> String {
+        if value >= 1000 {
+            return value.formatted(.number.precision(.fractionLength(0...1)).grouping(.automatic))
+        }
+        return value.formatted(.number.precision(.fractionLength(0...2)))
+    }
+
+    private func compactValueLabel(_ value: Double) -> String {
+        if value >= 100 {
+            return "\(Int(value.rounded()))"
+        }
+        if value >= 10 {
+            return String(format: "%.0f", value)
+        }
+        return String(format: "%.1f", value)
     }
 }
 

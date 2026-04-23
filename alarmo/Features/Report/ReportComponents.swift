@@ -14,6 +14,366 @@ enum ReportPalette {
     )
 }
 
+private enum ConsistencyRangeOption: Int, CaseIterable, Identifiable {
+    case days7 = 7
+    case days30 = 30
+    case days60 = 60
+    case days90 = 90
+    case days180 = 180
+
+    var id: Int { rawValue }
+    var label: String { "\(rawValue)D" }
+}
+
+private struct ConsistencyChartPoint: Identifiable {
+    let date: Date
+    let percent: Double
+
+    var id: Date { date }
+}
+
+struct ConsistencyTrendCard: View {
+    let title: String
+    let dailyRates: [Date: Double] // 0...1 by day
+    let maxReferenceDate: Date
+    var accentColor: Color = Colors.accentBlue
+
+    @State private var selectedRange: ConsistencyRangeOption = .days30
+    @State private var monthAnchor: Date = Date()
+
+    private let calendar = Calendar.current
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                Text(title)
+                    .font(.system(size: 18, weight: .heavy))
+                    .foregroundColor(Colors.textPrimary)
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("AVERAGE")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(Colors.textSecondary)
+                    Text("\(Int(selectedAverage.rounded()))%")
+                        .font(.system(size: 42, weight: .black, design: .rounded))
+                        .foregroundColor(Colors.textPrimary)
+                }
+            }
+
+            Chart {
+                if shouldShowComparison {
+                    ForEach(comparisonSeries) { point in
+                        LineMark(
+                            x: .value("Date", point.date),
+                            y: .value("Consistency", point.percent)
+                        )
+                        .interpolationMethod(.catmullRom)
+                        .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, dash: [6, 5]))
+                        .foregroundStyle(Colors.textTertiary.opacity(0.45))
+                    }
+                }
+
+                ForEach(selectedSeries) { point in
+                    LineMark(
+                        x: .value("Date", point.date),
+                        y: .value("Consistency", point.percent)
+                    )
+                    .interpolationMethod(.catmullRom)
+                    .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .foregroundStyle(accentColor)
+                }
+            }
+            .chartYScale(domain: 0...100)
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .day, count: xAxisStride)) { value in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                        .foregroundStyle(Colors.cardStroke.opacity(0.8))
+                    AxisTick(stroke: StrokeStyle(lineWidth: 0))
+                    AxisValueLabel {
+                        if let date = value.as(Date.self) {
+                            Text(date, format: .dateTime.day().month(.abbreviated))
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(Colors.textSecondary)
+                        }
+                    }
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading, values: [0, 25, 50, 75, 100]) { value in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 1))
+                        .foregroundStyle(Colors.cardStroke.opacity(0.7))
+                    AxisTick(stroke: StrokeStyle(lineWidth: 0))
+                    AxisValueLabel {
+                        if let number = value.as(Double.self) {
+                            Text("\(Int(number)) %")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(Colors.textSecondary)
+                        }
+                    }
+                }
+            }
+            .frame(height: 210)
+
+            HStack(spacing: 14) {
+                if shouldShowComparison {
+                    legendItem(label: "90D", color: Colors.textTertiary.opacity(0.45), dashed: true)
+                }
+                legendItem(label: selectedRange.label, color: accentColor, dashed: false)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+
+            rangeSelector
+            monthSelector
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Colors.cardSurface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Colors.cardStroke, lineWidth: 1)
+        )
+        .onAppear {
+            monthAnchor = clampedMonthStart(for: maxReferenceDate)
+        }
+        .onChange(of: maxReferenceDate) { _, newValue in
+            let maxMonth = clampedMonthStart(for: newValue)
+            if monthStart(for: monthAnchor) > maxMonth {
+                monthAnchor = maxMonth
+            }
+        }
+    }
+
+    private var rangeSelector: some View {
+        HStack(spacing: 0) {
+            ForEach(ConsistencyRangeOption.allCases) { option in
+                let isSelected = selectedRange == option
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selectedRange = option
+                    }
+                } label: {
+                    Text(option.label)
+                        .font(.system(size: 15, weight: .heavy))
+                        .foregroundColor(isSelected ? Colors.textPrimary : Colors.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(isSelected ? Colors.cardSurface : Color.clear)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                        .stroke(isSelected ? Colors.cardStroke : Color.clear, lineWidth: 1)
+                                )
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Colors.bgSecondary.opacity(0.7))
+        )
+    }
+
+    private var monthSelector: some View {
+        HStack(spacing: 12) {
+            dateChip(text: yearLabel)
+            dateChip(text: monthLabel)
+
+            Spacer()
+
+            HStack(spacing: 14) {
+                Button(action: movePreviousMonth) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(canMovePrevious ? Colors.textSecondary : Colors.textTertiary.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+                .disabled(!canMovePrevious)
+
+                Button(action: moveNextMonth) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(canMoveNext ? Colors.textSecondary : Colors.textTertiary.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+                .disabled(!canMoveNext)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 11)
+            .background(
+                Capsule()
+                    .fill(Colors.bgSecondary.opacity(0.75))
+            )
+            .overlay(
+                Capsule()
+                    .stroke(Colors.cardStroke, lineWidth: 1)
+            )
+        }
+    }
+
+    private func dateChip(text: String) -> some View {
+        Text(text)
+            .font(.system(size: 16, weight: .bold))
+            .foregroundColor(Colors.textPrimary)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 11)
+            .background(
+                Capsule()
+                    .fill(Colors.bgSecondary.opacity(0.75))
+            )
+            .overlay(
+                Capsule()
+                    .stroke(Colors.cardStroke, lineWidth: 1)
+            )
+    }
+
+    private func legendItem(label: String, color: Color, dashed: Bool) -> some View {
+        HStack(spacing: 6) {
+            Rectangle()
+                .fill(Color.clear)
+                .frame(width: 16, height: 4)
+                .overlay(
+                    Rectangle()
+                        .stroke(style: StrokeStyle(lineWidth: 2, dash: dashed ? [5, 3] : []))
+                        .foregroundColor(color)
+                )
+            Text(label)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(Colors.textSecondary)
+        }
+    }
+
+    private var selectedSeries: [ConsistencyChartPoint] {
+        series(for: selectedRange.rawValue)
+    }
+
+    private var comparisonSeries: [ConsistencyChartPoint] {
+        series(for: ConsistencyRangeOption.days90.rawValue)
+    }
+
+    private var shouldShowComparison: Bool {
+        selectedRange != .days90
+    }
+
+    private var selectedAverage: Double {
+        guard !selectedSeries.isEmpty else { return 0 }
+        let total = selectedSeries.reduce(0.0) { $0 + $1.percent }
+        return total / Double(selectedSeries.count)
+    }
+
+    private var xAxisStride: Int {
+        switch selectedRange {
+        case .days7: return 1
+        case .days30: return 5
+        case .days60: return 10
+        case .days90: return 15
+        case .days180: return 30
+        }
+    }
+
+    private var monthLabel: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM"
+        return formatter.string(from: visibleMonthStart)
+    }
+
+    private var yearLabel: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy"
+        return formatter.string(from: visibleMonthStart)
+    }
+
+    private var maxAllowedDate: Date {
+        min(calendar.startOfDay(for: maxReferenceDate), calendar.startOfDay(for: Date()))
+    }
+
+    private var minMonthStart: Date {
+        if let earliest = dailyRates.keys.min() {
+            return monthStart(for: earliest)
+        }
+        return monthStart(for: maxAllowedDate)
+    }
+
+    private var visibleMonthStart: Date {
+        let current = monthStart(for: monthAnchor)
+        if current < minMonthStart { return minMonthStart }
+        let maxMonth = monthStart(for: maxAllowedDate)
+        if current > maxMonth { return maxMonth }
+        return current
+    }
+
+    private var canMovePrevious: Bool {
+        visibleMonthStart > minMonthStart
+    }
+
+    private var canMoveNext: Bool {
+        visibleMonthStart < monthStart(for: maxAllowedDate)
+    }
+
+    private var visibleWindowEndDate: Date {
+        let monthStartDate = visibleMonthStart
+        let monthEndExclusive = calendar.date(byAdding: .month, value: 1, to: monthStartDate) ?? monthStartDate
+        let monthLastDay = calendar.date(byAdding: .day, value: -1, to: monthEndExclusive) ?? monthStartDate
+        return min(monthLastDay, maxAllowedDate)
+    }
+
+    private func series(for dayCount: Int) -> [ConsistencyChartPoint] {
+        guard dayCount > 0 else { return [] }
+        let endDate = visibleWindowEndDate
+        guard let startDate = calendar.date(byAdding: .day, value: -(dayCount - 1), to: endDate) else { return [] }
+
+        var output: [ConsistencyChartPoint] = []
+        var cursor = calendar.startOfDay(for: startDate)
+        let endDay = calendar.startOfDay(for: endDate)
+
+        while cursor <= endDay {
+            let dayStart = calendar.startOfDay(for: cursor)
+            let rate = min(max(dailyRates[dayStart] ?? 0, 0), 1)
+            output.append(ConsistencyChartPoint(date: dayStart, percent: rate * 100))
+            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = nextDay
+        }
+
+        return output
+    }
+
+    private func movePreviousMonth() {
+        guard canMovePrevious else { return }
+        if let previous = calendar.date(byAdding: .month, value: -1, to: visibleMonthStart) {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                monthAnchor = previous
+            }
+        }
+    }
+
+    private func moveNextMonth() {
+        guard canMoveNext else { return }
+        if let next = calendar.date(byAdding: .month, value: 1, to: visibleMonthStart) {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                monthAnchor = next
+            }
+        }
+    }
+
+    private func clampedMonthStart(for date: Date) -> Date {
+        let month = monthStart(for: date)
+        let maximum = monthStart(for: maxAllowedDate)
+        if month > maximum { return maximum }
+        return month
+    }
+
+    private func monthStart(for date: Date) -> Date {
+        let comps = calendar.dateComponents([.year, .month], from: date)
+        return calendar.date(from: comps) ?? calendar.startOfDay(for: date)
+    }
+}
+
 struct RingProgressView: View {
     let progress: Double
     let subtitle: String
@@ -43,6 +403,163 @@ struct RingProgressView: View {
             }
         }
         .frame(width: 200, height: 200)
+    }
+}
+
+struct HabitSignalMetric: Identifiable {
+    let id = UUID()
+    let label: String
+    let valueText: String
+    let normalizedValue: Double
+}
+
+struct HabitSignalWheelCard: View {
+    let title: String
+    let metrics: [HabitSignalMetric]
+    var accentColor: Color = ReportPalette.accent
+
+    private let ringCount = 3
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "chart.pie.fill")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(accentColor)
+                Text(title)
+                    .font(.system(size: 18, weight: .heavy))
+                    .foregroundColor(Colors.textPrimary)
+                Spacer()
+            }
+
+            GeometryReader { proxy in
+                let size = min(proxy.size.width, proxy.size.height)
+                let wheelSize = min(size * 0.72, 220)
+                let center = CGPoint(x: proxy.size.width / 2, y: proxy.size.height / 2)
+                let metricCount = max(metrics.count, 1)
+                let slotAngle = 360.0 / Double(metricCount)
+                let gap = min(8.0, slotAngle * 0.24)
+                let labelRadius = (wheelSize / 2) + 52
+
+                ZStack {
+                    // Base segmented wheel.
+                    ForEach(0..<ringCount, id: \.self) { ring in
+                        ForEach(Array(metrics.enumerated()), id: \.offset) { index, _ in
+                            let start = Angle.degrees((Double(index) * slotAngle) - 90 + (gap / 2))
+                            let end = Angle.degrees((Double(index + 1) * slotAngle) - 90 - (gap / 2))
+                            let inner = 0.24 + (CGFloat(ring) * 0.20)
+                            let outer = inner + 0.18
+
+                            DonutSector(
+                                startAngle: start,
+                                endAngle: end,
+                                innerRadiusRatio: inner,
+                                outerRadiusRatio: outer
+                            )
+                            .fill(Colors.bgSecondary.opacity(0.45))
+                            .frame(width: wheelSize, height: wheelSize)
+                            .position(center)
+                        }
+                    }
+
+                    // Active signal fill by ring level.
+                    ForEach(Array(metrics.enumerated()), id: \.offset) { index, metric in
+                        let levelCount = min(ringCount, max(0, Int((clamped(metric.normalizedValue) * Double(ringCount)).rounded(.up))))
+                        ForEach(0..<levelCount, id: \.self) { ring in
+                            let start = Angle.degrees((Double(index) * slotAngle) - 90 + (gap / 2))
+                            let end = Angle.degrees((Double(index + 1) * slotAngle) - 90 - (gap / 2))
+                            let inner = 0.24 + (CGFloat(ring) * 0.20)
+                            let outer = inner + 0.18
+                            let opacity = 0.42 + (Double(ring) * 0.18)
+
+                            DonutSector(
+                                startAngle: start,
+                                endAngle: end,
+                                innerRadiusRatio: inner,
+                                outerRadiusRatio: outer
+                            )
+                            .fill(accentColor.opacity(opacity))
+                            .frame(width: wheelSize, height: wheelSize)
+                            .position(center)
+                        }
+                    }
+
+                    Circle()
+                        .fill(Colors.cardSurface)
+                        .frame(width: wheelSize * 0.18, height: wheelSize * 0.18)
+                        .overlay(
+                            Circle()
+                                .stroke(Colors.cardStroke, lineWidth: 1)
+                        )
+                        .position(center)
+
+                    ForEach(Array(metrics.enumerated()), id: \.offset) { index, metric in
+                        let angle = Angle.degrees((Double(index) * slotAngle) - 90)
+                        let x = center.x + (cos(angle.radians) * labelRadius)
+                        let y = center.y + (sin(angle.radians) * labelRadius)
+
+                        VStack(spacing: 1) {
+                            Text(metric.valueText)
+                                .font(.system(size: 20, weight: .heavy, design: .rounded))
+                                .foregroundColor(Colors.textPrimary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                            Text(metric.label)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(Colors.textSecondary)
+                                .lineLimit(1)
+                        }
+                        .position(x: x, y: y)
+                    }
+                }
+            }
+            .frame(height: 320)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(Colors.cardSurface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Colors.cardStroke, lineWidth: 1)
+        )
+    }
+
+    private func clamped(_ value: Double) -> Double {
+        min(max(value, 0), 1)
+    }
+}
+
+private struct DonutSector: Shape {
+    let startAngle: Angle
+    let endAngle: Angle
+    let innerRadiusRatio: CGFloat
+    let outerRadiusRatio: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radius = min(rect.width, rect.height) / 2
+        let innerRadius = max(0, radius * innerRadiusRatio)
+        let outerRadius = max(innerRadius, radius * outerRadiusRatio)
+
+        var path = Path()
+        path.addArc(
+            center: center,
+            radius: outerRadius,
+            startAngle: startAngle,
+            endAngle: endAngle,
+            clockwise: false
+        )
+        path.addArc(
+            center: center,
+            radius: innerRadius,
+            startAngle: endAngle,
+            endAngle: startAngle,
+            clockwise: true
+        )
+        path.closeSubpath()
+        return path
     }
 }
 

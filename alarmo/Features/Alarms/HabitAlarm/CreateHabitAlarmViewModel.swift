@@ -10,7 +10,7 @@ class CreateHabitAlarmViewModel: ObservableObject {
     @Published var isDaily: Bool = true
     @Published var selectedWeekdays: Set<Int> = [1, 2, 3, 4, 5, 6, 7]
     
-    @Published var soundName: String = "Orkney"
+    @Published var soundName: String = "Cockpit Alert"
     @Published var soundVolume: Float = 1.0
     @Published var vibrateEnabled: Bool = true
     @Published var gentleWakeUpSeconds: Int = 30
