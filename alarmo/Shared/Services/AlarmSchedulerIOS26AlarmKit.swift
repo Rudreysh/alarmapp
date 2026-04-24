@@ -71,6 +71,11 @@ final class AlarmSchedulerIOS26AlarmKit: AlarmScheduler {
                     repeats: false
                 )
             )
+            NotificationManager.shared.scheduleAlarmKitUnlockPrompt(
+                alarmId: id.uuidString,
+                alarmName: title,
+                fireDate: date
+            )
             logger.log("Scheduled AlarmKit alarm \(id.uuidString, privacy: .public)")
             return
         }
@@ -85,10 +90,12 @@ final class AlarmSchedulerIOS26AlarmKit: AlarmScheduler {
                 // Prefer cancellation for scheduled alarms; fallback to stop for currently alerting alarms.
                 try AlarmManager.shared.cancel(id: id)
                 await stateStore.remove(id: id)
+                NotificationManager.shared.cancelAlarmKitUnlockPrompt(alarmId: id.uuidString)
             } catch {
                 do {
                     try AlarmManager.shared.stop(id: id)
                     await stateStore.remove(id: id)
+                    NotificationManager.shared.cancelAlarmKitUnlockPrompt(alarmId: id.uuidString)
                 } catch {
                     logger.error("AlarmKit cancel failed for \(id.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 }
@@ -179,6 +186,11 @@ final class AlarmSchedulerIOS26AlarmKit: AlarmScheduler {
                     repeats: (alarm.repeatMask > 0 || alarm.isDaily)
                 )
             )
+            NotificationManager.shared.scheduleAlarmKitUnlockPrompt(
+                alarmId: alarm.id.uuidString,
+                alarmName: title,
+                fireDate: nextFireDate
+            )
             logger.log("Scheduled AlarmKit app alarm \(alarm.id.uuidString, privacy: .public) repeats=\(alarm.repeatMask > 0 || alarm.isDaily, privacy: .public)")
             return
         }
@@ -252,7 +264,7 @@ private struct AlarmoAlarmMetadata: AlarmMetadata {
 }
 
 @available(iOS 26.0, *)
-private extension AlarmSchedulerIOS26AlarmKit {
+fileprivate extension AlarmSchedulerIOS26AlarmKit {
     func scheduleWithFallbackSound(
         manager: AlarmManager,
         id: UUID,
@@ -306,30 +318,17 @@ private extension AlarmSchedulerIOS26AlarmKit {
 
     func makeConfiguration(
         alarmID: UUID,
+        originalAlarmID: UUID? = nil,
         title: String,
         schedule: AlarmKit.Alarm.Schedule,
         snoozeEnabled: Bool,
         snoozeInterval: TimeInterval?,
         soundName: String? = nil
     ) -> AlarmManager.AlarmConfiguration<AlarmoAlarmMetadata> {
-        let resolvedSnoozeInterval = max(1, snoozeInterval ?? 300)
-        let showsSnoozeButton = snoozeEnabled
-
-        let secondaryButton: AlarmButton? = showsSnoozeButton
-            ? AlarmButton(
-                text: "Snooze",
-                textColor: .white,
-                systemImageName: "zzz"
-            )
-            : nil
-        let secondaryBehavior: AlarmPresentation.Alert.SecondaryButtonBehavior? = showsSnoozeButton ? .countdown : nil
-
         let alertPresentation: AlarmPresentation.Alert
         if #available(iOS 26.1, *) {
             alertPresentation = AlarmPresentation.Alert(
-                title: LocalizedStringResource(stringLiteral: title),
-                secondaryButton: secondaryButton,
-                secondaryButtonBehavior: secondaryBehavior
+                title: LocalizedStringResource(stringLiteral: title)
             )
         } else {
             alertPresentation = AlarmPresentation.Alert(
@@ -338,32 +337,12 @@ private extension AlarmSchedulerIOS26AlarmKit {
                     text: "Stop",
                     textColor: .white,
                     systemImageName: "stop.fill"
-                ),
-                secondaryButton: secondaryButton,
-                secondaryButtonBehavior: secondaryBehavior
+                )
             )
         }
 
-        let countdownPresentation: AlarmPresentation.Countdown? = showsSnoozeButton
-            ? AlarmPresentation.Countdown(
-                title: LocalizedStringResource(stringLiteral: "Snoozing"),
-                pauseButton: AlarmButton(
-                    text: "Pause",
-                    textColor: .white,
-                    systemImageName: "pause.fill"
-                )
-            )
-            : nil
-        let pausedPresentation: AlarmPresentation.Paused? = showsSnoozeButton
-            ? AlarmPresentation.Paused(
-                title: LocalizedStringResource(stringLiteral: "Snooze Paused"),
-                resumeButton: AlarmButton(
-                    text: "Resume",
-                    textColor: .white,
-                    systemImageName: "play.fill"
-                )
-            )
-            : nil
+        let countdownPresentation: AlarmPresentation.Countdown? = nil
+        let pausedPresentation: AlarmPresentation.Paused? = nil
 
         let presentation = AlarmPresentation(
             alert: alertPresentation,
@@ -393,15 +372,11 @@ private extension AlarmSchedulerIOS26AlarmKit {
             alertSound = .named("")
         }
 
-        let countdownDuration: AlarmKit.Alarm.CountdownDuration? = showsSnoozeButton
-            ? AlarmKit.Alarm.CountdownDuration(preAlert: nil, postAlert: resolvedSnoozeInterval)
-            : nil
-
         return AlarmManager.AlarmConfiguration(
-            countdownDuration: countdownDuration,
+            countdownDuration: nil,
             schedule: schedule,
             attributes: attributes,
-            stopIntent: StopAlarmIntent(alarmID: alarmID.uuidString),
+            stopIntent: StopAlarmIntent(alarmID: alarmID.uuidString, originalAlarmID: originalAlarmID?.uuidString),
             secondaryIntent: nil,
             sound: alertSound
         )
@@ -538,31 +513,90 @@ private extension AlarmSchedulerIOS26AlarmKit {
 @available(iOS 26.0, *)
 struct StopAlarmIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Stop Alarm"
+    // Do NOT require authentication — the intent must run immediately when the
+    // user swipes stop on the lock screen, even before unlock. The background
+    // audio bridge keeps Alarmo's own sound alive while the phone is still
+    // locked. After unlock, the custom UI handoff takes over.
     static var openAppWhenRun: Bool = false
-    
+
     @Parameter(title: "Alarm ID")
     var alarmID: String
-    
+
+    @Parameter(title: "Original Alarm ID")
+    var originalAlarmID: String?
+
     init() {}
-    
-    init(alarmID: String) {
+
+    init(alarmID: String, originalAlarmID: String? = nil) {
         self.alarmID = alarmID
+        self.originalAlarmID = originalAlarmID
     }
-    
+
     func perform() async throws -> some IntentResult {
-        if let uuid = UUID(uuidString: alarmID) {
-            try? AlarmManager.shared.stop(id: uuid)
-            // Mirror in-app stop behavior for one-shot/quick alarms so app state
-            // stays aligned when user stops directly from the system AlarmKit UI.
-            let store = AlarmStore.shared
-            if let alarm = store.alarm(by: uuid) {
-                if alarm.type == .quick {
-                    store.remove(id: uuid)
-                } else if alarm.repeatMask == 0 && !alarm.isDaily {
-                    store.toggleEnabled(id: uuid, enabled: false)
+        guard let uuid = UUID(uuidString: alarmID) else {
+            return .result()
+        }
+        
+        let lookupUUIDString = originalAlarmID ?? alarmID
+        guard let lookupUUID = UUID(uuidString: lookupUUIDString) else {
+            return .result()
+        }
+
+        // --- THE "ZOMBIE ALARM" ALARMKIT HACK ---
+        // Since only AlarmKit can physically bypass the iOS hardware silent switch
+        // while the phone is locked, we cannot rely on background AVAudioPlayers.
+        // The moment the user swipes "Stop" on the lock screen, AlarmKit forcibly
+        // stops the system sound. 
+        // To prevent this and force the user to unlock, we detect if the phone
+        // is locked, and if so, we INSTANTLY spawn a brand new AlarmKit alarm
+        // 0.1 seconds in the future.
+        // This causes the Lock Screen UI to immediately flash back onto the screen
+        // and resumes the system sound with virtually zero gap.
+        let isAppActive = await MainActor.run { UIApplication.shared.applicationState == .active }
+        
+        if !isAppActive {
+            let originalAlarm = await MainActor.run { AlarmStore.shared.alarm(by: lookupUUID) }
+            if let originalAlarm = originalAlarm {
+                let helper = AlarmSchedulerIOS26AlarmKit()
+                let title = originalAlarm.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Alarm" : originalAlarm.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                // Must use a new UUID so AlarmKit doesn't drop the request
+                let newUUID = UUID()
+                let config = helper.makeConfiguration(
+                    alarmID: newUUID,
+                    originalAlarmID: lookupUUID, // Forward the original ID to the next zombie
+                    title: title,
+                    schedule: AlarmKit.Alarm.Schedule.fixed(Date().addingTimeInterval(0.1)), // 0.1s extreme restart buffer
+                    snoozeEnabled: originalAlarm.snoozeMinutes > 0 || originalAlarm.snoozeSeconds > 0,
+                    snoozeInterval: helper.resolvedSnoozeInterval(for: originalAlarm),
+                    soundName: originalAlarm.soundName
+                )
+                
+                do {
+                    try await AlarmManager.shared.schedule(id: newUUID, configuration: config)
+                    
+                    // Route the handoff to the new Zombie alarm so the app can stop it when unlocked
+                    AlarmCustomUIHandoffStore.request(alarmID: newUUID)
+                    NotificationCenter.default.post(
+                        name: .alarmKitCustomUIHandoffRequested,
+                        object: nil,
+                        userInfo: ["alarmId": newUUID.uuidString]
+                    )
+                    return .result()
+                } catch {
+                    print("[StopAlarmIntent] Zombie reschedule failed: \(error)")
                 }
             }
         }
+
+        // Fallback or if phone was unlocked
+        AlarmCustomUIHandoffStore.request(alarmID: uuid)
+        NotificationCenter.default.post(
+            name: .alarmKitCustomUIHandoffRequested,
+            object: nil,
+            userInfo: ["alarmId": uuid.uuidString]
+        )
+
         return .result()
     }
 }

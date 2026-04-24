@@ -2,6 +2,9 @@ import SwiftUI
 import Combine
 import SwiftData
 import UIKit
+#if canImport(AlarmKit)
+import AlarmKit
+#endif
 
 struct AppRootView: View {
     @StateObject private var onboardingViewModel = OnboardingViewModel()
@@ -57,19 +60,16 @@ struct AppRootView: View {
             updateViewState()
             if foregroundScheduler == nil {
                 let alarmScheduler = AlarmManagerFacade.shared
-                if alarmScheduler.selectedPath == .legacyNotification {
-                    let scheduler = AlarmForegroundScheduler(alarmStore: alarmStore, ringCoordinator: ringCoordinator)
-                    foregroundScheduler = scheduler
-                    ringCoordinator.configure(alarmStore: alarmStore, foregroundScheduler: scheduler, modelContext: modelContext)
-                    scheduler.start()
-                } else {
-                    foregroundScheduler = nil
-                    ringCoordinator.configure(alarmStore: alarmStore, foregroundScheduler: nil, modelContext: modelContext)
-                }
+                let scheduler = AlarmForegroundScheduler(alarmStore: alarmStore, ringCoordinator: ringCoordinator)
+                foregroundScheduler = scheduler
+                ringCoordinator.configure(alarmStore: alarmStore, foregroundScheduler: scheduler, modelContext: modelContext)
+                AlarmBackgroundAudioBridge.shared.configure(alarmStore: alarmStore)
+                scheduler.start()
                 notificationManager.configure(ringCoordinator: ringCoordinator, alarmStore: alarmStore)
                 notificationManager.recoverAlarmFromDeliveredNotificationsIfNeeded()
                 alarmScheduler.reconcilePersistedAlarms(alarmStore.alarms)
             }
+            handlePendingCustomAlarmUIHandoff()
             NotificationOrchestrator.shared.reconcileAlarmLifecycleNotifications(alarms: alarmStore.alarms)
             shutdownDetectionService.startMonitoring(alarmStore: alarmStore, ringCoordinator: ringCoordinator, ringingAlarmId: ringCoordinator.activeAlarm?.id)
             accountabilityManager.ensureShieldRestoredOnLaunch()
@@ -120,9 +120,16 @@ struct AppRootView: View {
                 pomodoroEngine.handleSceneDidBecomeActive()
                 tamperDetectionService.evaluateOnForeground(ringCoordinator: ringCoordinator)
                 notificationManager.recoverAlarmFromDeliveredNotificationsIfNeeded()
+                handlePendingCustomAlarmUIHandoff()
             } else if newPhase == .inactive || newPhase == .background {
                 pomodoroEngine.handleSceneDidEnterBackground()
             }
+        }
+        .onOpenURL { url in
+            handleAlarmHandoffURL(url)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .alarmKitCustomUIHandoffRequested)) { _ in
+            handlePendingCustomAlarmUIHandoff()
         }
         .onReceive(settingsStore.$notificationPrefs) { _ in
             NotificationOrchestrator.shared.reconcileAlarmLifecycleNotifications(alarms: alarmStore.alarms)
@@ -192,6 +199,52 @@ struct AppRootView: View {
         let key = "alarmo.liveActivity.openSessionId"
         guard let raw = UserDefaults.standard.string(forKey: key) else { return false }
         return !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func handlePendingCustomAlarmUIHandoff() {
+        guard foregroundScheduler != nil else { return }
+
+        let alarmId = AlarmCustomUIHandoffStore.pendingAlarmID()
+            ?? AlarmBackgroundAudioBridge.shared.currentAlarmID
+        guard let alarmId else { return }
+
+        if ringCoordinator.startRinging(alarmId: alarmId, source: .notification) {
+            AlarmCustomUIHandoffStore.clear()
+            notificationManager.cancelAlarmKitUnlockPrompt(alarmId: alarmId)
+            // Hand off from bridge to coordinator audio with a short overlap so
+            // the user never hears a gap.
+            AlarmBackgroundAudioBridge.shared.handoffToForeground(alarmId: alarmId, stopDelay: 0.4)
+            stopAlarmKitSurfaceAfterCustomAudioStarts(alarmId: alarmId)
+        } else if AlarmBackgroundAudioBridge.shared.isPlaying {
+            // Coordinator could not start (e.g. alarm was deleted), but bridge
+            // is still playing. Stop it to avoid orphaned audio.
+            AlarmBackgroundAudioBridge.shared.stop(alarmId: alarmId)
+            AlarmCustomUIHandoffStore.clear()
+            notificationManager.cancelAlarmKitUnlockPrompt(alarmId: alarmId)
+        }
+    }
+
+    private func handleAlarmHandoffURL(_ url: URL) {
+        guard let alarmID = AlarmCustomUIHandoffStore.alarmID(from: url) else { return }
+        AlarmCustomUIHandoffStore.request(alarmID: alarmID)
+
+        DispatchQueue.main.async {
+            handlePendingCustomAlarmUIHandoff()
+        }
+    }
+
+    private func stopAlarmKitSurfaceAfterCustomAudioStarts(alarmId: String) {
+#if canImport(AlarmKit)
+        guard #available(iOS 26.0, *),
+              let uuid = UUID(uuidString: alarmId) else { return }
+
+        Task {
+            // Give Alarmo's own looping audio a short head start before dismissing
+            // the system AlarmKit surface, so the user does not hear a silent gap.
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            try? AlarmManager.shared.stop(id: uuid)
+        }
+#endif
     }
 
     private var resolvedColorScheme: ColorScheme? {

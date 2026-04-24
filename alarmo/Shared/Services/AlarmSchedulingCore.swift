@@ -76,6 +76,60 @@ struct AlarmScheduleRequest: Identifiable, Equatable, Codable {
     let snoozeEnabled: Bool
 }
 
+enum AlarmCustomUIHandoffStore {
+    nonisolated private static let alarmIDKey = "alarmo.alarmKit.pendingCustomUIAlarmId"
+    nonisolated private static let timestampKey = "alarmo.alarmKit.pendingCustomUITimestamp"
+    nonisolated private static let maxAge: TimeInterval = 10 * 60
+    nonisolated static let urlScheme = "alarmo"
+    nonisolated static let urlHost = "alarm-ringing"
+
+    nonisolated static func request(alarmID: UUID, now: Date = Date()) {
+        UserDefaults.standard.set(alarmID.uuidString, forKey: alarmIDKey)
+        UserDefaults.standard.set(now.timeIntervalSince1970, forKey: timestampKey)
+    }
+
+    nonisolated static func pendingAlarmID(now: Date = Date()) -> String? {
+        guard let alarmID = UserDefaults.standard.string(forKey: alarmIDKey) else { return nil }
+        let timestamp = UserDefaults.standard.double(forKey: timestampKey)
+
+        guard timestamp > 0, now.timeIntervalSince1970 - timestamp <= maxAge else {
+            clear()
+            return nil
+        }
+        return alarmID
+    }
+
+    nonisolated static func consumePendingAlarmID(now: Date = Date()) -> String? {
+        guard let alarmID = pendingAlarmID(now: now) else { return nil }
+        clear()
+        return alarmID
+    }
+
+    nonisolated static func handoffURL(for alarmID: UUID) -> URL {
+        var components = URLComponents()
+        components.scheme = urlScheme
+        components.host = urlHost
+        components.queryItems = [
+            URLQueryItem(name: "alarmId", value: alarmID.uuidString)
+        ]
+        return components.url ?? URL(string: "\(urlScheme)://\(urlHost)?alarmId=\(alarmID.uuidString)")!
+    }
+
+    nonisolated static func alarmID(from url: URL) -> UUID? {
+        guard url.scheme == urlScheme, url.host == urlHost else { return nil }
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        guard let rawID = components?.queryItems?.first(where: { $0.name == "alarmId" })?.value else {
+            return nil
+        }
+        return UUID(uuidString: rawID)
+    }
+
+    nonisolated static func clear() {
+        UserDefaults.standard.removeObject(forKey: alarmIDKey)
+        UserDefaults.standard.removeObject(forKey: timestampKey)
+    }
+}
+
 enum AlarmScheduleMapper {
     static func map(alarm: Alarm, now: Date = Date()) -> AlarmScheduleRequest? {
         guard let fireDate = AlarmStore.nextFireDate(for: alarm, from: now) else { return nil }
@@ -613,9 +667,10 @@ final class AlarmKitSchedulingMessenger {
 }
 
 extension Notification.Name {
-    static let alarmKitOnlyModeNoticeRequested = Notification.Name("alarmo.alarmKitOnly.noticeRequested")
-    static let legacyAlarmModeNoticeRequested = Notification.Name("alarmo.legacyAlarmMode.noticeRequested")
-    static let alarmKitSchedulingFailureNoticeRequested = Notification.Name("alarmo.alarmKitScheduling.failureNoticeRequested")
+    nonisolated static let alarmKitOnlyModeNoticeRequested = Notification.Name("alarmo.alarmKitOnly.noticeRequested")
+    nonisolated static let legacyAlarmModeNoticeRequested = Notification.Name("alarmo.legacyAlarmMode.noticeRequested")
+    nonisolated static let alarmKitSchedulingFailureNoticeRequested = Notification.Name("alarmo.alarmKitScheduling.failureNoticeRequested")
+    nonisolated static let alarmKitCustomUIHandoffRequested = Notification.Name("alarmo.alarmKit.customUIHandoffRequested")
 }
 
 extension UNUserNotificationCenter {

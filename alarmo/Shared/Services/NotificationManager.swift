@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import UserNotifications
+import UIKit
 
 #if canImport(AlarmKit)
 import AlarmKit
@@ -30,6 +31,11 @@ struct AlarmDeliveryStatus {
 final class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationManager()
 
+    private enum AlarmKitUnlockPrompt {
+        static let identifierPrefix = "alarmo-alarmkit-unlock-"
+        static let userInfoAlarmIDKey = "alarmKitHandoffAlarmId"
+    }
+
     private weak var ringCoordinator: AlarmRingCoordinator?
     private weak var alarmStore: AlarmStore?
     private let alarmScheduler: AlarmSchedulerProtocol = AlarmManagerFacade.shared
@@ -49,6 +55,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     func configure(ringCoordinator: AlarmRingCoordinator, alarmStore: AlarmStore) {
         self.ringCoordinator = ringCoordinator
         self.alarmStore = alarmStore
+        AlarmBackgroundAudioBridge.shared.configure(alarmStore: alarmStore)
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         registerCategories()
@@ -58,9 +65,26 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     }
 
     /// Observe AlarmKit alarm state changes on iOS 26+.
-    /// For AlarmKit alarms we intentionally keep presentation on Apple's
-    /// system alarm surface (Lock Screen / StandBy / Dynamic Island) instead
-    /// of launching Alarmo's custom full-screen ringing UI.
+    ///
+    /// **Sound continuity strategy:**
+    /// When an alarm enters `.alerting`, we ALWAYS start the app-owned
+    /// background audio bridge immediately – regardless of app state.
+    /// This means Alarmo's own AVAudioPlayer is looping the alarm sound
+    /// *in parallel* with the system AlarmKit alert sound.
+    ///
+    /// When the user swipes "Stop" on the lock-screen AlarmKit UI:
+    /// - AlarmKit stops its own system-managed sound
+    /// - Alarmo's background audio bridge **continues** because it is
+    ///   an independent AVAudioPlayer in `.playback` mode with the
+    ///   `audio` background capability
+    /// - The sound therefore never stops from the user's perspective
+    ///
+    /// After the user unlocks:
+    /// - The `StopAlarmIntent` or unlock-prompt action triggers a
+    ///   custom-UI handoff
+    /// - `AppRootView.handlePendingCustomAlarmUIHandoff()` presents the
+    ///   in-app `AlarmRingingView` which takes over audio
+    /// - Only then is the bridge audio stopped
     private func startAlarmKitObservation() {
 #if canImport(AlarmKit)
         if #available(iOS 26.0, *) {
@@ -71,8 +95,33 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                         if alarm.state == .alerting {
                             let alarmId = alarm.id.uuidString
                             print("[NotificationManager] 🔔 AlarmKit alarm alerting: \(alarmId)")
-                            // Do not call startOrQueueAlarm here. AlarmKit owns
-                            // the ringing UI/controls for alerting alarms.
+
+                            // ALWAYS start the background audio bridge so Alarmo's
+                            // own sound is playing before the user interacts with
+                            // the AlarmKit stop slider. This is the key to
+                            // seamless sound continuity.
+                            AlarmBackgroundAudioBridge.shared.start(alarmId: alarmId)
+
+                            if UIApplication.shared.applicationState == .active {
+                                // App is already in the foreground — show the
+                                // in-app ringing UI directly and dismiss the
+                                // system AlarmKit surface.
+                                startOrQueueAlarm(alarmId: alarmId)
+                                cancelAlarmKitUnlockPrompt(alarmId: alarmId)
+                                // Hand off from bridge to coordinator audio
+                                AlarmBackgroundAudioBridge.shared.handoffToForeground(alarmId: alarmId)
+                                do {
+                                    try manager.stop(id: alarm.id)
+                                    print("[NotificationManager] Dismissed foreground AlarmKit surface: \(alarmId)")
+                                } catch {
+                                    print("[NotificationManager] Failed to dismiss foreground AlarmKit surface \(alarmId): \(error)")
+                                }
+                            } else {
+                                // App is backgrounded/locked — keep bridge audio
+                                // running and prepare for post-unlock handoff.
+                                AlarmCustomUIHandoffStore.request(alarmID: alarm.id)
+                                scheduleAlarmKitUnlockPrompt(alarmId: alarmId)
+                            }
                             await AlarmManagerFacade.shared.markAlarmFired(id: alarm.id)
                         }
                     }
@@ -212,6 +261,20 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             options: [.customDismissAction]
         )
 
+        let unlockDismiss = UNNotificationAction(
+            identifier: AppNotificationAction.alarmKitUnlockDismiss,
+            title: "Unlock Alarmo",
+            options: [.authenticationRequired, .foreground]
+        )
+        let alarmKitUnlockCategory = UNNotificationCategory(
+            identifier: AppNotificationCategory.alarmKitUnlock,
+            actions: [unlockDismiss],
+            intentIdentifiers: [],
+            hiddenPreviewsBodyPlaceholder: "Unlock to stop or snooze the alarm in Alarmo.",
+            categorySummaryFormat: "%u more alarm alerts",
+            options: [.hiddenPreviewsShowTitle, .hiddenPreviewsShowSubtitle]
+        )
+
         let markDone = UNNotificationAction(
             identifier: AppNotificationAction.planMarkDone,
             title: "Mark Done",
@@ -263,7 +326,67 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             options: []
         )
 
-        UNUserNotificationCenter.current().setNotificationCategories([alarmCategory, planCategory, focusCategory, countdownCategory])
+        UNUserNotificationCenter.current().setNotificationCategories([
+            alarmCategory,
+            alarmKitUnlockCategory,
+            planCategory,
+            focusCategory,
+            countdownCategory
+        ])
+    }
+
+    func scheduleAlarmKitUnlockPrompt(alarmId: String, alarmName: String? = nil, fireDate: Date? = nil) {
+        let center = UNUserNotificationCenter.current()
+        let content = UNMutableNotificationContent()
+        let resolvedAlarmName = alarmName ?? UUID(uuidString: alarmId).flatMap { id in
+            (alarmStore ?? AlarmStore.shared).alarm(by: id)?.name
+        }
+        let title = resolvedAlarmName?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        content.title = "Unlock to Stop or Snooze Alarm"
+        if let title, !title.isEmpty {
+            content.subtitle = "\(title) is still ringing"
+        } else {
+            content.subtitle = "Alarm is still ringing"
+        }
+        content.body = "Tap this alert to unlock your iPhone.\nThen stop or snooze the alarm in Alarmo."
+        content.categoryIdentifier = AppNotificationCategory.alarmKitUnlock
+        content.threadIdentifier = "alarmo.alarmkit.unlock"
+        content.summaryArgument = "Unlock alarm alert"
+        content.summaryArgumentCount = 1
+        content.userInfo = [AlarmKitUnlockPrompt.userInfoAlarmIDKey: alarmId]
+        if #available(iOS 15.0, *) {
+            content.interruptionLevel = .timeSensitive
+            content.relevanceScore = 1
+        }
+
+        let identifier = Self.alarmKitUnlockPromptIdentifier(alarmId: alarmId)
+        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        center.removeDeliveredNotifications(withIdentifiers: [identifier])
+        let trigger: UNNotificationTrigger?
+        if let fireDate, fireDate.timeIntervalSinceNow > 1 {
+            let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: fireDate)
+            trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        } else {
+            trigger = nil
+        }
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+        center.add(request) { error in
+            if let error {
+                print("[NotificationManager] Failed to schedule AlarmKit unlock prompt for \(alarmId): \(error)")
+            }
+        }
+    }
+
+    func cancelAlarmKitUnlockPrompt(alarmId: String) {
+        let identifier = Self.alarmKitUnlockPromptIdentifier(alarmId: alarmId)
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        center.removeDeliveredNotifications(withIdentifiers: [identifier])
+    }
+
+    private static func alarmKitUnlockPromptIdentifier(alarmId: String) -> String {
+        "\(AlarmKitUnlockPrompt.identifierPrefix)\(alarmId)"
     }
 
     func logSettings() {
@@ -309,7 +432,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             try? AudioRouteManager.configureAlarmSession()
         }
 
-        if action == AppNotificationAction.alarmStop {
+        if action == AppNotificationAction.alarmKitUnlockDismiss ||
+            response.notification.request.content.categoryIdentifier == AppNotificationCategory.alarmKitUnlock {
+            handleAlarmKitUnlockPromptAction(notification: response.notification)
+        } else if action == AppNotificationAction.alarmStop {
             handleAlarmStopAction(notification: response.notification)
         } else if action == AppNotificationAction.alarmSnooze {
             handleAlarmSnoozeAction(notification: response.notification)
@@ -339,7 +465,26 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         let userInfo = notification.request.content.userInfo
         if let alarmId = userInfo["alarmId"] as? String {
             startOrQueueAlarm(alarmId: alarmId)
+        } else if let alarmId = userInfo[AlarmKitUnlockPrompt.userInfoAlarmIDKey] as? String {
+            requestCustomUIHandoff(alarmId: alarmId)
         }
+    }
+
+    private func handleAlarmKitUnlockPromptAction(notification: UNNotification) {
+        guard let alarmId = notification.request.content.userInfo[AlarmKitUnlockPrompt.userInfoAlarmIDKey] as? String else {
+            return
+        }
+        requestCustomUIHandoff(alarmId: alarmId)
+    }
+
+    private func requestCustomUIHandoff(alarmId: String) {
+        guard let uuid = UUID(uuidString: alarmId) else { return }
+        AlarmCustomUIHandoffStore.request(alarmID: uuid)
+        NotificationCenter.default.post(
+            name: .alarmKitCustomUIHandoffRequested,
+            object: nil,
+            userInfo: ["alarmId": alarmId]
+        )
     }
 
     private func handleAlarmStopAction(notification: UNNotification) {
@@ -446,6 +591,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
 enum AppNotificationCategory {
     static let alarmRing = "ALARM_RING"
+    static let alarmKitUnlock = "ALARMKIT_UNLOCK"
     static let planReminder = "PLAN_REMINDER"
     static let focusSession = "FOCUS_SESSION"
     static let countdown = "COUNTDOWN"
@@ -454,6 +600,7 @@ enum AppNotificationCategory {
 enum AppNotificationAction {
     static let alarmSnooze = "ALARM_SNOOZE"
     static let alarmStop = "ALARM_STOP"
+    static let alarmKitUnlockDismiss = "ALARMKIT_UNLOCK_DISMISS"
     static let planMarkDone = "PLAN_MARK_DONE"
     static let planRemindIn10 = "PLAN_REMIND_IN_10"
     static let focusStartNow = "FOCUS_START_NOW"

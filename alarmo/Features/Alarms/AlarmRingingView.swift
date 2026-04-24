@@ -13,22 +13,37 @@ struct AlarmRingingView: View {
         ZStack {
             wallpaperBackground
                 .ignoresSafeArea()
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.32),
+                    Color.black.opacity(0.18),
+                    Color.black.opacity(0.28)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
 
             VStack(spacing: Spacing.l) {
                 Spacer()
 
                 Text(currentDateText)
-                    .font(.system(size: 18, weight: .bold, design: .monospaced))
-                    .foregroundColor(Colors.textSecondary)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(.white.opacity(0.82))
+                    .shadow(color: .black.opacity(0.45), radius: 6, x: 0, y: 2)
 
                 Text(currentTimeText)
-                    .font(.system(size: 64, weight: .heavy, design: .monospaced))
-                    .foregroundColor(Colors.textPrimary)
+                    .font(.system(size: 98, weight: .heavy))
+                    .foregroundColor(.white)
+                    .minimumScaleFactor(0.8)
+                    .lineLimit(1)
+                    .shadow(color: .black.opacity(0.5), radius: 12, x: 0, y: 3)
 
                 if let name = ringCoordinator.activeAlarm?.name, !name.isEmpty {
                     Text(name)
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(Colors.textPrimary)
+                        .foregroundColor(.white.opacity(0.95))
+                        .shadow(color: .black.opacity(0.45), radius: 6, x: 0, y: 2)
                 }
 
                 if shouldShowMotivationQuote {
@@ -72,16 +87,13 @@ struct AlarmRingingView: View {
 
                 HStack(spacing: Spacing.m) {
                     if ringCoordinator.isPreviewMode {
-                        PrimaryButton(
-                            title: "Dismiss and start \(ringCoordinator.activeAlarm?.name ?? "alarm")",
-                            style: .blueGlass
-                        ) {
+                        stopActionButton(title: "Dismiss and start \(ringCoordinator.activeAlarm?.name ?? "alarm")") {
                             ringCoordinator.stopRinging()
                         }
                     } else {
                         snoozeActionButton
 
-                        PrimaryButton(title: "Stop", style: .blueGlass) {
+                        stopActionButton(title: "Stop") {
                             if let mission = ringCoordinator.activeAlarm?.missions.first(where: { $0.type != .off }) {
                                 currentMission = mission
                             } else {
@@ -90,8 +102,8 @@ struct AlarmRingingView: View {
                         }
                     }
                 }
-                .padding(.horizontal, Spacing.l)
-                .padding(.bottom, ringCoordinator.isPreviewMode ? 0 : Spacing.xl)
+                .padding(.horizontal, 0)
+                .padding(.bottom, ringCoordinator.isPreviewMode ? Spacing.m : Spacing.l)
                 
                 if ringCoordinator.isPreviewMode {
                     VStack {
@@ -352,29 +364,66 @@ struct AlarmRingingView: View {
     private var snoozeActionButton: some View {
         Button(action: { ringCoordinator.snooze() }) {
             Text("Snooze")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(Color.black.opacity(0.82))
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(.white.opacity(0.96))
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.m)
+                .frame(height: 86)
                 .background(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 1.00, green: 0.88, blue: 0.33),
-                            Color(red: 0.98, green: 0.78, blue: 0.18)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                    RoundedRectangle(cornerRadius: 34, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.95, green: 0.86, blue: 0.30),
+                                    Color(red: 0.90, green: 0.79, blue: 0.20)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                 )
-                .clipShape(Capsule())
                 .overlay(
-                    Capsule()
-                        .stroke(Color.white.opacity(0.28), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 34, style: .continuous)
+                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
                 )
-                .shadow(color: Color.yellow.opacity(0.28), radius: 12, x: 0, y: 7)
+                .shadow(color: .black.opacity(0.28), radius: 12, x: 0, y: 8)
         }
         .buttonStyle(PressedScaleButtonStyle())
         .accessibilityLabel(Text("Snooze"))
+    }
+
+    private func stopActionButton(
+        title: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 22, weight: .bold))
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+                .foregroundColor(.white.opacity(0.96))
+                .frame(maxWidth: .infinity)
+                .frame(height: 86)
+                .background(
+                    RoundedRectangle(cornerRadius: 34, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.08, green: 0.78, blue: 0.92).opacity(0.96),
+                                    Color(red: 0.05, green: 0.66, blue: 0.84).opacity(0.96)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 34, style: .continuous)
+                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.28), radius: 12, x: 0, y: 8)
+        }
+        .buttonStyle(PressedScaleButtonStyle())
+        .accessibilityLabel(Text(title))
     }
 
     private func wallpaperImage() -> UIImage? {

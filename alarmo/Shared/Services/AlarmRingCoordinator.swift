@@ -33,22 +33,23 @@ final class AlarmRingCoordinator: ObservableObject {
         self.modelContext = modelContext
     }
 
-    func startRinging(alarmId: String, source: RingSource) {
+    @discardableResult
+    func startRinging(alarmId: String, source: RingSource) -> Bool {
         guard let id = UUID(uuidString: alarmId) else {
              print("[AlarmRingCoordinator] ❌ Invalid UUID string: \(alarmId)")
-             return
+             return false
         }
         
         // Prevent duplicate ring starts from overlapping sources
         // (e.g. local notification + foreground timer callback).
         if isRinging, activeAlarm?.id == id {
             print("[AlarmRingCoordinator] ⏭️ Ignoring duplicate START RINGING for \(id) (Source: \(source))")
-            return
+            return true
         }
         
         guard let alarm = alarmStore?.alarm(by: id) else {
              print("[AlarmRingCoordinator] ❌ Alarm not found in store: \(alarmId)")
-             return
+             return false
         }
 
         Task {
@@ -93,7 +94,9 @@ final class AlarmRingCoordinator: ObservableObject {
         accountabilityManager.beginAlarmEnforcement(alarm: alarm)
         shieldEngine.sessionDidStart(alarm: alarm, session: activeSession)
         
-        soundPlayer.playLooping(resourceName: alarm.soundName, volume: alarm.soundVolume, fadeDuration: TimeInterval(alarm.gentleWakeUpSeconds))
+        // Real alarm playback must be loud immediately. iOS does not expose a public API
+        // to force the device hardware volume, so we max out Alarmo's own player volume.
+        soundPlayer.playLooping(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
         if alarm.vibrateEnabled {
             hapticsPlayer.startRepeating()
         } else {
@@ -110,6 +113,7 @@ final class AlarmRingCoordinator: ObservableObject {
             modelContext?.insert(event)
             try? modelContext?.save()
         }
+        return true
     }
 
     func startPreview(alarm: Alarm) {
@@ -138,6 +142,7 @@ final class AlarmRingCoordinator: ObservableObject {
     private func stopRingingInternal(preserveSession: Bool, completed: Bool = false) {
         missionTimeoutWorkItem?.cancel()
         missionTimeoutWorkItem = nil
+        AlarmBackgroundAudioBridge.shared.stop(alarmId: activeAlarm?.id.uuidString)
         soundPlayer.stop()
         hapticsPlayer.stop()
         isRinging = false
@@ -145,6 +150,8 @@ final class AlarmRingCoordinator: ObservableObject {
         tamperService.end()
         
         if let alarm = activeAlarm {
+            NotificationManager.shared.cancelAlarmKitUnlockPrompt(alarmId: alarm.id.uuidString)
+
             if preserveSession, var session = activeSession {
                 session.status = .snoozed
                 session.isActive = true
