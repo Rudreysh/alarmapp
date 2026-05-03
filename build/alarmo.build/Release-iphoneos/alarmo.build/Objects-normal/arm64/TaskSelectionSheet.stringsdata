@@ -1,0 +1,120 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/TaskSelectionSheet.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Select a Task",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 211
+        }
+      },
+      {
+        "comment": "",
+        "key": "Rename Task",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 239
+        }
+      },
+      {
+        "comment": "",
+        "key": "New Task",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 80
+        }
+      },
+      {
+        "comment": "",
+        "key": "Quick Presets",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 104
+        }
+      },
+      {
+        "comment": "",
+        "key": "Rename",
+        "location": {
+          "startingColumn": 47,
+          "startingLine": 141
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete",
+        "location": {
+          "startingColumn": 47,
+          "startingLine": 153
+        }
+      },
+      {
+        "comment": "",
+        "key": "Today's task",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 158
+        }
+      },
+      {
+        "comment": "",
+        "key": "Rename",
+        "location": {
+          "startingColumn": 47,
+          "startingLine": 183
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete",
+        "location": {
+          "startingColumn": 47,
+          "startingLine": 194
+        }
+      },
+      {
+        "comment": "",
+        "key": "Added tasks",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 199
+        }
+      },
+      {
+        "comment": "",
+        "key": "Task Name",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 240
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 241
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 259
+        }
+      },
+      {
+        "comment": "",
+        "key": "Update the task name.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 264
+        }
+      }
+    ]
+  },
+  "version": 1
+}

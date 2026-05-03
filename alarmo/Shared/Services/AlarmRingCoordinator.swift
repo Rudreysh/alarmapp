@@ -44,12 +44,28 @@ final class AlarmRingCoordinator: ObservableObject {
         // (e.g. local notification + foreground timer callback).
         if isRinging, activeAlarm?.id == id {
             print("[AlarmRingCoordinator] ⏭️ Ignoring duplicate START RINGING for \(id) (Source: \(source))")
+            // If audio was interrupted during lock->unlock transition, force it
+            // back immediately while keeping the same ringing session/UI.
+            reassertRingingAudio(reason: "duplicate-start-\(source)")
             return true
         }
         
         guard let alarm = alarmStore?.alarm(by: id) else {
              print("[AlarmRingCoordinator] ❌ Alarm not found in store: \(alarmId)")
              return false
+        }
+
+        NotificationManager.shared.clearCompletedAlarmFlow(alarmId: alarm.id.uuidString)
+
+        // Handoff bridge audio as soon as we know foreground ringing can start,
+        // so the custom UI appears with continuous sound and no audible gap.
+        if let bridgeSurfaceId = AlarmBackgroundAudioBridge.shared.currentAlarmID {
+            let mappedSource = AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: bridgeSurfaceId)
+            if mappedSource == alarmId ||
+                AlarmBackgroundAudioBridge.shared.currentSourceAlarmID == alarmId ||
+                bridgeSurfaceId == alarmId {
+                AlarmBackgroundAudioBridge.shared.handoffToForeground(alarmId: bridgeSurfaceId, stopDelay: 0.4)
+            }
         }
 
         Task {
@@ -116,6 +132,15 @@ final class AlarmRingCoordinator: ObservableObject {
         return true
     }
 
+    func reassertRingingAudio(reason: String = "manual") {
+        guard isRinging, !isPreviewMode, let alarm = activeAlarm else { return }
+        print("[AlarmRingCoordinator] 🔁 Reasserting ringing audio (\(reason)) for \(alarm.id)")
+        soundPlayer.playLooping(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
+        if alarm.vibrateEnabled {
+            hapticsPlayer.startRepeating()
+        }
+    }
+
     func startPreview(alarm: Alarm) {
         print("[AlarmRingCoordinator] 👁️ START PREVIEW: \(alarm.name) wallpaperId=\(alarm.wallpaperId) sound=\(alarm.soundName)")
         activeAlarm = alarm
@@ -142,15 +167,48 @@ final class AlarmRingCoordinator: ObservableObject {
     private func stopRingingInternal(preserveSession: Bool, completed: Bool = false) {
         missionTimeoutWorkItem?.cancel()
         missionTimeoutWorkItem = nil
-        AlarmBackgroundAudioBridge.shared.stop(alarmId: activeAlarm?.id.uuidString)
+        let bridgeSurfaceAlarmId = AlarmBackgroundAudioBridge.shared.currentAlarmID
+        let bridgeSourceAlarmId = AlarmBackgroundAudioBridge.shared.currentSourceAlarmID
+        let mappedBridgeSourceAlarmId = bridgeSurfaceAlarmId.map {
+            AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: $0)
+        }
+        AlarmBackgroundAudioBridge.shared.stop()
         soundPlayer.stop()
         hapticsPlayer.stop()
-        isRinging = false
-        UserDefaults.standard.removeObject(forKey: "last_ringing_alarm_id")
-        tamperService.end()
         
         if let alarm = activeAlarm {
+            // Consume any remaining runtime/follow-up notifications immediately
+            // so ring banners do not keep reappearing after Stop/Snooze actions.
+            scheduler.cancelRuntimeRingNotifications(for: alarm)
+
+            NotificationManager.shared.markAlarmFlowCompleted(alarmId: alarm.id.uuidString)
+            if let bridgeSurfaceAlarmId {
+                NotificationManager.shared.markAlarmFlowCompleted(alarmId: bridgeSurfaceAlarmId)
+            }
+            if let bridgeSourceAlarmId {
+                NotificationManager.shared.markAlarmFlowCompleted(alarmId: bridgeSourceAlarmId)
+            }
+            if let mappedBridgeSourceAlarmId {
+                NotificationManager.shared.markAlarmFlowCompleted(alarmId: mappedBridgeSourceAlarmId)
+            }
             NotificationManager.shared.cancelAlarmKitUnlockPrompt(alarmId: alarm.id.uuidString)
+            if let bridgeSurfaceAlarmId {
+                NotificationManager.shared.cancelAlarmKitUnlockPrompt(alarmId: bridgeSurfaceAlarmId)
+            }
+            if let bridgeSourceAlarmId {
+                NotificationManager.shared.cancelAlarmKitUnlockPrompt(alarmId: bridgeSourceAlarmId)
+            }
+            if let mappedBridgeSourceAlarmId {
+                NotificationManager.shared.cancelAlarmKitUnlockPrompt(alarmId: mappedBridgeSourceAlarmId)
+            }
+            NotificationManager.shared.cancelAllAlarmKitUnlockPrompts()
+            // Cleanup again after a short delay to absorb any in-flight loop
+            // callback that may race with Stop/Snooze.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                NotificationManager.shared.cancelAllAlarmKitUnlockPrompts()
+            }
+            AlarmCustomUIHandoffStore.clear()
+            NotificationManager.shared.dismissLinkedAlarmKitSurfaces(sourceAlarmId: alarm.id.uuidString)
 
             if preserveSession, var session = activeSession {
                 session.status = .snoozed
@@ -198,6 +256,10 @@ final class AlarmRingCoordinator: ObservableObject {
                 scheduler.schedule(alarm: refreshed)
             }
         }
+
+        isRinging = false
+        UserDefaults.standard.removeObject(forKey: "last_ringing_alarm_id")
+        tamperService.end()
         
         activeAlarm = nil
         if !preserveSession {
@@ -212,6 +274,18 @@ final class AlarmRingCoordinator: ObservableObject {
             shieldEngine.sessionDidEnd(alarm: activeAlarm, reason: "Stopped Ringing", completed: completed)
         }
         foregroundScheduler?.scheduleNext()
+    }
+
+    func ensureLockPromptLoopAfterUnexpectedViewDismiss() {
+        guard isRinging, !isPreviewMode, let alarm = activeAlarm else { return }
+        NotificationManager.shared.startAlarmKitUnlockPromptLoop(
+            sourceAlarmId: alarm.id.uuidString,
+            surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString,
+            alarmName: alarm.name
+        )
+        NotificationManager.shared.ensureAlarmKitSurfaceForLockedLoopIfNeeded(
+            sourceAlarmId: alarm.id.uuidString
+        )
     }
 
     func dismissTapped() {

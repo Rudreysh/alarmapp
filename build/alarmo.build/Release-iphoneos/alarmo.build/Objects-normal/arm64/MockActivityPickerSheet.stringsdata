@@ -1,0 +1,72 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Settings/Views/MockActivityPickerSheet.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Choose Activities",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 128
+        }
+      },
+      {
+        "comment": "",
+        "key": "SELECT APPS/WEBSITES, TAP \">\" TO EXPAND",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 147
+        }
+      },
+      {
+        "comment": "",
+        "key": "Search",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 137
+        }
+      },
+      {
+        "comment": "",
+        "key": "0 SELECTED",
+        "location": {
+          "startingColumn": 54,
+          "startingLine": 170
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ SELECTED",
+        "location": {
+          "startingColumn": 69,
+          "startingLine": 170
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 179
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 191
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 249
+        }
+      }
+    ]
+  },
+  "version": 1
+}

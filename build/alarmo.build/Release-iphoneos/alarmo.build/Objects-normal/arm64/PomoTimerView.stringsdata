@@ -1,0 +1,160 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/PomoTimerView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Interval: On",
+        "location": {
+          "startingColumn": 64,
+          "startingLine": 169
+        }
+      },
+      {
+        "comment": "",
+        "key": "Interval: Off",
+        "location": {
+          "startingColumn": 81,
+          "startingLine": 169
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add Music",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 205
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ - %@",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 319
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cycle %lld • Session %lld/%lld",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 329
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reset timer",
+        "location": {
+          "startingColumn": 53,
+          "startingLine": 312
+        }
+      },
+      {
+        "comment": "",
+        "key": "Running timers switcher",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 820
+        }
+      },
+      {
+        "comment": "",
+        "key": "Start",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 392
+        }
+      },
+      {
+        "comment": "",
+        "key": "Deep Focus — session locked until complete",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 527
+        }
+      },
+      {
+        "comment": "",
+        "key": "Take a short break",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 541
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld apps",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1066
+        }
+      },
+      {
+        "comment": "",
+        "key": "DEEP",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1072
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@:%@",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1169
+        }
+      },
+      {
+        "comment": "",
+        "key": ":%@",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1172
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ Complete",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1205
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1217
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cycle Complete!",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1235
+        }
+      },
+      {
+        "comment": "",
+        "key": "You've completed a full interval cycle.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1240
+        }
+      },
+      {
+        "comment": "",
+        "key": "Finish",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1252
+        }
+      }
+    ]
+  },
+  "version": 1
+}

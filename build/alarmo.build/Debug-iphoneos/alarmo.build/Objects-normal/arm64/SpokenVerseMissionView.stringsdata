@@ -1,0 +1,80 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Alarms/Missions/Religious/SpokenVerseMissionView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Recording",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 68
+        }
+      },
+      {
+        "comment": "",
+        "key": "Ready",
+        "location": {
+          "startingColumn": 56,
+          "startingLine": 68
+        }
+      },
+      {
+        "comment": "",
+        "key": "Correct recitation",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 115
+        }
+      },
+      {
+        "comment": "",
+        "key": "Listening now. Tap stop when done.",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 119
+        }
+      },
+      {
+        "comment": "",
+        "key": "Tap mic and read aloud once",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 123
+        }
+      },
+      {
+        "comment": "",
+        "key": "Heard: \"%@\"",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 175
+        }
+      },
+      {
+        "comment": "",
+        "key": "Mission complete",
+        "location": {
+          "startingColumn": 47,
+          "startingLine": 163
+        }
+      },
+      {
+        "comment": "",
+        "key": "Speak clearly, then tap again to verify",
+        "location": {
+          "startingColumn": 68,
+          "startingLine": 163
+        }
+      },
+      {
+        "comment": "",
+        "key": "No verse is available for this mission. Reopen settings and select at least one item.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 223
+        }
+      }
+    ]
+  },
+  "version": 1
+}

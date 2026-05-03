@@ -14,6 +14,7 @@
 		49C37E1D5D272F4157523E49 /* ShieldConfigurationExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C33C98169BCAA6D6D23BFA4 /* ShieldConfigurationExtension.swift */; };
 		65688BABA8EF6968EA120BED /* LiveActivityIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2574930397040EFE81A15AF /* LiveActivityIntents.swift */; };
 		90BA836B4931DCA0525EA2A7 /* LiveActivityIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2574930397040EFE81A15AF /* LiveActivityIntents.swift */; };
+		967B0EA12FA12AF200C682B1 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 967B0EA02FA12AF200C682B1 /* StoreKit.framework */; };
 		D22C279B3AC38EDDB1D7C641 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC3816525A8E7A5D79B9A590 /* Foundation.framework */; };
 		DDD28E6EC3BB9A5C4BBC7366 /* AlarmoWidgetLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98FAC3161F4D4BBD3ADE9242 /* AlarmoWidgetLiveActivity.swift */; };
 		E09D536D3C7483B7CA601A5D /* PomoAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EBEB69AEACD5DE69BB5C300 /* PomoAttributes.swift */; };
@@ -71,6 +72,7 @@
 		5059170D9E621FEA6171BC41 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		5C33C98169BCAA6D6D23BFA4 /* ShieldConfigurationExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShieldConfigurationExtension.swift; sourceTree = "<group>"; };
 		8EBEB69AEACD5DE69BB5C300 /* PomoAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PomoAttributes.swift; sourceTree = "<group>"; };
+		967B0EA02FA12AF200C682B1 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		967E8BEA2F13F4990060F3D8 /* alarmo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = alarmo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		967E8BF92F13F49A0060F3D8 /* alarmoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = alarmoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		967E8C032F13F49A0060F3D8 /* alarmoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = alarmoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -133,6 +135,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				967B0EA12FA12AF200C682B1 /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -165,6 +168,7 @@
 		86BFB2D0AAD35343D5F6D35D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				967B0EA02FA12AF200C682B1 /* StoreKit.framework */,
 				DE156FC38D0441084DC7187A /* iOS */,
 			);
 			name = Frameworks;
@@ -682,8 +686,8 @@
 				INFOPLIST_KEY_NSAlarmKitUsageDescription = "Alarmo uses AlarmKit to schedule system-level alarms on supported iOS versions.";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Alarmo needs access to your media library to import custom alarm sounds.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Alarmo needs camera access to scan QR/Barcodes for missions.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Habit would like to access your steps to track your goals.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Habit updates your health data.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Alarmo reads your Apple Health data, including steps, walking/running distance, cycling distance, sleep, hydration, standing time, and mindfulness minutes to keep health habits in sync.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Alarmo may update selected health records when you explicitly use health-write features.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Alarmo needs microphone access to record custom alarm sounds.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Alarmo mission needs your motion data.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Allow Alarmo to save prepared wallpapers to your Photos.";
@@ -730,8 +734,8 @@
 				INFOPLIST_KEY_NSAlarmKitUsageDescription = "Alarmo uses AlarmKit to schedule system-level alarms on supported iOS versions.";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Alarmo needs access to your media library to import custom alarm sounds.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Alarmo needs camera access to scan QR/Barcodes for missions.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Habit would like to access your steps to track your goals.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Habit updates your health data.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Alarmo reads your Apple Health data, including steps, walking/running distance, cycling distance, sleep, hydration, standing time, and mindfulness minutes to keep health habits in sync.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Alarmo may update selected health records when you explicitly use health-write features.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Alarmo needs microphone access to record custom alarm sounds.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "Alarmo mission needs your motion data.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Allow Alarmo to save prepared wallpapers to your Photos.";

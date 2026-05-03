@@ -1,0 +1,376 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Alarms/QuickAlarm/QuickAlarmView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 82
+        }
+      },
+      {
+        "comment": "",
+        "key": "m",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 85
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 89
+        }
+      },
+      {
+        "comment": "",
+        "key": "s",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 93
+        }
+      },
+      {
+        "comment": "",
+        "key": "Ring at %@",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 101
+        }
+      },
+      {
+        "comment": "",
+        "key": "Quick Presets",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 142
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 146
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld selected",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 159
+        }
+      },
+      {
+        "comment": "",
+        "key": "Clear",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 163
+        }
+      },
+      {
+        "comment": "",
+        "key": "SOUND & BEHAVIOR",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 191
+        }
+      },
+      {
+        "comment": "",
+        "key": "TIME ZONE ANCHOR",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 229
+        }
+      },
+      {
+        "comment": "",
+        "key": "Anchor to Time Zone",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 244
+        }
+      },
+      {
+        "comment": "",
+        "key": "ALARM LOCK",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 265
+        }
+      },
+      {
+        "comment": "",
+        "key": "Prevent App Uninstall",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 272
+        }
+      },
+      {
+        "comment": "",
+        "key": "Prevent Switch Off",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 279
+        }
+      },
+      {
+        "comment": "",
+        "key": "WALLPAPER",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 288
+        }
+      },
+      {
+        "comment": "",
+        "key": "Displays a new motivational quote each day when the alarm rings.",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 316
+        }
+      },
+      {
+        "comment": "",
+        "key": "Daily Motivation",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 309
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 336
+        }
+      },
+      {
+        "comment": "",
+        "key": "Quick Alarm",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 341
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 353
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit Presets",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 600
+        }
+      },
+      {
+        "comment": "",
+        "key": "Your Presets",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 540
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 567
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add Custom Preset",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 583
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reset to Default Presets",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 593
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 604
+        }
+      },
+      {
+        "comment": "",
+        "key": "Preset Name",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 670
+        }
+      },
+      {
+        "comment": "",
+        "key": "Preset Emoji (Optional)",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 675
+        }
+      },
+      {
+        "comment": "",
+        "key": "Time",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 693
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enter name",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 671
+        }
+      },
+      {
+        "comment": "",
+        "key": "Examples",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 680
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add emoji",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 676
+        }
+      },
+      {
+        "comment": "",
+        "key": "Minutes: %lld",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 694
+        }
+      },
+      {
+        "comment": "",
+        "key": "Seconds: %lld",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 695
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 702
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 705
+        }
+      },
+      {
+        "comment": "",
+        "key": "Label",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 757
+        }
+      },
+      {
+        "comment": "",
+        "key": "Alarm Name",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 732
+        }
+      },
+      {
+        "comment": "",
+        "key": "Emoji (multiple supported)",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 736
+        }
+      },
+      {
+        "comment": "",
+        "key": "Quick Alarm",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 733
+        }
+      },
+      {
+        "comment": "",
+        "key": "You can add one or many emojis.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 738
+        }
+      },
+      {
+        "comment": "",
+        "key": "⚡️⏰",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 737
+        }
+      },
+      {
+        "comment": "",
+        "key": "Browse Emoji Library",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 744
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 761
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 764
+        }
+      }
+    ]
+  },
+  "version": 1
+}

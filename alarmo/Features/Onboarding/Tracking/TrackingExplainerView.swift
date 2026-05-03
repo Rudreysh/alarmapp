@@ -31,33 +31,29 @@ struct TrackingExplainerView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Personalized Experience.")
+                        .font(.system(size: 27, weight: .bold))
+                        .foregroundColor(Colors.textPrimary)
+
+                    Text("Alarmo can securely tailor ads to your interests.")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Colors.textSecondary)
+                        .lineSpacing(2)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, Spacing.l)
+                .padding(.top, Spacing.s)
+                .padding(.bottom, Spacing.s)
+                .opacity(animateItems ? 1 : 0)
+                .offset(y: animateItems ? 0 : 20)
+                .animation(.spring(response: 0.6, dampingFraction: 0.7), value: animateItems)
+
                 ProgressHeader(step: 12, total: AppConstants.onboardingTotalSteps)
                     .padding(.horizontal, Spacing.l)
-                    .padding(.top, Spacing.m)
-                    .padding(.bottom, Spacing.s)
+                    .padding(.bottom, Spacing.xs)
 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Image(systemName: "hand.raised.fill")
-                            .font(.system(size: 19))
-                            .foregroundColor(Colors.accentTeal)
-                            
-                        Text("Personalized Experience.")
-                            .font(.system(size: 27, weight: .bold))
-                            .foregroundColor(Colors.textPrimary)
-                        
-                        Text("Alarmo can securely tailor ads to your interests.")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(Colors.textSecondary)
-                            .lineSpacing(2)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, Spacing.l)
-                    .padding(.top, Spacing.xs)
-                    .opacity(animateItems ? 1 : 0)
-                    .offset(y: animateItems ? 0 : 20)
-                    .animation(.spring(response: 0.6, dampingFraction: 0.7), value: animateItems)
-
                     VStack(spacing: Spacing.m) {
                         TrackingFeatureCard(
                             icon: "megaphone.fill",
@@ -81,24 +77,13 @@ struct TrackingExplainerView: View {
                     }
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.m)
-                    
-                    TrackingDialogPreview(onAllow: {
-                        requestPermission()
-                    }, onDeny: {
-                        onNext()
-                    })
-                    .padding(.top, Spacing.m)
-                    .padding(.bottom, Spacing.m)
-                    .opacity(animateItems ? 1 : 0)
-                    .offset(y: animateItems ? 0 : 20)
-                    .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.4), value: animateItems)
                 }
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .safeAreaInset(edge: .bottom) {
                 PrimaryButton(title: "Next", style: .blueGlass) {
-                    onNext() // Bypass tracking request
+                    requestPermission()
                 }
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, 48)
@@ -166,61 +151,6 @@ private struct TrackingFeatureCard: View {
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(Colors.cardStroke, lineWidth: 1)
-        )
-        .appShadow(Shadows.card)
-    }
-}
-
-private struct TrackingDialogPreview: View {
-    let onAllow: () -> Void
-    let onDeny: () -> Void
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            VStack(spacing: Spacing.xs) {
-                Text("Allow tracking?")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(Colors.textPrimary)
-                Text("Your data will be used to deliver personalized ads to you.")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(Colors.textSecondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-
-            Divider()
-                .background(Colors.cardStroke)
-
-            HStack(spacing: 0) {
-                Button(action: onDeny) { 
-                    Text("Don’t Allow")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundColor(Colors.accentTeal) // Accent for skip to make it visible
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                }
-
-                Divider()
-                    .frame(height: 44)
-                    .background(Colors.cardStroke)
-
-                Button(action: onAllow) {
-                    Text("Allow")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Colors.accentTeal)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                }
-            }
-            .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(width: 290)
-        .background(Colors.cardSurface)
-        .cornerRadius(20)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(Colors.cardStroke, lineWidth: 0.5)
         )
         .appShadow(Shadows.card)
     }

@@ -217,7 +217,7 @@ final class PlanItem {
     var goalUnit: String = "times"
     var metricKind: MetricKind? = MetricKind.count
     var ringtone: Ringtone? = Ringtone.systemDefault
-    var autoHealthTracking: String? = nil // "steps", "distance"
+    var autoHealthTracking: String? = nil // "steps", "distance", "running", "cycling", "sleep", "water", "standing", "mindfulness"
     var habitNotes: String = ""
 
     
@@ -250,9 +250,13 @@ final class PlanItem {
         
         if metricKind == .time {
             let totalSeconds = logs.reduce(0) { $0 + ($1.durationSeconds ?? 0) }
-            return Double(totalSeconds) / 60.0 // minutes
+            let valueMinutes = logs.reduce(0.0) { $0 + ($1.value ?? 0) }
+            // Fallback to value if durationSeconds is missing (handles legacy or mis-mapped logs)
+            return (Double(totalSeconds) / 60.0) + valueMinutes
         } else {
-            return logs.reduce(0) { $0 + ($1.value ?? ($1.completed ? goalValue : 0)) }
+            let baseValue = logs.reduce(0.0) { $0 + ($1.value ?? ($1.completed ? goalValue : 0)) }
+            let durationValue = logs.reduce(0.0) { $0 + Double($1.durationSeconds ?? 0) / 60.0 }
+            return baseValue + durationValue
         }
     }
     

@@ -77,32 +77,82 @@ struct AlarmScheduleRequest: Identifiable, Equatable, Codable {
 }
 
 enum AlarmCustomUIHandoffStore {
-    nonisolated private static let alarmIDKey = "alarmo.alarmKit.pendingCustomUIAlarmId"
+    struct PendingRequest: Equatable {
+        let sourceAlarmID: String
+        let surfaceAlarmID: String
+    }
+
+    private struct SurfaceSourceEntry: Codable {
+        let sourceAlarmID: String
+        let timestamp: TimeInterval
+    }
+
+    nonisolated private static let sourceAlarmIDKey = "alarmo.alarmKit.pendingCustomUISourceAlarmId"
+    nonisolated private static let surfaceAlarmIDKey = "alarmo.alarmKit.pendingCustomUISurfaceAlarmId"
     nonisolated private static let timestampKey = "alarmo.alarmKit.pendingCustomUITimestamp"
+    nonisolated private static let surfaceSourceMapKey = "alarmo.alarmKit.surfaceSourceMap"
     nonisolated private static let maxAge: TimeInterval = 10 * 60
     nonisolated static let urlScheme = "alarmo"
     nonisolated static let urlHost = "alarm-ringing"
 
-    nonisolated static func request(alarmID: UUID, now: Date = Date()) {
-        UserDefaults.standard.set(alarmID.uuidString, forKey: alarmIDKey)
-        UserDefaults.standard.set(now.timeIntervalSince1970, forKey: timestampKey)
+    nonisolated static func request(
+        alarmID: UUID,
+        surfaceAlarmID: UUID? = nil,
+        now: Date = Date()
+    ) {
+        let sourceID = alarmID.uuidString
+        let surfaceID = (surfaceAlarmID ?? alarmID).uuidString
+        let nowTimestamp = now.timeIntervalSince1970
+
+        UserDefaults.standard.set(sourceID, forKey: sourceAlarmIDKey)
+        UserDefaults.standard.set(surfaceID, forKey: surfaceAlarmIDKey)
+        UserDefaults.standard.set(nowTimestamp, forKey: timestampKey)
+
+        var map = loadSurfaceSourceMap()
+        map[surfaceID] = SurfaceSourceEntry(sourceAlarmID: sourceID, timestamp: nowTimestamp)
+        persistSurfaceSourceMap(map)
     }
 
-    nonisolated static func pendingAlarmID(now: Date = Date()) -> String? {
-        guard let alarmID = UserDefaults.standard.string(forKey: alarmIDKey) else { return nil }
+    nonisolated static func pendingRequest(now: Date = Date()) -> PendingRequest? {
+        guard let sourceAlarmID = UserDefaults.standard.string(forKey: sourceAlarmIDKey) else { return nil }
         let timestamp = UserDefaults.standard.double(forKey: timestampKey)
 
         guard timestamp > 0, now.timeIntervalSince1970 - timestamp <= maxAge else {
             clear()
             return nil
         }
-        return alarmID
+        let surfaceAlarmID = UserDefaults.standard.string(forKey: surfaceAlarmIDKey) ?? sourceAlarmID
+        return PendingRequest(sourceAlarmID: sourceAlarmID, surfaceAlarmID: surfaceAlarmID)
+    }
+
+    nonisolated static func pendingAlarmID(now: Date = Date()) -> String? {
+        pendingRequest(now: now)?.sourceAlarmID
+    }
+
+    nonisolated static func pendingSurfaceAlarmID(now: Date = Date()) -> String? {
+        pendingRequest(now: now)?.surfaceAlarmID
     }
 
     nonisolated static func consumePendingAlarmID(now: Date = Date()) -> String? {
         guard let alarmID = pendingAlarmID(now: now) else { return nil }
         clear()
         return alarmID
+    }
+
+    nonisolated static func sourceAlarmID(forSurfaceAlarmID surfaceAlarmID: String) -> String {
+        if let pending = pendingRequest(), pending.surfaceAlarmID == surfaceAlarmID {
+            return pending.sourceAlarmID
+        }
+        var map = loadSurfaceSourceMap()
+        if let mapped = map[surfaceAlarmID] {
+            let age = Date().timeIntervalSince1970 - mapped.timestamp
+            if age <= maxAge {
+                return mapped.sourceAlarmID
+            }
+            map[surfaceAlarmID] = nil
+            persistSurfaceSourceMap(map)
+        }
+        return surfaceAlarmID
     }
 
     nonisolated static func handoffURL(for alarmID: UUID) -> URL {
@@ -125,8 +175,22 @@ enum AlarmCustomUIHandoffStore {
     }
 
     nonisolated static func clear() {
-        UserDefaults.standard.removeObject(forKey: alarmIDKey)
+        UserDefaults.standard.removeObject(forKey: sourceAlarmIDKey)
+        UserDefaults.standard.removeObject(forKey: surfaceAlarmIDKey)
         UserDefaults.standard.removeObject(forKey: timestampKey)
+    }
+
+    nonisolated private static func loadSurfaceSourceMap() -> [String: SurfaceSourceEntry] {
+        guard let data = UserDefaults.standard.data(forKey: surfaceSourceMapKey),
+              let decoded = try? JSONDecoder().decode([String: SurfaceSourceEntry].self, from: data) else {
+            return [:]
+        }
+        return decoded
+    }
+
+    nonisolated private static func persistSurfaceSourceMap(_ map: [String: SurfaceSourceEntry]) {
+        guard let data = try? JSONEncoder().encode(map) else { return }
+        UserDefaults.standard.set(data, forKey: surfaceSourceMapKey)
     }
 }
 
@@ -414,21 +478,44 @@ final class AlarmManagerFacade: AlarmScheduler, AlarmSchedulerProtocol {
             var shouldScheduleLegacy = (selectedPath == .legacyNotification)
 
             if selectedPath == .alarmKit, let alarmKitScheduler = alarmKitScheduler as? AlarmSchedulerIOS26AlarmKit {
-                do {
-                    try await alarmKitScheduler.scheduleAppAlarm(alarm)
-                    shouldScheduleLegacy = false
-                    // Clear stale legacy requests from previous fallback/older builds
-                    // so lock-screen behavior is driven by AlarmKit only.
-                    await legacyScheduler.cancelAlarm(id: alarm.id)
-                    logger.log("AlarmKit schedule succeeded for \(alarm.id.uuidString, privacy: .public)")
-                } catch {
-                    let message = Self.userFacingAlarmKitFailureMessage(error)
-                    logger.error("AlarmKit app schedule failed for \(alarm.id.uuidString, privacy: .public): \(message, privacy: .public) — falling back to legacy notifications")
-                    AlarmKitSchedulingMessenger.shared.postIfNeeded(message: message)
-                    if Self.shouldDowngradeToLegacyPath(after: error) {
-                        downgradeToLegacyNotificationPath(reason: message)
-                    }
+                let granted = await requestAlarmAuthorizationIfNeeded()
+                if !granted {
+                    logger.error("AlarmKit authorization unavailable for \(alarm.id.uuidString, privacy: .public); using legacy scheduler fallback.")
                     shouldScheduleLegacy = true
+                    if Self.shouldDowngradeToLegacyPath(after: AlarmSchedulingError.alarmKitPermissionDenied) {
+                        downgradeToLegacyNotificationPath(reason: "AlarmKit authorization unavailable")
+                    }
+                } else {
+                    do {
+                        try await alarmKitScheduler.scheduleAppAlarm(alarm)
+                        shouldScheduleLegacy = false
+                        // Clear stale legacy requests from previous fallback/older builds
+                        // so lock-screen behavior is driven by AlarmKit only.
+                        await legacyScheduler.cancelAlarm(id: alarm.id)
+                        logger.log("AlarmKit schedule succeeded for \(alarm.id.uuidString, privacy: .public)")
+                    } catch {
+                        let message = Self.userFacingAlarmKitFailureMessage(error)
+                        logger.error("AlarmKit app schedule failed for \(alarm.id.uuidString, privacy: .public): \(message, privacy: .public)")
+                        AlarmKitSchedulingMessenger.shared.postIfNeeded(message: message)
+                        if Self.shouldDowngradeToLegacyPath(after: error) {
+                            logger.warning("AlarmKit downgrade engaged for \(alarm.id.uuidString, privacy: .public); using legacy scheduler.")
+                            downgradeToLegacyNotificationPath(reason: message)
+                            shouldScheduleLegacy = true
+                        } else {
+                            do {
+                                try await alarmKitScheduler.scheduleAppAlarm(alarm)
+                                shouldScheduleLegacy = false
+                                await legacyScheduler.cancelAlarm(id: alarm.id)
+                                logger.log("AlarmKit retry schedule succeeded for \(alarm.id.uuidString, privacy: .public)")
+                            } catch {
+                                let retryMessage = Self.userFacingAlarmKitFailureMessage(error)
+                                logger.error("AlarmKit retry schedule failed for \(alarm.id.uuidString, privacy: .public): \(retryMessage, privacy: .public)")
+                                AlarmKitSchedulingMessenger.shared.postIfNeeded(message: retryMessage)
+                                // Do not drop the alarm entirely; fallback to legacy notification scheduling.
+                                shouldScheduleLegacy = true
+                            }
+                        }
+                    }
                 }
             }
 
@@ -456,12 +543,16 @@ final class AlarmManagerFacade: AlarmScheduler, AlarmSchedulerProtocol {
                     legacyScheduler.cancelRuntimeRingNotifications(for: alarm)
                 } catch {
                     let message = Self.userFacingAlarmKitFailureMessage(error)
-                    logger.error("AlarmKit snooze failed for \(alarm.id.uuidString, privacy: .public): \(message, privacy: .public) — falling back to legacy notifications")
+                    logger.error("AlarmKit snooze failed for \(alarm.id.uuidString, privacy: .public): \(message, privacy: .public)")
                     AlarmKitSchedulingMessenger.shared.postIfNeeded(message: message)
                     if Self.shouldDowngradeToLegacyPath(after: error) {
+                        logger.warning("AlarmKit snooze downgrade engaged for \(alarm.id.uuidString, privacy: .public); using legacy scheduler.")
                         downgradeToLegacyNotificationPath(reason: message)
+                        shouldScheduleLegacy = true
+                    } else {
+                        // Never drop snooze scheduling entirely on transient AlarmKit failures.
+                        shouldScheduleLegacy = true
                     }
-                    shouldScheduleLegacy = true
                 }
             }
             if shouldScheduleLegacy {
@@ -574,12 +665,15 @@ final class AlarmManagerFacade: AlarmScheduler, AlarmSchedulerProtocol {
 
     private static func shouldDowngradeToLegacyPath(after error: Error) -> Bool {
         let nsError = error as NSError
+        // Keep AlarmKit as the primary path even when individual schedule attempts
+        // fail, so the app can recover on subsequent retries instead of remaining
+        // stuck on legacy notifications for the rest of the run.
         if nsError.domain == "com.apple.AlarmKit.Alarm", nsError.code == 1 {
-            return true
+            return false
         }
         if let schedulingError = error as? AlarmSchedulingError {
             switch schedulingError {
-            case .alarmKitPermissionDenied, .unsupportedAlarmKit:
+            case .unsupportedAlarmKit:
                 return true
             default:
                 return false

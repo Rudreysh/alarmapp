@@ -1,0 +1,56 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/App/AppRootView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Alarm Compatibility",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 163
+        }
+      },
+      {
+        "comment": "",
+        "key": "AlarmKit Required",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 168
+        }
+      },
+      {
+        "comment": "",
+        "key": "OK",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 164
+        }
+      },
+      {
+        "comment": "",
+        "key": "This iPhone is using the notification fallback path. Alarms still schedule and notify, but silent-mode override depends on iOS capabilities and permissions.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 166
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open Settings",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 169
+        }
+      },
+      {
+        "comment": "",
+        "key": "OK",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 173
+        }
+      }
+    ]
+  },
+  "version": 1
+}

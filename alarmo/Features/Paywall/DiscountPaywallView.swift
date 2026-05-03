@@ -2,15 +2,18 @@ import SwiftUI
 
 struct DiscountPaywallView: View {
     @StateObject private var viewModel: DiscountPaywallViewModel
-    let onClose: () -> Void
+    let preferences: AppPreferencesProtocol
+    let onSkip: () -> Void
     let onApply: () -> Void
 
-    init(preferences: AppPreferencesProtocol, onClose: @escaping () -> Void, onApply: @escaping () -> Void, onGetOffer: @escaping () -> Void) {
-        self.onClose = onClose
+    init(preferences: AppPreferencesProtocol, onSkip: @escaping () -> Void, onApply: @escaping () -> Void, onGetOffer: @escaping () -> Void, onSuccess: @escaping () -> Void) {
+        self.preferences = preferences
+        self.onSkip = onSkip
         self.onApply = onApply
         let model = DiscountPaywallViewModel(preferences: preferences)
-        model.onRequestDismissPaywall = onClose
+        model.onRequestDismissPaywall = onSkip
         model.onRequestGetOffer = onGetOffer
+        model.onPurchaseSucceeded = onSuccess
         _viewModel = StateObject(wrappedValue: model)
     }
 
@@ -26,7 +29,7 @@ struct DiscountPaywallView: View {
                 Color.black.opacity(0.52)
             }
             .ignoresSafeArea()
-            .onTapGesture { onClose() }
+            .onTapGesture { onSkip() }
 
             VStack(spacing: 0) {
                 Spacer()
@@ -41,7 +44,7 @@ struct DiscountPaywallView: View {
                     // Header
                     HStack {
                         Spacer()
-                        Button(action: onClose) {
+                        Button(action: onSkip) {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 24))
                                 .foregroundColor(Colors.textTertiary)
@@ -91,37 +94,64 @@ struct DiscountPaywallView: View {
 
                         // Compact Yearly Plan Card
                         VStack(spacing: 10) {
-                            HStack {
+                            HStack(alignment: .top) {
                                 Label("ALARMO PRO", systemImage: "checkmark.seal.fill")
                                     .font(.system(size: 12, weight: .bold))
                                     .foregroundColor(Colors.accentTeal)
                                 Spacer()
-                                Text(viewModel.offerBadgeText.uppercased())
-                                    .font(.system(size: 11, weight: .black))
-                                    .foregroundColor(.black)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 3)
-                                    .background(Colors.accentGreen)
-                                    .cornerRadius(4)
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    if viewModel.showDiscountBadge {
+                                        Text("50% OFF")
+                                            .font(.system(size: 11, weight: .black))
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(Colors.accentRed)
+                                            .clipShape(Capsule())
+                                    }
+                                    Text(viewModel.offerBadgeText.uppercased())
+                                        .font(.system(size: 11, weight: .black))
+                                        .foregroundColor(.black)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 3)
+                                        .background(Colors.accentGreen)
+                                        .cornerRadius(4)
+                                }
                             }
 
-                            HStack(alignment: .lastTextBaseline, spacing: 8) {
-                                if let oldPrice = viewModel.offerOldPriceText, !oldPrice.isEmpty {
-                                    Text(oldPrice)
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(Colors.textTertiary)
-                                        .strikethrough()
+                            HStack(alignment: .bottom, spacing: 10) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    if let oldPrice = viewModel.offerOldPriceText, !oldPrice.isEmpty {
+                                        Text(oldPrice)
+                                            .font(.system(size: 18, weight: .semibold))
+                                            .foregroundColor(Colors.textTertiary)
+                                            .strikethrough()
+                                            .lineLimit(1)
+                                    }
+
+                                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                                        Text(priceAmount(from: viewModel.offerPriceText))
+                                            .font(.system(size: 24, weight: .black))
+                                            .foregroundColor(.white)
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.78)
+                                        if let suffix = pricePeriodSuffix(from: viewModel.offerPriceText) {
+                                            Text(suffix)
+                                                .font(.system(size: 20, weight: .heavy))
+                                                .foregroundColor(.white)
+                                                .lineLimit(1)
+                                                .minimumScaleFactor(0.8)
+                                        }
+                                    }
+                                    .fixedSize(horizontal: false, vertical: true)
                                 }
 
-                                Text(viewModel.offerPriceText)
-                                    .font(.system(size: 34, weight: .black))
-                                    .foregroundColor(.white)
+                                Spacer(minLength: 8)
 
                                 Text(viewModel.offerPlanName)
-                                    .font(.system(size: 16, weight: .medium))
+                                    .font(.system(size: 15, weight: .bold))
                                     .foregroundColor(Colors.textTertiary)
-
-                                Spacer()
+                                    .lineLimit(1)
                             }
 
                             HStack(spacing: 6) {
@@ -152,11 +182,21 @@ struct DiscountPaywallView: View {
                                 .stroke(Color.white.opacity(0.1), lineWidth: 1)
                         )
 
+                        if viewModel.showDiscountBadge {
+                            Text("Save 50% on your first year")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(Colors.accentTeal)
+                                .padding(.top, 4)
+                        }
+
                         // CTA Button
                         Button {
-                            Task { @MainActor in viewModel.onTapUseCoupon() }
+                            Task { @MainActor in
+                                preferences.hasSeenDiscountExitDialog = true
+                                await viewModel.purchaseOffer()
+                            }
                         } label: {
-                            Text("Continue to Pro Options")
+                            Text(viewModel.showDiscountBadge ? "Claim 50% Off" : "Start 7-Day Free Trial")
                                 .font(.system(size: 16, weight: .black))
                                 .foregroundColor(.black)
                                 .frame(maxWidth: .infinity)
@@ -217,5 +257,20 @@ struct SquishButtonStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
             .animation(.easeOut(duration: 0.2), value: configuration.isPressed)
+    }
+}
+
+private extension DiscountPaywallView {
+    func priceAmount(from text: String) -> String {
+        if let slashIndex = text.firstIndex(of: "/") {
+            return String(text[..<slashIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func pricePeriodSuffix(from text: String) -> String? {
+        guard let slashIndex = text.firstIndex(of: "/") else { return nil }
+        let suffix = String(text[slashIndex...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        return suffix.isEmpty ? nil : suffix.lowercased()
     }
 }

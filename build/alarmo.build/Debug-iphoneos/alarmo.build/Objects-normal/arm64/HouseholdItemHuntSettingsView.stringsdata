@@ -1,0 +1,224 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Alarms/Missions/HouseholdItemHunt/HouseholdItemHuntSettingsView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Select at least one item",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 108
+        }
+      },
+      {
+        "comment": "",
+        "key": "Pick one or more household items before previewing or saving this mission.",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 109
+        }
+      },
+      {
+        "comment": "",
+        "key": "OK",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 110
+        }
+      },
+      {
+        "comment": "",
+        "key": "Could not add custom object",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 114
+        }
+      },
+      {
+        "comment": "",
+        "key": "OK",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 116
+        }
+      },
+      {
+        "comment": "",
+        "key": "Camera permission needed",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 120
+        }
+      },
+      {
+        "comment": "",
+        "key": "Allow camera access to add a custom object photo.",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 121
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open Settings",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 122
+        }
+      },
+      {
+        "comment": "",
+        "key": "Household Item Hunt",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 149
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select Household Items",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 175
+        }
+      },
+      {
+        "comment": "",
+        "key": "If one item is selected, that exact item is used. If multiple are selected, one is chosen randomly each mission.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 179
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld selected",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 215
+        }
+      },
+      {
+        "comment": "",
+        "key": "•",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 227
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select All",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 221
+        }
+      },
+      {
+        "comment": "",
+        "key": "Clear",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 230
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld custom",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 260
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add Custom Object",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 244
+        }
+      },
+      {
+        "comment": "",
+        "key": "No selected items yet",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 274
+        }
+      },
+      {
+        "comment": "",
+        "key": "Custom",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 319
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add Custom Object",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 362
+        }
+      },
+      {
+        "comment": "",
+        "key": "Name your object, then add a reference image to train this mission.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 366
+        }
+      },
+      {
+        "comment": "",
+        "key": "Object name (e.g. Car Keys)",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 370
+        }
+      },
+      {
+        "comment": "",
+        "key": "Take Reference Photo",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 383
+        }
+      },
+      {
+        "comment": "",
+        "key": "Choose from Library",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 393
+        }
+      },
+      {
+        "comment": "",
+        "key": "Close",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 412
+        }
+      },
+      {
+        "comment": "",
+        "key": "Preview",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 427
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 441
+        }
+      }
+    ]
+  },
+  "version": 1
+}

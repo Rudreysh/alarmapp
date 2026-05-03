@@ -23,6 +23,7 @@ struct CreateWakeUpAlarmView: View {
     @State private var showingLocalTimePreview = true // Default to floating mode if custom TZ
     @State private var showAlarmAccessAlert = false
     @State private var alarmAccessAlertMessage = "Enable notification access for reliable alarm ringing."
+    @State private var isSaving = false
     
     // Onboarding Steps
     @State private var showTimeCoachMark = false
@@ -529,12 +530,14 @@ struct CreateWakeUpAlarmView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
+                        guard !isSaving else { return }
                         saveAlarm(ignoreDeliveryWarnings: true)
                     }) {
                         Text("Save")
                             .font(.headline)
                             .foregroundColor(Colors.accentTeal)
                     }
+                    .disabled(isSaving)
                 }
             }
         }
@@ -905,6 +908,8 @@ private extension CreateWakeUpAlarmView {
     }
 
     func saveAlarm(ignoreDeliveryWarnings: Bool = false) {
+        guard !isSaving else { return }
+        isSaving = true
         let alarmName = viewModel.draft.name.isEmpty ? "Alarm" : viewModel.draft.name
         let alarmId = existingAlarm?.id ?? UUID()
         let blockAppsEnabled = viewModel.draft.blockAppsEnabled
@@ -955,22 +960,23 @@ private extension CreateWakeUpAlarmView {
         )
 
         let completeSave: () -> Void = {
-            // Dismiss first so Save feels instant.
-            onClose()
-
-            // Delay model mutation slightly so full-screen dismissal animation can start cleanly.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                if existingAlarm != nil {
-                    alarmStore.update(alarm)
-                } else {
-                    alarmStore.add(alarm)
-                }
+            // Persist immediately so Save is deterministic even when opened via
+            // rapid gestures like double-tap from Home alarm cards.
+            if existingAlarm != nil {
+                alarmStore.update(alarm)
+            } else {
+                alarmStore.add(alarm)
             }
 
             // Scheduling can perform heavy notification/asset work; keep it off main.
             DispatchQueue.global(qos: .utility).async {
                 scheduler.cancel(alarmId: alarm.id)
                 scheduler.schedule(alarm: alarm)
+            }
+
+            onClose()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                isSaving = false
             }
         }
 
@@ -983,31 +989,37 @@ private extension CreateWakeUpAlarmView {
             let granted = await notificationManager.ensureAuthorization()
             let delivery = await notificationManager.currentAlarmDeliveryStatus()
             if !granted || !delivery.notificationsAuthorized {
+                isSaving = false
                 alarmAccessAlertMessage = "Alarm notifications are not authorized. Turn on notifications for Alarmo."
                 showAlarmAccessAlert = true
                 return
             }
             if !delivery.soundEnabled {
+                isSaving = false
                 alarmAccessAlertMessage = "Notification sounds are turned off for Alarmo. Turn sounds on so alarms ring audibly."
                 showAlarmAccessAlert = true
                 return
             }
             if !delivery.alertEnabled {
+                isSaving = false
                 alarmAccessAlertMessage = "Alert notifications are turned off for Alarmo. Enable Alerts so alarms appear on screen."
                 showAlarmAccessAlert = true
                 return
             }
             if !delivery.lockScreenEnabled {
+                isSaving = false
                 alarmAccessAlertMessage = "Lock Screen alerts are off for Alarmo. Enable Lock Screen notifications so alarms are visible while your phone is locked."
                 showAlarmAccessAlert = true
                 return
             }
             if delivery.scheduledDeliveryEnabled && !delivery.timeSensitiveEnabled {
+                isSaving = false
                 alarmAccessAlertMessage = "Scheduled Summary is on and Time Sensitive is off. Alarms may be delayed until you unlock the phone."
                 showAlarmAccessAlert = true
                 return
             }
             if !delivery.timeSensitiveEnabled {
+                isSaving = false
                 alarmAccessAlertMessage = "Time Sensitive notifications are off. Enable them to keep alarm alerts audible during Focus modes."
                 showAlarmAccessAlert = true
                 return

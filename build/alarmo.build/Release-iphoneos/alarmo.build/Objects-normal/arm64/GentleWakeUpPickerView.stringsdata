@@ -1,0 +1,120 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Alarms/GentleWakeUpPickerView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "NOTE\nAudio alarms will use the speakers on your iPhone, iPad or an external speaker, but they cannot use the Apple Watch.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 151
+        }
+      },
+      {
+        "comment": "",
+        "key": "Alarm volume",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 36
+        }
+      },
+      {
+        "comment": "",
+        "key": "Increase the alarm volume gradually up to the maximum level below.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 65
+        }
+      },
+      {
+        "comment": "",
+        "key": "Preview uses a shortened ramp based on your selected duration.",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 84
+        }
+      },
+      {
+        "comment": "",
+        "key": "Preview plays at the selected maximum volume when Gentle wake up is off.",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 85
+        }
+      },
+      {
+        "comment": "",
+        "key": "Gentle wake up",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 55
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 59
+        }
+      },
+      {
+        "comment": "",
+        "key": "Stop preview",
+        "location": {
+          "startingColumn": 63,
+          "startingLine": 73
+        }
+      },
+      {
+        "comment": "",
+        "key": "Preview gentle wake up",
+        "location": {
+          "startingColumn": 80,
+          "startingLine": 73
+        }
+      },
+      {
+        "comment": "",
+        "key": "Maximum volume",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 97
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 101
+        }
+      },
+      {
+        "comment": "",
+        "key": "Stop",
+        "location": {
+          "startingColumn": 67,
+          "startingLine": 114
+        }
+      },
+      {
+        "comment": "",
+        "key": "Test",
+        "location": {
+          "startingColumn": 76,
+          "startingLine": 114
+        }
+      },
+      {
+        "comment": "",
+        "key": "Gentle wake up duration: %lld sec",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 137
+        }
+      }
+    ]
+  },
+  "version": 1
+}

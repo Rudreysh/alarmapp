@@ -20,13 +20,13 @@ struct OnboardingMissionView: View {
             LinearGradient(colors: [Colors.bgSecondary, Colors.bgPrimary], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
 
-            VStack(spacing: Spacing.l) {
+            VStack(spacing: Spacing.m) {
                 HStack {
                     Button(action: onBack) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(Colors.textPrimary)
-                            .frame(width: 44, height: 44)
+                            .frame(width: 40, height: 40)
                             .background(Colors.bgSecondary.opacity(0.6))
                             .clipShape(Circle())
                             .overlay(Circle().stroke(Colors.cardStroke, lineWidth: 1))
@@ -34,29 +34,30 @@ struct OnboardingMissionView: View {
                     Spacer()
                 }
                 .padding(.horizontal, Spacing.l)
-                .padding(.top, Spacing.l)
-
-                ProgressHeader(step: 10, total: AppConstants.onboardingTotalSteps)
-                    .padding(.horizontal, Spacing.l)
+                .padding(.top, Spacing.m)
 
                 Text("Choose a wakeup mission")
-                    .font(.system(size: 28, weight: .bold)) // Fits on one line, scaled down from 32
+                    .font(.system(size: 21, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
                     .multilineTextAlignment(.leading)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, Spacing.l)
+                    .padding(.top, Spacing.xs)
                     .accessibilityAddTraits(.isHeader)
 
+                ProgressHeader(step: 11, total: AppConstants.onboardingTotalSteps)
+                    .padding(.horizontal, Spacing.l)
+
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: Spacing.m) {
+                    VStack(spacing: Spacing.s) {
                         LazyVGrid(
                             columns: [
-                                GridItem(.flexible(), spacing: Spacing.m),
-                                GridItem(.flexible(), spacing: Spacing.m)
+                                GridItem(.flexible(), spacing: Spacing.s),
+                                GridItem(.flexible(), spacing: Spacing.s)
                             ],
-                            spacing: Spacing.m
+                            spacing: Spacing.s
                         ) {
                             ForEach(viewModel.options.filter { $0.id != .off }) { option in
                                 MissionRowView(option: option, isSelected: viewModel.selected == option.id, onTap: {
@@ -79,7 +80,7 @@ struct OnboardingMissionView: View {
                         }
                     }
                     .padding(.horizontal, Spacing.l)
-                    .padding(.bottom, 40)
+                    .padding(.bottom, 28)
                 }
             }
             .safeAreaInset(edge: .bottom) {

@@ -1,4 +1,6 @@
 import SwiftUI
+import SwiftUI
+import Combine
 import SwiftData
 
 struct PlanView: View {
@@ -92,31 +94,6 @@ struct PlanView: View {
                     }
                 )
 
-                if shouldShowUsageMotivationBanner {
-                    HabitUsageMotivationBanner(
-                        usageDayCount: usageDayCount,
-                        streakDays: usageStreakDays,
-                        onClose: dismissUsageBannerForToday
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    .padding(.bottom, 6)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
-
-                if shouldShowMoodBanner {
-                    MoodPromptBanner(
-                        segment: currentMoodSegment,
-                        selectedMood: selectedMoodForCurrentSegment,
-                        onTrackTap: { showMoodSheet = true },
-                        onClose: dismissMoodBannerForCurrentSegment
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    .padding(.bottom, 6)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
-                
                 // Content
                 if viewModel.isListView {
                     // Timeline List View
@@ -402,7 +379,16 @@ struct PlanView: View {
             cleanupLegacyAnytimeDefaults()
             normalizeHabitSortOrderIfNeeded()
             registerUsageForToday()
-            
+
+            // Register HealthKit observer so the view re-syncs whenever the OS
+            // delivers new health samples (e.g. steps accumulating in real-time).
+            // Pass nil so syncHealthData uses viewModel.allItems (always current).
+            HealthKitManager.shared.startObservingHealthData {
+                Task { @MainActor in
+                    await viewModel.syncHealthData()
+                }
+            }
+
             Task {
                 await viewModel.syncHealthData(from: allItems)
             }
@@ -427,6 +413,17 @@ struct PlanView: View {
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
             registerUsageForToday()
+            // Re-register observer in case iOS killed it while in background
+            HealthKitManager.shared.startObservingHealthData {
+                Task { @MainActor in
+                    await viewModel.syncHealthData()
+                }
+            }
+            Task {
+                await viewModel.syncHealthData(from: allItems)
+            }
+        }
+        .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
             Task {
                 await viewModel.syncHealthData(from: allItems)
             }
@@ -486,16 +483,26 @@ struct PlanView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
-        .onChange(of: viewModel.selectedDate) { _, _ in
+        .onChange(of: viewModel.selectedDate) { _, newDate in
             if showPlanCalendarCoachMark {
                 showPlanCalendarCoachMark = false
                 preferences.hasSeenPlanCalendarTooltip = true
+            }
+            // Refresh health data for the newly selected date
+            Task {
+                await viewModel.syncHealthDataForDate(newDate, from: allItems)
             }
         }
         .onChange(of: allItems.count) { _, _ in
             viewModel.allItems = allItems
             normalizeHabitSortOrderIfNeeded()
             Task {
+                await viewModel.syncHealthData(from: allItems)
+            }
+            // Retry after a short delay — HealthKit sometimes needs a moment after
+            // first authorization before it returns data from a fresh query.
+            Task {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
                 await viewModel.syncHealthData(from: allItems)
             }
         }

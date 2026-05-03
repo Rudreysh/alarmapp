@@ -5,7 +5,9 @@ import SwiftData
 struct AlarmoApp: App {
     @UIApplicationDelegateAdaptor(AlarmAppDelegate.self) private var appDelegate
     
-    private var sharedModelContainer: ModelContainer = {
+    private var sharedModelContainer: ModelContainer = Self.buildModelContainer()
+
+    private static func buildModelContainer() -> ModelContainer {
         let schema = Schema([PlanItem.self, CompletionLog.self, ActivityEvent.self, AppList.self])
         let config = ModelConfiguration(schema: schema)
         do {
@@ -19,13 +21,20 @@ struct AlarmoApp: App {
                 print("[SwiftData] Rebuilt container after purging simulator store.")
                 return rebuilt
             } catch {
-                fatalError("Failed to create SwiftData container after simulator purge: \(error)")
+                print("[SwiftData] Rebuild after purge failed: \(error)")
             }
-            #else
-            fatalError("Failed to create SwiftData container: \(error)")
             #endif
+
+            // Safe fallback: keep app bootable even if the persisted store is corrupted.
+            do {
+                let inMemoryConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+                print("[SwiftData] Falling back to in-memory container.")
+                return try ModelContainer(for: schema, configurations: [inMemoryConfig])
+            } catch {
+                fatalError("Failed to create any SwiftData container (persistent + in-memory): \(error)")
+            }
         }
-    }()
+    }
 
     var body: some Scene {
         WindowGroup {

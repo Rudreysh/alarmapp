@@ -1,0 +1,296 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Plan/PlanView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Delete",
+        "location": {
+          "startingColumn": 58,
+          "startingLine": 160
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit",
+        "location": {
+          "startingColumn": 58,
+          "startingLine": 164
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 75,
+          "startingLine": 208
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit",
+        "location": {
+          "startingColumn": 84,
+          "startingLine": 208
+        }
+      },
+      {
+        "comment": "",
+        "key": "Habits (%lld)",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 195
+        }
+      },
+      {
+        "comment": "",
+        "key": "Skip for This Day",
+        "location": {
+          "startingColumn": 55,
+          "startingLine": 274
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit",
+        "location": {
+          "startingColumn": 55,
+          "startingLine": 279
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete",
+        "location": {
+          "startingColumn": 55,
+          "startingLine": 284
+        }
+      },
+      {
+        "comment": "",
+        "key": "Rearrange",
+        "location": {
+          "startingColumn": 55,
+          "startingLine": 291
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ (%lld)",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 862
+        }
+      },
+      {
+        "comment": "",
+        "key": "Penalty Off",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1394
+        }
+      },
+      {
+        "comment": "",
+        "key": "1",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1407
+        }
+      },
+      {
+        "comment": "",
+        "key": "Hi, how is your %@?",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1494
+        }
+      },
+      {
+        "comment": "",
+        "key": "Track your mood in one tap.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1497
+        }
+      },
+      {
+        "comment": "",
+        "key": "Track mood",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1523
+        }
+      },
+      {
+        "comment": "",
+        "key": "🪻",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1588
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1590
+        }
+      },
+      {
+        "comment": "",
+        "key": "DAY STREAK",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1593
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ mood",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1744
+        }
+      },
+      {
+        "comment": "",
+        "key": "How are you feeling right now?",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1727
+        }
+      },
+      {
+        "comment": "",
+        "key": "Current streak: %lld day%@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1961
+        }
+      },
+      {
+        "comment": "",
+        "key": "Consistency",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1950
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1954
+        }
+      },
+      {
+        "comment": "",
+        "key": "Mood Statistics",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 2105
+        }
+      },
+      {
+        "comment": "",
+        "key": "No mood logs yet.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 2223
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select a mood log and add a note.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 2231
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save Note",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 2254
+        }
+      },
+      {
+        "comment": "",
+        "key": "Mood Heat Map",
+        "location": {
+          "startingColumn": 14,
+          "startingLine": 2405
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 2462
+        }
+      },
+      {
+        "comment": "",
+        "key": "0",
+        "location": {
+          "startingColumn": 83,
+          "startingLine": 2462
+        }
+      },
+      {
+        "comment": "",
+        "key": "Tap a rectangle to view mood value",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 2496
+        }
+      },
+      {
+        "comment": "",
+        "key": "Score %lld%%",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 2492
+        }
+      },
+      {
+        "comment": "",
+        "key": "No check-in",
+        "location": {
+          "startingColumn": 79,
+          "startingLine": 2492
+        }
+      },
+      {
+        "comment": "",
+        "key": "Log mood",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 2590
+        }
+      },
+      {
+        "comment": "",
+        "key": "Today",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 2701
+        }
+      },
+      {
+        "comment": "",
+        "key": "Take the first step – 10-min focus!",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 2931
+        }
+      }
+    ]
+  },
+  "version": 1
+}

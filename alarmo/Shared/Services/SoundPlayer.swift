@@ -10,6 +10,10 @@ final class SoundPlayer {
     private var stopRequested = false
     private var loopContext: LoopContext?
 
+    var isCurrentlyPlaying: Bool {
+        (player?.isPlaying == true) || spotifyPlaybackActive
+    }
+
     private struct LoopContext {
         let url: URL
         let volume: Float

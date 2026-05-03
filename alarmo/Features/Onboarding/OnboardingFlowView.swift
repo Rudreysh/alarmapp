@@ -13,9 +13,12 @@ struct OnboardingFlowView: View {
                     viewModel.startSetupFlowFromIntroCTA()
                 }
             }, onSkip: {
-                // Skip the tutorial slides and go straight to the setup steps
+                // Skip onboarding entirely and go straight to main alarm UI.
                 withAnimation(.easeInOut) {
-                    viewModel.startSetupFlowFromIntroCTA()
+                    appPreferences.devAlwaysShowOnboarding = false
+                    appPreferences.forceShowOnboardingNextLaunch = false
+                    appPreferences.onboardingCompleted = true
+                    viewModel.completeOnboarding()
                 }
             })
             .navigationDestination(for: OnboardingStep.self) { step in
@@ -34,7 +37,14 @@ struct OnboardingFlowView: View {
                 case .wallpaper:
                     OnboardingWallpaperSelectionView(viewModel: viewModel) {
                         withAnimation(.easeInOut) {
-                            viewModel.nextStep()
+                            viewModel.setStep(.quoteCategories)
+                            viewModel.navigationPath.append(.quoteCategories)
+                        }
+                    }
+                case .quoteCategories:
+                    OnboardingQuoteCategorySelectionView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.wallpaperPreview)
                             viewModel.navigationPath.append(.wallpaperPreview)
                         }
                     }
@@ -44,7 +54,7 @@ struct OnboardingFlowView: View {
                             if !viewModel.navigationPath.isEmpty {
                                 viewModel.navigationPath.removeLast()
                             }
-                            viewModel.setStep(.wallpaper)
+                            viewModel.setStep(.quoteCategories)
                         }
                     } onSelect: {
                         withAnimation(.easeInOut) {
@@ -75,6 +85,13 @@ struct OnboardingFlowView: View {
                     }
                 case .motionAccess:
                     OnboardingMotionAccessView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.cameraAccess)
+                            viewModel.navigationPath.append(.cameraAccess)
+                        }
+                    }
+                case .cameraAccess:
+                    OnboardingCameraAccessView(viewModel: viewModel) {
                         withAnimation(.easeInOut) {
                             viewModel.setStep(.liveActivities)
                             viewModel.navigationPath.append(.liveActivities)

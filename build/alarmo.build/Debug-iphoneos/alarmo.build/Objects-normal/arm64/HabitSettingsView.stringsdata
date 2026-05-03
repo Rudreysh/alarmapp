@@ -1,0 +1,72 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Settings/Views/HabitSettingsView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Measurement system",
+        "location": {
+          "startingColumn": 13,
+          "startingLine": 69
+        }
+      },
+      {
+        "comment": "",
+        "key": "Habit",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 12
+        }
+      },
+      {
+        "comment": "",
+        "key": "This applies to distance units across all habits.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 58
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goal Celebration",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 39
+        }
+      },
+      {
+        "comment": "",
+        "key": "Animation enabled",
+        "location": {
+          "startingColumn": 74,
+          "startingLine": 42
+        }
+      },
+      {
+        "comment": "",
+        "key": "Animation disabled",
+        "location": {
+          "startingColumn": 96,
+          "startingLine": 42
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 78
+        }
+      },
+      {
+        "comment": "",
+        "key": "Choose between Metric and US measurement units.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 80
+        }
+      }
+    ]
+  },
+  "version": 1
+}

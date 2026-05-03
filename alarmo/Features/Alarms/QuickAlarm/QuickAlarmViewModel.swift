@@ -81,7 +81,7 @@ class QuickAlarmViewModel: ObservableObject {
     
     init(existingAlarm: Alarm? = nil, defaults: AppPreferences = AppPreferences()) {
         self.editingAlarm = existingAlarm
-        self.alarmName = existingAlarm?.name ?? "Quick Alarm"
+        self.alarmName = existingAlarm?.name ?? ""
         self.alarmEmoji = existingAlarm?.emoji ?? "⚡️"
         self.selectedSoundId = existingAlarm?.soundName ?? defaults.onboardingSoundName
         self.selectedWallpaperId = existingAlarm?.wallpaperId ?? (settingsStore.alarmWallpaperId.isEmpty ? defaults.onboardingWallpaperId : settingsStore.alarmWallpaperId)
@@ -139,7 +139,7 @@ class QuickAlarmViewModel: ObservableObject {
     func addCustomPreset(title: String, minutes: Int, seconds: Int, emoji: String? = nil) {
         let clampedMinutes = max(0, minutes)
         let clampedSeconds = max(0, min(59, seconds))
-        let safeTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Custom" : title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let safeTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "without name" : title.trimmingCharacters(in: .whitespacesAndNewlines)
         let fallbackIcon = customPresetIconPool[presets.count % customPresetIconPool.count]
         let icon = normalizedPresetIcon(rawEmoji: emoji, fallbackSymbol: fallbackIcon)
         let color = customPresetColorPool[presets.count % customPresetColorPool.count]

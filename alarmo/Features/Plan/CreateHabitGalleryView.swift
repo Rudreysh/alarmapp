@@ -296,6 +296,17 @@ struct CreateHabitGalleryView: View {
             return "sleep"
         }
 
+        let hydrationUnits = ["ml", "l", "liter", "litre", "oz", "cup", "glass"]
+        let isHydrationUnit = hydrationUnits.contains { unit == $0 || unit == "\($0)s" || unit.hasPrefix($0) }
+        if isHydrationUnit && (title.contains("water") || title.contains("drink") || title.contains("hydrat")) {
+            return "water"
+        }
+
+        if (unit.contains("hour") || unit == "h" || unit == "hr" || unit.contains("min")),
+           (title.contains("stand") || title.contains("standing")) {
+            return "standing"
+        }
+
         if (unit.contains("min") || unit == "m"), (title.contains("meditat") || title.contains("mindful") || title.contains("breath")) {
             return "mindfulness"
         }

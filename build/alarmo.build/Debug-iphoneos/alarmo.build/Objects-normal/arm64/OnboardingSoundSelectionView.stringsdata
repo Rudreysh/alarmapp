@@ -1,0 +1,72 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Onboarding/SoundSelection/OnboardingSoundSelectionView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Choose your alarm sound",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 130
+        }
+      },
+      {
+        "comment": "",
+        "key": "Loading sounds…",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 312
+        }
+      },
+      {
+        "comment": "",
+        "key": "No favorites yet",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 209
+        }
+      },
+      {
+        "comment": "",
+        "key": "Tap the star on any sound to add it to your favorites.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 212
+        }
+      },
+      {
+        "comment": "",
+        "key": "No sounds found for this category.",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 230
+        }
+      },
+      {
+        "comment": "",
+        "key": "Refresh Catalog",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 232
+        }
+      },
+      {
+        "comment": "",
+        "key": "No downloadable sounds found.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 315
+        }
+      },
+      {
+        "comment": "",
+        "key": "Refresh Catalog",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 317
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -11,10 +11,10 @@ protocol AlarmSchedulerProtocol {
 
 final class AlarmSchedulerLegacyNotification: AlarmSchedulerProtocol {
     private let orchestrator = NotificationOrchestrator.shared
-    // Runtime follow-ups for repeating alarms (kept under budget for multiple alarms).
-    private let shortRingFollowUpOffsets: [TimeInterval] = AlarmSchedulerLegacyNotification.makeShortRingFollowUpOffsets()
-    // Long-chain follow-ups for one-shot/snooze alarms to keep ringing reminders active.
-    private let extendedRingFollowUpOffsets: [TimeInterval] = AlarmSchedulerLegacyNotification.makeExtendedRingFollowUpOffsets()
+    // User requirement: alarm-ring notification banners must appear only once.
+    // Disable legacy follow-up chains to prevent notification flooding.
+    private let shortRingFollowUpOffsets: [TimeInterval] = []
+    private let extendedRingFollowUpOffsets: [TimeInterval] = []
     private let notificationSupportedExtensions: Set<String> = ["wav", "aiff", "caf"]
     private let fallbackAlarmSoundKey = "cockpitalert"
     private let maxNotificationSoundDuration: TimeInterval = 29.5

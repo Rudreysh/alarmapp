@@ -1,0 +1,19 @@
+{
+  "" : {
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/AlarmoShieldUI.build/Objects-normal/arm64/AlarmoShieldUI-primary.dia",
+    "emit-module-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/AlarmoShieldUI.build/Objects-normal/arm64/AlarmoShieldUI-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/AlarmoShieldUI.build/Objects-normal/arm64/AlarmoShieldUI-primary-emit-module.dia",
+    "pch" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/AlarmoShieldUI.build/Objects-normal/arm64/AlarmoShieldUI-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/AlarmoShieldUI.build/Objects-normal/arm64/AlarmoShieldUI-primary.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoShieldUI/ShieldConfigurationExtension.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/AlarmoShieldUI.build/Objects-normal/arm64/ShieldConfigurationExtension.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/AlarmoShieldUI.build/Objects-normal/arm64/ShieldConfigurationExtension.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/AlarmoShieldUI.build/Objects-normal/arm64/ShieldConfigurationExtension.dia",
+    "index-unit-output-path" : "/alarmo.build/Debug-iphoneos/AlarmoShieldUI.build/Objects-normal/arm64/ShieldConfigurationExtension.o",
+    "llvm-bc" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/AlarmoShieldUI.build/Objects-normal/arm64/ShieldConfigurationExtension.bc",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/AlarmoShieldUI.build/Objects-normal/arm64/ShieldConfigurationExtension.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/AlarmoShieldUI.build/Objects-normal/arm64/ShieldConfigurationExtension.swiftdeps",
+    "swiftmodule" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/AlarmoShieldUI.build/Objects-normal/arm64/ShieldConfigurationExtension~partial.swiftmodule"
+  }
+}

@@ -1,0 +1,168 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Report/ReportView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "All",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 429
+        }
+      },
+      {
+        "comment": "",
+        "key": "Overall View",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 496
+        }
+      },
+      {
+        "comment": "",
+        "key": "Overall View",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 516
+        }
+      },
+      {
+        "comment": "",
+        "key": "Trend",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 583
+        }
+      },
+      {
+        "comment": "",
+        "key": "Average",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 616
+        }
+      },
+      {
+        "comment": "",
+        "key": "Selected Day",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 736
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goal: %@ %@ / day",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 799
+        }
+      },
+      {
+        "comment": "",
+        "key": "Consistency",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 809
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 812
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld day streak!",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 823
+        }
+      },
+      {
+        "comment": "",
+        "key": "All Habits",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 925
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goals + streak snapshot",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 928
+        }
+      },
+      {
+        "comment": "",
+        "key": "Avg Consistency",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 936
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 939
+        }
+      },
+      {
+        "comment": "",
+        "key": "Top Streaks",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 953
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 959
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goal %@ %@",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 983
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lldd",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 995
+        }
+      },
+      {
+        "comment": "",
+        "key": "Pomodoro Performance",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1625
+        }
+      },
+      {
+        "comment": "",
+        "key": "Alarm Performance",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1684
+        }
+      }
+    ]
+  },
+  "version": 1
+}

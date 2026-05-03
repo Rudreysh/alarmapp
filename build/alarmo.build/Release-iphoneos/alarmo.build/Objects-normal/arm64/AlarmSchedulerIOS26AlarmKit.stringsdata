@@ -1,0 +1,40 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Shared/Services/AlarmSchedulerIOS26AlarmKit.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Stop",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 345
+        }
+      },
+      {
+        "comment": "",
+        "key": "Alarm ID"
+      },
+      {
+        "comment": "",
+        "key": "Original Alarm ID"
+      },
+      {
+        "comment": "",
+        "key": "Stop Alarm",
+        "location": {
+          "startingColumn": 49,
+          "startingLine": 602
+        }
+      },
+      {
+        "comment": "",
+        "key": "Alarm ID"
+      },
+      {
+        "comment": "",
+        "key": "Original Alarm ID"
+      }
+    ]
+  },
+  "version": 1
+}

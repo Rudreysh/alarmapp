@@ -1,0 +1,168 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Alarms/CreateWakeUpAlarmView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Alarm Access Needed",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 680
+        }
+      },
+      {
+        "comment": "",
+        "key": "Change City",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 115
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reset to Local Time",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 127
+        }
+      },
+      {
+        "comment": "",
+        "key": "Stop Live Preview",
+        "location": {
+          "startingColumn": 69,
+          "startingLine": 133
+        }
+      },
+      {
+        "comment": "",
+        "key": "Start Live Preview",
+        "location": {
+          "startingColumn": 91,
+          "startingLine": 133
+        }
+      },
+      {
+        "comment": "",
+        "key": "Please fill in the alarm name",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 180
+        }
+      },
+      {
+        "comment": "",
+        "key": "Alarm rings at %@",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 427
+        }
+      },
+      {
+        "comment": "",
+        "key": "Anchor to Time Zone",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 400
+        }
+      },
+      {
+        "comment": "",
+        "key": "Prevent App Uninstall",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 452
+        }
+      },
+      {
+        "comment": "",
+        "key": "Prevent Switch Off",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 467
+        }
+      },
+      {
+        "comment": "",
+        "key": "Displays a new motivational quote each day when the alarm rings.",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 498
+        }
+      },
+      {
+        "comment": "",
+        "key": "Daily Motivation",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 491
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 515
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit Alarm",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 521
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 534
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save Anyway",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 681
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open Settings",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 684
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 689
+        }
+      },
+      {
+        "comment": "",
+        "key": "Config coming soon",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 817
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 818
+        }
+      }
+    ]
+  },
+  "version": 1
+}

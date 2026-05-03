@@ -1,0 +1,136 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/Stopwatch/MultiTimerView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Reset All",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 32
+        }
+      },
+      {
+        "comment": "",
+        "key": "Pause All",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 47
+        }
+      },
+      {
+        "comment": "",
+        "key": "Start All",
+        "location": {
+          "startingColumn": 64,
+          "startingLine": 47
+        }
+      },
+      {
+        "comment": "",
+        "key": "Track multiple tasks simultaneously",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 78
+        }
+      },
+      {
+        "comment": "",
+        "key": "New Parallel Timer",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 90
+        }
+      },
+      {
+        "comment": "",
+        "key": "TIMER NAME",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 95
+        }
+      },
+      {
+        "comment": "",
+        "key": "e.g. Cooking, Workout, Meeting",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 99
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 124
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit Timer Name",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 249
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit timer name",
+        "location": {
+          "startingColumn": 41,
+          "startingLine": 190
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit Name",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 242
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete Timer",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 246
+        }
+      },
+      {
+        "comment": "",
+        "key": "Timer Name",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 250
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 251
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 252
+        }
+      },
+      {
+        "comment": "",
+        "key": "Update the timer label.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 259
+        }
+      }
+    ]
+  },
+  "version": 1
+}

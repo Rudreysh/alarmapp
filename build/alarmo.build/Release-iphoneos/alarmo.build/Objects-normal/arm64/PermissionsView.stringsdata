@@ -1,0 +1,72 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Settings/Views/PermissionsView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Permissions",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 159
+        }
+      },
+      {
+        "comment": "",
+        "key": "About permissions",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 37
+        }
+      },
+      {
+        "comment": "",
+        "key": "\"Alarmo\" Would Like to Access Screen Time",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 114
+        }
+      },
+      {
+        "comment": "",
+        "key": "Providing \"Alarmo\" access to Screen Time may allow it to see your activity data, restrict content, and limit the usage of apps and websites.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 119
+        }
+      },
+      {
+        "comment": "",
+        "key": "Don't Allow",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 126
+        }
+      },
+      {
+        "comment": "",
+        "key": "Continue",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 136
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 349
+        }
+      },
+      {
+        "comment": "",
+        "key": "About permissions",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 443
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -1,0 +1,72 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Settings/Views/BlockedAppsSelectionView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Strict lock mode: while focus/alarm enforcement is active, all apps are locked until the timer ends or alarm rules are satisfied.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 68
+        }
+      },
+      {
+        "comment": "",
+        "key": "Phone Lock Permission",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 16
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enabled",
+        "location": {
+          "startingColumn": 49,
+          "startingLine": 20
+        }
+      },
+      {
+        "comment": "",
+        "key": "Required",
+        "location": {
+          "startingColumn": 61,
+          "startingLine": 20
+        }
+      },
+      {
+        "comment": "",
+        "key": "Screen Time access granted",
+        "location": {
+          "startingColumn": 53,
+          "startingLine": 30
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enable Screen Time access",
+        "location": {
+          "startingColumn": 84,
+          "startingLine": 30
+        }
+      },
+      {
+        "comment": "",
+        "key": "Blocked Apps",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 49
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld selected",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 52
+        }
+      }
+    ]
+  },
+  "version": 1
+}

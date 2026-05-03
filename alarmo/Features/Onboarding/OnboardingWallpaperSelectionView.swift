@@ -14,28 +14,17 @@ struct OnboardingWallpaperSelectionView: View {
             Colors.bgPrimary.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                ProgressHeader(step: 2, total: AppConstants.onboardingTotalSteps)
-                    .padding(.horizontal, Spacing.l)
-                    .padding(.top, Spacing.l)
-                    .padding(.bottom, Spacing.m)
-
                 Text("Choose your\nalarm wallpaper")
-                    .screenTitle()
+                    .font(.system(size: 26, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
                     .multilineTextAlignment(.center)
-                    .padding(.bottom, Spacing.m)
-                
-                Toggle(isOn: Binding(
-                    get: { viewModel.state.dailyMotivationEnabled },
-                    set: { viewModel.setDailyMotivation($0) }
-                )) {
-                    Text("Motivation Quotes")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Colors.textPrimary)
-                }
-                .toggleStyle(SwitchToggleStyle(tint: Colors.accentTeal))
-                .padding(.horizontal, Spacing.l)
-                .padding(.bottom, Spacing.m)
+                    .padding(.top, Spacing.xs)
+                    .padding(.bottom, Spacing.xs)
+
+                ProgressHeader(step: 2, total: AppConstants.onboardingTotalSteps)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.top, 0)
+                    .padding(.bottom, Spacing.xs)
                 
                 // MAIN CONTENT
                 let activeCategoryId = selectedCategoryId ?? "All"
@@ -84,15 +73,15 @@ struct OnboardingWallpaperSelectionView: View {
                                         )
                                 }
                             }
-                        }
-                        .padding(.horizontal, Spacing.l)
                     }
-                    .padding(.bottom, Spacing.m)
+                    .padding(.horizontal, Spacing.l)
+                }
+                    .padding(.bottom, Spacing.xs)
                 }
 
                 // 2. Main Content
                 ScrollView {
-                    VStack(alignment: .leading, spacing: Spacing.xl) {
+                    VStack(alignment: .leading, spacing: Spacing.l) {
                         if viewModel.state.wallpaperCategories.isEmpty {
                             Text("No bundled wallpapers found. Ensure BundledWallpapers is added as a folder reference and target membership is enabled.")
                                 .bodyText()
@@ -104,7 +93,7 @@ struct OnboardingWallpaperSelectionView: View {
                                 WallpaperCategorySection(category: category, selected: viewModel.state.selectedWallpaper) {
                                     viewModel.selectWallpaper($0)
                                 }
-                                .padding(.bottom, Spacing.s)
+                                .padding(.bottom, Spacing.xs)
                             }
                             .transition(.opacity)
                         } else if let category = viewModel.state.wallpaperCategories.first(where: { $0.id == activeCategoryId }) {
@@ -132,11 +121,10 @@ struct OnboardingWallpaperSelectionView: View {
                         }
                     }
                     .padding(.horizontal, Spacing.l)
-                    .padding(.bottom, Spacing.xl)
+                    .padding(.bottom, Spacing.m)
                 }
-
-                Spacer(minLength: 80) // Add padding for scrolling under button
             }
+            .padding(.top, -8)
             .overlay(
                 VStack {
                     Spacer()
@@ -145,8 +133,6 @@ struct OnboardingWallpaperSelectionView: View {
                     }
                     .padding(.horizontal, Spacing.l)
                     .padding(.bottom, Spacing.l) // Add safe area-like padding
-                    .opacity(viewModel.canProceedWallpaper ? 1 : 0.5)
-                    .disabled(!viewModel.canProceedWallpaper)
                 }, alignment: .bottom
             )
         }
@@ -196,7 +182,7 @@ private struct WallpaperCategorySection: View {
     let onSelect: (WallpaperItem) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.m) {
+        VStack(alignment: .leading, spacing: Spacing.s) {
             Text(category.title)
                 .cardTitle()
                 .foregroundColor(Colors.textPrimary)
@@ -247,7 +233,7 @@ private struct WallpaperCard: View {
                     Colors.cardSurface
                 }
             }
-            .frame(width: 140, height: 200)
+            .frame(width: 132, height: 176)
             .clipped()
 
             Text(item.title)
@@ -258,7 +244,7 @@ private struct WallpaperCard: View {
                     LinearGradient(colors: [.black.opacity(0.6), .clear], startPoint: .bottom, endPoint: .top)
                 )
         }
-        .frame(width: 140, height: 200)
+        .frame(width: 132, height: 176)
         .clipShape(RoundedRectangle(cornerRadius: Radii.card))
         .overlay(
             RoundedRectangle(cornerRadius: Radii.card)

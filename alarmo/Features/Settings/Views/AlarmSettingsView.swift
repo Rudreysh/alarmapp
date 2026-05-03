@@ -4,7 +4,6 @@ struct AlarmSettingsView: View {
     @ObservedObject private var store = SettingsStore.shared
     @State private var showWallpaperQuotes = false
     @State private var showClockStylePicker = false
-    @State private var showRingGradientPicker = false
     @State private var showThemePicker = false
     @State private var permissionMessage: String?
 
@@ -86,19 +85,6 @@ struct AlarmSettingsView: View {
                             icon: "dial.medium.fill",
                             title: "Alarm Clock Style",
                             trailing: store.alarmClockStyle.title
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    Divider().padding(.leading, 56).opacity(0.35)
-
-                    Button {
-                        showRingGradientPicker = true
-                    } label: {
-                        row(
-                            icon: "paintpalette.fill",
-                            title: "Alarm Ring Color",
-                            trailing: store.alarmFocusRingGradient.title
                         )
                     }
                     .buttonStyle(.plain)
@@ -192,27 +178,15 @@ struct AlarmSettingsView: View {
             titleVisibility: .visible
         ) {
             ForEach(AlarmThemeStyle.allCases) { theme in
-                Button(theme.title) {
+                Button {
                     store.alarmThemeStyle = theme
+                } label: {
+                    Label(theme.title, systemImage: theme.iconSystemName)
                 }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Choose the alarm appearance theme.")
-        }
-        .confirmationDialog(
-            "Alarm Ring Color",
-            isPresented: $showRingGradientPicker,
-            titleVisibility: .visible
-        ) {
-            ForEach(AlarmFocusRingGradient.allCases) { gradient in
-                Button(gradient.title) {
-                    store.alarmFocusRingGradient = gradient
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Pick the gradient color style for the Focus Ring alarm clock.")
         }
     }
 

@@ -1,0 +1,40 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Alarms/Missions/Math/MathMissionPlayView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "PREVIEW MODE",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 42
+        }
+      },
+      {
+        "comment": "",
+        "key": "%llds",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 73
+        }
+      },
+      {
+        "comment": "",
+        "key": "Preview Complete",
+        "location": {
+          "startingColumn": 106,
+          "startingLine": 150
+        }
+      },
+      {
+        "comment": "",
+        "key": "Good job!",
+        "location": {
+          "startingColumn": 127,
+          "startingLine": 150
+        }
+      }
+    ]
+  },
+  "version": 1
+}

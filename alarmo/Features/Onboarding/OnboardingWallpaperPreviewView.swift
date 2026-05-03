@@ -2,6 +2,102 @@ import SwiftUI
 import Combine
 import UIKit
 
+struct OnboardingQuoteCategorySelectionView: View {
+    @ObservedObject var viewModel: OnboardingViewModel
+    let onNext: () -> Void
+    @State private var previewQuoteIndex = 0
+    private let previewTimer = Timer.publish(every: 8, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        ZStack {
+            Colors.bgPrimary.ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                Text("Choose\nmotivation quote")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundColor(Colors.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, Spacing.xs)
+                    .padding(.bottom, Spacing.xs)
+
+                ProgressHeader(step: 3, total: AppConstants.onboardingTotalSteps)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.bottom, Spacing.s)
+
+                Toggle(isOn: Binding(
+                    get: { viewModel.state.dailyMotivationEnabled },
+                    set: { viewModel.setDailyMotivation($0) }
+                )) {
+                    Text("Motivation Quotes")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Colors.textPrimary)
+                }
+                .toggleStyle(SwitchToggleStyle(tint: Colors.accentTeal))
+                .padding(.horizontal, Spacing.l)
+                .padding(.bottom, Spacing.s)
+
+                ZStack {
+                    LinearGradient(
+                        colors: [Colors.cardSurface, Colors.bgSecondary],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                }
+                .overlay {
+                    if viewModel.state.dailyMotivationEnabled {
+                        let quotes = MotivationQuotes.all
+                        if !quotes.isEmpty {
+                            let quote = quotes[previewQuoteIndex % quotes.count]
+                            VStack(spacing: 8) {
+                                Text(quote.text)
+                                    .font(.system(size: 24, weight: .semibold, design: .serif))
+                                    .foregroundColor(.white)
+                                    .multilineTextAlignment(.center)
+                                    .lineLimit(4)
+                                    .minimumScaleFactor(0.75)
+                                Text("- \(quote.author)")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.9))
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, Spacing.l)
+                            .transition(.opacity)
+                        }
+                    } else {
+                        Text("Turn on Motivation Quotes to preview your daily quote.")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(Colors.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, Spacing.l)
+                    }
+                }
+                .onReceive(previewTimer) { _ in
+                    guard viewModel.state.dailyMotivationEnabled else { return }
+                    withAnimation(.easeInOut(duration: 0.8)) {
+                        previewQuoteIndex += 1
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: Radii.card))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Radii.card)
+                        .stroke(Colors.cardStroke, lineWidth: 1)
+                )
+                .frame(height: 380)
+                .padding(.horizontal, Spacing.l)
+                .padding(.bottom, 120)
+            }
+            .overlay(alignment: .bottom) {
+                PrimaryButton(title: "Next", style: .blueGlass) {
+                    onNext()
+                }
+                .padding(.horizontal, Spacing.l)
+                .padding(.bottom, Spacing.l)
+            }
+        }
+    }
+
+}
+
 struct OnboardingWallpaperPreviewView: View {
     @ObservedObject var viewModel: OnboardingViewModel
     let onBack: () -> Void
@@ -18,7 +114,7 @@ struct OnboardingWallpaperPreviewView: View {
                     .scaledToFill()
                     .ignoresSafeArea()
             } else {
-                Colors.bgPrimary.ignoresSafeArea()
+                Color.black.ignoresSafeArea()
             }
 
             VStack {
@@ -47,7 +143,7 @@ struct OnboardingWallpaperPreviewView: View {
                     .padding(.top, Spacing.m)
                 
                 if viewModel.state.dailyMotivationEnabled {
-                    let quotes = MotivationQuotes.dailyQuotes()
+                    let quotes = MotivationQuotes.filteredQuotes(for: viewModel.state.selectedQuoteCategoryIDs)
                     if !quotes.isEmpty {
                         let quote = quotes[quoteIndex % quotes.count]
                         VStack(spacing: 8) {
@@ -63,7 +159,7 @@ struct OnboardingWallpaperPreviewView: View {
                                 .shadow(color: .black.opacity(0.8), radius: 4, x: 0, y: 2)
                                 .id("text-\(quote.id)")
                                 .transition(.opacity.combined(with: .scale(scale: 0.98)))
-                            
+
                             Text("- \(quote.author)")
                                 .font(.system(size: 16, weight: .medium))
                                 .foregroundColor(.white.opacity(0.9))
@@ -85,7 +181,7 @@ struct OnboardingWallpaperPreviewView: View {
 
                 Spacer()
 
-                PrimaryButton(title: "Select", style: .blueGlass) {
+                PrimaryButton(title: "Continue", style: .blueGlass) {
                     onSelect()
                 }
                 .padding(.horizontal, Spacing.l)

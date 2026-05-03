@@ -26,9 +26,9 @@ struct MissionRowView: View {
                     ZStack {
                         Circle()
                             .fill(background)
-                            .frame(width: 44, height: 44)
+                            .frame(width: 33, height: 33)
                         Image(systemName: icon)
-                            .font(.system(size: 20, weight: .bold))
+                            .font(.system(size: 15, weight: .bold))
                             .foregroundColor(isSelected ? Colors.accentTeal : Colors.textPrimary)
                     }
                 }
@@ -38,11 +38,11 @@ struct MissionRowView: View {
                 ZStack {
                     Circle()
                         .strokeBorder(isSelected ? Colors.accentTeal : Colors.cardStroke, lineWidth: 2)
-                        .frame(width: 24, height: 24)
+                        .frame(width: 18, height: 18)
                     if isSelected {
                         Circle()
                             .fill(Colors.accentTeal)
-                            .frame(width: 12, height: 12)
+                            .frame(width: 9, height: 9)
                     }
                 }
             }
@@ -50,7 +50,7 @@ struct MissionRowView: View {
             Spacer()
             
             Text(option.title)
-                .font(.system(size: 16, weight: .bold))
+                .font(.system(size: 13, weight: .bold))
                 .foregroundColor(isSelected ? Colors.textPrimary : Colors.textSecondary)
                 .lineLimit(2)
                 .minimumScaleFactor(0.85)
@@ -61,27 +61,27 @@ struct MissionRowView: View {
                 Button(action: onPreview) {
                     HStack(spacing: 4) {
                         Image(systemName: "eye.fill")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(size: 9, weight: .bold))
                         Text("Preview")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.system(size: 11, weight: .bold))
                     }
                     .foregroundColor(Colors.accentTeal)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
                     .background(Colors.accentTeal.opacity(0.15))
-                    .cornerRadius(12)
+                    .cornerRadius(10)
                 }
             }
         }
-        .padding(Spacing.m)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 160)
+        .frame(height: 120)
         .background(isSelected ? Colors.accentTeal.opacity(0.12) : Colors.cardSurface)
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 14)
                 .stroke(isSelected ? Colors.accentTeal : Colors.cardStroke, lineWidth: isSelected ? 2 : 1)
         )
-        .cornerRadius(16)
+        .cornerRadius(14)
         .appShadow(Shadows.card)
     }
     
@@ -91,24 +91,24 @@ struct MissionRowView: View {
                 ZStack {
                     Circle()
                         .fill(background)
-                        .frame(width: 44, height: 44)
+                        .frame(width: 33, height: 33)
                     Image(systemName: icon)
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.system(size: 15, weight: .bold))
                         .foregroundColor(isSelected ? Colors.accentTeal : Colors.textPrimary)
                 }
             } else {
                 ZStack {
                     Circle()
                         .fill(Colors.bgPrimary)
-                        .frame(width: 44, height: 44)
+                        .frame(width: 33, height: 33)
                     Image(systemName: "moon.zzz.fill")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.system(size: 15, weight: .bold))
                         .foregroundColor(isSelected ? Colors.accentTeal : Colors.textSecondary)
                 }
             }
             
             Text(option.title)
-                .font(.system(size: 16, weight: .bold))
+                .font(.system(size: 13, weight: .bold))
                 .foregroundColor(isSelected ? Colors.textPrimary : Colors.textSecondary)
                 .lineLimit(2)
                 .minimumScaleFactor(0.85)
@@ -119,22 +119,22 @@ struct MissionRowView: View {
             ZStack {
                 Circle()
                     .strokeBorder(isSelected ? Colors.accentTeal : Colors.cardStroke, lineWidth: 2)
-                    .frame(width: 24, height: 24)
+                    .frame(width: 18, height: 18)
                 if isSelected {
                     Circle()
                         .fill(Colors.accentTeal)
-                        .frame(width: 12, height: 12)
+                        .frame(width: 9, height: 9)
                 }
             }
         }
-        .padding(.horizontal, Spacing.m)
-        .frame(height: 80)
+        .padding(.horizontal, 12)
+        .frame(height: 60)
         .background(isSelected ? Colors.accentTeal.opacity(0.12) : Colors.cardSurface)
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 14)
                 .stroke(isSelected ? Colors.accentTeal : Colors.cardStroke, lineWidth: isSelected ? 2 : 1)
         )
-        .cornerRadius(16)
+        .cornerRadius(14)
         .appShadow(Shadows.card)
     }
 }

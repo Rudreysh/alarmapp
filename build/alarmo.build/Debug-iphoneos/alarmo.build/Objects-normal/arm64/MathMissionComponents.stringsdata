@@ -1,0 +1,24 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Alarms/Missions/Math/MathMissionComponents.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Very easy",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 62
+        }
+      },
+      {
+        "comment": "",
+        "key": "Hell mode",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 66
+        }
+      }
+    ]
+  },
+  "version": 1
+}

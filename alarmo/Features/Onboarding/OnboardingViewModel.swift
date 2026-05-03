@@ -57,7 +57,7 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     var canProceedWallpaper: Bool {
-        state.selectedWallpaper != nil
+        true
     }
 
     var volumePercentText: String {
@@ -181,6 +181,39 @@ final class OnboardingViewModel: ObservableObject {
 
     func setDailyMotivation(_ enabled: Bool) {
         state.dailyMotivationEnabled = enabled
+    }
+
+    var quoteCategoryOptions: [MotivationQuoteCategory] {
+        MotivationQuoteCategory.allCases
+    }
+
+    func isQuoteCategorySelected(_ categoryId: String) -> Bool {
+        state.selectedQuoteCategoryIDs.contains(categoryId)
+    }
+
+    func toggleQuoteCategory(_ categoryId: String) {
+        if categoryId == MotivationQuoteCategory.allSelectionID {
+            state.selectedQuoteCategoryIDs = [MotivationQuoteCategory.allSelectionID]
+            return
+        }
+
+        state.selectedQuoteCategoryIDs.remove(MotivationQuoteCategory.allSelectionID)
+        if state.selectedQuoteCategoryIDs.contains(categoryId) {
+            state.selectedQuoteCategoryIDs.remove(categoryId)
+        } else {
+            state.selectedQuoteCategoryIDs.insert(categoryId)
+        }
+
+        if state.selectedQuoteCategoryIDs.isEmpty {
+            state.selectedQuoteCategoryIDs = [MotivationQuoteCategory.allSelectionID]
+        }
+    }
+
+    var selectedQuotePreview: MotivationQuote? {
+        let quotes = MotivationQuotes.filteredQuotes(for: state.selectedQuoteCategoryIDs)
+        guard !quotes.isEmpty else { return nil }
+        let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
+        return quotes[(dayOfYear - 1) % quotes.count]
     }
 
     func completeOnboarding() {

@@ -1,0 +1,256 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Plan/PlanItemDetailView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Today",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 61
+        }
+      },
+      {
+        "comment": "",
+        "key": "Start Focus",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 183
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add Progress",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 215
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit Habit",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 241
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@/%@ %@",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 293
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@/%@",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 462
+        }
+      },
+      {
+        "comment": "",
+        "key": "Slide on circle to adjust",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 476
+        }
+      },
+      {
+        "comment": "",
+        "key": "Subtract",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 487
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 501
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 632
+        }
+      },
+      {
+        "comment": "",
+        "key": "completed",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 639
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ • of %@ goal",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 655
+        }
+      },
+      {
+        "comment": "",
+        "key": "Subtract",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 678
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 692
+        }
+      },
+      {
+        "comment": "",
+        "key": "Habit Tab",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 808
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goal: %@ %@ / day",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 906
+        }
+      },
+      {
+        "comment": "",
+        "key": "Consistency",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 912
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 915
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld day streak!",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 930
+        }
+      },
+      {
+        "comment": "",
+        "key": "Trend",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1029
+        }
+      },
+      {
+        "comment": "",
+        "key": "Average",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1084
+        }
+      },
+      {
+        "comment": "",
+        "key": "Consistency Heatmap",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1190
+        }
+      },
+      {
+        "comment": "",
+        "key": "Each square is one day from the last 12 weeks.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1200
+        }
+      },
+      {
+        "comment": "",
+        "key": "Tap a rectangle to view value",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1852
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ %@ • %lld%%",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1843
+        }
+      },
+      {
+        "comment": "",
+        "key": "No log",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1847
+        }
+      },
+      {
+        "comment": "",
+        "key": "Notes for %@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1943
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reset",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1966
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save Notes",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1981
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add %@",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 2107
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 2104
+        }
+      }
+    ]
+  },
+  "version": 1
+}

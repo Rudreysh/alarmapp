@@ -1,0 +1,24 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Onboarding/ComparisonCardAppView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "7:00",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 12
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 16
+        }
+      }
+    ]
+  },
+  "version": 1
+}

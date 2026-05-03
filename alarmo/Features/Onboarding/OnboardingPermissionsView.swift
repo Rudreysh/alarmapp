@@ -355,6 +355,11 @@ struct OnboardingPermissionsView: View {
 
             healthToggleRow(title: "Steps", subtitle: "Read daily step count for habit progress")
             healthToggleRow(title: "Distance", subtitle: "Read walking distance for activity goals")
+            healthToggleRow(title: "Cycling", subtitle: "Read cycling distance for ride goals")
+            healthToggleRow(title: "Sleep", subtitle: "Read sleep duration for recovery habits")
+            healthToggleRow(title: "Hydration", subtitle: "Read water intake for drink-water habits")
+            healthToggleRow(title: "Standing", subtitle: "Read standing time for posture habits")
+            healthToggleRow(title: "Mindfulness", subtitle: "Read mindful minutes for meditation habits")
         }
         .padding(14)
         .background(Colors.cardSurface.opacity(0.92))
@@ -405,7 +410,7 @@ struct OnboardingPermissionsView: View {
                     .font(.system(size: 34, weight: .black, design: .rounded))
                     .foregroundColor(Colors.textPrimary)
 
-                Text("\"\(appName)\" would like to access Apple Health to read steps and distance for habit tracking.")
+                Text("\"\(appName)\" would like to access Apple Health to read activity, cycling, sleep, hydration, standing, and mindfulness data for habit tracking.")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(Colors.textSecondary)
                     .lineSpacing(2)
@@ -638,7 +643,9 @@ struct OnboardingPermissionsView: View {
         }
 
         isRequesting = true
-        let granted = await HealthKitManager.shared.requestAuthorization(for: "steps")
+        let granted = await HealthKitManager.shared.requestAuthorization(
+            for: ["activity", "cycling", "sleep", "water", "standing", "mindfulness"]
+        )
         await refreshStatuses()
         isRequesting = false
 

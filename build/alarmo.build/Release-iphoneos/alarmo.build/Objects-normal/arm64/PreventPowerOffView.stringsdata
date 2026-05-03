@@ -1,0 +1,432 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Settings/Views/PreventPowerOffView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Detection history",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 87
+        }
+      },
+      {
+        "comment": "",
+        "key": "Haven't cheated at all.\nKeep it going!",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 94
+        }
+      },
+      {
+        "comment": "",
+        "key": "⭐️",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 98
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@%lld",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 123
+        }
+      },
+      {
+        "comment": "",
+        "key": "Global penalty rules",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 281
+        }
+      },
+      {
+        "comment": "",
+        "key": "Accountability Penalty",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 276
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@%lld.00 per cheat",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 336
+        }
+      },
+      {
+        "comment": "",
+        "key": "Penalty",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 327
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 331
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ %@",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 351
+        }
+      },
+      {
+        "comment": "",
+        "key": "No card registered",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 352
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit",
+        "location": {
+          "startingColumn": 64,
+          "startingLine": 358
+        }
+      },
+      {
+        "comment": "",
+        "key": "Set penalty",
+        "location": {
+          "startingColumn": 73,
+          "startingLine": 358
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 466
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 513
+        }
+      },
+      {
+        "comment": "",
+        "key": "Advanced Triggers",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 689
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 693
+        }
+      },
+      {
+        "comment": "",
+        "key": "Penalty Credits",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 860
+        }
+      },
+      {
+        "comment": "",
+        "key": "Penalty Credits",
+        "location": {
+          "startingColumn": 17,
+          "startingLine": 874
+        }
+      },
+      {
+        "comment": "",
+        "key": "Account",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 719
+        }
+      },
+      {
+        "comment": "",
+        "key": "Sign in with Apple to link penalty settings to your profile.",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 723
+        }
+      },
+      {
+        "comment": "",
+        "key": "Current Balance",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 758
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@%lld",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 761
+        }
+      },
+      {
+        "comment": "",
+        "key": "Payment methods",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 775
+        }
+      },
+      {
+        "comment": "",
+        "key": "Penalty credits are purchased through Apple In-App Purchase. Your App Store payment method (including Apple Pay-backed cards) is used by Apple.",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 778
+        }
+      },
+      {
+        "comment": "",
+        "key": "Direct in-app PayPal/card entry for digital credits is not supported in this flow.",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 782
+        }
+      },
+      {
+        "comment": "",
+        "key": "Real purchase testing",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 830
+        }
+      },
+      {
+        "comment": "",
+        "key": "Use a physical device with a Sandbox/TestFlight Apple ID. Create consumable IAP products in App Store Connect. Supported IDs: alarmo.credits.10/.20/.50 and ht.alarmo.credits.10/.20/.50.",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 833
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 864
+        }
+      },
+      {
+        "comment": "",
+        "key": "OK",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 880
+        }
+      },
+      {
+        "comment": "",
+        "key": "Penalty info",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 971
+        }
+      },
+      {
+        "comment": "",
+        "key": "Card info",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 917
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit",
+        "location": {
+          "startingColumn": 48,
+          "startingLine": 940
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ %@",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 930
+        }
+      },
+      {
+        "comment": "",
+        "key": "Register card",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 954
+        }
+      },
+      {
+        "comment": "",
+        "key": "By providing your card information, you allow Alarmo to charge your card for future penalties according to the enabled rules.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1097
+        }
+      },
+      {
+        "comment": "",
+        "key": "Or use a card",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1054
+        }
+      },
+      {
+        "comment": "",
+        "key": "Card information",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1061
+        }
+      },
+      {
+        "comment": "",
+        "key": "Billing address",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1087
+        }
+      },
+      {
+        "comment": "",
+        "key": "Card number",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 1065
+        }
+      },
+      {
+        "comment": "",
+        "key": "Country or region",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 1091
+        }
+      },
+      {
+        "comment": "",
+        "key": "MM / YY",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 1074
+        }
+      },
+      {
+        "comment": "",
+        "key": "CVC",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 1080
+        }
+      },
+      {
+        "comment": "",
+        "key": "Set up",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 1110
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select penalty amount",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1173
+        }
+      },
+      {
+        "comment": "",
+        "key": "Current: %@%lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1196
+        }
+      },
+      {
+        "comment": "",
+        "key": "Amount",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 1179
+        }
+      },
+      {
+        "comment": "",
+        "key": "Currency",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 1187
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 1181
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ %@",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 1189
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 1205
+        }
+      },
+      {
+        "comment": "",
+        "key": "How penalties work",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1222
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 1236
+        }
+      }
+    ]
+  },
+  "version": 1
+}

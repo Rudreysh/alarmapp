@@ -1,0 +1,72 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoWidget/LiveActivityIntents.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Play or Pause Focus",
+        "location": {
+          "startingColumn": 49,
+          "startingLine": 7
+        }
+      },
+      {
+        "comment": "",
+        "key": "Session ID",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 9
+        }
+      },
+      {
+        "comment": "",
+        "key": "Play or Pause Ambient Sound",
+        "location": {
+          "startingColumn": 49,
+          "startingLine": 32
+        }
+      },
+      {
+        "comment": "",
+        "key": "Show or Hide Running Timers",
+        "location": {
+          "startingColumn": 49,
+          "startingLine": 47
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open Focus Timer",
+        "location": {
+          "startingColumn": 49,
+          "startingLine": 65
+        }
+      },
+      {
+        "comment": "",
+        "key": "Session ID",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 68
+        }
+      },
+      {
+        "comment": "",
+        "key": "Alarm ID",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 84
+        }
+      },
+      {
+        "comment": "",
+        "key": "Original Alarm ID",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 84
+        }
+      }
+    ]
+  },
+  "version": 1
+}

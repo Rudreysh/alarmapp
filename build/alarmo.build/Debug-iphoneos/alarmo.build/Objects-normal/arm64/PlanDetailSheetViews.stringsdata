@@ -1,0 +1,568 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Plan/PlanDetailSheetViews.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 30
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 77
+        }
+      },
+      {
+        "comment": "",
+        "key": "Specified time",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 98
+        }
+      },
+      {
+        "comment": "",
+        "key": "Time Mode",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 102
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 48,
+          "startingLine": 110
+        }
+      },
+      {
+        "comment": "",
+        "key": "Point time",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 103
+        }
+      },
+      {
+        "comment": "",
+        "key": "Time period",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 104
+        }
+      },
+      {
+        "comment": "",
+        "key": "Start Time",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 117
+        }
+      },
+      {
+        "comment": "",
+        "key": "Start Time",
+        "location": {
+          "startingColumn": 56,
+          "startingLine": 120
+        }
+      },
+      {
+        "comment": "",
+        "key": "End Time",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 133
+        }
+      },
+      {
+        "comment": "",
+        "key": "End Time",
+        "location": {
+          "startingColumn": 56,
+          "startingLine": 136
+        }
+      },
+      {
+        "comment": "",
+        "key": "Remind me at %@",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 241
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 270
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 262
+        }
+      },
+      {
+        "comment": "",
+        "key": "Set a specific time to remind me",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 257
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reminder",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 255
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 335
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 340
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 394
+        }
+      },
+      {
+        "comment": "",
+        "key": "Mode",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 417
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 413
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goal",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 409
+        }
+      },
+      {
+        "comment": "",
+        "key": "Set a tracking goal for your task",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 410
+        }
+      },
+      {
+        "comment": "",
+        "key": "Timer",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 418
+        }
+      },
+      {
+        "comment": "",
+        "key": "Count",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 419
+        }
+      },
+      {
+        "comment": "",
+        "key": "Minutes",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 445
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 428
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 430
+        }
+      },
+      {
+        "comment": "",
+        "key": "Seconds",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 466
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 449
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 475
+        }
+      },
+      {
+        "comment": "",
+        "key": "Goal",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 481
+        }
+      },
+      {
+        "comment": "",
+        "key": "Unit",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 497
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 566
+        }
+      },
+      {
+        "comment": "",
+        "key": "Count",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 557
+        }
+      },
+      {
+        "comment": "",
+        "key": "Unit selection",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 656
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 650
+        }
+      },
+      {
+        "comment": "",
+        "key": "Tag",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 732
+        }
+      },
+      {
+        "comment": "",
+        "key": "New Tag",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 774
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 726
+        }
+      },
+      {
+        "comment": "",
+        "key": "No tag",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 737
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add New",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 765
+        }
+      },
+      {
+        "comment": "",
+        "key": "Tag name",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 775
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 776
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 779
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enter a name for your new tag.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 793
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 826
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 871
+        }
+      },
+      {
+        "comment": "",
+        "key": "Set a cycle for your plan",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 868
+        }
+      },
+      {
+        "comment": "",
+        "key": "Repeat",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 864
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 910
+        }
+      },
+      {
+        "comment": "",
+        "key": "Interval",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 892
+        }
+      },
+      {
+        "comment": "",
+        "key": "Every %lld %@",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 896
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 912
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 48,
+          "startingLine": 937
+        }
+      },
+      {
+        "comment": "",
+        "key": "End Date",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 926
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 930
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 1039
+        }
+      },
+      {
+        "comment": "",
+        "key": "Time Mode",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 1098
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 1108
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 1090
+        }
+      },
+      {
+        "comment": "",
+        "key": "Set a specific time to do it",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 1085
+        }
+      },
+      {
+        "comment": "",
+        "key": "Specified time",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 1081
+        }
+      },
+      {
+        "comment": "",
+        "key": "Point time",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 1099
+        }
+      },
+      {
+        "comment": "",
+        "key": "Time period",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 1100
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 52,
+          "startingLine": 1150
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 52,
+          "startingLine": 1157
+        }
+      },
+      {
+        "comment": "",
+        "key": "-",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 1130
+        }
+      },
+      {
+        "comment": "",
+        "key": "START",
+        "location": {
+          "startingColumn": 54,
+          "startingLine": 1119
+        }
+      },
+      {
+        "comment": "",
+        "key": "END",
+        "location": {
+          "startingColumn": 54,
+          "startingLine": 1136
+        }
+      }
+    ]
+  },
+  "version": 1
+}

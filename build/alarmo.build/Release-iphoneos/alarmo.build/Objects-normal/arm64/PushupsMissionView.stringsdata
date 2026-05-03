@@ -1,0 +1,168 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Alarms/Missions/Pushups/PushupsMissionView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Camera permission needed",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 248
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 249
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open Settings",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 250
+        }
+      },
+      {
+        "comment": "",
+        "key": "Allow camera access to record and verify %@.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 256
+        }
+      },
+      {
+        "comment": "",
+        "key": "Elapsed %llds / %llds",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 314
+        }
+      },
+      {
+        "comment": "",
+        "key": "Analyzing %@...",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 305
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld %@",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 360
+        }
+      },
+      {
+        "comment": "",
+        "key": "RECORDING",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 337
+        }
+      },
+      {
+        "comment": "",
+        "key": "ANALYZING",
+        "location": {
+          "startingColumn": 77,
+          "startingLine": 337
+        }
+      },
+      {
+        "comment": "",
+        "key": "RECORD",
+        "location": {
+          "startingColumn": 91,
+          "startingLine": 337
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 355
+        }
+      },
+      {
+        "comment": "",
+        "key": "Mission complete",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 448
+        }
+      },
+      {
+        "comment": "",
+        "key": "Record and verify %@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 746
+        }
+      },
+      {
+        "comment": "",
+        "key": "Choose difficulty, then Preview to test full camera detection before saving.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 750
+        }
+      },
+      {
+        "comment": "",
+        "key": "Difficulty",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 770
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 782
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 802
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@ mode",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 810
+        }
+      },
+      {
+        "comment": "",
+        "key": "Preview",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 829
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 843
+        }
+      }
+    ]
+  },
+  "version": 1
+}

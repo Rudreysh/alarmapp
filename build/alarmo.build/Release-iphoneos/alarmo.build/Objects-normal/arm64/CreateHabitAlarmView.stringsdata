@@ -1,0 +1,232 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Alarms/HabitAlarm/CreateHabitAlarmView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Alarm Access Needed",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 423
+        }
+      },
+      {
+        "comment": "",
+        "key": "Change City",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 81
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reset to Local Time",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 93
+        }
+      },
+      {
+        "comment": "",
+        "key": "Stop Live Preview",
+        "location": {
+          "startingColumn": 69,
+          "startingLine": 99
+        }
+      },
+      {
+        "comment": "",
+        "key": "Start Live Preview",
+        "location": {
+          "startingColumn": 91,
+          "startingLine": 99
+        }
+      },
+      {
+        "comment": "",
+        "key": "Please fill in the alarm name",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 146
+        }
+      },
+      {
+        "comment": "",
+        "key": "Active Reminders",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 185
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add notes about this habit",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 241
+        }
+      },
+      {
+        "comment": "",
+        "key": "Alarm rings at %@",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 316
+        }
+      },
+      {
+        "comment": "",
+        "key": "Anchor to Time Zone",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 300
+        }
+      },
+      {
+        "comment": "",
+        "key": "Prevent App Uninstall",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 328
+        }
+      },
+      {
+        "comment": "",
+        "key": "Prevent Switch Off",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 335
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 360
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit Alarm",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 366
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 379
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save Anyway",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 424
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open Settings",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 427
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 432
+        }
+      },
+      {
+        "comment": "",
+        "key": "Config coming soon",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 560
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 561
+        }
+      },
+      {
+        "comment": "",
+        "key": "Active window",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 958
+        }
+      },
+      {
+        "comment": "",
+        "key": "From",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 965
+        }
+      },
+      {
+        "comment": "",
+        "key": "Until",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 977
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld %@",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1045
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 1051
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 1071
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 1090
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 1109
+        }
+      }
+    ]
+  },
+  "version": 1
+}

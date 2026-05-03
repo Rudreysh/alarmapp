@@ -15,6 +15,8 @@ struct QuickAlarmView: View {
     @State private var showTimeZonePicker = false
     @State private var showPresetEditor = false
     @State private var showLabelEditor = false
+    @State private var saveAsPresetFromTimePicker = false
+    @State private var isSaving = false
     
     @StateObject private var soundPlayer = SoundPreviewPlayer()
     private let scheduler: AlarmSchedulerProtocol = AlarmManagerFacade.shared
@@ -345,15 +347,19 @@ struct QuickAlarmView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
+                        guard !isSaving else { return }
+                        isSaving = true
+                        viewModel.save(store: alarmStore, scheduler: scheduler)
                         onClose()
-                        DispatchQueue.main.async {
-                            viewModel.save(store: alarmStore, scheduler: scheduler)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                            isSaving = false
                         }
                     }) {
                         Text("Save")
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(Colors.accentTeal)
                     }
+                    .disabled(isSaving)
                 }
             }
         }
@@ -369,10 +375,25 @@ struct QuickAlarmView: View {
         .sheet(isPresented: $showWallpaperPicker) {
             WallpaperPickerView(selectedId: $viewModel.selectedWallpaperId)
         }
-        .sheet(isPresented: $showTimePicker) {
+        .sheet(isPresented: $showTimePicker, onDismiss: {
+            saveAsPresetFromTimePicker = false
+        }) {
             QuickAlarmTimePickerView(
                 minutes: $viewModel.minutes,
-                seconds: $viewModel.seconds
+                seconds: $viewModel.seconds,
+                alarmName: $viewModel.alarmName,
+                saveAsPreset: $saveAsPresetFromTimePicker,
+                onSave: {
+                    if saveAsPresetFromTimePicker {
+                        viewModel.addCustomPreset(
+                            title: viewModel.alarmName,
+                            minutes: viewModel.minutes,
+                            seconds: viewModel.seconds,
+                            emoji: viewModel.alarmEmoji
+                        )
+                        saveAsPresetFromTimePicker = false
+                    }
+                }
             )
         }
         .sheet(isPresented: $showPresetEditor) {

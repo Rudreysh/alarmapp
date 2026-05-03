@@ -449,8 +449,15 @@ struct CreatePlanItemView: View {
             }
             return "distance"
         }
+
+        // 3. Hydration (Water)
+        let hydrationUnits = ["ml", "l", "liter", "litre", "oz", "cup", "glass"]
+        let isHydration = hydrationUnits.contains { u == $0 || u == "\($0)s" || u.hasPrefix($0) }
+        if isHydration && (t.contains("water") || t.contains("drink") || t.contains("hydrat")) {
+            return "water"
+        }
         
-        // 3. Time (Sleep, Stand)
+        // 4. Time (Sleep, Stand)
         let isTimeUnit = u.contains("hour") || u == "h" || u == "hr" || u.contains("min")
         if isTimeUnit {
             if t.contains("sleep") || t.contains("nap") {
@@ -461,7 +468,7 @@ struct CreatePlanItemView: View {
             }
         }
         
-        // 4. Mindfulness (Time/Minutes)
+        // 5. Mindfulness (Time/Minutes)
         if (u.contains("min") || u == "m") && (t.contains("meditat") || t.contains("mindful") || t.contains("breath")) {
             return "mindfulness"
         }

@@ -1,0 +1,144 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Alarms/SoundRecorderView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Microphone Permission Required",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 189
+        }
+      },
+      {
+        "comment": "",
+        "key": "Record Custom Sound",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 27
+        }
+      },
+      {
+        "comment": "",
+        "key": "Previewing",
+        "location": {
+          "startingColumn": 45,
+          "startingLine": 61
+        }
+      },
+      {
+        "comment": "",
+        "key": "Recorded successfully",
+        "location": {
+          "startingColumn": 60,
+          "startingLine": 61
+        }
+      },
+      {
+        "comment": "",
+        "key": "Max %llds",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 56
+        }
+      },
+      {
+        "comment": "",
+        "key": "Paused",
+        "location": {
+          "startingColumn": 53,
+          "startingLine": 53
+        }
+      },
+      {
+        "comment": "",
+        "key": "Recording",
+        "location": {
+          "startingColumn": 64,
+          "startingLine": 53
+        }
+      },
+      {
+        "comment": "",
+        "key": "Sound Name",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 79
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enter name",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 83
+        }
+      },
+      {
+        "comment": "",
+        "key": "Stop Preview",
+        "location": {
+          "startingColumn": 54,
+          "startingLine": 96
+        }
+      },
+      {
+        "comment": "",
+        "key": "Preview",
+        "location": {
+          "startingColumn": 71,
+          "startingLine": 96
+        }
+      },
+      {
+        "comment": "",
+        "key": "Resume",
+        "location": {
+          "startingColumn": 62,
+          "startingLine": 146
+        }
+      },
+      {
+        "comment": "",
+        "key": "Pause",
+        "location": {
+          "startingColumn": 73,
+          "startingLine": 146
+        }
+      },
+      {
+        "comment": "",
+        "key": "Stop",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 156
+        }
+      },
+      {
+        "comment": "",
+        "key": "Retake",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 170
+        }
+      },
+      {
+        "comment": "",
+        "key": "Settings",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 190
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 196
+        }
+      }
+    ]
+  },
+  "version": 1
+}

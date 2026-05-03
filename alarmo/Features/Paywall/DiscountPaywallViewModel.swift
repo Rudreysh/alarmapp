@@ -10,12 +10,16 @@ final class DiscountPaywallViewModel: ObservableObject {
     @Published var offerTrialText: String?
     @Published var offerOldPriceText: String?
     @Published var offerBadgeText: String = "Offer"
+    @Published var showDiscountBadge: Bool = false
+    @Published private(set) var isLoading: Bool = false
 
     private let preferences: AppPreferencesProtocol
     private let purchaseService: PurchaseService
     private var didLoadPricing = false
+    private var selectedProduct: PaywallProduct?
     var onRequestDismissPaywall: (() -> Void)?
     var onRequestGetOffer: (() -> Void)?
+    var onPurchaseSucceeded: (() -> Void)?
 
     init(preferences: AppPreferencesProtocol, purchaseService: PurchaseService = StoreKitPurchaseService()) {
         self.preferences = preferences
@@ -74,5 +78,41 @@ final class DiscountPaywallViewModel: ObservableObject {
         offerTrialText = product.trialText
         offerOldPriceText = product.oldPriceString
         offerBadgeText = product.discountBadgeText ?? "Offer"
+        showDiscountBadge = product.oldPriceString != nil
+        selectedProduct = product
+    }
+
+    @MainActor
+    func purchaseOffer() async {
+        guard let product = selectedProduct else { return }
+
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let result = try await purchaseService.purchase(product)
+            switch result {
+            case .success:
+                await SubscriptionManager.shared.refreshEntitlements()
+                #if DEBUG
+                if !SubscriptionManager.shared.isPro {
+                    SubscriptionManager.shared.isPro = true
+                }
+                #endif
+                if SubscriptionManager.shared.isPro {
+                    onPurchaseSucceeded?()
+                } else {
+                    toastMessage = "Purchase completed but Pro is not yet active."
+                }
+            case .cancelled:
+                break
+            case .pending:
+                toastMessage = "Your purchase is pending."
+            case .failed(let message):
+                toastMessage = message
+            }
+        } catch {
+            toastMessage = "Purchase failed. Please try again."
+        }
     }
 }

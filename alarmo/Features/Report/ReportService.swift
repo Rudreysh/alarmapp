@@ -778,6 +778,9 @@ class ReportService {
         case "cycling":
             let meters = await HealthKitManager.shared.fetchCyclingDistance(for: date)
             return convertDistance(meters, to: habit.goalUnit)
+        case "water":
+            let milliliters = await HealthKitManager.shared.fetchWaterIntake(for: date)
+            return convertWater(milliliters, to: habit.goalUnit)
         case "sleep":
             let seconds = await HealthKitManager.shared.fetchSleep(for: date)
             if ["hr", "hours", "h"].contains(habit.goalUnit.lowercased()) {
@@ -811,6 +814,8 @@ class ReportService {
             return HealthKitManager.shared.isAuthorized(for: "distance")
         case "cycling":
             return HealthKitManager.shared.isAuthorized(for: "cycling")
+        case "water":
+            return HealthKitManager.shared.isAuthorized(for: "water")
         case "sleep":
             return HealthKitManager.shared.isAuthorized(for: "sleep")
         case "standing":
@@ -855,6 +860,17 @@ class ReportService {
             return "sleep"
         }
 
+        let hydrationUnits = ["ml", "l", "liter", "litre", "oz", "cup", "glass"]
+        let isHydrationUnit = hydrationUnits.contains { unit == $0 || unit == "\($0)s" || unit.hasPrefix($0) }
+        if isHydrationUnit && (title.contains("water") || title.contains("drink") || title.contains("hydrat")) {
+            return "water"
+        }
+
+        if (unit.contains("hour") || unit == "h" || unit == "hr" || unit.contains("min")),
+           (title.contains("stand") || title.contains("standing")) {
+            return "standing"
+        }
+
         if (unit.contains("min") || unit == "m"), (title.contains("meditat") || title.contains("mindful") || title.contains("breath")) {
             return "mindfulness"
         }
@@ -871,6 +887,20 @@ class ReportService {
             return meters * 0.000_621_371
         }
         return meters
+    }
+
+    private func convertWater(_ milliliters: Double, to unit: String) -> Double {
+        let loweredUnit = unit.lowercased()
+        if loweredUnit == "l" || loweredUnit.contains("liter") || loweredUnit.contains("litre") {
+            return milliliters / 1000.0
+        }
+        if loweredUnit.contains("oz") {
+            return milliliters / 29.5735
+        }
+        if loweredUnit.contains("cup") || loweredUnit.contains("glass") {
+            return milliliters / 240.0
+        }
+        return milliliters
     }
 
     private func updateHealthBackedHabitLog(_ item: PlanItem, value: Double, for date: Date) -> Bool {

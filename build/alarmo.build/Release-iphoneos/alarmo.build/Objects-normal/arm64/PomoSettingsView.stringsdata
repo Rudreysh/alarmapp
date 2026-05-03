@@ -1,0 +1,80 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/PomoSettingsView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Configure focus cycle, sounds and accountability",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 70
+        }
+      },
+      {
+        "comment": "",
+        "key": "Pomodoro Settings",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 58
+        }
+      },
+      {
+        "comment": "",
+        "key": "Penalty Amount",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 146
+        }
+      },
+      {
+        "comment": "",
+        "key": "€%lld",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 156
+        }
+      },
+      {
+        "comment": "",
+        "key": "€%lld",
+        "location": {
+          "startingColumn": 41,
+          "startingLine": 151
+        }
+      },
+      {
+        "comment": "",
+        "key": "How this works",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 168
+        }
+      },
+      {
+        "comment": "",
+        "key": "Vibration Duration",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 249
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 272
+        }
+      },
+      {
+        "comment": "",
+        "key": "%llds",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 274
+        }
+      }
+    ]
+  },
+  "version": 1
+}

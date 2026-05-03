@@ -17,6 +17,7 @@ struct OnboardingReportsInsightsView: View {
     @State private var notificationState: NotificationPermissionState = .notDetermined
     @State private var showNotificationsDeniedAlert = false
     @State private var showNotificationPrompt = false
+    @State private var animateIn = false
 
     var body: some View {
         ZStack {
@@ -31,19 +32,11 @@ struct OnboardingReportsInsightsView: View {
                 Spacer()
 
                 VStack(alignment: .center, spacing: 16) {
-                    ZStack(alignment: .topTrailing) {
-                        Image(systemName: "bell.badge.fill")
-                            .font(.system(size: 48, weight: .semibold))
-                            .foregroundColor(Color(red: 0.98, green: 0.36, blue: 0.36))
-                            .padding(20)
-                            .background(Colors.cardSurface)
-                            .cornerRadius(20)
-
-                        Circle()
-                            .fill(Color.red)
-                            .frame(width: 16, height: 16)
-                            .offset(x: -6, y: 6)
-                    }
+                    PermissionHeroIcon(
+                        systemName: "bell.badge.fill",
+                        tint: Color(red: 0.98, green: 0.36, blue: 0.36),
+                        showBadge: true
+                    )
                     .padding(.bottom, 8)
 
                     Text("Don’t Miss Important Reports and Insights")
@@ -66,6 +59,7 @@ struct OnboardingReportsInsightsView: View {
                 .padding(.horizontal, Spacing.l)
                 .padding(.vertical, 6)
                 .frame(maxWidth: .infinity, alignment: .center)
+                .permissionEntrance(animateIn)
 
                 Spacer()
 
@@ -99,21 +93,13 @@ struct OnboardingReportsInsightsView: View {
             if isRequesting {
                 Color.black.opacity(0.40).ignoresSafeArea()
                     .zIndex(2)
-                VStack(spacing: 10) {
-                    ProgressView().tint(Colors.accentTeal)
-                    Text("Requesting access...")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(Colors.textPrimary)
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-                .background(Colors.cardSurface)
-                .cornerRadius(14)
+                PermissionAnimatedLoadingCard(title: "Requesting access")
                 .zIndex(3)
             }
         }
         .task {
             await refreshNotificationState()
+            animateIn = true
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }

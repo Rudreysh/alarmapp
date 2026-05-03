@@ -1,0 +1,448 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Settings/Views/AppListsView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "App Lists",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 161
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete this block list?",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 199
+        }
+      },
+      {
+        "comment": "",
+        "key": "Blocking is locked for this active focus session.",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 72
+        }
+      },
+      {
+        "comment": "",
+        "key": "Active Block List",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 59
+        }
+      },
+      {
+        "comment": "",
+        "key": "FOR FOCUS SESSIONS",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 86
+        }
+      },
+      {
+        "comment": "",
+        "key": "New Block List",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 109
+        }
+      },
+      {
+        "comment": "",
+        "key": "BLOCK LISTS",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 114
+        }
+      },
+      {
+        "comment": "",
+        "key": "PRO",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 141
+        }
+      },
+      {
+        "comment": "",
+        "key": "New Allow List",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 137
+        }
+      },
+      {
+        "comment": "",
+        "key": "ALLOW LISTS",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 151
+        }
+      },
+      {
+        "comment": "",
+        "key": "Close",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 165
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 203
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 215
+        }
+      },
+      {
+        "comment": "",
+        "key": "This action cannot be undone.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 219
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete this block list?",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 382
+        }
+      },
+      {
+        "comment": "",
+        "key": "Unable to Open App Picker",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 389
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 383
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 387
+        }
+      },
+      {
+        "comment": "",
+        "key": "OK",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 390
+        }
+      },
+      {
+        "comment": "",
+        "key": "🛑 App Block List",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 408
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 54,
+          "startingLine": 425
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit",
+        "location": {
+          "startingColumn": 63,
+          "startingLine": 425
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit",
+        "location": {
+          "startingColumn": 73,
+          "startingLine": 425
+        }
+      },
+      {
+        "comment": "",
+        "key": "🛡️ Block List: only selected apps and categories will be blocked during your session.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 446
+        }
+      },
+      {
+        "comment": "",
+        "key": "Editing is locked while this focus session is active.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 451
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enable Screen Time Access",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 469
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select Apps",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 495
+        }
+      },
+      {
+        "comment": "",
+        "key": "No categories selected",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 537
+        }
+      },
+      {
+        "comment": "",
+        "key": "Categories",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 519
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 524
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add / Remove",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 528
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld apps selected",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 571
+        }
+      },
+      {
+        "comment": "",
+        "key": "No apps selected",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 576
+        }
+      },
+      {
+        "comment": "",
+        "key": "Apps",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 557
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add / Remove",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 563
+        }
+      },
+      {
+        "comment": "",
+        "key": "Adult Content Blocking",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 595
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 599
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 615
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete Block List",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 636
+        }
+      },
+      {
+        "comment": "",
+        "key": "Block During Focus is locked until the current focus session ends.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 829
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select an active block list above to enable focus blocking.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 834
+        }
+      },
+      {
+        "comment": "",
+        "key": "Block During Focus",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 817
+        }
+      },
+      {
+        "comment": "",
+        "key": "Apps are blocked when the timer runs",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 820
+        }
+      },
+      {
+        "comment": "",
+        "key": "Keep Blocked During Breaks",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 852
+        }
+      },
+      {
+        "comment": "",
+        "key": "Apps stay blocked during short and long breaks",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 855
+        }
+      },
+      {
+        "comment": "",
+        "key": "SESSION RULES",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 863
+        }
+      },
+      {
+        "comment": "",
+        "key": "Users must complete selected missions to stop or take a break during locked sessions.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 924
+        }
+      },
+      {
+        "comment": "",
+        "key": "Session Difficulty",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 875
+        }
+      },
+      {
+        "comment": "",
+        "key": "Unlock Missions",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 905
+        }
+      },
+      {
+        "comment": "",
+        "key": "No mission selected",
+        "location": {
+          "startingColumn": 67,
+          "startingLine": 908
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld selected",
+        "location": {
+          "startingColumn": 91,
+          "startingLine": 908
+        }
+      },
+      {
+        "comment": "",
+        "key": "Session Difficulty",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 969
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 973
+        }
+      },
+      {
+        "comment": "",
+        "key": "Unlock Missions",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1021
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1025
+        }
+      }
+    ]
+  },
+  "version": 1
+}

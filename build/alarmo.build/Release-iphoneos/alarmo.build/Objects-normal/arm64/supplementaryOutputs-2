@@ -1,0 +1,12 @@
+{
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoWidget/LiveActivityIntents.swift" : {
+    "abi-baseline-json" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Release-iphoneos/alarmo.build/Objects-normal/arm64/alarmo.abi.json",
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Release-iphoneos/alarmo.build/Objects-normal/arm64/alarmo-primary.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Release-iphoneos/alarmo.build/Objects-normal/arm64/alarmo-primary.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Release-iphoneos/alarmo.build/Objects-normal/arm64/alarmo-primary.dia",
+    "objc-header" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Release-iphoneos/alarmo.build/Objects-normal/arm64/alarmo-Swift.h",
+    "swiftdoc" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Release-iphoneos/alarmo.build/Objects-normal/arm64/alarmo.swiftdoc",
+    "swiftmodule" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Release-iphoneos/alarmo.build/Objects-normal/arm64/alarmo.swiftmodule",
+    "swiftsourceinfo" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Release-iphoneos/alarmo.build/Objects-normal/arm64/alarmo.swiftsourceinfo"
+  }
+}

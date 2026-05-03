@@ -1,0 +1,16 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Settings/Views/TimerSettingsMenuView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Timer",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 12
+        }
+      }
+    ]
+  },
+  "version": 1
+}

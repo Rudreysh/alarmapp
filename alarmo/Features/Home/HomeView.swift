@@ -70,12 +70,21 @@ struct HomeView: View {
             if viewModel.showDiscountPaywall {
                 DiscountPaywallView(
                     preferences: viewModel.preferences,
-                    onClose: viewModel.dismissPaywall,
-                    onApply: viewModel.dismissPaywall,
+                    onSkip: {
+                        viewModel.dismissPaywall()
+                        proPaywallStartStep = .planSelection
+                        showProPaywall = true
+                    },
+                    onApply: {
+                        viewModel.dismissPaywall()
+                    },
                     onGetOffer: {
                         viewModel.dismissPaywall()
                         proPaywallStartStep = .planSelection
                         showProPaywall = true
+                    },
+                    onSuccess: {
+                        viewModel.dismissPaywall()
                     }
                 )
             }
@@ -381,6 +390,20 @@ struct HomeView: View {
                                 case .quick: selectedQuickAlarm = alarm
                                 }
                             },
+                            onDoubleTap: {
+                                if index == 0 && !appPreferences.hasSeenEditAlarmTooltip {
+                                    appPreferences.hasSeenEditAlarmTooltip = true
+                                    showEditAlarmCoachMark = false
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                        showHomeToggleCoachMark = true
+                                    }
+                                }
+                                switch alarm.type {
+                                case .wakeUp: selectedAlarm = alarm
+                                case .habit: selectedHabitAlarm = alarm
+                                case .quick: selectedQuickAlarm = alarm
+                                }
+                            },
                             onDelete: {
                                 scheduler.cancel(alarmId: alarm.id)
                                 alarmStore.remove(id: alarm.id)
@@ -465,20 +488,6 @@ struct HomeView: View {
                                 color: .red
                             )
                             .zIndex(index == 0 && (showHomeToggleCoachMark || showHomeActionsCoachMark || showEditAlarmCoachMark || showDeleteAlarmCoachMark) ? 100 : 0)
-                            .onTapGesture(count: 2) {
-                                if index == 0 && !appPreferences.hasSeenEditAlarmTooltip {
-                                    appPreferences.hasSeenEditAlarmTooltip = true
-                                    showEditAlarmCoachMark = false
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                                        showHomeToggleCoachMark = true
-                                    }
-                                }
-                                switch alarm.type {
-                                case .wakeUp: selectedAlarm = alarm
-                                case .habit: selectedHabitAlarm = alarm
-                                case .quick: selectedQuickAlarm = alarm
-                                }
-                            }
                         }
                         .zIndex(openAlarmActionsId == alarm.id ? 100_000 : (openAlarmActionsId == nil ? 0 : -100))
                     }
@@ -980,6 +989,7 @@ private struct SwipeableAlarmRow<Content: View>: View {
     let rowAlarmId: UUID
     let activeMenuAlarmId: UUID?
     let onEdit: () -> Void
+    let onDoubleTap: () -> Void
     let onDelete: () -> Void
     @ViewBuilder let content: () -> Content
 
@@ -1041,6 +1051,11 @@ private struct SwipeableAlarmRow<Content: View>: View {
                         offset = 0
                     }
                 }
+                .simultaneousGesture(
+                    TapGesture(count: 2).onEnded {
+                        onDoubleTap()
+                    }
+                )
         }
         .animation(.easeInOut(duration: 0.18), value: offset)
         .onChange(of: isForcedRevealed) { _, revealed in

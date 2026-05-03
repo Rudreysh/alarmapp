@@ -62,6 +62,13 @@ enum AlarmThemeStyle: String, Codable, CaseIterable, Identifiable {
         case .lilacCalm: return "Lilac Calm"
         }
     }
+
+    var iconSystemName: String {
+        switch self {
+        case .default: return "circle.lefthalf.filled"
+        case .lilacCalm: return "sparkles"
+        }
+    }
 }
 
 enum HabitDistanceUnitSystem: String, Codable, CaseIterable, Identifiable {

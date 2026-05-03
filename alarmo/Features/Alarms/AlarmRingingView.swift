@@ -339,10 +339,18 @@ struct AlarmRingingView: View {
             }
         }
         .onAppear {
+            ringCoordinator.reassertRingingAudio(reason: "ringing-view-onAppear")
             logActiveAlarmIfNeeded()
         }
         .onChange(of: ringCoordinator.activeAlarm?.id) { _, _ in
+            ringCoordinator.reassertRingingAudio(reason: "active-alarm-changed")
             logActiveAlarmIfNeeded()
+        }
+        .onDisappear {
+            if ringCoordinator.isRinging {
+                ringCoordinator.reassertRingingAudio(reason: "ringing-view-disappeared")
+                ringCoordinator.ensureLockPromptLoopAfterUnexpectedViewDismiss()
+            }
         }
     }
 

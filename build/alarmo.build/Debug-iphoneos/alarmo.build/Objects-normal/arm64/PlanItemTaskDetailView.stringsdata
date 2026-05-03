@@ -1,0 +1,32 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Plan/PlanItemTaskDetailView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Priority",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 60
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add Subtask",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 138
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit Task",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 154
+        }
+      }
+    ]
+  },
+  "version": 1
+}

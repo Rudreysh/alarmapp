@@ -1,0 +1,56 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/UIComponents/SunRayTimePickerView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "12H",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 93
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@:%@%@%@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 118
+        }
+      },
+      {
+        "comment": "",
+        "key": "24H",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 350
+        }
+      },
+      {
+        "comment": "",
+        "key": "Hour",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 411
+        }
+      },
+      {
+        "comment": "",
+        "key": "Minute",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 425
+        }
+      },
+      {
+        "comment": "",
+        "key": "Second",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 440
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -127,19 +127,20 @@ struct OnboardingSoundSelectionView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // ─── Progress header ──────────────────────────────────────
-                ProgressHeader(step: 9, total: AppConstants.onboardingTotalSteps)
-                    .padding(.horizontal, Spacing.l)
-                    .padding(.top, Spacing.l)
-                    .padding(.bottom, Spacing.s)
-
                 Text("Choose your alarm sound")
-                    .screenTitle()
+                    .font(.system(size: 26, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
+                    .padding(.top, Spacing.l)
                     .padding(.bottom, Spacing.s)
                     .accessibilityAddTraits(.isHeader)
+
+                // ─── Progress header ──────────────────────────────────────
+                ProgressHeader(step: 10, total: AppConstants.onboardingTotalSteps)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.top, Spacing.s)
+                    .padding(.bottom, Spacing.s)
 
                 // ─── Category pills ───────────────────────────────────────
                 ScrollView(.horizontal, showsIndicators: false) {

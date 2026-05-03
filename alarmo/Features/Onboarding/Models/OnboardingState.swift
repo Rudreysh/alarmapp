@@ -12,6 +12,7 @@ struct OnboardingState {
     var selectedSoundURL: URL?
     var selectedSoundName: String?
     var selectedVolume: Float = 0.95
+    var selectedQuoteCategoryIDs: Set<String> = ["all"]
     var gentleWakeUpEnabled = true
     var missionType: WakeUpMissionType = .off
     var dailyMotivationEnabled: Bool = false

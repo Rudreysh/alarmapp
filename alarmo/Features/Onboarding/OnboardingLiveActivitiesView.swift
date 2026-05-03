@@ -5,13 +5,14 @@ struct OnboardingLiveActivitiesView: View {
     let onNext: () -> Void
     
     @State private var isRequesting = false
+    @State private var animateIn = false
 
     var body: some View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
             
             VStack(spacing: 0) {
-                ProgressHeader(step: 7, total: AppConstants.onboardingTotalSteps)
+                ProgressHeader(step: 8, total: AppConstants.onboardingTotalSteps)
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.m)
                     .padding(.bottom, Spacing.s)
@@ -19,15 +20,10 @@ struct OnboardingLiveActivitiesView: View {
                 Spacer()
                 
                 VStack(alignment: .center, spacing: 14) {
-                    // Custom Icon
-                    ZStack {
-                        Colors.cardSurface
-                            .frame(width: 88, height: 88)
-                            .cornerRadius(20)
-                        Image(systemName: "bolt.circle.fill")
-                            .font(.system(size: 48, weight: .regular))
-                            .foregroundColor(Colors.accentTeal)
-                    }
+                    PermissionHeroIcon(
+                        systemName: "bolt.circle.fill",
+                        tint: Colors.accentTeal
+                    )
                     .padding(.bottom, 10)
                     
                     Text("Live Habit Tracking")
@@ -49,6 +45,7 @@ struct OnboardingLiveActivitiesView: View {
                 }
                 .padding(.horizontal, Spacing.l)
                 .frame(maxWidth: .infinity, alignment: .center)
+                .permissionEntrance(animateIn)
                 
                 Spacer()
                 
@@ -74,6 +71,9 @@ struct OnboardingLiveActivitiesView: View {
                 .padding(.bottom, 24)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+        .onAppear {
+            animateIn = true
         }
     }
 }

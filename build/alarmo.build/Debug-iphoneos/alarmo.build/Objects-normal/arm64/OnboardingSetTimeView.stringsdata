@@ -1,0 +1,16 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Onboarding/OnboardingSetTimeView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Set your alarm time",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 12
+        }
+      }
+    ]
+  },
+  "version": 1
+}

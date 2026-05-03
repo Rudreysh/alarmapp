@@ -1,0 +1,170 @@
+{
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoWidget/LiveActivityIntents.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/LiveActivityIntents.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/LiveActivityIntents.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/LiveActivityIntents.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/LiveActivityIntents.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/LiveActivityIntents.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/App/AlarmAppDelegate.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AlarmAppDelegate.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AlarmAppDelegate.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AlarmAppDelegate.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AlarmAppDelegate.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AlarmAppDelegate.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/App/AlarmoApp.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AlarmoApp.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AlarmoApp.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AlarmoApp.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AlarmoApp.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AlarmoApp.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/App/AppEnvironment.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppEnvironment.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppEnvironment.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppEnvironment.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppEnvironment.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppEnvironment.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/App/AppRootView.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppRootView.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppRootView.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppRootView.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppRootView.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppRootView.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/App/Router.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Router.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Router.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Router.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Router.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Router.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/Constants/AppConstants.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppConstants.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppConstants.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppConstants.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppConstants.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppConstants.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/Services/BarcodeScannerService.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/BarcodeScannerService.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/BarcodeScannerService.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/BarcodeScannerService.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/BarcodeScannerService.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/BarcodeScannerService.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/Services/CustomSoundService.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/CustomSoundService.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/CustomSoundService.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/CustomSoundService.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/CustomSoundService.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/CustomSoundService.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/Services/HealthKitManager.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/HealthKitManager.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/HealthKitManager.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/HealthKitManager.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/HealthKitManager.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/HealthKitManager.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/Services/SpotifyPlaybackController.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SpotifyPlaybackController.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SpotifyPlaybackController.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SpotifyPlaybackController.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SpotifyPlaybackController.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SpotifyPlaybackController.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/Services/SpotifyService.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SpotifyService.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SpotifyService.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SpotifyService.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SpotifyService.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SpotifyService.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/Theme/AppLayout.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppLayout.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppLayout.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppLayout.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppLayout.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AppLayout.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/Theme/Colors.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Colors.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Colors.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Colors.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Colors.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Colors.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/Theme/LayoutPreviews.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/LayoutPreviews.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/LayoutPreviews.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/LayoutPreviews.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/LayoutPreviews.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/LayoutPreviews.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/Theme/Radii.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Radii.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Radii.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Radii.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Radii.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Radii.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/Theme/Shadows.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Shadows.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Shadows.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Shadows.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Shadows.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Shadows.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/Theme/Spacing.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Spacing.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Spacing.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Spacing.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Spacing.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Spacing.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/Theme/Typography.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Typography.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Typography.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Typography.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Typography.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Typography.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/UIComponents/AdaptiveQuoteText.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AdaptiveQuoteText.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AdaptiveQuoteText.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AdaptiveQuoteText.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AdaptiveQuoteText.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AdaptiveQuoteText.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/UIComponents/AlarmEditorComponents.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AlarmEditorComponents.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AlarmEditorComponents.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AlarmEditorComponents.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AlarmEditorComponents.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/AlarmEditorComponents.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/UIComponents/BottomSheetContainer.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/BottomSheetContainer.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/BottomSheetContainer.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/BottomSheetContainer.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/BottomSheetContainer.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/BottomSheetContainer.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/UIComponents/Card.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Card.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Card.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Card.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Card.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/Card.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Core/UIComponents/CoachMark.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/CoachMark.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/CoachMark.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/CoachMark.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/CoachMark.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/CoachMark.swiftdeps"
+  }
+}

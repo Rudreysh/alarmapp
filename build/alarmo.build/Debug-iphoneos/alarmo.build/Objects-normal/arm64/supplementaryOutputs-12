@@ -1,0 +1,170 @@
+{
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/DialScaleView.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/DialScaleView.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/DialScaleView.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/DialScaleView.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/DialScaleView.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/DialScaleView.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/DraggableDialTimer.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/DraggableDialTimer.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/DraggableDialTimer.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/DraggableDialTimer.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/DraggableDialTimer.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/DraggableDialTimer.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/DurationPickerSheet.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/DurationPickerSheet.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/DurationPickerSheet.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/DurationPickerSheet.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/DurationPickerSheet.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/DurationPickerSheet.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/FocusNoteSheet.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusNoteSheet.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusNoteSheet.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusNoteSheet.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusNoteSheet.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusNoteSheet.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/FocusSelectionView.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusSelectionView.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusSelectionView.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusSelectionView.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusSelectionView.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusSelectionView.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/FocusSettingsComponents.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusSettingsComponents.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusSettingsComponents.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusSettingsComponents.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusSettingsComponents.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusSettingsComponents.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/FocusSettingsView.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusSettingsView.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusSettingsView.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusSettingsView.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusSettingsView.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FocusSettingsView.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/FrequentlyUsedPomoSheet.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FrequentlyUsedPomoSheet.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FrequentlyUsedPomoSheet.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FrequentlyUsedPomoSheet.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FrequentlyUsedPomoSheet.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/FrequentlyUsedPomoSheet.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/IntervalTimerSettingsView.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/IntervalTimerSettingsView.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/IntervalTimerSettingsView.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/IntervalTimerSettingsView.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/IntervalTimerSettingsView.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/IntervalTimerSettingsView.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/LiveActivityManager.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/LiveActivityManager.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/LiveActivityManager.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/LiveActivityManager.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/LiveActivityManager.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/LiveActivityManager.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/NewTaskSheet.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/NewTaskSheet.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/NewTaskSheet.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/NewTaskSheet.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/NewTaskSheet.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/NewTaskSheet.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/PomoAttributes.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoAttributes.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoAttributes.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoAttributes.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoAttributes.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoAttributes.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/PomoDurationPickerSheet.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoDurationPickerSheet.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoDurationPickerSheet.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoDurationPickerSheet.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoDurationPickerSheet.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoDurationPickerSheet.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/PomoSettingsView.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoSettingsView.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoSettingsView.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoSettingsView.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoSettingsView.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoSettingsView.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/PomoTimerView.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoTimerView.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoTimerView.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoTimerView.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoTimerView.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomoTimerView.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/PomodoroEngine.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroEngine.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroEngine.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroEngine.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroEngine.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroEngine.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/PomodoroMainView.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroMainView.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroMainView.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroMainView.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroMainView.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroMainView.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/PomodoroModels.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroModels.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroModels.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroModels.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroModels.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroModels.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/PomodoroPersistence.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroPersistence.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroPersistence.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroPersistence.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroPersistence.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroPersistence.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/PomodoroTheme.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroTheme.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroTheme.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroTheme.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroTheme.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PomodoroTheme.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/PrimaryPlayPauseButton.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PrimaryPlayPauseButton.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PrimaryPlayPauseButton.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PrimaryPlayPauseButton.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PrimaryPlayPauseButton.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/PrimaryPlayPauseButton.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/SecondaryActionButtonsRow.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SecondaryActionButtonsRow.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SecondaryActionButtonsRow.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SecondaryActionButtonsRow.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SecondaryActionButtonsRow.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SecondaryActionButtonsRow.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/SessionInterventionView.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SessionInterventionView.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SessionInterventionView.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SessionInterventionView.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SessionInterventionView.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/SessionInterventionView.swiftdeps"
+  },
+  "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/StopwatchSettingsView.swift" : {
+    "const-values" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/StopwatchSettingsView.swiftconstvalues",
+    "dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/StopwatchSettingsView.d",
+    "diagnostics" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/StopwatchSettingsView.dia",
+    "object" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/StopwatchSettingsView.o",
+    "swift-dependencies" : "/Users/rukesh/Documents/projects/alarmo/alarmo/build/alarmo.build/Debug-iphoneos/alarmo.build/Objects-normal/arm64/StopwatchSettingsView.swiftdeps"
+  }
+}

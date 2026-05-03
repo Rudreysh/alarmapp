@@ -1,0 +1,192 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Alarms/NewAlarmUIComponents.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Hot",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 28
+        }
+      },
+      {
+        "comment": "",
+        "key": "Wake up at",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 289
+        }
+      },
+      {
+        "comment": "",
+        "key": "Hour",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 460
+        }
+      },
+      {
+        "comment": "",
+        "key": "Hour",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 473
+        }
+      },
+      {
+        "comment": "",
+        "key": "Minute",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 487
+        }
+      },
+      {
+        "comment": "",
+        "key": "Period",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 501
+        }
+      },
+      {
+        "comment": "",
+        "key": "AM",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 502
+        }
+      },
+      {
+        "comment": "",
+        "key": "PM",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 503
+        }
+      },
+      {
+        "comment": "",
+        "key": "Label",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 615
+        }
+      },
+      {
+        "comment": "",
+        "key": "Alarm Name",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 579
+        }
+      },
+      {
+        "comment": "",
+        "key": "Emoji (multiple supported)",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 589
+        }
+      },
+      {
+        "comment": "",
+        "key": "🌞⏰",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 593
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 617
+        }
+      },
+      {
+        "comment": "",
+        "key": "Repeat",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 665
+        }
+      },
+      {
+        "comment": "",
+        "key": "Daily",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 635
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 667
+        }
+      },
+      {
+        "comment": "",
+        "key": "Alarm Sound",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 795
+        }
+      },
+      {
+        "comment": "",
+        "key": "Sound",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 721
+        }
+      },
+      {
+        "comment": "",
+        "key": "Volume",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 740
+        }
+      },
+      {
+        "comment": "",
+        "key": "Vibrate",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 770
+        }
+      },
+      {
+        "comment": "",
+        "key": "Ring in Silent Mode",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 783
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 797
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld/4",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 821
+        }
+      }
+    ]
+  },
+  "version": 1
+}

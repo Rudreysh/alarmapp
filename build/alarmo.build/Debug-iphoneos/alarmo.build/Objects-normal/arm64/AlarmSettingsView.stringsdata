@@ -1,0 +1,136 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Settings/Views/AlarmSettingsView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Alarm Permission",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 155
+        }
+      },
+      {
+        "comment": "",
+        "key": "Alarm Clock Style",
+        "location": {
+          "startingColumn": 13,
+          "startingLine": 176
+        }
+      },
+      {
+        "comment": "",
+        "key": "Themes",
+        "location": {
+          "startingColumn": 13,
+          "startingLine": 190
+        }
+      },
+      {
+        "comment": "",
+        "key": "Alarm Ring Color",
+        "location": {
+          "startingColumn": 13,
+          "startingLine": 204
+        }
+      },
+      {
+        "comment": "",
+        "key": "Alarm",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 16
+        }
+      },
+      {
+        "comment": "",
+        "key": "Ring in Silent Mode",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 30
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enabled for new alarms",
+        "location": {
+          "startingColumn": 75,
+          "startingLine": 33
+        }
+      },
+      {
+        "comment": "",
+        "key": "Disabled for new alarms",
+        "location": {
+          "startingColumn": 102,
+          "startingLine": 33
+        }
+      },
+      {
+        "comment": "",
+        "key": "Wallpaper & Quotes",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 59
+        }
+      },
+      {
+        "comment": "",
+        "key": "OK",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 161
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 185
+        }
+      },
+      {
+        "comment": "",
+        "key": "Choose which dial appears while creating or editing alarms.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 187
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 199
+        }
+      },
+      {
+        "comment": "",
+        "key": "Choose the alarm appearance theme.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 201
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 213
+        }
+      },
+      {
+        "comment": "",
+        "key": "Pick the gradient color style for the Focus Ring alarm clock.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 215
+        }
+      }
+    ]
+  },
+  "version": 1
+}

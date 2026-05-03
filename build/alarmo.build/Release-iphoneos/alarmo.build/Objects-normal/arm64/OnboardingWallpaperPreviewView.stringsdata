@@ -1,0 +1,16 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Onboarding/OnboardingWallpaperPreviewView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "- %@",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 67
+        }
+      }
+    ]
+  },
+  "version": 1
+}

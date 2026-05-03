@@ -1,0 +1,360 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Settings/Views/AccountabilityShieldSettingsView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 67
+        }
+      },
+      {
+        "comment": "",
+        "key": "FINE ACTIVE",
+        "location": {
+          "startingColumn": 48,
+          "startingLine": 135
+        }
+      },
+      {
+        "comment": "",
+        "key": "FINE OFF",
+        "location": {
+          "startingColumn": 64,
+          "startingLine": 135
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 159
+        }
+      },
+      {
+        "comment": "",
+        "key": "Penalty",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 149
+        }
+      },
+      {
+        "comment": "",
+        "key": "Consequences are real",
+        "location": {
+          "startingColumn": 56,
+          "startingLine": 152
+        }
+      },
+      {
+        "comment": "",
+        "key": "Master switch is off",
+        "location": {
+          "startingColumn": 82,
+          "startingLine": 152
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 179
+        }
+      },
+      {
+        "comment": "",
+        "key": ".00",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 182
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 193
+        }
+      },
+      {
+        "comment": "",
+        "key": "per violation",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 210
+        }
+      },
+      {
+        "comment": "",
+        "key": "TRIGGERS",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 240
+        }
+      },
+      {
+        "comment": "",
+        "key": "Max before penalty",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 302
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 321
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 380
+        }
+      },
+      {
+        "comment": "",
+        "key": "Violation History",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 365
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld pending • %lld total",
+        "location": {
+          "startingColumn": 45,
+          "startingLine": 371
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld total",
+        "location": {
+          "startingColumn": 97,
+          "startingLine": 371
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 427
+        }
+      },
+      {
+        "comment": "",
+        "key": "YOUR STAKE",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 476
+        }
+      },
+      {
+        "comment": "",
+        "key": "charged per violation",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 494
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 485
+        }
+      },
+      {
+        "comment": "",
+        "key": ".00",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 488
+        }
+      },
+      {
+        "comment": "",
+        "key": "AMOUNT",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 520
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@%lld",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 532
+        }
+      },
+      {
+        "comment": "",
+        "key": "PAYMENT METHOD",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 567
+        }
+      },
+      {
+        "comment": "",
+        "key": "A payment method is required to activate penalties.",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 632
+        }
+      },
+      {
+        "comment": "",
+        "key": "Attach payment method",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 602
+        }
+      },
+      {
+        "comment": "",
+        "key": "•••• %@",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 597
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 648
+        }
+      },
+      {
+        "comment": "",
+        "key": "Card Setup Unavailable",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 906
+        }
+      },
+      {
+        "comment": "",
+        "key": "CARDHOLDER",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 776
+        }
+      },
+      {
+        "comment": "",
+        "key": "ALARMO USER",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 779
+        }
+      },
+      {
+        "comment": "",
+        "key": "EXPIRES",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 785
+        }
+      },
+      {
+        "comment": "",
+        "key": "LAST 4 DIGITS",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 818
+        }
+      },
+      {
+        "comment": "",
+        "key": "0000",
+        "location": {
+          "startingColumn": 75,
+          "startingLine": 823
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 823
+        }
+      },
+      {
+        "comment": "",
+        "key": "EXPIRY",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 840
+        }
+      },
+      {
+        "comment": "",
+        "key": "MM/YY",
+        "location": {
+          "startingColumn": 75,
+          "startingLine": 845
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 845
+        }
+      },
+      {
+        "comment": "",
+        "key": "Attach Card",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 876
+        }
+      },
+      {
+        "comment": "",
+        "key": "OK",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 907
+        }
+      },
+      {
+        "comment": "",
+        "key": "Card processing is not enabled in this build. Use penalty credits from App Store packs.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 909
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 947
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -6,6 +6,7 @@ import AlarmKit
 import ActivityKit
 import SwiftUI
 import AppIntents
+import AVFoundation
 #endif
 
 /// AlarmKit-backed scheduler used on iOS 26+ when available.
@@ -70,11 +71,6 @@ final class AlarmSchedulerIOS26AlarmKit: AlarmScheduler {
                     snoozeEnabled: snoozeEnabled,
                     repeats: false
                 )
-            )
-            NotificationManager.shared.scheduleAlarmKitUnlockPrompt(
-                alarmId: id.uuidString,
-                alarmName: title,
-                fireDate: date
             )
             logger.log("Scheduled AlarmKit alarm \(id.uuidString, privacy: .public)")
             return
@@ -186,11 +182,6 @@ final class AlarmSchedulerIOS26AlarmKit: AlarmScheduler {
                     repeats: (alarm.repeatMask > 0 || alarm.isDaily)
                 )
             )
-            NotificationManager.shared.scheduleAlarmKitUnlockPrompt(
-                alarmId: alarm.id.uuidString,
-                alarmName: title,
-                fireDate: nextFireDate
-            )
             logger.log("Scheduled AlarmKit app alarm \(alarm.id.uuidString, privacy: .public) repeats=\(alarm.repeatMask > 0 || alarm.isDaily, privacy: .public)")
             return
         }
@@ -265,9 +256,13 @@ private struct AlarmoAlarmMetadata: AlarmMetadata {
 
 @available(iOS 26.0, *)
 fileprivate extension AlarmSchedulerIOS26AlarmKit {
+    var fallbackAlarmSoundKey: String { "cockpitalert" }
+    var maxAlarmKitSoundDuration: TimeInterval { 29.5 }
+
     func scheduleWithFallbackSound(
         manager: AlarmManager,
         id: UUID,
+        originalAlarmID: UUID? = nil,
         title: String,
         schedule: AlarmKit.Alarm.Schedule,
         snoozeEnabled: Bool,
@@ -287,31 +282,57 @@ fileprivate extension AlarmSchedulerIOS26AlarmKit {
             return value
         }()
 
-            let preferredConfiguration = makeConfiguration(
-                alarmID: id,
-                title: title,
-                schedule: schedule,
-                snoozeEnabled: snoozeEnabled,
-                snoozeInterval: snoozeInterval,
-                soundName: requestedSound
-            )
+        let preferredConfiguration = makeConfiguration(
+            alarmID: id,
+            originalAlarmID: originalAlarmID,
+            title: title,
+            schedule: schedule,
+            snoozeEnabled: snoozeEnabled,
+            snoozeInterval: snoozeInterval,
+            soundName: requestedSound
+        )
 
         do {
             _ = try await manager.schedule(id: id, configuration: preferredConfiguration)
             return requestedSound ?? "default"
         } catch {
-            guard requestedSound != nil else { throw error }
-            logger.error("AlarmKit schedule failed with custom sound for \(id.uuidString, privacy: .public); retrying with default sound. Error: \(error.localizedDescription, privacy: .public)")
+            logger.error("AlarmKit schedule primary attempt failed for \(id.uuidString, privacy: .public). Error: \(error.localizedDescription, privacy: .public)")
 
-            let fallbackConfiguration = makeConfiguration(
+            // Defensive cleanup: some AlarmKit failures can leave an id in a
+            // transient state. Cancel before fallback schedule to avoid duplicate-id rejection.
+            try? manager.cancel(id: id)
+
+            if requestedSound != nil {
+                let fallbackConfiguration = makeConfiguration(
+                    alarmID: id,
+                    originalAlarmID: originalAlarmID,
+                    title: title,
+                    schedule: schedule,
+                    snoozeEnabled: snoozeEnabled,
+                    snoozeInterval: snoozeInterval,
+                    soundName: nil
+                )
+                do {
+                    _ = try await manager.schedule(id: id, configuration: fallbackConfiguration)
+                    return "default"
+                } catch {
+                    logger.error("AlarmKit schedule bundled-fallback attempt failed for \(id.uuidString, privacy: .public). Error: \(error.localizedDescription, privacy: .public)")
+                    try? manager.cancel(id: id)
+                }
+            }
+
+            // Final fallback: force system default alarm sound.
+            let systemDefaultConfiguration = makeConfiguration(
                 alarmID: id,
+                originalAlarmID: originalAlarmID,
                 title: title,
                 schedule: schedule,
                 snoozeEnabled: snoozeEnabled,
                 snoozeInterval: snoozeInterval,
-                soundName: nil
+                soundName: nil,
+                useSystemDefaultSound: true
             )
-            _ = try await manager.schedule(id: id, configuration: fallbackConfiguration)
+            _ = try await manager.schedule(id: id, configuration: systemDefaultConfiguration)
             return "default"
         }
     }
@@ -323,7 +344,8 @@ fileprivate extension AlarmSchedulerIOS26AlarmKit {
         schedule: AlarmKit.Alarm.Schedule,
         snoozeEnabled: Bool,
         snoozeInterval: TimeInterval?,
-        soundName: String? = nil
+        soundName: String? = nil,
+        useSystemDefaultSound: Bool = false
     ) -> AlarmManager.AlarmConfiguration<AlarmoAlarmMetadata> {
         let alertPresentation: AlarmPresentation.Alert
         if #available(iOS 26.1, *) {
@@ -357,19 +379,29 @@ fileprivate extension AlarmSchedulerIOS26AlarmKit {
         )
 
         // Resolve the alarm sound: use the user's chosen sound.
-        // For default/fallback, prefer the empty named sound token instead of `.default`.
-        // This aligns with observed AlarmKit behavior where `.default` can alert silently.
+        // If custom resolution fails, use a known short bundled fallback so AlarmKit
+        // scheduling still succeeds and keeps system alarm behavior.
         let alertSound: AlertConfiguration.AlertSound
-        if let name = soundName, !name.isEmpty, name != "default" {
-            if let stagedName = stageNotificationSound(named: name) {
-                // AlarmKit alert sounds use named assets.
-                // `.ringtone` is not part of the current SDK surface.
-                alertSound = .named(stagedName)
-            } else {
-                alertSound = .named("")
-            }
+        if useSystemDefaultSound {
+            alertSound = .default
         } else {
-            alertSound = .named("")
+            if let name = soundName, !name.isEmpty, name != "default" {
+                if let stagedName = stageNotificationSound(named: name) {
+                    // AlarmKit alert sounds use named assets.
+                    // `.ringtone` is not part of the current SDK surface.
+                    alertSound = .named(stagedName)
+                } else if let stagedFallback = stageNotificationSound(named: fallbackAlarmSoundKey) {
+                    alertSound = .named(stagedFallback)
+                } else {
+                    alertSound = .named("")
+                }
+            } else {
+                if let stagedFallback = stageNotificationSound(named: fallbackAlarmSoundKey) {
+                    alertSound = .named(stagedFallback)
+                } else {
+                    alertSound = .named("")
+                }
+            }
         }
 
         return AlarmManager.AlarmConfiguration(
@@ -453,17 +485,37 @@ fileprivate extension AlarmSchedulerIOS26AlarmKit {
 
         let safeBase = normalizedSoundKey(rawName)
         let finalBase = safeBase.isEmpty ? "alarmo_alarm" : safeBase
-        let fileName = "\(finalBase).\(ext)"
-        let destinationURL = soundsDir.appendingPathComponent(fileName, isDirectory: false)
+        let duration = audioDuration(of: sourceURL)
 
-        if !fileManager.fileExists(atPath: destinationURL.path) {
-            do {
-                try fileManager.copyItem(at: sourceURL, to: destinationURL)
-            } catch {
-                return nil
+        if duration > maxAlarmKitSoundDuration {
+            let trimmedName = "\(finalBase)_alarmkit.m4a"
+            let trimmedURL = soundsDir.appendingPathComponent(trimmedName, isDirectory: false)
+
+            if !fileManager.fileExists(atPath: trimmedURL.path) {
+                do {
+                    try exportTrimmedSound(
+                        sourceURL: sourceURL,
+                        destinationURL: trimmedURL,
+                        maxDuration: maxAlarmKitSoundDuration
+                    )
+                } catch {
+                    return nil
+                }
             }
+            return trimmedName
+        } else {
+            let fileName = "\(finalBase).\(ext)"
+            let destinationURL = soundsDir.appendingPathComponent(fileName, isDirectory: false)
+
+            if !fileManager.fileExists(atPath: destinationURL.path) {
+                do {
+                    try fileManager.copyItem(at: sourceURL, to: destinationURL)
+                } catch {
+                    return nil
+                }
+            }
+            return fileName
         }
-        return fileName
     }
 
     private func resolveSoundURL(for rawName: String) -> URL? {
@@ -481,7 +533,20 @@ fileprivate extension AlarmSchedulerIOS26AlarmKit {
             }
         }
 
-        // 2. Check bundled sounds
+        // 2. Check downloaded Assets in Application Support (cloud sounds).
+        if let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            let assetsDir = appSupport.appendingPathComponent("Assets", isDirectory: true)
+            if let enumerator = fileManager.enumerator(at: assetsDir, includingPropertiesForKeys: nil) {
+                for case let fileURL as URL in enumerator {
+                    let ext = fileURL.pathExtension.lowercased()
+                    guard !ext.isEmpty else { continue }
+                    let key = normalizedSoundKey(fileURL.deletingPathExtension().lastPathComponent)
+                    if key == normalized { return fileURL }
+                }
+            }
+        }
+
+        // 3. Check bundled sounds
         let soundsRoot = Bundle.main.bundleURL.appendingPathComponent("sounds", isDirectory: true)
         guard let enumerator = fileManager.enumerator(at: soundsRoot, includingPropertiesForKeys: nil) else { return nil }
 
@@ -502,6 +567,46 @@ fileprivate extension AlarmSchedulerIOS26AlarmKit {
         return fallbackMatch
     }
 
+    private func audioDuration(of url: URL) -> TimeInterval {
+        let asset = AVURLAsset(url: url)
+        let seconds = CMTimeGetSeconds(asset.duration)
+        guard seconds.isFinite, seconds > 0 else { return 0 }
+        return seconds
+    }
+
+    private func exportTrimmedSound(
+        sourceURL: URL,
+        destinationURL: URL,
+        maxDuration: TimeInterval
+    ) throws {
+        let asset = AVURLAsset(url: sourceURL)
+        guard let exporter = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+            throw AlarmSchedulingError.schedulingRejected("Unable to create audio exporter")
+        }
+
+        if FileManager.default.fileExists(atPath: destinationURL.path) {
+            try? FileManager.default.removeItem(at: destinationURL)
+        }
+
+        exporter.outputURL = destinationURL
+        exporter.outputFileType = .m4a
+        exporter.timeRange = CMTimeRange(
+            start: .zero,
+            duration: CMTime(seconds: maxDuration, preferredTimescale: 600)
+        )
+
+        let semaphore = DispatchSemaphore(value: 0)
+        exporter.exportAsynchronously {
+            semaphore.signal()
+        }
+        semaphore.wait()
+
+        if exporter.status != .completed {
+            let reason = exporter.error?.localizedDescription ?? "Unknown export failure"
+            throw AlarmSchedulingError.schedulingRejected("Trimmed sound export failed: \(reason)")
+        }
+    }
+
     private func normalizedSoundKey(_ raw: String) -> String {
         let noExt = (raw as NSString).deletingPathExtension
         return noExt
@@ -513,10 +618,8 @@ fileprivate extension AlarmSchedulerIOS26AlarmKit {
 @available(iOS 26.0, *)
 struct StopAlarmIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Stop Alarm"
-    // Do NOT require authentication — the intent must run immediately when the
-    // user swipes stop on the lock screen, even before unlock. The background
-    // audio bridge keeps Alarmo's own sound alive while the phone is still
-    // locked. After unlock, the custom UI handoff takes over.
+    // Keep this false so lock-screen Stop intent can run repeatedly without
+    // forcing app activation while the device is still locked.
     static var openAppWhenRun: Bool = false
 
     @Parameter(title: "Alarm ID")
@@ -525,11 +628,17 @@ struct StopAlarmIntent: LiveActivityIntent {
     @Parameter(title: "Original Alarm ID")
     var originalAlarmID: String?
 
-    init() {}
+    @Parameter(title: "Suppress Unlock Prompt")
+    var suppressUnlockPrompt: Bool
 
-    init(alarmID: String, originalAlarmID: String? = nil) {
+    init() {
+        self.suppressUnlockPrompt = false
+    }
+
+    init(alarmID: String, originalAlarmID: String? = nil, suppressUnlockPrompt: Bool = false) {
         self.alarmID = alarmID
         self.originalAlarmID = originalAlarmID
+        self.suppressUnlockPrompt = suppressUnlockPrompt
     }
 
     func perform() async throws -> some IntentResult {
@@ -548,54 +657,132 @@ struct StopAlarmIntent: LiveActivityIntent {
         // The moment the user swipes "Stop" on the lock screen, AlarmKit forcibly
         // stops the system sound. 
         // To prevent this and force the user to unlock, we detect if the phone
-        // is locked, and if so, we INSTANTLY spawn a brand new AlarmKit alarm
-        // 0.1 seconds in the future.
+        // is locked, and if so, we immediately spawn a brand new AlarmKit alarm
+        // a short moment in the future.
         // This causes the Lock Screen UI to immediately flash back onto the screen
         // and resumes the system sound with virtually zero gap.
-        let isAppActive = await MainActor.run { UIApplication.shared.applicationState == .active }
+        let shouldUseLockedHandling = await MainActor.run {
+            let appState = UIApplication.shared.applicationState
+            // Treat any non-foreground state as lock-style handling so the
+            // AlarmKit surface + sound can be force-looped until explicit unlock.
+            return appState != .active || !UIApplication.shared.isProtectedDataAvailable
+        }
+        let resolvedAlarmName = await MainActor.run {
+            AlarmStore.shared.alarm(by: lookupUUID)?.name
+        }
+        let trimmedAlarmName = resolvedAlarmName?.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        if !isAppActive {
+        if shouldUseLockedHandling {
             let originalAlarm = await MainActor.run { AlarmStore.shared.alarm(by: lookupUUID) }
             if let originalAlarm = originalAlarm {
                 let helper = AlarmSchedulerIOS26AlarmKit()
                 let title = originalAlarm.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Alarm" : originalAlarm.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                // Explicitly cancel the surface the user just swiped away so old
+                // entries do not accumulate in Notification Center.
+                try? AlarmManager.shared.cancel(id: uuid)
                 
-                // Must use a new UUID so AlarmKit doesn't drop the request
-                let newUUID = UUID()
-                let config = helper.makeConfiguration(
-                    alarmID: newUUID,
-                    originalAlarmID: lookupUUID, // Forward the original ID to the next zombie
-                    title: title,
-                    schedule: AlarmKit.Alarm.Schedule.fixed(Date().addingTimeInterval(0.1)), // 0.1s extreme restart buffer
-                    snoozeEnabled: originalAlarm.snoozeMinutes > 0 || originalAlarm.snoozeSeconds > 0,
-                    snoozeInterval: helper.resolvedSnoozeInterval(for: originalAlarm),
-                    soundName: originalAlarm.soundName
-                )
-                
-                do {
-                    try await AlarmManager.shared.schedule(id: newUUID, configuration: config)
-                    
-                    // Route the handoff to the new Zombie alarm so the app can stop it when unlocked
-                    AlarmCustomUIHandoffStore.request(alarmID: newUUID)
-                    NotificationCenter.default.post(
-                        name: .alarmKitCustomUIHandoffRequested,
-                        object: nil,
-                        userInfo: ["alarmId": newUUID.uuidString]
-                    )
-                    return .result()
-                } catch {
-                    print("[StopAlarmIntent] Zombie reschedule failed: \(error)")
+                // Must use a new UUID so AlarmKit doesn't drop the request.
+                // Keep a visible pause before reappearing to avoid lock-screen UI stacking.
+                let baseRespawnDelay: TimeInterval = 4.0
+                let maxRespawnAttempts = 4
+                let snoozeInterval = helper.resolvedSnoozeInterval(for: originalAlarm)
+                let snoozeEnabled = snoozeInterval != nil
+
+                var didSchedule = false
+                var lastError: Error?
+                var newUUID = UUID()
+
+                for attempt in 1...maxRespawnAttempts {
+                    do {
+                        let attemptDelay = baseRespawnDelay + (Double(attempt - 1) * 0.2)
+                        newUUID = UUID()
+                        _ = try await helper.scheduleWithFallbackSound(
+                            manager: AlarmManager.shared,
+                            id: newUUID,
+                            originalAlarmID: lookupUUID,
+                            title: title,
+                            schedule: .fixed(Date().addingTimeInterval(attemptDelay)),
+                            snoozeEnabled: snoozeEnabled,
+                            snoozeInterval: snoozeInterval,
+                            preferredSoundName: originalAlarm.soundName
+                        )
+                        didSchedule = true
+                        break
+                    } catch {
+                        lastError = error
+                        print("[StopAlarmIntent] Zombie reschedule attempt \(attempt)/\(maxRespawnAttempts) failed: \(error)")
+                        if attempt < maxRespawnAttempts {
+                            try? await Task.sleep(nanoseconds: 200_000_000)
+                        }
+                    }
                 }
+
+                if didSchedule {
+                    // Route custom UI using the ORIGINAL alarm id (for wallpaper/quotes/settings),
+                    // while still tracking the current AlarmKit surface id to dismiss it on unlock.
+                    AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: newUUID)
+                    if !suppressUnlockPrompt {
+                        NotificationManager.shared.scheduleAlarmKitUnlockPrompt(
+                            sourceAlarmId: lookupUUID.uuidString,
+                            surfaceAlarmId: newUUID.uuidString,
+                            alarmName: title
+                        )
+                        NotificationManager.shared.startAlarmKitUnlockPromptLoop(
+                            sourceAlarmId: lookupUUID.uuidString,
+                            surfaceAlarmId: newUUID.uuidString,
+                            alarmName: title
+                        )
+                        NotificationCenter.default.post(
+                            name: .alarmKitCustomUIHandoffRequested,
+                            object: nil,
+                            userInfo: [
+                                "alarmId": lookupUUID.uuidString,
+                                "surfaceAlarmId": newUUID.uuidString
+                            ]
+                        )
+                    }
+                    return .result()
+                }
+
+                print("[StopAlarmIntent] Zombie reschedule failed after \(maxRespawnAttempts) attempts: \(lastError?.localizedDescription ?? "unknown error")")
+                if !suppressUnlockPrompt {
+                    NotificationManager.shared.scheduleAlarmKitUnlockPrompt(
+                        sourceAlarmId: lookupUUID.uuidString,
+                        surfaceAlarmId: uuid.uuidString,
+                        alarmName: title
+                    )
+                    NotificationManager.shared.startAlarmKitUnlockPromptLoop(
+                        sourceAlarmId: lookupUUID.uuidString,
+                        surfaceAlarmId: uuid.uuidString,
+                        alarmName: title
+                    )
+                }
+                return .result()
             }
         }
 
-        // Fallback or if phone was unlocked
-        AlarmCustomUIHandoffStore.request(alarmID: uuid)
-        NotificationCenter.default.post(
-            name: .alarmKitCustomUIHandoffRequested,
-            object: nil,
-            userInfo: ["alarmId": uuid.uuidString]
-        )
+        // Fallback or unlocked-device path.
+        AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: uuid)
+        if !suppressUnlockPrompt {
+            NotificationManager.shared.scheduleAlarmKitUnlockPrompt(
+                sourceAlarmId: lookupUUID.uuidString,
+                surfaceAlarmId: uuid.uuidString,
+                alarmName: trimmedAlarmName
+            )
+            NotificationManager.shared.startAlarmKitUnlockPromptLoop(
+                sourceAlarmId: lookupUUID.uuidString,
+                surfaceAlarmId: uuid.uuidString,
+                alarmName: trimmedAlarmName
+            )
+            NotificationCenter.default.post(
+                name: .alarmKitCustomUIHandoffRequested,
+                object: nil,
+                userInfo: [
+                    "alarmId": lookupUUID.uuidString,
+                    "surfaceAlarmId": uuid.uuidString
+                ]
+            )
+        }
 
         return .result()
     }

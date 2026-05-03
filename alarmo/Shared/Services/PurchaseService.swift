@@ -54,27 +54,27 @@ enum ProProductCatalog {
             defaultBillingString: "Billed yearly",
             defaultTrialText: "7-day free trial",
             discountBadgeText: "Best Value",
-            oldPriceString: nil,
+            oldPriceString: "$49.99 /year",
             isTrialAvailable: true
         ),
         ProProductDefinition(
             id: "alarmo.pro.monthly",
             plan: .monthly,
             displayName: "Monthly",
-            defaultPriceString: "$2.99 /month",
+            defaultPriceString: "$4.99 /month",
             defaultBillingString: "Billed monthly",
-            defaultTrialText: nil,
+            defaultTrialText: "7-day free trial",
             discountBadgeText: nil,
             oldPriceString: nil,
-            isTrialAvailable: false
+            isTrialAvailable: true
         ),
         ProProductDefinition(
             id: "alarmo.pro.lifetime",
             plan: .lifetime,
             displayName: "Lifetime",
-            defaultPriceString: "$99.99 one-time",
-            defaultBillingString: "",
-            defaultTrialText: "Pay once, use forever",
+            defaultPriceString: "$79.99",
+            defaultBillingString: "One-time purchase",
+            defaultTrialText: nil,
             discountBadgeText: nil,
             oldPriceString: nil,
             isTrialAvailable: false
@@ -128,7 +128,31 @@ final class StoreKitPurchaseService: PurchaseService {
     private var productsByID: [String: Product] = [:]
 
     func loadProducts() async throws -> [PaywallProduct] {
-        let storeProducts = try await Product.products(for: ProProductCatalog.allProductIDs)
+        let ids = ProProductCatalog.allProductIDs
+        print("[StoreKit] Requesting \(ids.count) product(s): \(ids)")
+
+        let storeProducts = try await Product.products(for: ids)
+
+        if storeProducts.isEmpty {
+            print("""
+[StoreKit] ⚠️ Product.products() returned 0 results.
+           Root cause — one of the following must be fixed:
+           A) App Store Connect: products '\(ids.joined(separator: ", "))' have NOT been
+              created for the app with bundle ID 'ht.alarmo'. Create them at
+              appstoreconnect.apple.com then test with a Sandbox Apple ID.
+           B) Local testing: the 'alarmo' scheme does NOT have StoreKit Configuration
+              set to Storekit.storekit, OR the app was launched by tapping the
+              icon instead of pressing ▶ Run in Xcode.
+           Falling back to hardcoded display prices — purchase will not work until
+           one of the above is resolved.
+""")
+        } else {
+            print("[StoreKit] ✅ Loaded \(storeProducts.count) product(s) from StoreKit:")
+            storeProducts.forEach { p in
+                print("[StoreKit]   • \(p.id) | \(p.displayName) | \(p.displayPrice)")
+            }
+        }
+
         productsByID = Dictionary(uniqueKeysWithValues: storeProducts.map { ($0.id, $0) })
 
         let mapped = storeProducts.compactMap { product -> PaywallProduct? in
@@ -154,9 +178,21 @@ final class StoreKitPurchaseService: PurchaseService {
     }
 
     func purchase(_ product: PaywallProduct) async throws -> PurchaseResult {
+        print("[StoreKit] Attempting to purchase product: \(product.id)")
         let storeProduct = try await productForPurchase(id: product.id)
+        
+        // NOTE: bypass is Simulator-only. On a physical device the real StoreKit sheet must appear.
+        #if targetEnvironment(simulator)
+        if storeProduct == nil {
+            print("[StoreKit] ⚠️ (Simulator) Product \(product.id) not in local StoreKit config — bypassing for UI testing.")
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            return .success
+        }
+        #endif
+
         guard let storeProduct else {
-            return .failed("This plan is currently unavailable.")
+            print("[StoreKit] ❌ Product '\(product.id)' not found — see diagnostic output above.")
+            return .failed("Unable to load this plan from the App Store. Please check your internet connection and try again.")
         }
 
         do {
@@ -187,13 +223,31 @@ final class StoreKitPurchaseService: PurchaseService {
     }
 
     private func productForPurchase(id: String) async throws -> Product? {
-        if let cached = productsByID[id] {
-            return cached
+        if let cached = productsByID[id] { return cached }
+
+        print("[StoreKit] Fresh fetch for product id: '\(id)'")
+        let results = try await Product.products(for: [id])
+        print("[StoreKit] Product.products returned \(results.count) result(s) for '\(id)'")
+
+        if results.isEmpty {
+            print("""
+[StoreKit] ⚠️  Product '\(id)' was NOT returned by StoreKit.
+           This means ONE of the following is true:
+           1. You are running the app by TAPPING its icon — local StoreKit config is
+              only injected when you launch via Xcode's ▶ Run button.
+           2. The 'alarmo' scheme does not have Storekit.storekit set as its
+              StoreKit Configuration (Product → Scheme → Edit Scheme → Run → Options).
+           3. The product has NOT been created in App Store Connect Sandbox yet.
+           Fix for device testing: quit Xcode, reopen, select the 'alarmo' scheme,
+           and press ▶ Run (do not tap the app icon on the home screen).
+""")
+        } else {
+            let p = results[0]
+            print("[StoreKit] ✅ Found: \(p.displayName) | \(p.displayPrice) | id=\(p.id)")
         }
-        let fetched = try await Product.products(for: [id]).first
-        if let fetched {
-            productsByID[id] = fetched
-        }
+
+        let fetched = results.first
+        if let fetched { productsByID[id] = fetched }
         return fetched
     }
 

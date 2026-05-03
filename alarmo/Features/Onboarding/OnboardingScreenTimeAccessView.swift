@@ -7,6 +7,7 @@ struct OnboardingScreenTimeAccessView: View {
     @State private var isRequesting = false
     @State private var systemSettingsDeniedAlert = false
     @StateObject private var screenTimeManager = ScreenTimeAuthorizationManager.shared
+    @State private var animateIn = false
 
     var body: some View {
         ZStack {
@@ -21,13 +22,10 @@ struct OnboardingScreenTimeAccessView: View {
                 Spacer()
                 
                 VStack(alignment: .center, spacing: 14) {
-                    // Custom Icon
-                    Image(systemName: "hourglass.circle.fill")
-                        .font(.system(size: 48, weight: .semibold))
-                        .foregroundColor(Colors.accentTeal)
-                        .padding(20)
-                        .background(Colors.cardSurface)
-                        .cornerRadius(20)
+                    PermissionHeroIcon(
+                        systemName: "hourglass.circle.fill",
+                        tint: Colors.accentTeal
+                    )
                         .padding(.bottom, 10)
                     
                     Text("Permission for Screen Time")
@@ -49,6 +47,7 @@ struct OnboardingScreenTimeAccessView: View {
                 }
                 .padding(.horizontal, Spacing.l)
                 .frame(maxWidth: .infinity, alignment: .center)
+                .permissionEntrance(animateIn)
                 
                 Spacer()
                 
@@ -78,18 +77,12 @@ struct OnboardingScreenTimeAccessView: View {
             if isRequesting {
                 Color.black.opacity(0.40).ignoresSafeArea()
                     .zIndex(2)
-                VStack(spacing: 10) {
-                    ProgressView().tint(Colors.accentTeal)
-                    Text("Requesting Access...")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(Colors.textPrimary)
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-                .background(Colors.cardSurface)
-                .cornerRadius(14)
+                PermissionAnimatedLoadingCard(title: "Requesting Access")
                 .zIndex(3)
             }
+        }
+        .onAppear {
+            animateIn = true
         }
         .alert("Screen Time Denied", isPresented: $systemSettingsDeniedAlert) {
             Button("Cancel", role: .cancel) {

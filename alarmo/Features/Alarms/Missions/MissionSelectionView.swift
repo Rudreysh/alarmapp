@@ -30,10 +30,6 @@ struct MissionSelectionView: View {
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 30) {
-                        missionSection(title: "Popular mission") {
-                            missionRow(title: "Household Item Hunt", subtitle: "AI", icon: "magnifyingglass", iconBg: Color.red.opacity(0.3), type: .householdItemHunt)
-                        }
-                        
                         missionSection(title: "Wake your brain") {
                             missionRow(title: "Find Color Tiles", icon: "square.grid.2x2.fill", iconBg: Color.cyan.opacity(0.3), type: .findColorTiles)
                             missionRow(title: "Memory Match", icon: "brain.head.profile", iconBg: Color.cyan.opacity(0.3), type: .memoryMatch)
@@ -43,11 +39,12 @@ struct MissionSelectionView: View {
                         }
                         
                         missionSection(title: "Wake your body") {
-                            missionRow(title: "Step", icon: "figure.walk", iconBg: Color.purple.opacity(0.3), type: .step)
-                            missionRow(title: "QR/Barcode", icon: "barcode.viewfinder", iconBg: Color.purple.opacity(0.3), type: .qrBarcode)
-                            missionRow(title: "Shake", icon: "iphone.radiowaves.left.and.right", iconBg: Color.purple.opacity(0.3), type: .shake)
-                            missionRow(title: "Squat", icon: "figure.strengthtraining.traditional", iconBg: Color.purple.opacity(0.3), type: .squat)
-                            missionRow(title: "Push-ups", icon: "figure.strengthtraining.functional", iconBg: Color.purple.opacity(0.3), type: .pushups)
+                            missionRow(title: "Household Item Hunt", subtitle: "AI", icon: "magnifyingglass", iconBg: Color.green.opacity(0.3), type: .householdItemHunt)
+                            missionRow(title: "Step", icon: "figure.walk", iconBg: Color.green.opacity(0.3), type: .step)
+                            missionRow(title: "QR/Barcode", icon: "barcode.viewfinder", iconBg: Color.green.opacity(0.3), type: .qrBarcode)
+                            missionRow(title: "Shake", icon: "iphone.radiowaves.left.and.right", iconBg: Color.green.opacity(0.3), type: .shake)
+                            missionRow(title: "Squat", icon: "figure.strengthtraining.traditional", iconBg: Color.green.opacity(0.3), type: .squat)
+                            missionRow(title: "Push-ups", icon: "figure.strengthtraining.functional", iconBg: Color.green.opacity(0.3), type: .pushups)
                         }
 
                         missionSection(title: "Religion") {

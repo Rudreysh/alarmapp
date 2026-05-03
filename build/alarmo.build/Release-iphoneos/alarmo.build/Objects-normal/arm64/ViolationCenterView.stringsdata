@@ -1,0 +1,168 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Settings/Views/ViolationCenterView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Violation Center",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 59
+        }
+      },
+      {
+        "comment": "",
+        "key": "No Violations",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 27
+        }
+      },
+      {
+        "comment": "",
+        "key": "Great job keeping your commitments!",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 31
+        }
+      },
+      {
+        "comment": "",
+        "key": "Action Required",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 37
+        }
+      },
+      {
+        "comment": "",
+        "key": "History",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 48
+        }
+      },
+      {
+        "comment": "",
+        "key": "Close",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 63
+        }
+      },
+      {
+        "comment": "",
+        "key": "€%lld",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 88
+        }
+      },
+      {
+        "comment": "",
+        "key": "Request Exemption",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 243
+        }
+      },
+      {
+        "comment": "",
+        "key": "Request Submitted",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 245
+        }
+      },
+      {
+        "comment": "",
+        "key": "Violation Details",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 164
+        }
+      },
+      {
+        "comment": "",
+        "key": "Type",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 169
+        }
+      },
+      {
+        "comment": "",
+        "key": "Amount",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 176
+        }
+      },
+      {
+        "comment": "",
+        "key": "€%lld",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 179
+        }
+      },
+      {
+        "comment": "",
+        "key": "Time",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 183
+        }
+      },
+      {
+        "comment": "",
+        "key": "Request Exemption",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 195
+        }
+      },
+      {
+        "comment": "",
+        "key": "Additional Comments (Optional)",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 218
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reason",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 205
+        }
+      },
+      {
+        "comment": "",
+        "key": "Submit Request",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 231
+        }
+      },
+      {
+        "comment": "",
+        "key": "OK",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 246
+        }
+      },
+      {
+        "comment": "",
+        "key": "Your request has been received. The charge has been put on hold pending review.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 250
+        }
+      }
+    ]
+  },
+  "version": 1
+}

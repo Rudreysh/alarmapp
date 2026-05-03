@@ -1,0 +1,72 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Alarms/AlarmRingingView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "- %@",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 67
+        }
+      },
+      {
+        "comment": "",
+        "key": "Snooze",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 391
+        }
+      },
+      {
+        "comment": "",
+        "key": "EXIT PREVIEW",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 114
+        }
+      },
+      {
+        "comment": "",
+        "key": "QR/Barcode",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 147
+        }
+      },
+      {
+        "comment": "",
+        "key": "Mission is not configured. Edit this alarm and select a barcode target.",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 150
+        }
+      },
+      {
+        "comment": "",
+        "key": "Complete (Debug)",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 155
+        }
+      },
+      {
+        "comment": "",
+        "key": "Complete (Debug)",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 300
+        }
+      },
+      {
+        "comment": "",
+        "key": "Snooze",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 366
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -346,11 +346,8 @@ private struct ProPaywallReminderView: View {
 private struct ProPaywallPlanSelectionView: View {
     let onClose: () -> Void
     @Binding var selectedPlan: ProPlanOption
-    
-    @StateObject private var subManager = SubscriptionManager.shared
+
     @StateObject private var paywallViewModel = PaywallViewModel()
-    @State private var showStudentAlert = false
-    @State private var isProcessing = false
 
     var body: some View {
         VStack(spacing: Spacing.l) {
@@ -371,77 +368,39 @@ private struct ProPaywallPlanSelectionView: View {
                 plan: .yearly,
                 product: product(for: .yearly),
                 selected: selectedPlan == .yearly
-            ) {
-                selectedPlan = .yearly
-            }
+            ) { selectedPlan = .yearly }
+
             ProPlanCard(
                 plan: .monthly,
                 product: product(for: .monthly),
                 selected: selectedPlan == .monthly
-            ) {
-                selectedPlan = .monthly
-            }
+            ) { selectedPlan = .monthly }
+
             ProPlanCard(
                 plan: .lifetime,
                 product: product(for: .lifetime),
                 selected: selectedPlan == .lifetime
-            ) {
-                selectedPlan = .lifetime
-            }
-
-            Button(action: {
-                showStudentAlert = true
-            }) {
-                HStack {
-                    Text("🎓 Are you a student?")
-                        .foregroundColor(.white.opacity(0.8))
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(.white.opacity(0.6))
-                }
-                .padding(.horizontal, Spacing.l)
-            }
-            .alert("Student Plan", isPresented: $showStudentAlert) {
-                Button("Got it", role: .cancel) { }
-            } message: {
-                Text("Student verification is coming soon in a future update.")
-            }
-            .padding(.horizontal, Spacing.l)
-
-            Text("Choose the Pro setup\nthat fits your routine")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(.white.opacity(0.7))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Spacing.l)
+            ) { selectedPlan = .lifetime }
 
             Spacer()
 
-            PrimaryButton(title: isProcessing ? "Processing..." : (selectedPlan == .yearly ? "Start my free week" : "Unlock Pro Now"), style: .blueGlass) {
+            PrimaryButton(title: purchaseButtonTitle, style: .blueGlass) {
                 Task { @MainActor in
-                    isProcessing = true
+                    // Sync the visually-selected plan into the ViewModel before purchasing
                     paywallViewModel.selectPlan(selectedPlan.paywallPlan)
                     await paywallViewModel.purchaseSelected()
-                    await subManager.refreshEntitlements()
-                    isProcessing = false
-                    if paywallViewModel.alertMessage == nil && subManager.isPro {
-                        onClose()
-                    } else if paywallViewModel.alertMessage == nil {
-                        paywallViewModel.alertMessage = "Purchase completed. Please tap Restore Purchases if Pro is not unlocked."
-                    }
                 }
             }
-            .disabled(isProcessing)
+            .disabled(paywallViewModel.isLoading)
+            .opacity(paywallViewModel.isLoading ? 0.6 : 1)
             .padding(.horizontal, Spacing.l)
 
-            Button("Restore Purchases") {
+            Button(paywallViewModel.isLoading ? "Processing..." : "Restore Purchases") {
                 Task { @MainActor in
                     await paywallViewModel.restorePurchases()
-                    await subManager.refreshEntitlements()
-                    if subManager.isPro {
-                        onClose()
-                    }
                 }
             }
+            .disabled(paywallViewModel.isLoading)
             .font(.system(size: 14, weight: .semibold))
             .foregroundColor(Colors.accentTeal)
 
@@ -453,16 +412,24 @@ private struct ProPaywallPlanSelectionView: View {
         .task {
             await paywallViewModel.load()
         }
-        .alert("Notice", isPresented: Binding(
-            get: { paywallViewModel.alertMessage != nil },
-            set: { newValue in
-                if !newValue { paywallViewModel.alertMessage = nil }
-            }
-        )) {
-            Button("OK", role: .cancel) { paywallViewModel.alertMessage = nil }
-        } message: {
-            Text(paywallViewModel.alertMessage ?? "")
+        // Dismiss as soon as ViewModel reports success
+        .onChange(of: paywallViewModel.purchaseSucceeded) { _, succeeded in
+            if succeeded { onClose() }
         }
+        .alert(item: Binding(
+            get: { paywallViewModel.alertMessage.map { AlertItem(message: $0) } },
+            set: { _ in paywallViewModel.alertMessage = nil }
+        )) { item in
+            Alert(title: Text("Notice"), message: Text(item.message), dismissButton: .default(Text("OK")))
+        }
+    }
+
+    private var purchaseButtonTitle: String {
+        if paywallViewModel.isLoading { return "Processing..." }
+        if selectedPlan == .lifetime { return "Buy Lifetime Access" }
+        let product = product(for: selectedPlan)
+        if product?.isTrialAvailable == true { return "Start Free Trial" }
+        return "Continue"
     }
 
     private func product(for option: ProPlanOption) -> PaywallProduct? {
@@ -473,17 +440,20 @@ private struct ProPaywallPlanSelectionView: View {
         guard let selected = product(for: selectedPlan) else {
             return "Pricing and renewal terms are shown at checkout."
         }
+        if selected.plan == .lifetime {
+            return "One-time purchase — pay once, use forever."
+        }
         if let trial = selected.trialText, !trial.isEmpty, !selected.billingPeriodString.isEmpty {
-            return "\(trial), then \(selected.billingPeriodString)"
+            return "\(trial), then \(selected.billingPeriodString.lowercased())"
         }
-        if !selected.billingPeriodString.isEmpty {
-            return selected.billingPeriodString
-        }
-        if let trial = selected.trialText, !trial.isEmpty {
-            return trial
-        }
-        return "Pricing and renewal terms are shown at checkout."
+        if !selected.billingPeriodString.isEmpty { return selected.billingPeriodString }
+        return selected.trialText ?? "Pricing and renewal terms are shown at checkout."
     }
+}
+
+private struct AlertItem: Identifiable {
+    let id = UUID()
+    let message: String
 }
 
 private struct ProPlanCard: View {
@@ -542,7 +512,9 @@ private struct ProPlanCard: View {
                     }
                 }
             }
-            .padding(Spacing.l)
+            .offset(y: 6)
+            .padding(.horizontal, Spacing.l)
+            .padding(.vertical, 18)
             .background(Color.white.opacity(0.08))
             .overlay(
                 RoundedRectangle(cornerRadius: 20)

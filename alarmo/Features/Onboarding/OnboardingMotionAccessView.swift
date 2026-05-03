@@ -8,6 +8,7 @@ struct OnboardingMotionAccessView: View {
     @State private var isRequesting = false
     @State private var showMotionPrompt = false
     @State private var systemSettingsDeniedAlert = false
+    @State private var animateIn = false
     
     private let motionManager = CMMotionActivityManager()
 
@@ -24,13 +25,10 @@ struct OnboardingMotionAccessView: View {
                 Spacer()
                 
                 VStack(alignment: .center, spacing: 14) {
-                    // Custom Icon
-                    Image(systemName: "figure.run.circle.fill")
-                        .font(.system(size: 48, weight: .semibold))
-                        .foregroundColor(Color(red: 0.98, green: 0.60, blue: 0.33))
-                        .padding(20)
-                        .background(Colors.cardSurface)
-                        .cornerRadius(20)
+                    PermissionHeroIcon(
+                        systemName: "figure.run.circle.fill",
+                        tint: Color(red: 0.98, green: 0.60, blue: 0.33)
+                    )
                         .padding(.bottom, 10)
                     
                     Text("Permission to Access Motion Data")
@@ -52,6 +50,7 @@ struct OnboardingMotionAccessView: View {
                 }
                 .padding(.horizontal, Spacing.l)
                 .frame(maxWidth: .infinity, alignment: .center)
+                .permissionEntrance(animateIn)
                 
                 Spacer()
                 
@@ -88,18 +87,12 @@ struct OnboardingMotionAccessView: View {
             if isRequesting {
                 Color.black.opacity(0.40).ignoresSafeArea()
                     .zIndex(2)
-                VStack(spacing: 10) {
-                    ProgressView().tint(Colors.accentTeal)
-                    Text("Requesting Motion Access...")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(Colors.textPrimary)
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-                .background(Colors.cardSurface)
-                .cornerRadius(14)
+                PermissionAnimatedLoadingCard(title: "Requesting Motion Access")
                 .zIndex(3)
             }
+        }
+        .onAppear {
+            animateIn = true
         }
         .alert("Motion & Fitness Disabled", isPresented: $systemSettingsDeniedAlert) {
             Button("Cancel", role: .cancel) {

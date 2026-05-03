@@ -28,43 +28,71 @@ final class AlarmBackgroundAudioBridge {
     private let soundPlayer = SoundPlayer()
     private weak var alarmStore: AlarmStore?
     private var activeAlarmID: String?
+    private var activeSourceAlarmID: String?
     private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
     private var pendingHandoffStopWorkItem: DispatchWorkItem?
-    private var watchdogTimer: Timer?
+    private var watchdogTimer: DispatchSourceTimer?
+    private let watchdogQueue = DispatchQueue(label: "ht.alarmo.background-audio-bridge.watchdog")
 
-    private init() {}
+    private init() {
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.willResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { _ in }
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { _ in }
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.protectedDataWillBecomeUnavailableNotification,
+            object: nil,
+            queue: .main
+        ) { _ in }
+    }
 
     var currentAlarmID: String? {
         activeAlarmID
+    }
+
+    var currentSourceAlarmID: String? {
+        activeSourceAlarmID
     }
 
     var isPlaying: Bool {
         activeAlarmID != nil
     }
 
+    var isAudiblyPlaying: Bool {
+        soundPlayer.isCurrentlyPlaying
+    }
+
     func configure(alarmStore: AlarmStore) {
         self.alarmStore = alarmStore
     }
 
-    func start(alarmId: String) {
-        guard let uuid = UUID(uuidString: alarmId) else { return }
+    func start(surfaceAlarmId: String, sourceAlarmId: String? = nil) {
+        let resolvedSourceAlarmId = sourceAlarmId
+            ?? AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceAlarmId)
+        guard let uuid = UUID(uuidString: resolvedSourceAlarmId) else { return }
         guard let alarm = (alarmStore ?? AlarmStore.shared).alarm(by: uuid) else {
-            print("[AlarmBackgroundAudioBridge] Alarm not found for \(alarmId)")
+            print("[AlarmBackgroundAudioBridge] Alarm not found for source=\(resolvedSourceAlarmId), surface=\(surfaceAlarmId)")
             return
         }
 
-        if activeAlarmID == alarmId {
+        if activeAlarmID == surfaceAlarmId {
             return
         }
 
         pendingHandoffStopWorkItem?.cancel()
         pendingHandoffStopWorkItem = nil
 
-        if let current = activeAlarmID, current != alarmId {
+        if let current = activeAlarmID, current != surfaceAlarmId {
             stop(alarmId: current)
         }
 
-        beginBackgroundTask(named: "alarmo.backgroundAlarm.\(alarmId)")
+        beginBackgroundTask(named: "alarmo.backgroundAlarm.\(surfaceAlarmId)")
 
         do {
             try AudioRouteManager.configureAlarmSession()
@@ -73,9 +101,10 @@ final class AlarmBackgroundAudioBridge {
         }
 
         soundPlayer.playLooping(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
-        activeAlarmID = alarmId
+        activeAlarmID = surfaceAlarmId
+        activeSourceAlarmID = resolvedSourceAlarmId
         startWatchdog()
-        print("[AlarmBackgroundAudioBridge] ▶️ Started background audio bridge for \(alarmId)")
+        print("[AlarmBackgroundAudioBridge] ▶️ Started background audio bridge for surface=\(surfaceAlarmId), source=\(resolvedSourceAlarmId)")
     }
 
     func handoffToForeground(alarmId: String, stopDelay: TimeInterval = 0.35) {
@@ -102,6 +131,7 @@ final class AlarmBackgroundAudioBridge {
 
         soundPlayer.stop()
         activeAlarmID = nil
+        activeSourceAlarmID = nil
         endBackgroundTask()
     }
 
@@ -140,22 +170,31 @@ final class AlarmBackgroundAudioBridge {
     /// we re-activate and restart playback.
     private func startWatchdog() {
         stopWatchdog()
-        watchdogTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+        let timer = DispatchSource.makeTimerSource(queue: watchdogQueue)
+        // Tight 50ms tick so a side-button or AlarmKit silent-cut can't open
+        // a perceptible gap before we reactivate the session and respawn the
+        // surface.
+        timer.schedule(deadline: .now() + 0.05, repeating: 0.05, leeway: .milliseconds(15))
+        timer.setEventHandler { [weak self] in
+            Task { @MainActor [weak self] in
                 self?.watchdogCheck()
             }
         }
+        watchdogTimer = timer
+        timer.resume()
     }
 
     private func stopWatchdog() {
-        watchdogTimer?.invalidate()
+        watchdogTimer?.setEventHandler {}
+        watchdogTimer?.cancel()
         watchdogTimer = nil
     }
 
     private func watchdogCheck() {
         guard let alarmId = activeAlarmID else { return }
-        guard let uuid = UUID(uuidString: alarmId),
-              (alarmStore ?? AlarmStore.shared).alarm(by: uuid) != nil else { return }
+        let sourceAlarmId = activeSourceAlarmID ?? AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: alarmId)
+        guard let uuid = UUID(uuidString: sourceAlarmId),
+              let sourceAlarm = (alarmStore ?? AlarmStore.shared).alarm(by: uuid) else { return }
 
         // If the audio session was interrupted (e.g. by AlarmKit stopping),
         // re-configure and restart playback.
@@ -168,10 +207,37 @@ final class AlarmBackgroundAudioBridge {
                 print("[AlarmBackgroundAudioBridge] ⚠️ Watchdog: failed to re-configure session: \(error)")
             }
         }
+        if !soundPlayer.isCurrentlyPlaying {
+            print("[AlarmBackgroundAudioBridge] ⚠️ Watchdog: detected silent bridge, restarting audio")
+            soundPlayer.playLooping(resourceName: sourceAlarm.soundName, volume: 1.0, fadeDuration: 0)
+        }
 
         // SoundPlayer handles interruption internally via its own observers,
         // but as a safety net, if no audio appears to be playing and we haven't
         // been told to stop, restart it.
-        print("[AlarmBackgroundAudioBridge] 🔍 Watchdog: bridge active for \(alarmId)")
+        print("[AlarmBackgroundAudioBridge] 🔍 Watchdog: bridge active for surface=\(alarmId), source=\(sourceAlarmId)")
+    }
+
+    private func triggerImmediateLockedRefresh(reason: String) {
+        // Intentionally no-op:
+        // lock-screen respawn is handled only by explicit StopAlarmIntent.
+        _ = reason
+    }
+
+    func reinforceLockedLoopNow(
+        surfaceAlarmId: String? = nil,
+        sourceAlarmId: String? = nil,
+        reason: String = "manual"
+    ) {
+        let resolvedSurface = surfaceAlarmId ?? activeAlarmID
+        let resolvedSource = sourceAlarmId
+            ?? activeSourceAlarmID
+            ?? resolvedSurface.map { AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: $0) }
+        guard let resolvedSurface, let resolvedSource else { return }
+
+        if activeAlarmID == nil {
+            start(surfaceAlarmId: resolvedSurface, sourceAlarmId: resolvedSource)
+        }
+        _ = reason
     }
 }

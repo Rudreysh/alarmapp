@@ -16,86 +16,102 @@ struct PaywallView: View {
             )
             .ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: Spacing.l) {
-                    PaywallHeader(onClose: onClose)
+            VStack(spacing: 0) {
+                PaywallHeader(onClose: onClose)
 
-                    VStack(spacing: Spacing.s) {
-                        PaywallFeatureCarousel()
-                        Text("Unlock the full Pro experience")
-                            .bodyText()
-                            .foregroundColor(Colors.textSecondary)
-                        Text("Choose your plan")
-                            .screenTitle()
-                            .foregroundColor(Colors.textPrimary)
-                            .multilineTextAlignment(.center)
-                        Text("Plans and trial eligibility are shown at checkout")
-                            .captionText()
-                            .foregroundColor(Colors.textSecondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(.horizontal, Spacing.l)
-
-                    VStack(spacing: 10) {
-                        ForEach(displayProducts) { product in
-                            PaywallPlanCard(
-                                product: product,
-                                isSelected: viewModel.selectedPlan == product.plan
-                            ) {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    viewModel.selectPlan(product.plan)
-                                }
-                            }
-                        }
-
-                        if hasHiddenPlans {
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    showAllPlans = true
-                                }
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Text("More plans")
-                                        .font(.system(size: 13, weight: .semibold))
-                                    Image(systemName: "chevron.down")
-                                        .font(.system(size: 11, weight: .bold))
-                                }
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: Spacing.m) {
+                        VStack(spacing: Spacing.s) {
+                            PaywallFeatureCarousel()
+                            Text("Unlock the full Pro experience")
+                                .bodyText()
                                 .foregroundColor(Colors.textSecondary)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .padding(.vertical, 4)
-                            }
-                            .buttonStyle(.plain)
+                            Text("Choose your plan")
+                                .screenTitle()
+                                .foregroundColor(Colors.textPrimary)
+                                .multilineTextAlignment(.center)
+                            Text("Plans and trial eligibility are shown at checkout")
+                                .captionText()
+                                .foregroundColor(Colors.textSecondary)
+                                .multilineTextAlignment(.center)
                         }
-                    }
-                    .padding(.horizontal, Spacing.l)
+                        .padding(.horizontal, Spacing.l)
 
-                    PrimaryButton(title: "Start Free Trial", style: .blueGlass) {
-                        Task { @MainActor in
-                            await viewModel.purchaseSelected()
-                            if viewModel.alertMessage == nil {
-                                onSuccess()
+                        VStack(spacing: 10) {
+                            ForEach(displayProducts) { product in
+                                PaywallPlanCard(
+                                    product: product,
+                                    isSelected: viewModel.selectedPlan == product.plan
+                                ) {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        viewModel.selectPlan(product.plan)
+                                    }
+                                }
+                            }
+
+                            if hasHiddenPlans {
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        showAllPlans = true
+                                    }
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Text("More plans")
+                                            .font(.system(size: 13, weight: .semibold))
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 11, weight: .bold))
+                                    }
+                                    .foregroundColor(Colors.textSecondary)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .padding(.vertical, 4)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
+                        .padding(.horizontal, Spacing.l)
                     }
-                    .padding(.horizontal, Spacing.l)
-
-                    Button("Restore Purchases") {
-                        Task { @MainActor in
-                            await viewModel.restorePurchases()
-                            if SubscriptionManager.shared.isPro {
-                                onSuccess()
-                            }
-                        }
-                    }
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Colors.accentTeal)
-
-                    Text(footerDisclaimerText)
-                        .captionText()
-                        .foregroundColor(Colors.textSecondary)
-                        .padding(.bottom, Spacing.l)
+                    .scaleEffect(0.95, anchor: .top)
+                    .padding(.top, Spacing.xs)
+                    .padding(.bottom, Spacing.s)
                 }
             }
+        }
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: Spacing.s) {
+                PrimaryButton(title: purchaseButtonTitle, style: .blueGlass) {
+                    Task { @MainActor in
+                        await viewModel.purchaseSelected()
+                    }
+                }
+                .disabled(viewModel.isLoading)
+                .opacity(viewModel.isLoading ? 0.6 : 1)
+                .padding(.horizontal, Spacing.l)
+
+                Button(viewModel.isLoading ? "Processing..." : "Restore Purchases") {
+                    Task { @MainActor in
+                        await viewModel.restorePurchases()
+                    }
+                }
+                .disabled(viewModel.isLoading)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Colors.accentTeal)
+
+                Text(footerDisclaimerText)
+                    .captionText()
+                    .foregroundColor(Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Spacing.l)
+            }
+            .padding(.top, Spacing.s)
+            .padding(.bottom, Spacing.s)
+            .background(
+                LinearGradient(
+                    colors: [Colors.bgPrimary.opacity(0.0), Colors.bgPrimary.opacity(0.92), Colors.bgPrimary],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+            )
         }
         .task { await viewModel.load() }
         .onChange(of: viewModel.selectedPlan) { _, newPlan in
@@ -103,12 +119,24 @@ struct PaywallView: View {
                 showAllPlans = true
             }
         }
+        // Dismiss as soon as the ViewModel signals a successful purchase/restore
+        .onChange(of: viewModel.purchaseSucceeded) { _, succeeded in
+            if succeeded { onSuccess() }
+        }
         .alert(item: Binding(
             get: { viewModel.alertMessage.map { AlertItem(message: $0) } },
             set: { _ in viewModel.alertMessage = nil }
         )) { item in
             Alert(title: Text("Notice"), message: Text(item.message), dismissButton: .default(Text("OK")))
         }
+    }
+
+    private var purchaseButtonTitle: String {
+        if viewModel.isLoading { return "Processing..." }
+        guard let selected = viewModel.selectedProduct() else { return "Continue" }
+        if selected.plan == .lifetime { return "Buy Lifetime" }
+        if selected.isTrialAvailable { return "Start Free Trial" }
+        return "Continue"
     }
 
     private var sortedProducts: [PaywallProduct] {
@@ -158,6 +186,21 @@ private struct PaywallHeader: View {
 
     var body: some View {
         HStack {
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(Colors.textSecondary)
+                    .frame(width: 30, height: 30)
+                    .background(Colors.cardSurface.opacity(0.9))
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(Colors.cardStroke, lineWidth: 1)
+                    )
+            }
+
+            Spacer(minLength: 0)
+
             HStack(spacing: Spacing.s) {
                 Image(systemName: "bolt.fill")
                     .foregroundColor(Colors.accentTeal)
@@ -168,17 +211,10 @@ private struct PaywallHeader: View {
                     .bodyText()
                     .foregroundColor(Colors.textPrimary)
             }
-
-            Spacer()
-
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .foregroundColor(Colors.textSecondary)
-                    .padding(10)
-            }
         }
         .padding(.horizontal, Spacing.l)
-        .padding(.top, Spacing.l)
+        .padding(.top, Spacing.s)
+        .padding(.bottom, Spacing.xs)
     }
 }
 
@@ -255,7 +291,7 @@ private struct PaywallFeatureCarousel: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 252)
+            .frame(height: 220)
             .onReceive(timer) { _ in
                 withAnimation(.easeInOut(duration: 0.35)) {
                     selectedIndex = (selectedIndex + 1) % slides.count
@@ -373,7 +409,7 @@ private struct PaywallPlanCard: View {
                             .foregroundColor(Colors.textPrimary)
                             .lineLimit(1)
 
-                        if let trial = product.trialText {
+                        if let trial = normalizedTrialText {
                             Text(trial)
                                 .font(.system(size: 11, weight: .semibold))
                                 .padding(.horizontal, 8)
@@ -382,6 +418,17 @@ private struct PaywallPlanCard: View {
                                 .foregroundColor(product.isTrialAvailable ? Colors.accentTeal : Colors.textSecondary)
                                 .clipShape(Capsule())
                                 .lineLimit(1)
+                                .opacity(1)
+                        } else {
+                            Text("No trial")
+                                .font(.system(size: 11, weight: .semibold))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Colors.bgSecondary)
+                                .foregroundColor(Colors.textSecondary)
+                                .clipShape(Capsule())
+                                .lineLimit(1)
+                                .hidden()
                         }
                     }
 
@@ -399,30 +446,43 @@ private struct PaywallPlanCard: View {
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(Colors.textSecondary)
                                 .lineLimit(1)
+                        } else {
+                            Text("Period")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(Colors.textSecondary)
+                                .lineLimit(1)
+                                .hidden()
                         }
-                        if let old = product.oldPriceString {
+                        if let old = product.oldPriceString, !old.isEmpty {
                             Text(old)
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(Colors.textSecondary)
                                 .strikethrough()
                                 .lineLimit(1)
+                        } else {
+                            Text("Old price")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(Colors.textSecondary)
+                                .lineLimit(1)
+                                .hidden()
+                        }
+                        if let badge = product.discountBadgeText, !badge.isEmpty, isSelected {
+                            Text(badge)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(Colors.textPrimary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Colors.accentTeal)
+                                .clipShape(Capsule())
+                                .padding(.top, 2)
                         }
                     }
                 }
-
-                if let badge = product.discountBadgeText, isSelected {
-                    Text(badge)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(Colors.textPrimary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Colors.accentTeal)
-                        .clipShape(Capsule())
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                }
             }
+            .offset(y: 6)
             .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.vertical, 10)
+            .frame(minHeight: 108)
             .background(Colors.cardSurface)
             .overlay(
                 RoundedRectangle(cornerRadius: Radii.card)
@@ -431,5 +491,13 @@ private struct PaywallPlanCard: View {
             .cornerRadius(Radii.card)
         }
         .buttonStyle(PressedScaleButtonStyle())
+    }
+
+    private var normalizedTrialText: String? {
+        guard let trial = product.trialText?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trial.isEmpty else {
+            return nil
+        }
+        return trial
     }
 }

@@ -1,0 +1,24 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Alarms/Missions/QRBarcode/QRBarcodeMissionView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "1/1",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 47
+        }
+      },
+      {
+        "comment": "",
+        "key": "Scan",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 100
+        }
+      }
+    ]
+  },
+  "version": 1
+}

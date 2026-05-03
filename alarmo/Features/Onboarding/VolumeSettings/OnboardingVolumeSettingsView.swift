@@ -22,10 +22,22 @@ struct OnboardingVolumeSettingsView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                ProgressHeader(step: 9, total: AppConstants.onboardingTotalSteps)
+                VStack(spacing: 4) {
+                    Text("App Audio Settings")
+                        .font(.system(size: 23, weight: .bold))
+                        .foregroundColor(Colors.textPrimary)
+                    Text(viewModel.volumePercentText)
+                        .font(.system(size: 17, weight: .bold, design: .monospaced))
+                        .foregroundColor(Colors.accentTeal)
+                }
+                .padding(.horizontal, Spacing.l)
+                .padding(.top, Spacing.s)
+                .padding(.bottom, 2)
+
+                ProgressHeader(step: 10, total: AppConstants.onboardingTotalSteps)
                     .padding(.horizontal, Spacing.l)
-                    .padding(.top, Spacing.m)
-                    .padding(.bottom, Spacing.m)
+                    .padding(.top, 4)
+                    .padding(.bottom, Spacing.s)
 
                 ScrollView(showsIndicators: false) {
                     VolumeInteractiveDashboard(
@@ -36,7 +48,7 @@ struct OnboardingVolumeSettingsView: View {
                         isBuffering: viewModel.isBuffering,
                         onPreview: { viewModel.preview() }
                     )
-                    .padding(.bottom, 80) // bottom padding for scroll offset above the next button
+                    .padding(.bottom, 120) // keep bottom cards fully visible above Next button
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -68,27 +80,18 @@ private struct VolumeInteractiveDashboard: View {
     @State private var autoDismiss: Bool = true
     @State private var pomoTicks: Bool = false
     @State private var strictHabits: Bool = true
+    
+    // Requested tuning:
+    // - Overall App Audio Settings UI +10%
+    // - Volume slider height -20%
+    private let volumeSliderHeight: CGFloat = 192
 
     var body: some View {
-        VStack(spacing: Spacing.m) {
-            
-            VStack(spacing: 4) {
-                Text("App Audio Settings")
-                    .font(.system(size: 28, weight: .bold)) // Bolder, larger
-                    .foregroundColor(Colors.textPrimary)
-                Text("\(Int(volume * 100))%")
-                    .font(.system(size: 20, weight: .bold, design: .monospaced)) // Slightly larger
-                    .foregroundColor(Colors.accentTeal)
-            }
-            .padding(.top, 0)
-
-            HStack(spacing: Spacing.m) {
-                // Custom volume slider, 30% smaller horizontally (70 width)
-                // Height will dynamically match the VStack adjacent to it.
+        VStack(spacing: Spacing.s) {
+            HStack(spacing: Spacing.s) {
                 CustomVolumeSlider(volume: $volume)
-                    .frame(width: 70)
+                    .frame(width: 57, height: volumeSliderHeight)
                     
-                // Space utilization: Toggles for all Alarmo Features
                 VStack(spacing: Spacing.xs) {
                     FeatureToggleRow(icon: "iphone.radiowaves.left.and.right", title: "Vibrate on Alarm", subtitle: "Haptics on ring", isOn: $vibrateEnabled)
                     FeatureToggleRow(icon: "bell.badge.fill", title: "Override Silent", subtitle: "Force maximum alarm volume", isOn: $overrideSilent)
@@ -97,82 +100,78 @@ private struct VolumeInteractiveDashboard: View {
                     FeatureToggleRow(icon: "flame.fill", title: "Strict Habits", subtitle: "Must complete on schedule", isOn: $strictHabits)
                 }
             }
-            .fixedSize(horizontal: false, vertical: true) // Forces HStack to match height of the toggles list
+            .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, Spacing.l)
 
-            // Lower Action Controls (Reduced Sizes)
             HStack(spacing: Spacing.m) {
-                // Gentle Wake Up
                 Button(action: {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         gentleWakeUpEnabled.toggle()
                     }
                 }) {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 6) {
                         HStack {
                             Image(systemName: "sunrise.fill")
-                                .font(.system(size: 18, weight: .bold))
+                            .font(.system(size: 15, weight: .bold))
                                 .foregroundColor(gentleWakeUpEnabled ? .white : Colors.accentTeal)
                             Spacer()
                             if gentleWakeUpEnabled {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 16))
+                                    .font(.system(size: 13))
                                     .foregroundColor(.white)
                             } else {
                                 Circle()
                                     .stroke(Colors.cardStroke, lineWidth: 2)
-                                    .frame(width: 16, height: 16)
+                                    .frame(width: 13, height: 13)
                             }
                         }
-                        Spacer()
                         Text("Gentle Wake")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.system(size: 13, weight: .bold))
                             .foregroundColor(gentleWakeUpEnabled ? .white : Colors.textPrimary)
                         Text("30s Fade in")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(gentleWakeUpEnabled ? .white.opacity(0.8) : Colors.textSecondary)
                     }
-                    .padding(12)
+                    .padding(11)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: 85)
+                    .frame(height: 82)
                     .background(gentleWakeUpEnabled ? Colors.accentTeal : Colors.cardSurface)
-                    .cornerRadius(16)
+                    .cornerRadius(12)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: 12)
                             .stroke(gentleWakeUpEnabled ? Colors.accentTeal : Colors.cardStroke, lineWidth: 1)
                     )
                     .appShadow(Shadows.card)
                 }
                 .buttonStyle(PressedScaleButtonStyle())
 
-                // Play / Stop Preview
                 Button(action: onPreview) {
                     VStack(spacing: 8) {
                         if isBuffering {
                             ProgressView().tint(Colors.accentTeal)
-                                .scaleEffect(1.2)
+                                .scaleEffect(1.0)
                         } else if isPlaying {
                             Image(systemName: "stop.fill")
-                                .font(.system(size: 24, weight: .bold))
+                                .font(.system(size: 20, weight: .bold))
                                 .foregroundColor(Colors.accentRed)
                             Text("Stop")
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.system(size: 13, weight: .bold))
                                 .foregroundColor(Colors.accentRed)
                         } else {
                             Image(systemName: "play.fill")
-                                .font(.system(size: 24, weight: .bold))
+                                .font(.system(size: 20, weight: .bold))
                                 .foregroundColor(Colors.accentTeal)
                             Text("Preview")
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.system(size: 13, weight: .bold))
                                 .foregroundColor(Colors.accentTeal)
                         }
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 85)
+                    .frame(height: 82)
                     .background(Colors.cardSurface)
-                    .cornerRadius(16)
+                    .cornerRadius(12)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: 12)
                             .stroke(Colors.cardStroke, lineWidth: 1)
                     )
                     .appShadow(Shadows.card)
@@ -180,8 +179,7 @@ private struct VolumeInteractiveDashboard: View {
                 .buttonStyle(PressedScaleButtonStyle())
             }
             .padding(.horizontal, Spacing.l)
-            
-            Spacer()
+            .padding(.top, 2)
         }
     }
 }
@@ -197,15 +195,15 @@ private struct FeatureToggleRow: View {
             ZStack {
                 Circle()
                     .fill(isOn ? Colors.accentTeal.opacity(0.15) : Colors.bgSecondary)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 24, height: 24)
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundColor(isOn ? Colors.accentTeal : Colors.textSecondary)
             }
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(isOn ? Colors.textPrimary : Colors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .lineLimit(2)
@@ -219,14 +217,15 @@ private struct FeatureToggleRow: View {
             Toggle("", isOn: $isOn)
                 .labelsHidden()
                 .toggleStyle(SwitchToggleStyle(tint: Colors.accentTeal))
-                .scaleEffect(0.75)
+                // Width reduced by ~10% while preserving vertical legibility.
+                .scaleEffect(x: 0.63, y: 0.70, anchor: .center)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
         .background(Colors.cardSurface)
-        .cornerRadius(14)
+        .cornerRadius(12)
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 12)
                 .stroke(Colors.cardStroke, lineWidth: 1)
         )
         .appShadow(Shadows.card)
@@ -241,16 +240,16 @@ private struct CustomVolumeSlider: View {
             let height = proxy.size.height
             ZStack(alignment: .bottom) {
                 // Background Track
-                RoundedRectangle(cornerRadius: 36)
+                RoundedRectangle(cornerRadius: 28)
                     .fill(Colors.cardSurface)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 36)
+                        RoundedRectangle(cornerRadius: 28)
                             .stroke(Colors.cardStroke, lineWidth: 1)
                     )
                     .appShadow(Shadows.card)
                 
                 // Active Fill
-                RoundedRectangle(cornerRadius: 36)
+                RoundedRectangle(cornerRadius: 28)
                     .fill(
                         LinearGradient(
                             colors: [Colors.accentTeal.opacity(0.7), Colors.accentTeal],
@@ -266,19 +265,19 @@ private struct CustomVolumeSlider: View {
                         Rectangle()
                             .fill(Colors.textSecondary.opacity(0.2))
                             .frame(height: 2)
-                            .padding(.horizontal, 16) // narrowed padding for 70 width
+                            .padding(.horizontal, 12)
                         Spacer()
                     }
                 }
-                .padding(.vertical, 32)
+                .padding(.vertical, 24)
                 
                 // Volume Icon sitting inside the slider
                 VStack {
                     Spacer()
                     Image(systemName: volume == 0 ? "speaker.slash.fill" : "speaker.wave.3.fill")
-                        .font(.system(size: 24, weight: .bold))
+                        .font(.system(size: 18, weight: .bold))
                         .foregroundColor(volume > 0.15 ? .white : Colors.textSecondary)
-                        .padding(.bottom, 24)
+                        .padding(.bottom, 18)
                 }
             }
             .contentShape(Rectangle()) // makes entire view draggable

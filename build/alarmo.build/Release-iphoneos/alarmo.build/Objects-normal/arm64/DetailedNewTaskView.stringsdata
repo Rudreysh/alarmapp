@@ -1,0 +1,192 @@
+{
+  "source": "/Users/rukesh/Documents/projects/alarmo/alarmo/alarmo/Features/Timer/DetailedNewTaskView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Create",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 299
+        }
+      },
+      {
+        "comment": "",
+        "key": "Task Name",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 65
+        }
+      },
+      {
+        "comment": "",
+        "key": "Repeat",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 82
+        }
+      },
+      {
+        "comment": "",
+        "key": "No Repeat",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 86
+        }
+      },
+      {
+        "comment": "",
+        "key": "Focus Session Duration",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 103
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld min",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 108
+        }
+      },
+      {
+        "comment": "",
+        "key": "Short Break Duration",
+        "location": {
+          "startingColumn": 60,
+          "startingLine": 124
+        }
+      },
+      {
+        "comment": "",
+        "key": "Break Duration",
+        "location": {
+          "startingColumn": 85,
+          "startingLine": 124
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld min",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 134
+        }
+      },
+      {
+        "comment": "",
+        "key": "Focus Sessions per Cycle",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 152
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 160
+        }
+      },
+      {
+        "comment": "",
+        "key": "Long Break Duration",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 176
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld min",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 184
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 48,
+          "startingLine": 207
+        }
+      },
+      {
+        "comment": "",
+        "key": "Auto-Start Next Session",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 200
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 48,
+          "startingLine": 225
+        }
+      },
+      {
+        "comment": "",
+        "key": "Auto-Start Next Cycle",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 218
+        }
+      },
+      {
+        "comment": "",
+        "key": "Tags",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 240
+        }
+      },
+      {
+        "comment": "",
+        "key": "+%lld",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 261
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add a note",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 277
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 303
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 308
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 386
+        }
+      }
+    ]
+  },
+  "version": 1
+}

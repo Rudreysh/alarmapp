@@ -1,0 +1,6 @@
+Target dependency graph (3 targets)
+Target 'alarmo' in project 'alarmo'
+➜ Explicit dependency on target 'AlarmoShieldUI' in project 'alarmo'
+➜ Explicit dependency on target 'AlarmoWidget' in project 'alarmo'
+Target 'AlarmoWidget' in project 'alarmo' (no dependencies)
+Target 'AlarmoShieldUI' in project 'alarmo' (no dependencies)

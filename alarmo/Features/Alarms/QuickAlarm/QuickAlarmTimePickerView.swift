@@ -3,6 +3,9 @@ import SwiftUI
 struct QuickAlarmTimePickerView: View {
     @Binding var minutes: Int
     @Binding var seconds: Int
+    @Binding var alarmName: String
+    @Binding var saveAsPreset: Bool
+    let onSave: () -> Void
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var settingsStore = SettingsStore.shared
@@ -40,7 +43,10 @@ struct QuickAlarmTimePickerView: View {
                     
                     Spacer()
                     
-                    Button(action: { dismiss() }) {
+                    Button(action: {
+                        onSave()
+                        dismiss()
+                    }) {
                         Text("Save")
                             .foregroundColor(Colors.accentTeal)
                     }
@@ -48,6 +54,39 @@ struct QuickAlarmTimePickerView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 24)
+
+                HStack(spacing: 12) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(Colors.textSecondary)
+                        TextField("", text: $alarmName)
+                            .textInputAutocapitalization(.words)
+                            .autocorrectionDisabled()
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Colors.textPrimary)
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(height: 38)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(isLightMode ? Color.black.opacity(0.06) : Color.white.opacity(0.08))
+                    )
+                    .frame(maxWidth: .infinity)
+
+                    HStack(spacing: 8) {
+                        Text("Save as Preset")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(Colors.textSecondary)
+                            .lineLimit(1)
+                        Toggle("", isOn: $saveAsPreset)
+                            .labelsHidden()
+                            .scaleEffect(0.8)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 14)
                 
                 Spacer()
                 
@@ -103,7 +142,7 @@ struct QuickAlarmTimePickerView: View {
                 Spacer()
             }
         }
-        .presentationDetents([.height(340)])
+        .presentationDetents([.height(395)])
         .presentationDragIndicator(.visible)
     }
 }

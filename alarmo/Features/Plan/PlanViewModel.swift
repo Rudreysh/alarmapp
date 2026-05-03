@@ -369,30 +369,78 @@ class PlanViewModel: ObservableObject {
     @MainActor
     func syncHealthData(from items: [PlanItem]? = nil) async {
         guard let context = modelContext else { return }
-        guard HealthKitManager.shared.isHealthDataAvailable else {
-            return
-        }
+        guard HealthKitManager.shared.isHealthDataAvailable else { return }
+
         let sourceItems = items ?? allItems
         if let items {
             allItems = items
         }
 
-        // Find habits with health tracking enabled
-        let healthHabits = sourceItems.filter { $0.type == .habit }
+        let healthHabits = sourceItems.filter {
+            $0.type == .habit && inferredTrackingType(for: $0) != nil
+        }
+        guard !healthHabits.isEmpty else { return }
+
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        let historyDays = 180
+        // Also sync the currently viewed date if different from today (e.g. user browsing history)
+        let viewedDay = calendar.startOfDay(for: selectedDate)
+        let syncDates: [Date] = viewedDay == today ? [today] : [today, viewedDay]
 
         for habit in healthHabits {
-            guard let trackingType = inferredTrackingType(for: habit) else { continue }
-            guard isAuthorizedForTracking(trackingType, habit: habit) else { continue }
+            guard let trackingType = inferredTrackingType(for: habit),
+                  isAuthorizedForTracking(trackingType, habit: habit) else { continue }
 
-            // Backfill HealthKit values so heatmap/charts for walking/running/etc. are populated.
-            for offset in 0..<historyDays {
-                guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
-                let fetchedValue = await fetchHealthValue(for: habit, trackingType: trackingType, date: date)
-                updateHabitLog(habit, value: fetchedValue, for: date, context: context)
+            print("[HealthKit] Syncing \(habit.title) (type: \(trackingType))")
+
+            for date in syncDates {
+                let value = await fetchHealthValue(for: habit, trackingType: trackingType, date: date)
+                print("[HealthKit] \(habit.title) \(date): \(value)")
+                updateHabitLog(habit, value: value, for: date, context: context)
             }
+        }
+
+        try? context.save()
+
+        // Backfill last 30 days so heatmap/charts are populated
+        let historyDays = 30
+        for habit in healthHabits {
+            guard let trackingType = inferredTrackingType(for: habit),
+                  isAuthorizedForTracking(trackingType, habit: habit) else { continue }
+
+            for offset in 1..<historyDays {
+                guard let date = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
+                // Skip if this date was already synced above
+                if syncDates.contains(date) { continue }
+                let value = await fetchHealthValue(for: habit, trackingType: trackingType, date: date)
+                updateHabitLog(habit, value: value, for: date, context: context)
+            }
+        }
+
+        try? context.save()
+    }
+
+    /// Sync HealthKit data for a specific date only (used when user navigates to a new date).
+    @MainActor
+    func syncHealthDataForDate(_ date: Date, from items: [PlanItem]? = nil) async {
+        guard let context = modelContext else { return }
+        guard HealthKitManager.shared.isHealthDataAvailable else { return }
+
+        let sourceItems = items ?? allItems
+        let calendar = Calendar.current
+        let targetDay = calendar.startOfDay(for: date)
+
+        let healthHabits = sourceItems.filter {
+            $0.type == .habit && inferredTrackingType(for: $0) != nil
+        }
+        guard !healthHabits.isEmpty else { return }
+
+        for habit in healthHabits {
+            guard let trackingType = inferredTrackingType(for: habit),
+                  isAuthorizedForTracking(trackingType, habit: habit) else { continue }
+
+            let value = await fetchHealthValue(for: habit, trackingType: trackingType, date: targetDay)
+            updateHabitLog(habit, value: value, for: targetDay, context: context)
         }
 
         try? context.save()
@@ -414,6 +462,9 @@ class PlanViewModel: ObservableObject {
         case "cycling":
             let meters = await HealthKitManager.shared.fetchCyclingDistance(for: date)
             return convertDistance(meters, to: habit.goalUnit)
+        case "water":
+            let milliliters = await HealthKitManager.shared.fetchWaterIntake(for: date)
+            return convertWater(milliliters, to: habit.goalUnit)
         case "sleep":
             let seconds = await HealthKitManager.shared.fetchSleep(for: date)
             if ["hr", "hours", "h"].contains(habit.goalUnit.lowercased()) {
@@ -447,6 +498,8 @@ class PlanViewModel: ObservableObject {
             return HealthKitManager.shared.isAuthorized(for: "distance")
         case "cycling":
             return HealthKitManager.shared.isAuthorized(for: "cycling")
+        case "water":
+            return HealthKitManager.shared.isAuthorized(for: "water")
         case "sleep":
             return HealthKitManager.shared.isAuthorized(for: "sleep")
         case "standing":
@@ -460,6 +513,7 @@ class PlanViewModel: ObservableObject {
 
     private func inferredTrackingType(for item: PlanItem) -> String? {
         if let explicit = item.autoHealthTracking, !explicit.isEmpty {
+            print("[PlanViewModel] inferredTrackingType for \(item.title): explicit = \(explicit)")
             return explicit
         }
 
@@ -469,8 +523,10 @@ class PlanViewModel: ObservableObject {
 
         if unit.contains("step") {
             if title.contains("run") || title.contains("jog") || title.contains("marathon") || title.contains("sprint") {
+                print("[PlanViewModel] inferredTrackingType for \(item.title): running (contains run)")
                 return "running"
             }
+            print("[PlanViewModel] inferredTrackingType for \(item.title): steps (unit contains step)")
             return "steps"
         }
 
@@ -491,6 +547,17 @@ class PlanViewModel: ObservableObject {
             return "sleep"
         }
 
+        let hydrationUnits = ["ml", "l", "liter", "litre", "oz", "cup", "glass"]
+        let isHydrationUnit = hydrationUnits.contains { unit == $0 || unit == "\($0)s" || unit.hasPrefix($0) }
+        if isHydrationUnit && (title.contains("water") || title.contains("drink") || title.contains("hydrat")) {
+            return "water"
+        }
+
+        if (unit.contains("hour") || unit == "h" || unit == "hr" || unit.contains("min")),
+           (title.contains("stand") || title.contains("standing")) {
+            return "standing"
+        }
+
         if (unit.contains("min") || unit == "m"), (title.contains("meditat") || title.contains("mindful") || title.contains("breath")) {
             return "mindfulness"
         }
@@ -508,22 +575,57 @@ class PlanViewModel: ObservableObject {
             return meters // Default m
         }
     }
+
+    private func convertWater(_ milliliters: Double, to unit: String) -> Double {
+        let u = unit.lowercased()
+        if u == "l" || u.contains("liter") || u.contains("litre") {
+            return milliliters / 1000.0
+        }
+        if u.contains("oz") {
+            return milliliters / 29.5735
+        }
+        if u.contains("cup") || u.contains("glass") {
+            return milliliters / 240.0
+        }
+        return milliliters
+    }
     
     private func updateHabitLog(_ item: PlanItem, value: Double, for date: Date, context: ModelContext) {
         let calendar = Calendar.current
         let targetDay = calendar.startOfDay(for: date)
         let existingLog = item.completionLogs.first(where: { calendar.isDate($0.date, inSameDayAs: targetDay) })
-        
-        if let existingLog = existingLog {
-             // Smart Update: Only update if new value is higher (preserves manual entries)
-             if value > (existingLog.value ?? 0) {
-                 existingLog.value = value
-                 existingLog.completed = item.isGoalMet(on: targetDay)
-                 item.updatedAt = Date()
-             }
+
+        if let log = existingLog {
+            if item.metricKind == .time {
+                let durationInSeconds: Int
+                if item.autoHealthTracking == "sleep" || item.autoHealthTracking == "standing" {
+                    let isHours = ["hr", "hours", "h"].contains(item.goalUnit.lowercased())
+                    durationInSeconds = isHours ? Int(value * 3600) : Int(value * 60)
+                } else {
+                    durationInSeconds = Int(value * 60)
+                }
+                if durationInSeconds > (log.durationSeconds ?? 0) {
+                    log.durationSeconds = durationInSeconds
+                    log.completed = item.isGoalMet(on: targetDay)
+                    item.updatedAt = Date()
+                }
+            } else {
+                if value > (log.value ?? 0) {
+                    log.value = value
+                    log.completed = item.isGoalMet(on: targetDay)
+                    item.updatedAt = Date()
+                }
+            }
         } else if value > 0 {
             let log = CompletionLog(date: targetDay, completed: false)
-            log.value = value
+            // Explicit insert required for reliable SwiftData persistence in async contexts
+            context.insert(log)
+            if item.metricKind == .time {
+                let isHours = ["hr", "hours", "h"].contains(item.goalUnit.lowercased())
+                log.durationSeconds = isHours ? Int(value * 3600) : Int(value * 60)
+            } else {
+                log.value = value
+            }
             item.completionLogs.append(log)
             log.completed = item.isGoalMet(on: targetDay)
             item.updatedAt = Date()

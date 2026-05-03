@@ -7,16 +7,22 @@ struct OnboardingHealthAccessView: View {
     
     @State private var isRequesting = false
     @State private var showHealthPrompt = false
-    @State private var turnOnAll = false
-    @State private var readSteps = false
-    @State private var readDistance = false
+    @State private var turnOnAll = true
+    @State private var readSteps = true
+    @State private var readDistance = true
+    @State private var readCycling = true
+    @State private var readSleep = true
+    @State private var readWater = true
+    @State private var readStanding = true
+    @State private var readMindfulness = true
+    @State private var animateIn = false
 
     var body: some View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
             
             VStack(spacing: 0) {
-                ProgressHeader(step: 8, total: AppConstants.onboardingTotalSteps)
+                ProgressHeader(step: 9, total: AppConstants.onboardingTotalSteps)
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.m)
                     .padding(.bottom, Spacing.s)
@@ -24,13 +30,10 @@ struct OnboardingHealthAccessView: View {
                 Spacer()
                 
                 VStack(alignment: .center, spacing: 14) {
-                    // Custom Icon
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: 48, weight: .semibold))
-                        .foregroundColor(Colors.accentRed)
-                        .padding(20)
-                        .background(Colors.cardSurface)
-                        .cornerRadius(20)
+                    PermissionHeroIcon(
+                        systemName: "heart.fill",
+                        tint: Colors.accentRed
+                    )
                         .padding(.bottom, 10)
                     
                     Text("Permission to Access Apple Health")
@@ -42,16 +45,23 @@ struct OnboardingHealthAccessView: View {
                         .frame(maxWidth: .infinity)
                         .fixedSize(horizontal: false, vertical: true)
                     
-                    Text("Alarmo can read your Apple Health activity data (steps and walking distance) so your Walk habit updates automatically.")
+                    Text("Alarmo can read Apple Health data used by your habits: steps, walking/running distance, cycling distance, sleep, hydration, standing time, and mindfulness.")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
                         .lineSpacing(2)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
                         .fixedSize(horizontal: false, vertical: true)
+
+                    Text("Screen Time permissions are requested separately in the Screen Time step.")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Colors.textSecondary.opacity(0.9))
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
                 }
                 .padding(.horizontal, Spacing.l)
                 .frame(maxWidth: .infinity, alignment: .center)
+                .permissionEntrance(animateIn)
                 
                 Spacer()
                 
@@ -89,18 +99,12 @@ struct OnboardingHealthAccessView: View {
             if isRequesting {
                 Color.black.opacity(0.40).ignoresSafeArea()
                     .zIndex(2)
-                VStack(spacing: 10) {
-                    ProgressView().tint(Colors.accentTeal)
-                    Text("Requesting Health Access...")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(Colors.textPrimary)
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-                .background(Colors.cardSurface)
-                .cornerRadius(14)
+                PermissionAnimatedLoadingCard(title: "Requesting Health Access")
                 .zIndex(3)
             }
+        }
+        .onAppear {
+            animateIn = true
         }
     }
     
@@ -129,7 +133,7 @@ struct OnboardingHealthAccessView: View {
                                 .font(.system(size: 28, weight: .bold))
                                 .foregroundColor(.white)
                             
-                            Text("\"Alarmo\" would like to access and update your Health data.")
+                            Text("\"Alarmo\" would like to read your Health data.")
                                 .font(.system(size: 17, weight: .regular))
                                 .foregroundColor(Color.white.opacity(0.7))
                         }
@@ -138,6 +142,11 @@ struct OnboardingHealthAccessView: View {
                             turnOnAll.toggle()
                             readSteps = turnOnAll
                             readDistance = turnOnAll
+                            readCycling = turnOnAll
+                            readSleep = turnOnAll
+                            readWater = turnOnAll
+                            readStanding = turnOnAll
+                            readMindfulness = turnOnAll
                         } label: {
                             Text(turnOnAll ? "Turn Off All" : "Turn On All")
                                 .font(.system(size: 17, weight: .semibold))
@@ -148,63 +157,54 @@ struct OnboardingHealthAccessView: View {
                                 .cornerRadius(12)
                         }
                         
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Allow \"Alarmo\" to read")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(Color.white.opacity(0.7))
-                                .padding(.horizontal, 4)
-                            
-                            HStack {
-                                Image(systemName: "figure.walk")
-                                    .foregroundColor(Colors.accentBlue)
-                                    .font(.system(size: 20))
-                                    .frame(width: 30)
-                                Text("Steps")
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .foregroundColor(.white)
-                                Spacer()
-                                Toggle("", isOn: $readSteps)
-                                    .labelsHidden()
-                                    .tint(.green)
-                            }
-                            .padding()
-                            .background(Color.white.opacity(0.1))
-                            .cornerRadius(12)
-                            
-                            Text("App Explanation: Alarmo reads your daily step count to keep step-based habits in sync.")
-                                .font(.system(size: 12, weight: .regular))
-                                .foregroundColor(Color.white.opacity(0.5))
-                                .padding(.horizontal, 4)
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Allow \"Alarmo\" to read")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(Color.white.opacity(0.7))
-                                .padding(.horizontal, 4)
-                            
-                            HStack {
-                                Image(systemName: "figure.walk")
-                                    .foregroundColor(Colors.accentBlue)
-                                    .font(.system(size: 20))
-                                    .frame(width: 30)
-                                Text("Walking + Running Distance")
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .foregroundColor(.white)
-                                Spacer()
-                                Toggle("", isOn: $readDistance)
-                                    .labelsHidden()
-                                    .tint(.green)
-                            }
-                            .padding()
-                            .background(Color.white.opacity(0.1))
-                            .cornerRadius(12)
-                            
-                            Text("App Explanation: Alarmo reads walking/running distance for movement-based habits.")
-                                .font(.system(size: 12, weight: .regular))
-                                .foregroundColor(Color.white.opacity(0.5))
-                                .padding(.horizontal, 4)
-                        }
+                        healthPermissionToggleSection(
+                            icon: "figure.walk",
+                            title: "Steps",
+                            explanation: "App Explanation: Alarmo reads your daily step count to keep step-based habits in sync.",
+                            isOn: $readSteps
+                        )
+
+                        healthPermissionToggleSection(
+                            icon: "figure.walk.motion",
+                            title: "Walking + Running Distance",
+                            explanation: "App Explanation: Alarmo reads walking/running distance for movement-based habits.",
+                            isOn: $readDistance
+                        )
+
+                        healthPermissionToggleSection(
+                            icon: "bicycle",
+                            title: "Cycling Distance",
+                            explanation: "App Explanation: Alarmo reads cycling distance for bike and ride habits.",
+                            isOn: $readCycling
+                        )
+
+                        healthPermissionToggleSection(
+                            icon: "bed.double.fill",
+                            title: "Sleep Analysis",
+                            explanation: "App Explanation: Alarmo reads sleep duration for sleep and recovery habits.",
+                            isOn: $readSleep
+                        )
+
+                        healthPermissionToggleSection(
+                            icon: "drop.fill",
+                            title: "Water Intake",
+                            explanation: "App Explanation: Alarmo reads hydration intake to update drink-water habits.",
+                            isOn: $readWater
+                        )
+
+                        healthPermissionToggleSection(
+                            icon: "figure.stand",
+                            title: "Standing Time",
+                            explanation: "App Explanation: Alarmo reads stand time for standing and posture habits.",
+                            isOn: $readStanding
+                        )
+
+                        healthPermissionToggleSection(
+                            icon: "brain.head.profile",
+                            title: "Mindfulness",
+                            explanation: "App Explanation: Alarmo reads mindful-session minutes for meditation habits.",
+                            isOn: $readMindfulness
+                        )
                     }
                     .padding(.horizontal, 22)
                     .padding(.bottom, 20)
@@ -216,7 +216,8 @@ struct OnboardingHealthAccessView: View {
                         withAnimation { showHealthPrompt = false }
                         Task {
                             isRequesting = true
-                            let _ = await HealthKitManager.shared.requestAuthorization(for: "activity")
+                            let categories = selectedHealthCategories()
+                            let _ = await HealthKitManager.shared.requestAuthorization(for: categories)
                             isRequesting = false
                             onNext()
                         }
@@ -254,13 +255,61 @@ struct OnboardingHealthAccessView: View {
         }
         .onChange(of: readSteps) { _, _ in updateTurnOnAllState() }
         .onChange(of: readDistance) { _, _ in updateTurnOnAllState() }
+        .onChange(of: readCycling) { _, _ in updateTurnOnAllState() }
+        .onChange(of: readSleep) { _, _ in updateTurnOnAllState() }
+        .onChange(of: readWater) { _, _ in updateTurnOnAllState() }
+        .onChange(of: readStanding) { _, _ in updateTurnOnAllState() }
+        .onChange(of: readMindfulness) { _, _ in updateTurnOnAllState() }
     }
     
     private func updateTurnOnAllState() {
-        if readSteps && readDistance {
-            turnOnAll = true
-        } else {
-            turnOnAll = false
+        turnOnAll = readSteps && readDistance && readCycling && readSleep && readWater && readStanding && readMindfulness
+    }
+
+    private func selectedHealthCategories() -> [String] {
+        var categories: [String] = []
+        if readSteps || readDistance { categories.append("activity") }
+        if readCycling { categories.append("cycling") }
+        if readSleep { categories.append("sleep") }
+        if readWater { categories.append("water") }
+        if readStanding { categories.append("standing") }
+        if readMindfulness { categories.append("mindfulness") }
+        return Array(Set(categories))
+    }
+
+    private func healthPermissionToggleSection(
+        icon: String,
+        title: String,
+        explanation: String,
+        isOn: Binding<Bool>
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Allow \"Alarmo\" to read")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(Color.white.opacity(0.7))
+                .padding(.horizontal, 4)
+
+            HStack {
+                Image(systemName: icon)
+                    .foregroundColor(Colors.accentBlue)
+                    .font(.system(size: 20))
+                    .frame(width: 30)
+                Text(title)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.white)
+                Spacer()
+                Toggle("", isOn: isOn)
+                    .labelsHidden()
+                    .tint(.green)
+            }
+            .padding()
+            .background(Color.white.opacity(0.1))
+            .cornerRadius(12)
+
+            Text(explanation)
+                .font(.system(size: 12, weight: .regular))
+                .foregroundColor(Color.white.opacity(0.5))
+                .padding(.horizontal, 4)
         }
     }
 }
