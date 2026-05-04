@@ -33,6 +33,8 @@ final class AlarmBackgroundAudioBridge {
     private var pendingHandoffStopWorkItem: DispatchWorkItem?
     private var watchdogTimer: DispatchSourceTimer?
     private let watchdogQueue = DispatchQueue(label: "ht.alarmo.background-audio-bridge.watchdog")
+    private var lastLockedRefreshAt: Date?
+    private let lockedRefreshCooldown: TimeInterval = 1.5
 
     private init() {
         NotificationCenter.default.addObserver(
@@ -210,6 +212,7 @@ final class AlarmBackgroundAudioBridge {
         if !soundPlayer.isCurrentlyPlaying {
             print("[AlarmBackgroundAudioBridge] ⚠️ Watchdog: detected silent bridge, restarting audio")
             soundPlayer.playLooping(resourceName: sourceAlarm.soundName, volume: 1.0, fadeDuration: 0)
+            triggerImmediateLockedRefresh(reason: "watchdog-restart")
         }
 
         // SoundPlayer handles interruption internally via its own observers,
@@ -219,9 +222,18 @@ final class AlarmBackgroundAudioBridge {
     }
 
     private func triggerImmediateLockedRefresh(reason: String) {
-        // Intentionally no-op:
-        // lock-screen respawn is handled only by explicit StopAlarmIntent.
-        _ = reason
+        guard UIApplication.shared.applicationState != .active else { return }
+        let now = Date()
+        if let last = lastLockedRefreshAt, now.timeIntervalSince(last) < lockedRefreshCooldown {
+            return
+        }
+        lastLockedRefreshAt = now
+        guard let sourceAlarmId = activeSourceAlarmID ?? activeAlarmID else { return }
+        NotificationManager.shared.ensureAlarmKitSurfaceForLockedLoopIfNeeded(
+            sourceAlarmId: sourceAlarmId,
+            force: true
+        )
+        print("[AlarmBackgroundAudioBridge] 🔁 Locked refresh requested (\(reason)) for source=\(sourceAlarmId)")
     }
 
     func reinforceLockedLoopNow(
@@ -238,6 +250,6 @@ final class AlarmBackgroundAudioBridge {
         if activeAlarmID == nil {
             start(surfaceAlarmId: resolvedSurface, sourceAlarmId: resolvedSource)
         }
-        _ = reason
+        triggerImmediateLockedRefresh(reason: reason)
     }
 }

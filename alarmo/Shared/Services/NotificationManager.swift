@@ -30,8 +30,9 @@ struct AlarmDeliveryStatus {
 
 final class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationManager()
-    // User requested to remove lock-screen unlock prompt notifications entirely.
-    private let alarmKitUnlockPromptNotificationsEnabled = false
+    // Keep the unlock prompt notifications enabled so the user has a foreground
+    // handoff target while the alarm is still active.
+    private let alarmKitUnlockPromptNotificationsEnabled = true
 
     private enum AlarmKitUnlockPrompt {
         static let identifierPrefix = "alarmo-alarmkit-unlock-"
@@ -586,6 +587,17 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         return content
     }
 
+    private func shouldContinueAlarmKitUnlockPromptLoop(for sourceAlarmId: String) -> Bool {
+        if completedAlarmFlowIds.contains(sourceAlarmId) { return false }
+        if (ringCoordinator?.isRinging == true) || AlarmBackgroundAudioBridge.shared.isPlaying {
+            return true
+        }
+        if let pending = AlarmCustomUIHandoffStore.pendingRequest() {
+            return pending.sourceAlarmID == sourceAlarmId || pending.surfaceAlarmID == sourceAlarmId
+        }
+        return false
+    }
+
     func logSettings() {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             print("[NotificationManager] authorizationStatus: \(settings.authorizationStatus.rawValue)")
@@ -764,12 +776,26 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         let sourceAlarmId = AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceAlarmId)
         let isBackgroundOrLocked = UIApplication.shared.applicationState != .active
 
-        // Do not auto-respawn here. Lock-screen reappearance should happen only
-        // after explicit user slide-to-stop action through StopAlarmIntent.
-        _ = isBackgroundOrLocked
-
         if alarm.state == .alerting {
             await processAlarmKitAlertingAlarm(alarm)
+            return
+        }
+
+        // If the system surface was interrupted (for example hardware button
+        // interaction) while we are still in locked/background alarm flow,
+        // force the lock surface to reappear and keep bridge audio alive.
+        if isBackgroundOrLocked, shouldContinueAlarmKitUnlockPromptLoop(for: sourceAlarmId) {
+            AlarmBackgroundAudioBridge.shared.reinforceLockedLoopNow(
+                surfaceAlarmId: surfaceAlarmId,
+                sourceAlarmId: sourceAlarmId,
+                reason: "alarm-update-non-alerting-\(alarm.state)"
+            )
+            ensureAlarmKitSurfaceForLockedLoopIfNeeded(sourceAlarmId: sourceAlarmId)
+            startAlarmKitUnlockPromptLoop(
+                sourceAlarmId: sourceAlarmId,
+                surfaceAlarmId: surfaceAlarmId,
+                alarmName: nil
+            )
         }
     }
 

@@ -116,7 +116,7 @@ struct AppRootView: View {
         .onChange(of: ringCoordinator.activeAlarm) { newAlarm in
             shutdownDetectionService.startMonitoring(alarmStore: alarmStore, ringCoordinator: ringCoordinator, ringingAlarmId: newAlarm?.id)
         }
-        .onChange(of: scenePhase) { _, newPhase in
+            .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 if hasPendingLiveActivityOpenRequest() {
                     navigationStore.selectedTab = .timer
@@ -129,6 +129,7 @@ struct AppRootView: View {
                 notificationManager.recoverAlarmKitAlertingIfNeeded()
                 enforceAlarmCustomUIIfNeeded()
                 handlePendingCustomAlarmUIHandoff()
+                refreshAlarmUnlockPromptIfNeeded()
             } else if newPhase == .inactive || newPhase == .background {
                 pomodoroEngine.handleSceneDidEnterBackground()
                 if ringCoordinator.isRinging, let alarm = ringCoordinator.activeAlarm {
@@ -249,9 +250,10 @@ struct AppRootView: View {
         if didStartPrimary || didStartMapped {
             let resolvedSource = didStartPrimary ? sourceAlarmId : mappedSource
             AlarmCustomUIHandoffStore.clear()
-            notificationManager.scheduleAlarmKitUnlockPrompt(
+            refreshAlarmUnlockPromptIfNeeded(
                 sourceAlarmId: resolvedSource,
-                surfaceAlarmId: surfaceAlarmId
+                surfaceAlarmId: surfaceAlarmId,
+                alarmName: ringCoordinator.activeAlarm?.name
             )
             notificationManager.dismissLinkedAlarmKitSurfacesAggressively(sourceAlarmId: resolvedSource)
             stopAlarmKitSurfaceAfterCustomAudioStarts(alarmId: surfaceAlarmId)
@@ -318,6 +320,39 @@ struct AppRootView: View {
             try? AlarmManager.shared.stop(id: uuid)
         }
 #endif
+    }
+
+    private func refreshAlarmUnlockPromptIfNeeded(
+        sourceAlarmId: String? = nil,
+        surfaceAlarmId: String? = nil,
+        alarmName: String? = nil
+    ) {
+        let resolvedSourceAlarmId = sourceAlarmId
+            ?? ringCoordinator.activeAlarm?.id.uuidString
+            ?? AlarmBackgroundAudioBridge.shared.currentSourceAlarmID
+            ?? AlarmBackgroundAudioBridge.shared.currentAlarmID.map {
+                AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: $0)
+            }
+
+        let resolvedSurfaceAlarmId = surfaceAlarmId
+            ?? AlarmBackgroundAudioBridge.shared.currentAlarmID
+            ?? resolvedSourceAlarmId
+
+        guard let sourceAlarmId = resolvedSourceAlarmId,
+              let surfaceAlarmId = resolvedSurfaceAlarmId else { return }
+
+        guard ringCoordinator.isRinging || AlarmBackgroundAudioBridge.shared.isPlaying else { return }
+
+        notificationManager.scheduleAlarmKitUnlockPrompt(
+            sourceAlarmId: sourceAlarmId,
+            surfaceAlarmId: surfaceAlarmId,
+            alarmName: alarmName ?? ringCoordinator.activeAlarm?.name
+        )
+        notificationManager.startAlarmKitUnlockPromptLoop(
+            sourceAlarmId: sourceAlarmId,
+            surfaceAlarmId: surfaceAlarmId,
+            alarmName: alarmName ?? ringCoordinator.activeAlarm?.name
+        )
     }
 
     private var resolvedColorScheme: ColorScheme? {
