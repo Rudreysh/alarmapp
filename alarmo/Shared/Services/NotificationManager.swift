@@ -57,6 +57,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     private let alarmFlowCompletionSuppressionWindow: TimeInterval = 12.0
     private var pendingAlarmStarts: Set<String> = []
     private var lastLockedSurfaceEnsureAt: [String: Date] = [:]
+    private var pendingLockedSurfaceReassertWorkItems: [String: DispatchWorkItem] = [:]
     private var completedAlarmFlowIds: Set<String> = []
     private var completedAlarmFlowAt: [String: Date] = [:]
     private var issuedAlarmKitUnlockPromptSourceIds: Set<String> = []
@@ -751,6 +752,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         let isBackgroundOrLocked = UIApplication.shared.applicationState != .active
 
         if alarm.state == .alerting {
+            cancelPendingLockedSurfaceReassert(for: sourceAlarmId)
             await processAlarmKitAlertingAlarm(alarm)
             return
         }
@@ -759,18 +761,59 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         // interaction) while we are still in locked/background alarm flow,
         // force the lock surface to reappear and keep bridge audio alive.
         if isBackgroundOrLocked, shouldContinueAlarmKitUnlockPromptLoop(for: sourceAlarmId) {
+            // Side/volume button interactions can emit short non-alerting states.
+            // Debounce reassertion so transient state flips do not cut and restart
+            // alarm audio/UI.
+            if AlarmBackgroundAudioBridge.shared.isAudiblyPlaying {
+                cancelPendingLockedSurfaceReassert(for: sourceAlarmId)
+                return
+            }
+            scheduleLockedSurfaceReassert(
+                sourceAlarmId: sourceAlarmId,
+                surfaceAlarmId: surfaceAlarmId,
+                stateDescription: String(describing: alarm.state)
+            )
+        } else {
+            cancelPendingLockedSurfaceReassert(for: sourceAlarmId)
+        }
+    }
+
+    @available(iOS 26.0, *)
+    private func scheduleLockedSurfaceReassert(
+        sourceAlarmId: String,
+        surfaceAlarmId: String,
+        stateDescription: String
+    ) {
+        cancelPendingLockedSurfaceReassert(for: sourceAlarmId)
+
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.pendingLockedSurfaceReassertWorkItems.removeValue(forKey: sourceAlarmId)
+
+            guard UIApplication.shared.applicationState != .active else { return }
+            guard self.shouldContinueAlarmKitUnlockPromptLoop(for: sourceAlarmId) else { return }
+            guard !AlarmBackgroundAudioBridge.shared.isAudiblyPlaying else { return }
+
             AlarmBackgroundAudioBridge.shared.reinforceLockedLoopNow(
                 surfaceAlarmId: surfaceAlarmId,
                 sourceAlarmId: sourceAlarmId,
-                reason: "alarm-update-non-alerting-\(alarm.state)"
+                reason: "alarm-update-non-alerting-\(stateDescription)"
             )
-            ensureAlarmKitSurfaceForLockedLoopIfNeeded(sourceAlarmId: sourceAlarmId)
-            startAlarmKitUnlockPromptLoop(
+            self.ensureAlarmKitSurfaceForLockedLoopIfNeeded(sourceAlarmId: sourceAlarmId)
+            self.startAlarmKitUnlockPromptLoop(
                 sourceAlarmId: sourceAlarmId,
                 surfaceAlarmId: surfaceAlarmId,
                 alarmName: nil
             )
         }
+
+        pendingLockedSurfaceReassertWorkItems[sourceAlarmId] = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: workItem)
+    }
+
+    private func cancelPendingLockedSurfaceReassert(for sourceAlarmId: String) {
+        pendingLockedSurfaceReassertWorkItems[sourceAlarmId]?.cancel()
+        pendingLockedSurfaceReassertWorkItems.removeValue(forKey: sourceAlarmId)
     }
 
     @available(iOS 26.0, *)

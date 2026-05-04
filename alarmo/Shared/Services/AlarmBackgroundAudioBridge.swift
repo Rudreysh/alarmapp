@@ -35,6 +35,7 @@ final class AlarmBackgroundAudioBridge {
     private let watchdogQueue = DispatchQueue(label: "ht.alarmo.background-audio-bridge.watchdog")
     private var lastLockedRefreshAt: Date?
     private let lockedRefreshCooldown: TimeInterval = 1.5
+    private var silentBridgeSince: Date?
 
     private init() {
         NotificationCenter.default.addObserver(
@@ -210,9 +211,24 @@ final class AlarmBackgroundAudioBridge {
             }
         }
         if !soundPlayer.isCurrentlyPlaying {
+            let now = Date()
+            if silentBridgeSince == nil {
+                silentBridgeSince = now
+            }
+
             print("[AlarmBackgroundAudioBridge] ⚠️ Watchdog: detected silent bridge, restarting audio")
             soundPlayer.playLooping(resourceName: sourceAlarm.soundName, volume: 1.0, fadeDuration: 0)
-            triggerImmediateLockedRefresh(reason: "watchdog-restart")
+
+            // A side/volume button can create a very brief interruption. Avoid
+            // aggressively respawning the AlarmKit surface unless silence
+            // persists for a sustained period.
+            if let silentSince = silentBridgeSince,
+               now.timeIntervalSince(silentSince) >= 1.2 {
+                triggerImmediateLockedRefresh(reason: "watchdog-persistent-silence")
+                silentBridgeSince = now
+            }
+        } else {
+            silentBridgeSince = nil
         }
 
         // SoundPlayer handles interruption internally via its own observers,
