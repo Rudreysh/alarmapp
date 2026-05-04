@@ -682,8 +682,8 @@ struct StopAlarmIntent: LiveActivityIntent {
                 try? AlarmManager.shared.cancel(id: uuid)
                 
                 // Must use a new UUID so AlarmKit doesn't drop the request.
-                // Keep a visible pause before reappearing to avoid lock-screen UI stacking.
-                let baseRespawnDelay: TimeInterval = 4.0
+                // Keep a short pause before reappearing to reduce audible delay.
+                let baseRespawnDelay: TimeInterval = 1.0
                 let maxRespawnAttempts = 4
                 let snoozeInterval = helper.resolvedSnoozeInterval(for: originalAlarm)
                 let snoozeEnabled = snoozeInterval != nil
