@@ -30,11 +30,12 @@ struct AlarmDeliveryStatus {
 
 final class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationManager()
-    // Keep the unlock prompt notifications enabled so the user has a foreground
-    // handoff target while the alarm is still active.
-    private let alarmKitUnlockPromptNotificationsEnabled = true
+    // Disabled by request: do not show "Alarm is ringing — unlock your phone..."
+    // notifications; rely on AlarmKit surface only.
+    private let alarmKitUnlockPromptNotificationsEnabled = false
 
     private enum AlarmKitUnlockPrompt {
+        static let singleIdentifier = "alarmo-alarmkit-unlock-single"
         static let identifierPrefix = "alarmo-alarmkit-unlock-"
         static let loopIdentifierPrefix = "alarmo-alarmkit-unlock-loop-"
         static let loopImmediateIdentifierPrefix = "alarmo-alarmkit-unlock-loop-immediate-"
@@ -58,6 +59,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     private var lastLockedSurfaceEnsureAt: [String: Date] = [:]
     private var completedAlarmFlowIds: Set<String> = []
     private var completedAlarmFlowAt: [String: Date] = [:]
+    private var issuedAlarmKitUnlockPromptSourceIds: Set<String> = []
     
     @Published var authorizationStatus: UNAuthorizationStatus = .notDetermined
 
@@ -66,6 +68,9 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         pendingAlarmStarts = loadPendingAlarmStarts()
+        if !alarmKitUnlockPromptNotificationsEnabled {
+            cancelAllAlarmKitUnlockPrompts()
+        }
     }
 
     func configure(ringCoordinator: AlarmRingCoordinator, alarmStore: AlarmStore) {
@@ -269,7 +274,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
         let unlockDismiss = UNNotificationAction(
             identifier: AppNotificationAction.alarmKitUnlockDismiss,
-            title: "Unlock Alarmo",
+            title: "Dismiss",
             options: [.authenticationRequired, .foreground]
         )
         let alarmKitUnlockCategory = UNNotificationCategory(
@@ -353,6 +358,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         let ringIsActive = (ringCoordinator?.isRinging == true) || AlarmBackgroundAudioBridge.shared.isPlaying
         if !ringIsActive { return }
         if completedAlarmFlowIds.contains(sourceAlarmId) { return }
+        if issuedAlarmKitUnlockPromptSourceIds.contains(sourceAlarmId) { return }
         let center = UNUserNotificationCenter.current()
         let content = UNMutableNotificationContent()
         content.title = "Alarm is ringing — unlock your phone to Stop or Snooze"
@@ -371,7 +377,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             content.relevanceScore = 1
         }
 
-        let identifier = Self.alarmKitUnlockPromptIdentifier(alarmId: sourceAlarmId)
+        let identifier = AlarmKitUnlockPrompt.singleIdentifier
         center.removePendingNotificationRequests(withIdentifiers: [identifier])
         center.removeDeliveredNotifications(withIdentifiers: [identifier])
         let trigger: UNNotificationTrigger?
@@ -379,7 +385,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: fireDate)
             trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         } else {
-            trigger = nil
+            trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.3, repeats: false)
         }
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
         center.add(request) { error in
@@ -387,6 +393,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                 print("[NotificationManager] Failed to schedule AlarmKit unlock prompt for \(sourceAlarmId): \(error)")
             }
         }
+        issuedAlarmKitUnlockPromptSourceIds.insert(sourceAlarmId)
     }
 
     func startAlarmKitUnlockPromptLoop(
@@ -394,67 +401,32 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         surfaceAlarmId: String? = nil,
         alarmName: String? = nil
     ) {
-        guard alarmKitUnlockPromptNotificationsEnabled else { return }
-        // Only emit unlock prompts while an alarm flow is actively ringing
-        // either in-app or through the lock-screen bridge.
-        let ringIsActive = (ringCoordinator?.isRinging == true) || AlarmBackgroundAudioBridge.shared.isPlaying
-        if !ringIsActive { return }
-        if completedAlarmFlowIds.contains(sourceAlarmId) { return }
-        let center = UNUserNotificationCenter.current()
-        let content = makeAlarmKitUnlockPromptContent(
+        // No loop notifications. Keep a single unlock prompt only.
+        scheduleAlarmKitUnlockPrompt(
             sourceAlarmId: sourceAlarmId,
             surfaceAlarmId: surfaceAlarmId,
             alarmName: alarmName
         )
-
-        // Immediate reminder for instant lock-screen feedback.
-        let immediateIdentifier = Self.alarmKitUnlockPromptLoopImmediateIdentifier(alarmId: sourceAlarmId)
-        center.removePendingNotificationRequests(withIdentifiers: [immediateIdentifier])
-        center.removeDeliveredNotifications(withIdentifiers: [immediateIdentifier])
-        let immediateTrigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
-        let immediateRequest = UNNotificationRequest(
-            identifier: immediateIdentifier,
-            content: content,
-            trigger: immediateTrigger
-        )
-        center.add(immediateRequest) { error in
-            if let error {
-                print("[NotificationManager] Failed to schedule immediate AlarmKit unlock prompt for \(sourceAlarmId): \(error)")
-            }
-        }
-
-        // Keep showing reminders while ringing continues in background/locked.
-        // iOS requires >= 60s for repeating time-interval triggers, so we
-        // schedule a one-shot 15s reminder and re-arm it from the existing
-        // lock-loop refresh paths.
-        let loopIdentifier = Self.alarmKitUnlockPromptLoopIdentifier(alarmId: sourceAlarmId)
-        center.removePendingNotificationRequests(withIdentifiers: [loopIdentifier])
-        center.removeDeliveredNotifications(withIdentifiers: [loopIdentifier])
-
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 15, repeats: false)
-        let request = UNNotificationRequest(identifier: loopIdentifier, content: content, trigger: trigger)
-        center.add(request) { error in
-            if let error {
-                print("[NotificationManager] Failed to schedule AlarmKit unlock loop for \(sourceAlarmId): \(error)")
-            }
-        }
     }
 
     func cancelAlarmKitUnlockPrompt(alarmId: String) {
         let identifier = Self.alarmKitUnlockPromptIdentifier(alarmId: alarmId)
         let loopIdentifier = Self.alarmKitUnlockPromptLoopIdentifier(alarmId: alarmId)
         let loopImmediateIdentifier = Self.alarmKitUnlockPromptLoopImmediateIdentifier(alarmId: alarmId)
+        issuedAlarmKitUnlockPromptSourceIds.remove(alarmId)
         let center = UNUserNotificationCenter.current()
-        center.removePendingNotificationRequests(withIdentifiers: [identifier, loopIdentifier, loopImmediateIdentifier])
-        center.removeDeliveredNotifications(withIdentifiers: [identifier, loopIdentifier, loopImmediateIdentifier])
+        center.removePendingNotificationRequests(withIdentifiers: [identifier, loopIdentifier, loopImmediateIdentifier, AlarmKitUnlockPrompt.singleIdentifier])
+        center.removeDeliveredNotifications(withIdentifiers: [identifier, loopIdentifier, loopImmediateIdentifier, AlarmKitUnlockPrompt.singleIdentifier])
     }
 
     func cancelAllAlarmKitUnlockPrompts() {
+        issuedAlarmKitUnlockPromptSourceIds.removeAll()
         let center = UNUserNotificationCenter.current()
         center.getPendingNotificationRequests { requests in
             let ids = requests
                 .map(\.identifier)
                 .filter {
+                    $0 == AlarmKitUnlockPrompt.singleIdentifier ||
                     $0.hasPrefix(AlarmKitUnlockPrompt.identifierPrefix) ||
                     $0.hasPrefix(AlarmKitUnlockPrompt.loopIdentifierPrefix) ||
                     $0.hasPrefix(AlarmKitUnlockPrompt.loopImmediateIdentifierPrefix)
@@ -467,6 +439,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             let ids = delivered
                 .map { $0.request.identifier }
                 .filter {
+                    $0 == AlarmKitUnlockPrompt.singleIdentifier ||
                     $0.hasPrefix(AlarmKitUnlockPrompt.identifierPrefix) ||
                     $0.hasPrefix(AlarmKitUnlockPrompt.loopIdentifierPrefix) ||
                     $0.hasPrefix(AlarmKitUnlockPrompt.loopImmediateIdentifierPrefix)
@@ -480,6 +453,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     func markAlarmFlowCompleted(alarmId: String) {
         completedAlarmFlowIds.insert(alarmId)
         completedAlarmFlowAt[alarmId] = Date()
+        issuedAlarmKitUnlockPromptSourceIds.remove(alarmId)
     }
 
     func clearCompletedAlarmFlow(alarmId: String) {
