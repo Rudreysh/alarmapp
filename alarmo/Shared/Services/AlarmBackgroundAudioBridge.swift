@@ -265,7 +265,7 @@ final class AlarmBackgroundAudioBridge {
 
         if activeAlarmID == nil {
             start(surfaceAlarmId: resolvedSurface, sourceAlarmId: resolvedSource)
+            triggerImmediateLockedRefresh(reason: reason)
         }
-        triggerImmediateLockedRefresh(reason: reason)
     }
 }

@@ -58,6 +58,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     private var pendingAlarmStarts: Set<String> = []
     private var lastLockedSurfaceEnsureAt: [String: Date] = [:]
     private var pendingLockedSurfaceReassertWorkItems: [String: DispatchWorkItem] = [:]
+    private var lockedSurfaceEnsureInFlight: Set<String> = []
     private var completedAlarmFlowIds: Set<String> = []
     private var completedAlarmFlowAt: [String: Date] = [:]
     private var issuedAlarmKitUnlockPromptSourceIds: Set<String> = []
@@ -713,9 +714,14 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
            now.timeIntervalSince(last) < effectiveEnsureInterval {
             return
         }
+        if lockedSurfaceEnsureInFlight.contains(sourceAlarmId) {
+            return
+        }
         lastLockedSurfaceEnsureAt[sourceAlarmId] = now
+        lockedSurfaceEnsureInFlight.insert(sourceAlarmId)
 
         Task { @MainActor in
+            defer { lockedSurfaceEnsureInFlight.remove(sourceAlarmId) }
             do {
                 let alarms = try AlarmManager.shared.alarms
                 let alreadyAlerting = alarms.contains { alarm in
@@ -723,7 +729,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                     let mappedSource = AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceId)
                     return mappedSource == sourceAlarmId && alarm.state == .alerting
                 }
-                if alreadyAlerting && AlarmBackgroundAudioBridge.shared.isAudiblyPlaying { return }
+                // Never mutate an actively alerting AlarmKit surface from this
+                // recovery path. Doing so causes lock-screen UI flicker and
+                // ring/stop/ring oscillation.
+                if alreadyAlerting { return }
             } catch {
                 print("[NotificationManager] Failed to inspect AlarmKit alarms before locked ensure: \(error)")
             }
