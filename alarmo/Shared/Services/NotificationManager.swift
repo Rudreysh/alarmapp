@@ -51,7 +51,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     private let pendingAlarmStartKey = "alarmo.pendingNotificationAlarmStarts"
     // Keep a visible gap between lock-screen reappearances to avoid
     // notification-center/card flooding and allow user interaction time.
-    private let lockedSurfaceEnsureInterval: TimeInterval = 2.0
+    private let lockedSurfaceEnsureInterval: TimeInterval = 1.0
     // After explicit Stop/Snooze, ignore stale AlarmKit alert callbacks briefly
     // so in-flight updates cannot resurrect ringing UI/audio.
     private let alarmFlowCompletionSuppressionWindow: TimeInterval = 12.0
@@ -709,7 +709,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         guard !isAlarmFlowSuppressed(sourceAlarmId) else { return }
 
         let now = Date()
-        let effectiveEnsureInterval = force ? max(1.0, lockedSurfaceEnsureInterval) : lockedSurfaceEnsureInterval
+        let effectiveEnsureInterval = force ? max(0.5, lockedSurfaceEnsureInterval) : lockedSurfaceEnsureInterval
         if let last = lastLockedSurfaceEnsureAt[sourceAlarmId],
            now.timeIntervalSince(last) < effectiveEnsureInterval {
             return
@@ -817,7 +817,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         }
 
         pendingLockedSurfaceReassertWorkItems[sourceAlarmId] = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: workItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: workItem)
     }
 
     private func cancelPendingLockedSurfaceReassert(for sourceAlarmId: String) {
@@ -982,7 +982,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                 self.pendingAlarmStarts.insert(alarmId)
                 self.persistPendingAlarmStarts()
                 let retryAlarmId = alarmId
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                     self?.startOrQueueAlarm(alarmId: retryAlarmId)
                 }
             }

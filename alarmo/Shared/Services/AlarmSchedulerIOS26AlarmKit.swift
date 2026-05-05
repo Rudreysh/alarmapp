@@ -683,7 +683,7 @@ struct StopAlarmIntent: LiveActivityIntent {
                 
                 // Must use a new UUID so AlarmKit doesn't drop the request.
                 // Keep a short pause before reappearing to reduce audible delay.
-                let baseRespawnDelay: TimeInterval = 1.0
+                let baseRespawnDelay: TimeInterval = 0.5
                 let maxRespawnAttempts = 4
                 let snoozeInterval = helper.resolvedSnoozeInterval(for: originalAlarm)
                 let snoozeEnabled = snoozeInterval != nil
@@ -694,7 +694,7 @@ struct StopAlarmIntent: LiveActivityIntent {
 
                 for attempt in 1...maxRespawnAttempts {
                     do {
-                        let attemptDelay = baseRespawnDelay + (Double(attempt - 1) * 0.2)
+                        let attemptDelay = baseRespawnDelay + (Double(attempt - 1) * 0.1)
                         newUUID = UUID()
                         _ = try await helper.scheduleWithFallbackSound(
                             manager: AlarmManager.shared,
@@ -712,7 +712,7 @@ struct StopAlarmIntent: LiveActivityIntent {
                         lastError = error
                         print("[StopAlarmIntent] Zombie reschedule attempt \(attempt)/\(maxRespawnAttempts) failed: \(error)")
                         if attempt < maxRespawnAttempts {
-                            try? await Task.sleep(nanoseconds: 200_000_000)
+                            try? await Task.sleep(nanoseconds: 100_000_000)
                         }
                     }
                 }

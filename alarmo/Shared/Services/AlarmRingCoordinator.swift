@@ -64,7 +64,7 @@ final class AlarmRingCoordinator: ObservableObject {
             if mappedSource == alarmId ||
                 AlarmBackgroundAudioBridge.shared.currentSourceAlarmID == alarmId ||
                 bridgeSurfaceId == alarmId {
-                AlarmBackgroundAudioBridge.shared.handoffToForeground(alarmId: bridgeSurfaceId, stopDelay: 0.4)
+                AlarmBackgroundAudioBridge.shared.handoffToForeground(alarmId: bridgeSurfaceId, stopDelay: 0.2)
             }
         }
 
@@ -204,7 +204,7 @@ final class AlarmRingCoordinator: ObservableObject {
             NotificationManager.shared.cancelAllAlarmKitUnlockPrompts()
             // Cleanup again after a short delay to absorb any in-flight loop
             // callback that may race with Stop/Snooze.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 NotificationManager.shared.cancelAllAlarmKitUnlockPrompts()
             }
             AlarmCustomUIHandoffStore.clear()
@@ -387,7 +387,7 @@ final class AlarmRingCoordinator: ObservableObject {
 
         if consumedPenalty {
             // Let the user see penalty feedback briefly before the UI dismisses into snooze.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 Task { await performSnoozeTransition() }
             }
         } else {

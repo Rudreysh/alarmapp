@@ -271,7 +271,7 @@ struct AppRootView: View {
             handlePendingCustomAlarmUIHandoff()
         }
         customUIHandoffRetryWorkItem = retry
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: retry)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: retry)
     }
 
     private func enforceAlarmCustomUIIfNeeded() {
@@ -316,7 +316,7 @@ struct AppRootView: View {
         Task {
             // Give Alarmo's own looping audio a short head start before dismissing
             // the system AlarmKit surface, so the user does not hear a silent gap.
-            try? await Task.sleep(nanoseconds: 350_000_000)
+            try? await Task.sleep(nanoseconds: 175_000_000)
             try? AlarmManager.shared.stop(id: uuid)
         }
 #endif

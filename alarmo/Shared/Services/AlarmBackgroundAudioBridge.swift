@@ -34,7 +34,7 @@ final class AlarmBackgroundAudioBridge {
     private var watchdogTimer: DispatchSourceTimer?
     private let watchdogQueue = DispatchQueue(label: "ht.alarmo.background-audio-bridge.watchdog")
     private var lastLockedRefreshAt: Date?
-    private let lockedRefreshCooldown: TimeInterval = 1.5
+    private let lockedRefreshCooldown: TimeInterval = 0.75
     private var silentBridgeSince: Date?
 
     private init() {
@@ -110,7 +110,7 @@ final class AlarmBackgroundAudioBridge {
         print("[AlarmBackgroundAudioBridge] ▶️ Started background audio bridge for surface=\(surfaceAlarmId), source=\(resolvedSourceAlarmId)")
     }
 
-    func handoffToForeground(alarmId: String, stopDelay: TimeInterval = 0.35) {
+    func handoffToForeground(alarmId: String, stopDelay: TimeInterval = 0.175) {
         guard activeAlarmID == alarmId else { return }
 
         pendingHandoffStopWorkItem?.cancel()
@@ -223,7 +223,7 @@ final class AlarmBackgroundAudioBridge {
             // aggressively respawning the AlarmKit surface unless silence
             // persists for a sustained period.
             if let silentSince = silentBridgeSince,
-               now.timeIntervalSince(silentSince) >= 1.2 {
+               now.timeIntervalSince(silentSince) >= 0.6 {
                 triggerImmediateLockedRefresh(reason: "watchdog-persistent-silence")
                 silentBridgeSince = now
             }
