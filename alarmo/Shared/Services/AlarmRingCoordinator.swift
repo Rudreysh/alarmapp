@@ -522,7 +522,10 @@ final class AlarmRingCoordinator: ObservableObject {
         guard isRinging, !isPreviewMode, let alarm = activeAlarm else { return }
         if soundPlayer.isCurrentlyPlaying { return }
         print("[AlarmRingCoordinator] ⚠️ Ringing watchdog restarted silent audio for \(alarm.id)")
-        soundPlayer.playLooping(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
+        // Re-assert session before restarting playback in case it was deactivated
+        // by a phone call or system interruption while the app was in background.
+        try? AudioRouteManager.configureAlarmSession()
+        soundPlayer.reassertLoopingPlayback(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
         if alarm.vibrateEnabled {
             hapticsPlayer.startRepeating()
         }

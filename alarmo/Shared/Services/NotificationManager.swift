@@ -783,11 +783,19 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         guard #available(iOS 26.0, *) else { return }
         guard !isAlarmFlowSuppressed(sourceAlarmId) else { return }
         setAlarmFlowPhase(.ringingLocked, for: sourceAlarmId)
-        AlarmBackgroundAudioBridge.shared.reinforceLockedLoopNow(
-            surfaceAlarmId: surfaceAlarmId,
-            sourceAlarmId: sourceAlarmId,
-            reason: "scene-transition-lock"
-        )
+        // Coordinator audio persists in background — only reinforce bridge when
+        // coordinator is not already handling this alarm. Restarting the bridge
+        // on top of a live coordinator session causes double audio and session
+        // conflicts that break sound continuity after multiple lock/unlock cycles.
+        let coordinatorHandlingForEnforce = ringCoordinator?.isRinging == true &&
+            ringCoordinator?.activeAlarm?.id.uuidString == sourceAlarmId
+        if !coordinatorHandlingForEnforce {
+            AlarmBackgroundAudioBridge.shared.reinforceLockedLoopNow(
+                surfaceAlarmId: surfaceAlarmId,
+                sourceAlarmId: sourceAlarmId,
+                reason: "scene-transition-lock"
+            )
+        }
         ensureAlarmKitSurfaceForLockedLoopIfNeeded(sourceAlarmId: sourceAlarmId, force: true)
 #endif
     }
@@ -834,11 +842,15 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             guard UIApplication.shared.applicationState != .active else { return }
             guard self.shouldContinueAlarmKitUnlockPromptLoop(for: sourceAlarmId) else { return }
 
-            AlarmBackgroundAudioBridge.shared.reinforceLockedLoopNow(
-                surfaceAlarmId: surfaceAlarmId,
-                sourceAlarmId: sourceAlarmId,
-                reason: "alarm-update-non-alerting-\(stateDescription)"
-            )
+            let coordinatorActiveForReassert = self.ringCoordinator?.isRinging == true &&
+                self.ringCoordinator?.activeAlarm?.id.uuidString == sourceAlarmId
+            if !coordinatorActiveForReassert {
+                AlarmBackgroundAudioBridge.shared.reinforceLockedLoopNow(
+                    surfaceAlarmId: surfaceAlarmId,
+                    sourceAlarmId: sourceAlarmId,
+                    reason: "alarm-update-non-alerting-\(stateDescription)"
+                )
+            }
             self.setAlarmFlowPhase(.ringingLocked, for: sourceAlarmId)
             self.ensureAlarmKitSurfaceForLockedLoopIfNeeded(sourceAlarmId: sourceAlarmId)
             self.startAlarmKitUnlockPromptLoop(
@@ -872,14 +884,13 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             return
         }
 
-        // ALWAYS start the background audio bridge so Alarmo's
-        // own sound is playing before the user interacts with
-        // the AlarmKit stop slider. This is the key to
-        // seamless sound continuity.
-        let bridgeAlreadyActiveForSurface =
-            AlarmBackgroundAudioBridge.shared.currentAlarmID == surfaceAlarmId &&
-            AlarmBackgroundAudioBridge.shared.isAudiblyPlaying
-        if !bridgeAlreadyActiveForSurface {
+        // Only start bridge if coordinator is not already handling this alarm.
+        // Coordinator audio persists in background via the `audio` background mode;
+        // starting the bridge concurrently reconfigures the shared AVAudioSession
+        // and breaks continuity after multiple lock/unlock cycles.
+        let coordinatorHandlingThisAlarm = ringCoordinator?.isRinging == true &&
+            ringCoordinator?.activeAlarm?.id.uuidString == sourceAlarmId
+        if !coordinatorHandlingThisAlarm {
             AlarmBackgroundAudioBridge.shared.start(
                 surfaceAlarmId: surfaceAlarmId,
                 sourceAlarmId: sourceAlarmId

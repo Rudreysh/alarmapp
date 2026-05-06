@@ -677,10 +677,29 @@ struct StopAlarmIntent: LiveActivityIntent {
             if let originalAlarm = originalAlarm {
                 let helper = AlarmSchedulerIOS26AlarmKit()
                 let title = originalAlarm.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Alarm" : originalAlarm.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                // Explicitly cancel the surface the user just swiped away so old
-                // entries do not accumulate in Notification Center.
+                // Explicitly cancel the surface the user just dismissed so
+                // AlarmKit does not keep stale lock-screen entries around.
                 try? AlarmManager.shared.cancel(id: uuid)
-                
+
+                // For user-initiated slide-to-stop actions (suppressUnlockPrompt=false),
+                // skip zombie respawn when app audio is already playing continuously.
+                // The bridge or coordinator will keep ringing until the user unlocks
+                // and presses Stop on the custom UI — matching Alarmy behavior where
+                // slide-to-stop removes the AlarmKit UI without re-scheduling it.
+                if !suppressUnlockPrompt {
+                    let audioIsContinuous = await MainActor.run {
+                        let bridgeAudible = AlarmBackgroundAudioBridge.shared.isAudiblyPlaying &&
+                            (AlarmBackgroundAudioBridge.shared.currentSourceAlarmID == lookupUUIDString ||
+                             AlarmBackgroundAudioBridge.shared.currentAlarmID == alarmID)
+                        let coordinatorRingingId = UserDefaults.standard.string(forKey: "last_ringing_alarm_id")
+                        return bridgeAudible || coordinatorRingingId == lookupUUIDString
+                    }
+                    if audioIsContinuous {
+                        AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: uuid)
+                        return .result()
+                    }
+                }
+
                 // Must use a new UUID so AlarmKit doesn't drop the request.
                 // Deterministic respawn ladder avoids a silent terminal state
                 // when immediate retries race with system teardown.

@@ -34,7 +34,7 @@ final class AlarmBackgroundAudioBridge {
     private var watchdogTimer: DispatchSourceTimer?
     private let watchdogQueue = DispatchQueue(label: "ht.alarmo.background-audio-bridge.watchdog")
     private var lastLockedRefreshAt: Date?
-    private let lockedRefreshCooldown: TimeInterval = 0.75
+    private let lockedRefreshCooldown: TimeInterval = 1.0
     private var silentBridgeSince: Date?
     private var lastAudibleAt: Date?
 
@@ -94,6 +94,38 @@ final class AlarmBackgroundAudioBridge {
         }
 
         if activeAlarmID == surfaceAlarmId {
+            if !soundPlayer.isCurrentlyPlaying {
+                soundPlayer.reassertLoopingPlayback(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
+            } else {
+                lastAudibleAt = Date()
+            }
+            if watchdogTimer == nil {
+                startWatchdog()
+            }
+            return
+        }
+
+        // AlarmKit lock-loop respawns surfaces with new UUIDs for the SAME
+        // logical alarm. Rebinding the surface id without restarting player
+        // avoids audible "restart from beginning" artifacts.
+        if activeSourceAlarmID == resolvedSourceAlarmId {
+            activeAlarmID = surfaceAlarmId
+            beginBackgroundTaskIfNeeded(named: "alarmo.backgroundAlarm.\(surfaceAlarmId)")
+            if !soundPlayer.isCurrentlyPlaying {
+                do {
+                    try AudioRouteManager.configureAlarmSession()
+                } catch {
+                    print("[AlarmBackgroundAudioBridge] Failed to configure alarm session during same-source rebind: \(error)")
+                }
+                soundPlayer.reassertLoopingPlayback(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
+            }
+            if soundPlayer.isCurrentlyPlaying {
+                lastAudibleAt = Date()
+            }
+            if watchdogTimer == nil {
+                startWatchdog()
+            }
+            print("[AlarmBackgroundAudioBridge] 🔄 Rebound bridge to new surface=\(surfaceAlarmId), source=\(resolvedSourceAlarmId)")
             return
         }
 
@@ -172,6 +204,11 @@ final class AlarmBackgroundAudioBridge {
         }
     }
 
+    private func beginBackgroundTaskIfNeeded(named name: String) {
+        guard backgroundTaskID == .invalid else { return }
+        beginBackgroundTask(named: name)
+    }
+
     private func endBackgroundTask() {
         guard backgroundTaskID != .invalid else { return }
         UIApplication.shared.endBackgroundTask(backgroundTaskID)
@@ -229,13 +266,13 @@ final class AlarmBackgroundAudioBridge {
             }
 
             print("[AlarmBackgroundAudioBridge] ⚠️ Watchdog: detected silent bridge, restarting audio")
-            soundPlayer.playLooping(resourceName: sourceAlarm.soundName, volume: 1.0, fadeDuration: 0)
+            soundPlayer.reassertLoopingPlayback(resourceName: sourceAlarm.soundName, volume: 1.0, fadeDuration: 0)
 
             // A side/volume button can create a very brief interruption. Avoid
             // aggressively respawning the AlarmKit surface unless silence
             // persists for a sustained period.
             if let silentSince = silentBridgeSince,
-               now.timeIntervalSince(silentSince) >= 0.6 {
+               now.timeIntervalSince(silentSince) >= 1.0 {
                 triggerImmediateLockedRefresh(reason: "watchdog-persistent-silence")
                 silentBridgeSince = now
             }
@@ -292,7 +329,7 @@ final class AlarmBackgroundAudioBridge {
             }
             if let uuid = UUID(uuidString: resolvedSource),
                let alarm = (alarmStore ?? AlarmStore.shared).alarm(by: uuid) {
-                soundPlayer.playLooping(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
+                soundPlayer.reassertLoopingPlayback(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
                 lastAudibleAt = Date()
             }
             triggerImmediateLockedRefresh(reason: "\(reason)-silent-bridge")

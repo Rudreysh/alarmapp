@@ -98,6 +98,40 @@ final class SoundPlayer {
         }
     }
 
+    /// Reassert loop playback with minimal disruption:
+    /// 1) if existing AVAudioPlayer is paused/interrupted, resume in-place
+    /// 2) otherwise restart from saved loop context
+    /// 3) otherwise start from provided resource
+    func reassertLoopingPlayback(resourceName: String, volume: Float, fadeDuration: TimeInterval = 0) {
+        stopRequested = false
+
+        do {
+            try AudioRouteManager.configureAlarmSession()
+        } catch {
+            print("[SoundPlayer] ❌ Error configuring alarm session in reassert: \(error)")
+        }
+
+        if let player, !player.isPlaying {
+            player.prepareToPlay()
+            if player.play() {
+                shouldResumeLoopAfterInterruption = true
+                print("[SoundPlayer] ▶️ Resumed existing loop in-place")
+                return
+            }
+        } else if player?.isPlaying == true {
+            shouldResumeLoopAfterInterruption = true
+            return
+        }
+
+        if let context = loopContext {
+            playLocalFile(url: context.url, volume: context.volume, fadeDuration: 0)
+            print("[SoundPlayer] ▶️ Reasserted from saved loop context")
+            return
+        }
+
+        playLooping(resourceName: resourceName, volume: volume, fadeDuration: fadeDuration)
+    }
+
     func playOnce(resourceName: String, volume: Float) {
         stopRequested = true
         shouldResumeLoopAfterInterruption = false
@@ -209,6 +243,7 @@ final class SoundPlayer {
             player?.numberOfLoops = -1
             loopContext = LoopContext(url: url, volume: volume, fadeDuration: fadeDuration)
             shouldResumeLoopAfterInterruption = true
+            player?.prepareToPlay()
             
             if fadeDuration > 0 {
                 player?.volume = 0
@@ -309,6 +344,9 @@ final class SoundPlayer {
         case .began:
             shouldResumeLoopAfterInterruption = (player?.isPlaying == true) && loopContext != nil && !stopRequested
         case .ended:
+            if loopContext != nil && !stopRequested {
+                shouldResumeLoopAfterInterruption = true
+            }
             resumeLoopIfNeeded(reason: "interruption-ended")
         @unknown default:
             break
@@ -318,12 +356,23 @@ final class SoundPlayer {
     private func resumeLoopIfNeeded(reason: String) {
         guard shouldResumeLoopAfterInterruption,
               !stopRequested,
-              player?.isPlaying != true,
-              let context = loopContext else {
+              player?.isPlaying != true else {
             return
         }
 
         print("[SoundPlayer] ▶️ Resuming looping audio after \(reason)")
-        playLocalFile(url: context.url, volume: context.volume, fadeDuration: 0)
+        do {
+            try AudioRouteManager.configureAlarmSession()
+        } catch {
+            print("[SoundPlayer] ❌ Error configuring audio session while resuming interruption: \(error)")
+        }
+
+        if let player, player.play() {
+            return
+        }
+
+        if let context = loopContext {
+            playLocalFile(url: context.url, volume: context.volume, fadeDuration: 0)
+        }
     }
 }
