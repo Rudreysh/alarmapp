@@ -796,7 +796,16 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                 reason: "scene-transition-lock"
             )
         }
-        ensureAlarmKitSurfaceForLockedLoopIfNeeded(sourceAlarmId: sourceAlarmId, force: true)
+        // Only schedule a new AlarmKit surface when audio has stopped.
+        // Creating a surface causes AlarmKit to fire a system alarm sound,
+        // which sends an AVAudioSession interruption that briefly silences
+        // the bridge — producing the audible gap the user experiences.
+        // If bridge or coordinator was recently playing, no surface is needed.
+        let audioActiveForEnforce = AlarmBackgroundAudioBridge.shared.hasRecentAudiblePlayback(within: 2.0) ||
+            coordinatorHandlingForEnforce
+        if !audioActiveForEnforce {
+            ensureAlarmKitSurfaceForLockedLoopIfNeeded(sourceAlarmId: sourceAlarmId, force: true)
+        }
 #endif
     }
 
@@ -852,7 +861,15 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                 )
             }
             self.setAlarmFlowPhase(.ringingLocked, for: sourceAlarmId)
-            self.ensureAlarmKitSurfaceForLockedLoopIfNeeded(sourceAlarmId: sourceAlarmId)
+            // Only reassert an AlarmKit surface when audio has genuinely stopped.
+            // Scheduling a surface fires a new system alarm sound which causes an
+            // AVAudioSession interruption that silences the bridge, creating the
+            // audible gap. Skip when audio is still active.
+            let audioStillActive = AlarmBackgroundAudioBridge.shared.hasRecentAudiblePlayback(within: 2.0) ||
+                coordinatorActiveForReassert
+            if !audioStillActive {
+                self.ensureAlarmKitSurfaceForLockedLoopIfNeeded(sourceAlarmId: sourceAlarmId)
+            }
             self.startAlarmKitUnlockPromptLoop(
                 sourceAlarmId: sourceAlarmId,
                 surfaceAlarmId: surfaceAlarmId,

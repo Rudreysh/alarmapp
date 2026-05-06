@@ -681,23 +681,25 @@ struct StopAlarmIntent: LiveActivityIntent {
                 // AlarmKit does not keep stale lock-screen entries around.
                 try? AlarmManager.shared.cancel(id: uuid)
 
-                // For user-initiated slide-to-stop actions (suppressUnlockPrompt=false),
-                // skip zombie respawn when app audio is already playing continuously.
-                // The bridge or coordinator will keep ringing until the user unlocks
-                // and presses Stop on the custom UI — matching Alarmy behavior where
-                // slide-to-stop removes the AlarmKit UI without re-scheduling it.
-                if !suppressUnlockPrompt {
-                    let audioIsContinuous = await MainActor.run {
-                        let bridgeAudible = AlarmBackgroundAudioBridge.shared.isAudiblyPlaying &&
-                            (AlarmBackgroundAudioBridge.shared.currentSourceAlarmID == lookupUUIDString ||
-                             AlarmBackgroundAudioBridge.shared.currentAlarmID == alarmID)
-                        let coordinatorRingingId = UserDefaults.standard.string(forKey: "last_ringing_alarm_id")
-                        return bridgeAudible || coordinatorRingingId == lookupUUIDString
-                    }
-                    if audioIsContinuous {
-                        AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: uuid)
-                        return .result()
-                    }
+                // Skip zombie respawn when app audio has been recently active.
+                // isAudiblyPlaying is unreliable here because AlarmKit's system alarm
+                // sound sends an AVAudioSession interruption that briefly pauses our
+                // bridge's AVAudioPlayer, making isAudiblyPlaying return false even
+                // while the alarm is effectively running.
+                // hasRecentAudiblePlayback(within:) timestamps the last confirmed
+                // playback tick and is immune to these transient interruption gaps.
+                // When bridge or coordinator was playing within the last 2 seconds,
+                // the audio is continuous — skip zombie so no new AlarmKit surface
+                // fires and no new system sound interrupts the bridge session.
+                let bridgeRecentlyAudible = await MainActor.run {
+                    AlarmBackgroundAudioBridge.shared.hasRecentAudiblePlayback(within: 2.0)
+                }
+                let coordinatorRingingId = await MainActor.run {
+                    UserDefaults.standard.string(forKey: "last_ringing_alarm_id")
+                }
+                if bridgeRecentlyAudible || coordinatorRingingId == lookupUUIDString {
+                    AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: uuid)
+                    return .result()
                 }
 
                 // Must use a new UUID so AlarmKit doesn't drop the request.
