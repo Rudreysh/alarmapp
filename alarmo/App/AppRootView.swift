@@ -142,6 +142,13 @@ struct AppRootView: View {
                         sourceAlarmId: alarm.id.uuidString,
                         surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString
                     )
+                } else if let surfaceAlarmId = AlarmBackgroundAudioBridge.shared.currentAlarmID {
+                    let sourceAlarmId = AlarmBackgroundAudioBridge.shared.currentSourceAlarmID
+                        ?? AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceAlarmId)
+                    notificationManager.enforceLockedRingingState(
+                        sourceAlarmId: sourceAlarmId,
+                        surfaceAlarmId: surfaceAlarmId
+                    )
                 }
             }
         }

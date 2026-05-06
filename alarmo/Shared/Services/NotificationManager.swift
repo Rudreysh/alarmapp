@@ -585,7 +585,8 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     private func shouldContinueAlarmKitUnlockPromptLoop(for sourceAlarmId: String) -> Bool {
         if completedAlarmFlowIds.contains(sourceAlarmId) { return false }
         if alarmFlowPhase(for: sourceAlarmId) == .completed { return false }
-        if alarmFlowPhase(for: sourceAlarmId) == .ringingLocked { return true }
+        let phase = alarmFlowPhase(for: sourceAlarmId)
+        if phase == .ringingLocked || phase == .ringingUnlocked { return true }
         if (ringCoordinator?.isRinging == true) || AlarmBackgroundAudioBridge.shared.isPlaying {
             return true
         }
@@ -875,10 +876,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         // own sound is playing before the user interacts with
         // the AlarmKit stop slider. This is the key to
         // seamless sound continuity.
-        let coordinatorAlreadyHandlingThisAlarm =
-            ringCoordinator?.isRinging == true &&
-            ringCoordinator?.activeAlarm?.id.uuidString == sourceAlarmId
-        if !coordinatorAlreadyHandlingThisAlarm {
+        let bridgeAlreadyActiveForSurface =
+            AlarmBackgroundAudioBridge.shared.currentAlarmID == surfaceAlarmId &&
+            AlarmBackgroundAudioBridge.shared.isAudiblyPlaying
+        if !bridgeAlreadyActiveForSurface {
             AlarmBackgroundAudioBridge.shared.start(
                 surfaceAlarmId: surfaceAlarmId,
                 sourceAlarmId: sourceAlarmId
