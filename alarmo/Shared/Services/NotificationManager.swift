@@ -62,6 +62,13 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     private var completedAlarmFlowIds: Set<String> = []
     private var completedAlarmFlowAt: [String: Date] = [:]
     private var issuedAlarmKitUnlockPromptSourceIds: Set<String> = []
+    private enum AlarmFlowPhase {
+        case idle
+        case ringingLocked
+        case ringingUnlocked
+        case completed
+    }
+    private var alarmFlowPhaseBySource: [String: AlarmFlowPhase] = [:]
     
     @Published var authorizationStatus: UNAuthorizationStatus = .notDetermined
 
@@ -456,11 +463,23 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         completedAlarmFlowIds.insert(alarmId)
         completedAlarmFlowAt[alarmId] = Date()
         issuedAlarmKitUnlockPromptSourceIds.remove(alarmId)
+        alarmFlowPhaseBySource[alarmId] = .completed
     }
 
     func clearCompletedAlarmFlow(alarmId: String) {
         completedAlarmFlowIds.remove(alarmId)
         completedAlarmFlowAt.removeValue(forKey: alarmId)
+        if alarmFlowPhaseBySource[alarmId] == .completed {
+            alarmFlowPhaseBySource[alarmId] = .idle
+        }
+    }
+
+    private func setAlarmFlowPhase(_ phase: AlarmFlowPhase, for sourceAlarmId: String) {
+        alarmFlowPhaseBySource[sourceAlarmId] = phase
+    }
+
+    private func alarmFlowPhase(for sourceAlarmId: String) -> AlarmFlowPhase {
+        alarmFlowPhaseBySource[sourceAlarmId] ?? .idle
     }
 
     private func isAlarmFlowSuppressed(_ alarmId: String) -> Bool {
@@ -565,6 +584,8 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
     private func shouldContinueAlarmKitUnlockPromptLoop(for sourceAlarmId: String) -> Bool {
         if completedAlarmFlowIds.contains(sourceAlarmId) { return false }
+        if alarmFlowPhase(for: sourceAlarmId) == .completed { return false }
+        if alarmFlowPhase(for: sourceAlarmId) == .ringingLocked { return true }
         if (ringCoordinator?.isRinging == true) || AlarmBackgroundAudioBridge.shared.isPlaying {
             return true
         }
@@ -703,7 +724,8 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         // Stop/Snooze already completed.
         if !force {
             let ringIsActive = (ringCoordinator?.isRinging == true) || AlarmBackgroundAudioBridge.shared.isPlaying
-            guard ringIsActive else { return }
+            let lockedRingingPhase = alarmFlowPhase(for: sourceAlarmId) == .ringingLocked
+            guard ringIsActive || lockedRingingPhase else { return }
         }
         // The user has explicitly completed this alarm — never resurrect it.
         guard !isAlarmFlowSuppressed(sourceAlarmId) else { return }
@@ -745,11 +767,27 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             )
             do {
                 _ = try await intent.perform()
+                self.setAlarmFlowPhase(.ringingLocked, for: sourceAlarmId)
                 print("[NotificationManager] 🔁 Ensured locked AlarmKit surface for source=\(sourceAlarmId)")
             } catch {
                 print("[NotificationManager] Failed ensuring locked AlarmKit surface for \(sourceAlarmId): \(error)")
             }
         }
+#endif
+    }
+
+    func enforceLockedRingingState(sourceAlarmId: String, surfaceAlarmId: String? = nil) {
+#if canImport(AlarmKit)
+        guard AlarmManagerFacade.shared.selectedPath == .alarmKit else { return }
+        guard #available(iOS 26.0, *) else { return }
+        guard !isAlarmFlowSuppressed(sourceAlarmId) else { return }
+        setAlarmFlowPhase(.ringingLocked, for: sourceAlarmId)
+        AlarmBackgroundAudioBridge.shared.reinforceLockedLoopNow(
+            surfaceAlarmId: surfaceAlarmId,
+            sourceAlarmId: sourceAlarmId,
+            reason: "scene-transition-lock"
+        )
+        ensureAlarmKitSurfaceForLockedLoopIfNeeded(sourceAlarmId: sourceAlarmId, force: true)
 #endif
     }
 
@@ -770,13 +808,6 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         // interaction) while we are still in locked/background alarm flow,
         // force the lock surface to reappear and keep bridge audio alive.
         if isBackgroundOrLocked, shouldContinueAlarmKitUnlockPromptLoop(for: sourceAlarmId) {
-            // Side/volume button interactions can emit short non-alerting states.
-            // Debounce reassertion so transient state flips do not cut and restart
-            // alarm audio/UI.
-            if AlarmBackgroundAudioBridge.shared.isAudiblyPlaying {
-                cancelPendingLockedSurfaceReassert(for: sourceAlarmId)
-                return
-            }
             scheduleLockedSurfaceReassert(
                 sourceAlarmId: sourceAlarmId,
                 surfaceAlarmId: surfaceAlarmId,
@@ -801,13 +832,13 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
             guard UIApplication.shared.applicationState != .active else { return }
             guard self.shouldContinueAlarmKitUnlockPromptLoop(for: sourceAlarmId) else { return }
-            guard !AlarmBackgroundAudioBridge.shared.isAudiblyPlaying else { return }
 
             AlarmBackgroundAudioBridge.shared.reinforceLockedLoopNow(
                 surfaceAlarmId: surfaceAlarmId,
                 sourceAlarmId: sourceAlarmId,
                 reason: "alarm-update-non-alerting-\(stateDescription)"
             )
+            self.setAlarmFlowPhase(.ringingLocked, for: sourceAlarmId)
             self.ensureAlarmKitSurfaceForLockedLoopIfNeeded(sourceAlarmId: sourceAlarmId)
             self.startAlarmKitUnlockPromptLoop(
                 sourceAlarmId: sourceAlarmId,
@@ -836,6 +867,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         if isAlarmFlowSuppressed(sourceAlarmId) || isAlarmFlowSuppressed(surfaceAlarmId) {
             try? AlarmManager.shared.stop(id: alarm.id)
             try? AlarmManager.shared.cancel(id: alarm.id)
+            setAlarmFlowPhase(.completed, for: sourceAlarmId)
             return
         }
 
@@ -843,12 +875,18 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         // own sound is playing before the user interacts with
         // the AlarmKit stop slider. This is the key to
         // seamless sound continuity.
-        AlarmBackgroundAudioBridge.shared.start(
-            surfaceAlarmId: surfaceAlarmId,
-            sourceAlarmId: sourceAlarmId
-        )
+        let coordinatorAlreadyHandlingThisAlarm =
+            ringCoordinator?.isRinging == true &&
+            ringCoordinator?.activeAlarm?.id.uuidString == sourceAlarmId
+        if !coordinatorAlreadyHandlingThisAlarm {
+            AlarmBackgroundAudioBridge.shared.start(
+                surfaceAlarmId: surfaceAlarmId,
+                sourceAlarmId: sourceAlarmId
+            )
+        }
 
         if UIApplication.shared.applicationState == .active {
+            setAlarmFlowPhase(.ringingUnlocked, for: sourceAlarmId)
             // App is already in the foreground — show the
             // in-app ringing UI directly and dismiss the
             // system AlarmKit surface.
@@ -859,8 +897,6 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                     surfaceAlarmId: surfaceAlarmId
                 )
                 dismissLinkedAlarmKitSurfacesAggressively(sourceAlarmId: sourceAlarmId)
-                // Hand off from bridge to coordinator audio
-                AlarmBackgroundAudioBridge.shared.handoffToForeground(alarmId: surfaceAlarmId)
                 do {
                     try AlarmManager.shared.stop(id: alarm.id)
                     print("[NotificationManager] Dismissed foreground AlarmKit surface: \(surfaceAlarmId)")
@@ -881,6 +917,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                 )
             }
         } else {
+            setAlarmFlowPhase(.ringingLocked, for: sourceAlarmId)
             // App is backgrounded/locked — keep bridge audio
             // running and prepare for post-unlock handoff.
             if let sourceUUID = UUID(uuidString: sourceAlarmId) {

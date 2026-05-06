@@ -682,9 +682,9 @@ struct StopAlarmIntent: LiveActivityIntent {
                 try? AlarmManager.shared.cancel(id: uuid)
                 
                 // Must use a new UUID so AlarmKit doesn't drop the request.
-                // Keep a short pause before reappearing to reduce audible delay.
-                let baseRespawnDelay: TimeInterval = 0.5
-                let maxRespawnAttempts = 4
+                // Deterministic respawn ladder avoids a silent terminal state
+                // when immediate retries race with system teardown.
+                let respawnDelays: [TimeInterval] = [0.5, 0.7, 0.9, 1.2, 1.6, 2.0]
                 let snoozeInterval = helper.resolvedSnoozeInterval(for: originalAlarm)
                 let snoozeEnabled = snoozeInterval != nil
 
@@ -692,9 +692,8 @@ struct StopAlarmIntent: LiveActivityIntent {
                 var lastError: Error?
                 var newUUID = UUID()
 
-                for attempt in 1...maxRespawnAttempts {
+                for (index, attemptDelay) in respawnDelays.enumerated() {
                     do {
-                        let attemptDelay = baseRespawnDelay + (Double(attempt - 1) * 0.1)
                         newUUID = UUID()
                         _ = try await helper.scheduleWithFallbackSound(
                             manager: AlarmManager.shared,
@@ -710,9 +709,10 @@ struct StopAlarmIntent: LiveActivityIntent {
                         break
                     } catch {
                         lastError = error
-                        print("[StopAlarmIntent] Zombie reschedule attempt \(attempt)/\(maxRespawnAttempts) failed: \(error)")
-                        if attempt < maxRespawnAttempts {
-                            try? await Task.sleep(nanoseconds: 100_000_000)
+                        let attempt = index + 1
+                        print("[StopAlarmIntent] Zombie reschedule attempt \(attempt)/\(respawnDelays.count) failed: \(error)")
+                        if attempt < respawnDelays.count {
+                            try? await Task.sleep(nanoseconds: 80_000_000)
                         }
                     }
                 }
@@ -744,7 +744,13 @@ struct StopAlarmIntent: LiveActivityIntent {
                     return .result()
                 }
 
-                print("[StopAlarmIntent] Zombie reschedule failed after \(maxRespawnAttempts) attempts: \(lastError?.localizedDescription ?? "unknown error")")
+                print("[StopAlarmIntent] Zombie reschedule failed after \(respawnDelays.count) attempts: \(lastError?.localizedDescription ?? "unknown error")")
+                await MainActor.run {
+                    NotificationManager.shared.ensureAlarmKitSurfaceForLockedLoopIfNeeded(
+                        sourceAlarmId: lookupUUID.uuidString,
+                        force: true
+                    )
+                }
                 if !suppressUnlockPrompt {
                     NotificationManager.shared.scheduleAlarmKitUnlockPrompt(
                         sourceAlarmId: lookupUUID.uuidString,

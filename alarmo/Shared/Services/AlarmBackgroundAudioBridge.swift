@@ -36,6 +36,7 @@ final class AlarmBackgroundAudioBridge {
     private var lastLockedRefreshAt: Date?
     private let lockedRefreshCooldown: TimeInterval = 0.75
     private var silentBridgeSince: Date?
+    private var lastAudibleAt: Date?
 
     private init() {
         NotificationCenter.default.addObserver(
@@ -71,6 +72,14 @@ final class AlarmBackgroundAudioBridge {
         soundPlayer.isCurrentlyPlaying
     }
 
+    /// Returns true only when playback has been observed recently by the
+    /// watchdog/start paths. This avoids decisions based on a stale one-shot
+    /// `isPlaying` read during lock/unlock races.
+    func hasRecentAudiblePlayback(within interval: TimeInterval) -> Bool {
+        guard let lastAudibleAt else { return false }
+        return Date().timeIntervalSince(lastAudibleAt) <= interval
+    }
+
     func configure(alarmStore: AlarmStore) {
         self.alarmStore = alarmStore
     }
@@ -104,6 +113,7 @@ final class AlarmBackgroundAudioBridge {
         }
 
         soundPlayer.playLooping(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
+        lastAudibleAt = Date()
         activeAlarmID = surfaceAlarmId
         activeSourceAlarmID = resolvedSourceAlarmId
         startWatchdog()
@@ -135,6 +145,8 @@ final class AlarmBackgroundAudioBridge {
         soundPlayer.stop()
         activeAlarmID = nil
         activeSourceAlarmID = nil
+        lastAudibleAt = nil
+        silentBridgeSince = nil
         endBackgroundTask()
     }
 
@@ -229,6 +241,7 @@ final class AlarmBackgroundAudioBridge {
             }
         } else {
             silentBridgeSince = nil
+            lastAudibleAt = Date()
         }
 
         // SoundPlayer handles interruption internally via its own observers,
@@ -266,6 +279,23 @@ final class AlarmBackgroundAudioBridge {
         if activeAlarmID == nil {
             start(surfaceAlarmId: resolvedSurface, sourceAlarmId: resolvedSource)
             triggerImmediateLockedRefresh(reason: reason)
+            return
+        }
+
+        // If a bridge session exists but side/volume interaction left it silent,
+        // immediately re-assert audio and refresh the AlarmKit lock surface.
+        if !soundPlayer.isCurrentlyPlaying {
+            do {
+                try AudioRouteManager.configureAlarmSession()
+            } catch {
+                print("[AlarmBackgroundAudioBridge] Failed to re-configure alarm session in reinforce: \(error)")
+            }
+            if let uuid = UUID(uuidString: resolvedSource),
+               let alarm = (alarmStore ?? AlarmStore.shared).alarm(by: uuid) {
+                soundPlayer.playLooping(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
+                lastAudibleAt = Date()
+            }
+            triggerImmediateLockedRefresh(reason: "\(reason)-silent-bridge")
         }
     }
 }

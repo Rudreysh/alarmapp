@@ -26,6 +26,8 @@ final class AlarmRingCoordinator: ObservableObject {
     private var alarmSessionSnapshots: [UUID: AlarmSession] = [:]
     private var missionTimeoutWorkItem: DispatchWorkItem?
     private var snoozeTransitionInFlight: Bool = false
+    private var ringingWatchdogTimer: DispatchSourceTimer?
+    private let ringingWatchdogQueue = DispatchQueue(label: "ht.alarmo.ring-coordinator.watchdog")
     
     func configure(alarmStore: AlarmStore, foregroundScheduler: AlarmForegroundScheduler?, modelContext: ModelContext) {
         self.alarmStore = alarmStore
@@ -47,6 +49,9 @@ final class AlarmRingCoordinator: ObservableObject {
             // If audio was interrupted during lock->unlock transition, force it
             // back immediately while keeping the same ringing session/UI.
             reassertRingingAudio(reason: "duplicate-start-\(source)")
+            if ringingWatchdogTimer == nil {
+                startRingingWatchdog()
+            }
             return true
         }
         
@@ -57,16 +62,19 @@ final class AlarmRingCoordinator: ObservableObject {
 
         NotificationManager.shared.clearCompletedAlarmFlow(alarmId: alarm.id.uuidString)
 
-        // Handoff bridge audio as soon as we know foreground ringing can start,
-        // so the custom UI appears with continuous sound and no audible gap.
-        if let bridgeSurfaceId = AlarmBackgroundAudioBridge.shared.currentAlarmID {
+        // Determine whether coordinator should claim bridge ownership for this alarm.
+        let bridgeSurfaceIdToStop: String? = {
+            guard let bridgeSurfaceId = AlarmBackgroundAudioBridge.shared.currentAlarmID else {
+                return nil
+            }
             let mappedSource = AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: bridgeSurfaceId)
             if mappedSource == alarmId ||
                 AlarmBackgroundAudioBridge.shared.currentSourceAlarmID == alarmId ||
                 bridgeSurfaceId == alarmId {
-                AlarmBackgroundAudioBridge.shared.handoffToForeground(alarmId: bridgeSurfaceId, stopDelay: 0.2)
+                return bridgeSurfaceId
             }
-        }
+            return nil
+        }()
 
         Task {
             await AlarmManagerFacade.shared.markAlarmFired(id: alarm.id)
@@ -113,6 +121,10 @@ final class AlarmRingCoordinator: ObservableObject {
         // Real alarm playback must be loud immediately. iOS does not expose a public API
         // to force the device hardware volume, so we max out Alarmo's own player volume.
         soundPlayer.playLooping(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
+        if let bridgeSurfaceIdToStop {
+            AlarmBackgroundAudioBridge.shared.stop(alarmId: bridgeSurfaceIdToStop)
+        }
+        startRingingWatchdog()
         if alarm.vibrateEnabled {
             hapticsPlayer.startRepeating()
         } else {
@@ -167,6 +179,7 @@ final class AlarmRingCoordinator: ObservableObject {
     private func stopRingingInternal(preserveSession: Bool, completed: Bool = false) {
         missionTimeoutWorkItem?.cancel()
         missionTimeoutWorkItem = nil
+        stopRingingWatchdog()
         let bridgeSurfaceAlarmId = AlarmBackgroundAudioBridge.shared.currentAlarmID
         let bridgeSourceAlarmId = AlarmBackgroundAudioBridge.shared.currentSourceAlarmID
         let mappedBridgeSourceAlarmId = bridgeSurfaceAlarmId.map {
@@ -482,6 +495,37 @@ final class AlarmRingCoordinator: ObservableObject {
         )
         alarmStore?.update(updated)
         activeAlarm = updated
+    }
+
+    // MARK: - Ringing Watchdog
+
+    private func startRingingWatchdog() {
+        stopRingingWatchdog()
+        let timer = DispatchSource.makeTimerSource(queue: ringingWatchdogQueue)
+        timer.schedule(deadline: .now() + 0.5, repeating: 0.5, leeway: .milliseconds(80))
+        timer.setEventHandler { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.ringingWatchdogTick()
+            }
+        }
+        ringingWatchdogTimer = timer
+        timer.resume()
+    }
+
+    private func stopRingingWatchdog() {
+        ringingWatchdogTimer?.setEventHandler {}
+        ringingWatchdogTimer?.cancel()
+        ringingWatchdogTimer = nil
+    }
+
+    private func ringingWatchdogTick() {
+        guard isRinging, !isPreviewMode, let alarm = activeAlarm else { return }
+        if soundPlayer.isCurrentlyPlaying { return }
+        print("[AlarmRingCoordinator] ⚠️ Ringing watchdog restarted silent audio for \(alarm.id)")
+        soundPlayer.playLooping(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
+        if alarm.vibrateEnabled {
+            hapticsPlayer.startRepeating()
+        }
     }
 }
 

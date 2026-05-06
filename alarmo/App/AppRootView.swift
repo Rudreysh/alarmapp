@@ -138,6 +138,10 @@ struct AppRootView: View {
                         surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString,
                         alarmName: alarm.name
                     )
+                    notificationManager.enforceLockedRingingState(
+                        sourceAlarmId: alarm.id.uuidString,
+                        surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString
+                    )
                 }
             }
         }
