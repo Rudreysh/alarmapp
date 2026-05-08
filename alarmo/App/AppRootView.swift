@@ -28,6 +28,7 @@ struct AppRootView: View {
     @State private var showAlarmKitFailureNotice = false
     @State private var alarmKitFailureMessage = "AlarmKit scheduling failed."
     @State private var customUIHandoffRetryWorkItem: DispatchWorkItem?
+    @State private var stopAlarmKitSurfaceTask: Task<Void, Never>?
     @AppStorage("settings.alarmThemeStyleRaw") private var appThemeStyleRaw: String = AlarmThemeStyle.default.rawValue
 
     init() {
@@ -124,7 +125,30 @@ struct AppRootView: View {
                 }
                 pomodoroEngine.handleSceneDidBecomeActive()
                 tamperDetectionService.evaluateOnForeground(ringCoordinator: ringCoordinator)
+                // Pre-warm audio session SYNCHRONOUSLY before any other work
+                // so the first user-perceivable moment after unlock has audio
+                // ready to play.
+                try? AudioRouteManager.configureAlarmSession()
                 ringCoordinator.reassertRingingAudio(reason: "scene-active")
+                // App is now foreground. Dismiss any currently-alerting
+                // AlarmKit banners so they don't sit on top of our in-app UI,
+                // BUT keep the backup chain alive — if the user re-locks
+                // quickly, we need a fresh backup to fire within ~2s so the
+                // lock-screen slide-to-stop reappears with system audio. The
+                // chain naturally dismisses each backup as it fires in
+                // foreground (see processAlarmKitAlertingAlarm) so banners
+                // never accumulate.
+                if #available(iOS 26.0, *), ringCoordinator.isRinging,
+                   let alarm = ringCoordinator.activeAlarm {
+                    notificationManager.nukeAllAlertingAlarmKitSurfaces()
+                    // Reschedule a fresh backup so re-lock has fast recovery.
+                    // Cancel the old (which we're about to dismiss anyway)
+                    // and schedule a new one.
+                    notificationManager.cancelAllBackupAlarmKitChains()
+                    Task {
+                        await notificationManager.ensureBackupAlarmKitChain(sourceAlarmId: alarm.id.uuidString)
+                    }
+                }
                 notificationManager.recoverAlarmFromDeliveredNotificationsIfNeeded()
                 notificationManager.recoverAlarmKitAlertingIfNeeded()
                 enforceAlarmCustomUIIfNeeded()
@@ -132,7 +156,16 @@ struct AppRootView: View {
                 refreshAlarmUnlockPromptIfNeeded()
             } else if newPhase == .inactive || newPhase == .background {
                 pomodoroEngine.handleSceneDidEnterBackground()
+                stopAlarmKitSurfaceTask?.cancel()
+                stopAlarmKitSurfaceTask = nil
+                // CRITICAL: cancel any in-flight AlarmKit dismissal. If the user
+                // re-locks during a deferred dismissal window, we must NOT stop
+                // AlarmKit — its lock-screen surface is the most reliable audio
+                // continuity for the alarm.
+                notificationManager.cancelPendingAlarmKitDismissals(reason: "scene-inactive-background")
+                ringCoordinator.cancelDeferredBridgeStop(reason: "scene-inactive-background")
                 if ringCoordinator.isRinging, let alarm = ringCoordinator.activeAlarm {
+                    ringCoordinator.reassertRingingAudio(reason: "scene-inactive-background")
                     notificationManager.startAlarmKitUnlockPromptLoop(
                         sourceAlarmId: alarm.id.uuidString,
                         surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString,
@@ -142,6 +175,14 @@ struct AppRootView: View {
                         sourceAlarmId: alarm.id.uuidString,
                         surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString
                     )
+                    // App is now backgrounded/locked. Bridge audio can fail
+                    // when iOS suspends us. Arm the AlarmKit backup chain so
+                    // a fresh AlarmKit alarm fires every 2s as a fallback.
+                    if #available(iOS 26.0, *) {
+                        Task {
+                            await notificationManager.ensureBackupAlarmKitChain(sourceAlarmId: alarm.id.uuidString)
+                        }
+                    }
                 } else if let surfaceAlarmId = AlarmBackgroundAudioBridge.shared.currentAlarmID {
                     let sourceAlarmId = AlarmBackgroundAudioBridge.shared.currentSourceAlarmID
                         ?? AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceAlarmId)
@@ -158,12 +199,37 @@ struct AppRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .alarmKitCustomUIHandoffRequested)) { _ in
             handlePendingCustomAlarmUIHandoff()
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            // Fires BEFORE scenePhase becomes .active and BEFORE
+            // protectedDataDidBecomeAvailable. Force-reset the audio session
+            // to clear any stuck state from AlarmKit's interference, then
+            // reassert audio. This is what makes "open the app brings sound
+            // back" actually work — without the force-reset, the session can
+            // be in a state where setActive(true) is technically successful
+            // but no actual audio output happens.
+            AudioRouteManager.forceResetAlarmSession()
+            if ringCoordinator.isRinging {
+                ringCoordinator.reassertRingingAudio(reason: "willEnterForeground")
+            } else if AlarmBackgroundAudioBridge.shared.isPlaying {
+                AlarmBackgroundAudioBridge.shared.reinforceLockedLoopNow(reason: "willEnterForeground")
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             notificationManager.recoverAlarmKitAlertingIfNeeded()
             enforceAlarmCustomUIIfNeeded()
             handlePendingCustomAlarmUIHandoff()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
+            // Earliest moment after FaceID/Touch ID auth. Force-reset the
+            // audio session to clear AlarmKit's audio session interference,
+            // then reassert audio. This minimizes the silence window the
+            // user perceives between unlock and audio resuming.
+            AudioRouteManager.forceResetAlarmSession()
+            if ringCoordinator.isRinging {
+                ringCoordinator.reassertRingingAudio(reason: "protectedDataAvailable")
+            } else if AlarmBackgroundAudioBridge.shared.isPlaying {
+                AlarmBackgroundAudioBridge.shared.reinforceLockedLoopNow(reason: "protectedDataAvailable")
+            }
             enforceAlarmCustomUIIfNeeded()
             handlePendingCustomAlarmUIHandoff()
         }
@@ -266,7 +332,14 @@ struct AppRootView: View {
                 surfaceAlarmId: surfaceAlarmId,
                 alarmName: ringCoordinator.activeAlarm?.name
             )
-            notificationManager.dismissLinkedAlarmKitSurfacesAggressively(sourceAlarmId: resolvedSource)
+            // DO NOT dismiss AlarmKit aggressively here. Aggressive dismissal calls
+            // AlarmManager.shared.stop synchronously on its first attempt, which
+            // deactivates AlarmKit's audio session. If the user re-locks at this
+            // moment (fast unlock+relock), the bridge's player gets interrupted
+            // mid-stream, AlarmKit's lock-screen surface is gone, and the alarm
+            // goes silent. The deferred-and-cancellable dismissal below preserves
+            // AlarmKit's lock-screen surface as a fallback audio source until we
+            // know the user is committed to staying in-app.
             stopAlarmKitSurfaceAfterCustomAudioStarts(alarmId: surfaceAlarmId)
             return
         }
@@ -320,17 +393,26 @@ struct AppRootView: View {
     }
 
     private func stopAlarmKitSurfaceAfterCustomAudioStarts(alarmId: String) {
-#if canImport(AlarmKit)
-        guard #available(iOS 26.0, *),
-              let uuid = UUID(uuidString: alarmId) else { return }
-
-        Task {
-            // Give Alarmo's own looping audio a short head start before dismissing
-            // the system AlarmKit surface, so the user does not hear a silent gap.
-            try? await Task.sleep(nanoseconds: 175_000_000)
-            try? AlarmManager.shared.stop(id: uuid)
-        }
-#endif
+        // INTENTIONALLY A NO-OP.
+        //
+        // Previously this dismissed AlarmKit's surface 1.5s after unlock so the
+        // in-app UI could take over. But dismissing AlarmKit removes the only
+        // audio source that bypasses silent mode without the critical-alert
+        // entitlement. If the user re-locks at any point or the bridge briefly
+        // fails, the alarm goes silent.
+        //
+        // New strategy (matches Alarmy): AlarmKit stays alerting from the moment
+        // the alarm fires until the user presses Stop/Snooze in our in-app UI.
+        // AlarmKit's slide-to-stop is the ONE persistent banner the user sees;
+        // pressing it triggers StopAlarmIntent which zombie-respawns the alarm
+        // (existing logic in AlarmSchedulerIOS26AlarmKit.StopAlarmIntent).
+        //
+        // The only path that dismisses AlarmKit now is
+        // `AlarmRingCoordinator.stopRingingInternal`, called when the user
+        // presses Stop/Snooze in the in-app AlarmRingingView.
+        stopAlarmKitSurfaceTask?.cancel()
+        stopAlarmKitSurfaceTask = nil
+        _ = alarmId
     }
 
     private func refreshAlarmUnlockPromptIfNeeded(

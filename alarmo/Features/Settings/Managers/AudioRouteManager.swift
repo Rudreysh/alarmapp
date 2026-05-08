@@ -40,15 +40,33 @@ class AudioRouteManager: ObservableObject {
     }
 
     /// Configure audio session specifically for alarm ringing.
-    /// Uses `.playback` category which is the only reliable way to bypass the silent switch.
-    /// Also sets the session as active with `.notifyOthersOnDeactivation` so other audio ducks.
+    /// `.playback` is the only category that reliably bypasses the silent switch.
+    /// `.mixWithOthers` lets us coexist with AlarmKit's audio session without
+    /// being paused by its activation/deactivation during UI transitions.
     static func configureAlarmSession() throws {
         let session = AVAudioSession.sharedInstance()
-        // .playback category ignores the silent/mute switch on iOS.
-        // No options = force output to speaker (not bluetooth) for maximum audibility.
-        try session.setCategory(.playback, mode: .default, options: [])
-        try session.setActive(true, options: [.notifyOthersOnDeactivation])
-        print("[AudioRouteManager] 🔔 Alarm audio session configured (.playback, override silent)")
+        let alarmOptions: AVAudioSession.CategoryOptions = [.mixWithOthers]
+        try session.setCategory(.playback, mode: .default, options: alarmOptions)
+        do {
+            try session.setActive(true, options: [])
+        } catch {
+            print("[AudioRouteManager] ⚠️ setActive(true) failed (\(error)) — attempting hard reset")
+            try? session.setActive(false, options: [])
+            try session.setCategory(.playback, mode: .default, options: alarmOptions)
+            try session.setActive(true, options: [])
+        }
+    }
+
+    /// Force a deactivate-then-activate cycle. Use this when the audio
+    /// session is suspected to be in a stuck state (e.g. on app resume after
+    /// AlarmKit interfered). Any currently-playing AVAudioPlayer should be
+    /// reasserted by callers AFTER this returns.
+    static func forceResetAlarmSession() {
+        let session = AVAudioSession.sharedInstance()
+        try? session.setActive(false, options: [.notifyOthersOnDeactivation])
+        try? session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+        try? session.setActive(true, options: [])
+        print("[AudioRouteManager] 🔄 Force-reset alarm audio session")
     }
 
     private static func currentModeFromDefaults() -> SoundOutputMode {

@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import SwiftData
+import UIKit
 
 @MainActor
 final class AlarmRingCoordinator: ObservableObject {
@@ -28,6 +29,8 @@ final class AlarmRingCoordinator: ObservableObject {
     private var snoozeTransitionInFlight: Bool = false
     private var ringingWatchdogTimer: DispatchSourceTimer?
     private let ringingWatchdogQueue = DispatchQueue(label: "ht.alarmo.ring-coordinator.watchdog")
+    private var deferredBridgeStopWorkItem: DispatchWorkItem?
+    private var ringingBackgroundTaskID: UIBackgroundTaskIdentifier = .invalid
     
     func configure(alarmStore: AlarmStore, foregroundScheduler: AlarmForegroundScheduler?, modelContext: ModelContext) {
         self.alarmStore = alarmStore
@@ -76,6 +79,9 @@ final class AlarmRingCoordinator: ObservableObject {
             return nil
         }()
 
+        deferredBridgeStopWorkItem?.cancel()
+        deferredBridgeStopWorkItem = nil
+
         Task {
             await AlarmManagerFacade.shared.markAlarmFired(id: alarm.id)
         }
@@ -118,11 +124,40 @@ final class AlarmRingCoordinator: ObservableObject {
         accountabilityManager.beginAlarmEnforcement(alarm: alarm)
         shieldEngine.sessionDidStart(alarm: alarm, session: activeSession)
         
-        // Real alarm playback must be loud immediately. iOS does not expose a public API
-        // to force the device hardware volume, so we max out Alarmo's own player volume.
+        // Hold a background task throughout ringing so the watchdog can keep
+        // recovering audio even if the coordinator's player is silent at the
+        // exact moment the app backgrounds.
+        beginRingingBackgroundTask()
+
+        // Clear any stale fallback notification chain from older app versions —
+        // we no longer schedule new ones (AlarmKit's persistent surface is the
+        // single source of truth for ringing audio + UI).
+        NotificationManager.shared.cancelAlarmRingingFallbackChain(alarmId: alarm.id.uuidString)
+
+        // INSTANT audio — no fade. A fade-in (even 400ms) creates a
+        // near-silent window after unlock; if the user re-locks during that
+        // window, iOS suspends the app while no audio is playing, and the
+        // alarm goes silent permanently. Full volume from the first sample.
         soundPlayer.playLooping(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
         if let bridgeSurfaceIdToStop {
-            AlarmBackgroundAudioBridge.shared.stop(alarmId: bridgeSurfaceIdToStop)
+            // Always defer the bridge stop, even if not currently active. The bridge
+            // is our most reliable safety net (50ms watchdog + audio-background
+            // capability). Killing it during unlock/lock churn — or during any other
+            // transient app state — leaves only the coordinator's player, which can
+            // briefly fail when AVAudioSession.setActive throws during transitions.
+            //
+            // 8s is generous enough to cover unlock → 2-4s pause → relock test cases
+            // and any quick double-tap-of-lock-button churn. Bridge is stopped
+            // for real only via stopRingingInternal (user pressed Stop/Snooze) or
+            // when the coordinator confirms it's been continuously active.
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                self.deferredBridgeStopWorkItem = nil
+                guard self.isRinging, UIApplication.shared.applicationState == .active else { return }
+                AlarmBackgroundAudioBridge.shared.stop(alarmId: bridgeSurfaceIdToStop)
+            }
+            deferredBridgeStopWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8.0, execute: workItem)
         }
         startRingingWatchdog()
         if alarm.vibrateEnabled {
@@ -147,7 +182,11 @@ final class AlarmRingCoordinator: ObservableObject {
     func reassertRingingAudio(reason: String = "manual") {
         guard isRinging, !isPreviewMode, let alarm = activeAlarm else { return }
         print("[AlarmRingCoordinator] 🔁 Reasserting ringing audio (\(reason)) for \(alarm.id)")
-        soundPlayer.playLooping(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
+        // Non-destructive: only resumes/respawns when the player isn't already playing.
+        // Calling stop+start (playLooping) during scene transitions causes a guaranteed
+        // silence gap; if AVAudioSession.setActive throws during the transition, the
+        // player can fail to restart at all.
+        soundPlayer.reassertLoopingPlayback(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
         if alarm.vibrateEnabled {
             hapticsPlayer.startRepeating()
         }
@@ -179,6 +218,8 @@ final class AlarmRingCoordinator: ObservableObject {
     private func stopRingingInternal(preserveSession: Bool, completed: Bool = false) {
         missionTimeoutWorkItem?.cancel()
         missionTimeoutWorkItem = nil
+        deferredBridgeStopWorkItem?.cancel()
+        deferredBridgeStopWorkItem = nil
         stopRingingWatchdog()
         let bridgeSurfaceAlarmId = AlarmBackgroundAudioBridge.shared.currentAlarmID
         let bridgeSourceAlarmId = AlarmBackgroundAudioBridge.shared.currentSourceAlarmID
@@ -193,6 +234,10 @@ final class AlarmRingCoordinator: ObservableObject {
             // Consume any remaining runtime/follow-up notifications immediately
             // so ring banners do not keep reappearing after Stop/Snooze actions.
             scheduler.cancelRuntimeRingNotifications(for: alarm)
+            // Cancel the fallback ring notification chain — the user has
+            // explicitly dismissed via Stop/Snooze, so no more retrigger
+            // notifications should fire.
+            NotificationManager.shared.cancelAlarmRingingFallbackChain(alarmId: alarm.id.uuidString)
 
             NotificationManager.shared.markAlarmFlowCompleted(alarmId: alarm.id.uuidString)
             if let bridgeSurfaceAlarmId {
@@ -222,6 +267,16 @@ final class AlarmRingCoordinator: ObservableObject {
             }
             AlarmCustomUIHandoffStore.clear()
             NotificationManager.shared.dismissLinkedAlarmKitSurfaces(sourceAlarmId: alarm.id.uuidString)
+            // Cancel the backup AlarmKit chain — user has explicitly stopped,
+            // so no more "alarm rings every 30s" should happen.
+            if #available(iOS 26.0, *) {
+                NotificationManager.shared.cancelAllBackupAlarmKitChains()
+            }
+            // Belt-and-suspenders: also nuke EVERY currently-alerting AlarmKit
+            // alarm. Catches zombie alarms whose handoff mapping was lost so
+            // dismissLinkedAlarmKitSurfaces (which matches by sourceAlarmId)
+            // would otherwise miss them.
+            NotificationManager.shared.nukeAllAlertingAlarmKitSurfaces()
 
             if preserveSession, var session = activeSession {
                 session.status = .snoozed
@@ -271,6 +326,7 @@ final class AlarmRingCoordinator: ObservableObject {
         }
 
         isRinging = false
+        endRingingBackgroundTask()
         UserDefaults.standard.removeObject(forKey: "last_ringing_alarm_id")
         tamperService.end()
         
@@ -299,6 +355,13 @@ final class AlarmRingCoordinator: ObservableObject {
         NotificationManager.shared.ensureAlarmKitSurfaceForLockedLoopIfNeeded(
             sourceAlarmId: alarm.id.uuidString
         )
+    }
+
+    func cancelDeferredBridgeStop(reason: String = "manual") {
+        guard deferredBridgeStopWorkItem != nil else { return }
+        deferredBridgeStopWorkItem?.cancel()
+        deferredBridgeStopWorkItem = nil
+        print("[AlarmRingCoordinator] Cancelled deferred bridge stop (\(reason))")
     }
 
     func dismissTapped() {
@@ -502,7 +565,10 @@ final class AlarmRingCoordinator: ObservableObject {
     private func startRingingWatchdog() {
         stopRingingWatchdog()
         let timer = DispatchSource.makeTimerSource(queue: ringingWatchdogQueue)
-        timer.schedule(deadline: .now() + 0.5, repeating: 0.5, leeway: .milliseconds(80))
+        // Tight 50ms tick so a lock/unlock churn or silent-cut cannot open a
+        // perceptible gap before we re-assert the session and resume playback.
+        // (Matches AlarmBackgroundAudioBridge's watchdog cadence.)
+        timer.schedule(deadline: .now() + 0.05, repeating: 0.05, leeway: .milliseconds(15))
         timer.setEventHandler { [weak self] in
             Task { @MainActor [weak self] in
                 self?.ringingWatchdogTick()
@@ -520,8 +586,11 @@ final class AlarmRingCoordinator: ObservableObject {
 
     private func ringingWatchdogTick() {
         guard isRinging, !isPreviewMode, let alarm = activeAlarm else { return }
-        if soundPlayer.isCurrentlyPlaying { return }
-        print("[AlarmRingCoordinator] ⚠️ Ringing watchdog restarted silent audio for \(alarm.id)")
+        let coordinatorAudible = soundPlayer.isCurrentlyPlaying
+        let bridgeAudible = AlarmBackgroundAudioBridge.shared.isAudiblyPlaying
+        if coordinatorAudible || bridgeAudible { return }
+
+        print("[AlarmRingCoordinator] ⚠️ Watchdog: NO audible audio (coord=\(coordinatorAudible), bridge=\(bridgeAudible)) — emergency recovery")
         // Re-assert session before restarting playback in case it was deactivated
         // by a phone call or system interruption while the app was in background.
         try? AudioRouteManager.configureAlarmSession()
@@ -529,6 +598,51 @@ final class AlarmRingCoordinator: ObservableObject {
         if alarm.vibrateEnabled {
             hapticsPlayer.startRepeating()
         }
+
+        // Belt-and-suspenders: also re-arm the lock-screen path. If the device
+        // is locked when audio failed, we need AlarmKit's system surface back to
+        // guarantee the user hears something even if our app is suspended next.
+        if UIApplication.shared.applicationState != .active {
+            let surfaceAlarmId = AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString
+            NotificationManager.shared.enforceLockedRingingState(
+                sourceAlarmId: alarm.id.uuidString,
+                surfaceAlarmId: surfaceAlarmId
+            )
+        }
+    }
+
+    // MARK: - Background Task
+
+    /// Hold a background task for the entire ringing duration. Without this, if
+    /// the coordinator's player goes silent at the exact moment the user locks
+    /// the phone (e.g. during AlarmKit's session release), iOS can suspend the
+    /// app before the watchdog reasserts audio — and the alarm goes silent until
+    /// the user opens the app. The bridge has its own background task; this is
+    /// the coordinator's belt-and-suspenders so the watchdog stays alive.
+    private func beginRingingBackgroundTask() {
+        if ringingBackgroundTaskID != .invalid { return }
+        ringingBackgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "alarmo.ringCoordinator.ringing") { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                guard self.isRinging else {
+                    self.endRingingBackgroundTask()
+                    return
+                }
+                // Re-request to keep the watchdog alive across iOS reclaim cycles.
+                let oldTask = self.ringingBackgroundTaskID
+                self.ringingBackgroundTaskID = .invalid
+                if oldTask != .invalid {
+                    UIApplication.shared.endBackgroundTask(oldTask)
+                }
+                self.beginRingingBackgroundTask()
+            }
+        }
+    }
+
+    private func endRingingBackgroundTask() {
+        guard ringingBackgroundTaskID != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(ringingBackgroundTaskID)
+        ringingBackgroundTaskID = .invalid
     }
 }
 

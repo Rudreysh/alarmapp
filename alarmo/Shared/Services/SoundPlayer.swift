@@ -343,6 +343,14 @@ final class SoundPlayer {
         switch type {
         case .began:
             shouldResumeLoopAfterInterruption = (player?.isPlaying == true) && loopContext != nil && !stopRequested
+            // Schedule a fast retry — for short interruptions (AlarmKit UI
+            // transitions, brief system events) the .ended notification can
+            // arrive too late or not at all. Don't wait for it.
+            if shouldResumeLoopAfterInterruption {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+                    self?.resumeLoopIfNeeded(reason: "post-began-fast-retry")
+                }
+            }
         case .ended:
             if loopContext != nil && !stopRequested {
                 shouldResumeLoopAfterInterruption = true

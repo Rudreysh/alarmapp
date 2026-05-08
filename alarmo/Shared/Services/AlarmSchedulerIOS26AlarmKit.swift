@@ -9,6 +9,13 @@ import AppIntents
 import AVFoundation
 #endif
 
+private extension Data {
+    mutating func append<T: FixedWidthInteger>(littleEndian value: T) {
+        var le = value.littleEndian
+        Swift.withUnsafeBytes(of: &le) { self.append(contentsOf: $0) }
+    }
+}
+
 /// AlarmKit-backed scheduler used on iOS 26+ when available.
 ///
 /// Uses Apple-supported system alarm APIs for lock-screen/alarm-surface behavior.
@@ -255,9 +262,73 @@ private struct AlarmoAlarmMetadata: AlarmMetadata {
 }
 
 @available(iOS 26.0, *)
-fileprivate extension AlarmSchedulerIOS26AlarmKit {
+extension AlarmSchedulerIOS26AlarmKit {
     var fallbackAlarmSoundKey: String { "cockpitalert" }
     var maxAlarmKitSoundDuration: TimeInterval { 29.5 }
+
+    /// Filename of the silent CAF sound used for AlarmKit when the user's
+    /// selected sound can't be staged. Lives under Library/Sounds.
+    var silentAlertSoundFileName: String { "alarmo_silent.wav" }
+
+    /// Generates (once, idempotently) a small silent WAV file in
+    /// Library/Sounds and returns its filename. AlarmKit gets pointed at
+    /// this file so its alert produces no audible sound — the bridge
+    /// AVAudioPlayer plays the user's actual selected sound instead.
+    /// Returns nil if creation fails for any reason.
+    func ensureSilentAlertSoundStaged() -> String? {
+        let fileName = silentAlertSoundFileName
+        guard let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        let soundsDir = library.appendingPathComponent("Sounds", isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: soundsDir, withIntermediateDirectories: true)
+        } catch {
+            print("[AlarmSchedulerIOS26AlarmKit] silent-sound stage: failed to create Sounds dir: \(error)")
+            return nil
+        }
+        let url = soundsDir.appendingPathComponent(fileName, isDirectory: false)
+        if FileManager.default.fileExists(atPath: url.path) {
+            return fileName
+        }
+
+        // Build a minimal silent WAV: 1 second of 8 kHz, mono, 16-bit PCM,
+        // all zero samples. WAV is universally supported by iOS notification
+        // sound subsystem. Total size: ~16 KB (44-byte header + 16 KB data).
+        let sampleRate: UInt32 = 8000
+        let bitsPerSample: UInt16 = 16
+        let channels: UInt16 = 1
+        let durationSeconds: UInt32 = 1
+        let byteRate: UInt32 = sampleRate * UInt32(channels) * UInt32(bitsPerSample) / 8
+        let blockAlign: UInt16 = channels * bitsPerSample / 8
+        let dataSize: UInt32 = sampleRate * UInt32(blockAlign) * durationSeconds
+        let chunkSize: UInt32 = 36 + dataSize
+
+        var data = Data()
+        data.append(contentsOf: "RIFF".utf8)
+        data.append(littleEndian: chunkSize)
+        data.append(contentsOf: "WAVE".utf8)
+        data.append(contentsOf: "fmt ".utf8)
+        data.append(littleEndian: UInt32(16))         // fmt chunk size
+        data.append(littleEndian: UInt16(1))          // PCM format
+        data.append(littleEndian: channels)
+        data.append(littleEndian: sampleRate)
+        data.append(littleEndian: byteRate)
+        data.append(littleEndian: blockAlign)
+        data.append(littleEndian: bitsPerSample)
+        data.append(contentsOf: "data".utf8)
+        data.append(littleEndian: dataSize)
+        data.append(Data(count: Int(dataSize)))       // all zeros = silence
+
+        do {
+            try data.write(to: url, options: .atomic)
+            print("[AlarmSchedulerIOS26AlarmKit] 🤫 Generated silent AlarmKit sound at \(url.path)")
+            return fileName
+        } catch {
+            print("[AlarmSchedulerIOS26AlarmKit] silent-sound stage: failed to write file: \(error)")
+            return nil
+        }
+    }
 
     func scheduleWithFallbackSound(
         manager: AlarmManager,
@@ -337,7 +408,7 @@ fileprivate extension AlarmSchedulerIOS26AlarmKit {
         }
     }
 
-    func makeConfiguration(
+    fileprivate func makeConfiguration(
         alarmID: UUID,
         originalAlarmID: UUID? = nil,
         title: String,
@@ -378,17 +449,17 @@ fileprivate extension AlarmSchedulerIOS26AlarmKit {
             tintColor: .blue
         )
 
-        // Resolve the alarm sound: use the user's chosen sound.
-        // If custom resolution fails, use a known short bundled fallback so AlarmKit
-        // scheduling still succeeds and keeps system alarm behavior.
+        // Resolve the alarm sound. AlarmKit needs an audible fallback so the
+        // user always hears SOMETHING from the system level even if our
+        // bridge AVAudioPlayer fails. Without an audible AlarmKit sound, a
+        // bridge failure produces total silence and the user has to open
+        // the app to recover.
         let alertSound: AlertConfiguration.AlertSound
         if useSystemDefaultSound {
             alertSound = .default
         } else {
             if let name = soundName, !name.isEmpty, name != "default" {
                 if let stagedName = stageNotificationSound(named: name) {
-                    // AlarmKit alert sounds use named assets.
-                    // `.ringtone` is not part of the current SDK surface.
                     alertSound = .named(stagedName)
                 } else if let stagedFallback = stageNotificationSound(named: fallbackAlarmSoundKey) {
                     alertSound = .named(stagedFallback)
@@ -662,10 +733,13 @@ struct StopAlarmIntent: LiveActivityIntent {
         // This causes the Lock Screen UI to immediately flash back onto the screen
         // and resumes the system sound with virtually zero gap.
         let shouldUseLockedHandling = await MainActor.run {
-            let appState = UIApplication.shared.applicationState
-            // Treat any non-foreground state as lock-style handling so the
-            // AlarmKit surface + sound can be force-looped until explicit unlock.
-            return appState != .active || !UIApplication.shared.isProtectedDataAvailable
+            // Locked/Background handling must apply whenever app is not active.
+            // If we restrict this only to protected-data-unavailable, quick
+            // unlock -> relock cycles can leave the system in a silent state:
+            // reassert calls run while app is background-unlocked, but no
+            // AlarmKit surface gets respawned.
+            let state = UIApplication.shared.applicationState
+            return state != .active || !UIApplication.shared.isProtectedDataAvailable
         }
         let resolvedAlarmName = await MainActor.run {
             AlarmStore.shared.alarm(by: lookupUUID)?.name
@@ -681,31 +755,18 @@ struct StopAlarmIntent: LiveActivityIntent {
                 // AlarmKit does not keep stale lock-screen entries around.
                 try? AlarmManager.shared.cancel(id: uuid)
 
-                // Skip zombie respawn when app audio has been recently active.
-                // isAudiblyPlaying is unreliable here because AlarmKit's system alarm
-                // sound sends an AVAudioSession interruption that briefly pauses our
-                // bridge's AVAudioPlayer, making isAudiblyPlaying return false even
-                // while the alarm is effectively running.
-                // hasRecentAudiblePlayback(within:) timestamps the last confirmed
-                // playback tick and is immune to these transient interruption gaps.
-                // When bridge or coordinator was playing within the last 2 seconds,
-                // the audio is continuous — skip zombie so no new AlarmKit surface
-                // fires and no new system sound interrupts the bridge session.
-                let bridgeRecentlyAudible = await MainActor.run {
-                    AlarmBackgroundAudioBridge.shared.hasRecentAudiblePlayback(within: 2.0)
-                }
-                let coordinatorRingingId = await MainActor.run {
-                    UserDefaults.standard.string(forKey: "last_ringing_alarm_id")
-                }
-                if bridgeRecentlyAudible || coordinatorRingingId == lookupUUIDString {
-                    AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: uuid)
-                    return .result()
-                }
+                // Always spawn a deterministic replacement AlarmKit surface for
+                // locked Stop actions. Early-exit heuristics based on "recently
+                // audible" can leave the loop without a live system surface after
+                // quick unlock->relock or hardware-button interruptions.
 
                 // Must use a new UUID so AlarmKit doesn't drop the request.
                 // Deterministic respawn ladder avoids a silent terminal state
                 // when immediate retries race with system teardown.
-                let respawnDelays: [TimeInterval] = [0.5, 0.7, 0.9, 1.2, 1.6, 2.0]
+                // NOTE: AlarmKit silently rejects schedules under ~2 seconds
+                // in the future on most iOS 26.x builds — short delays return
+                // success but never actually fire. Start at 2s minimum.
+                let respawnDelays: [TimeInterval] = [2.0, 3.0, 5.0, 10.0, 30.0]
                 let snoozeInterval = helper.resolvedSnoozeInterval(for: originalAlarm)
                 let snoozeEnabled = snoozeInterval != nil
 
@@ -782,6 +843,57 @@ struct StopAlarmIntent: LiveActivityIntent {
                         sourceAlarmId: lookupUUID.uuidString,
                         surfaceAlarmId: uuid.uuidString,
                         alarmName: title
+                    )
+                }
+                return .result()
+            }
+
+            // Fallback: even if we cannot resolve the original Alarm model
+            // (for example during rapid lock/unlock churn with transient IDs),
+            // we must still respawn a lock-screen AlarmKit surface so the loop
+            // cannot die silently.
+            let helper = AlarmSchedulerIOS26AlarmKit()
+            let fallbackTitle: String = {
+                let candidate = trimmedAlarmName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                return candidate.isEmpty ? "Alarm" : candidate
+            }()
+            let respawnDelays: [TimeInterval] = [0.25, 0.4, 0.55, 0.75, 1.0, 1.4]
+            var didSchedule = false
+            var newUUID = UUID()
+            for (index, attemptDelay) in respawnDelays.enumerated() {
+                do {
+                    newUUID = UUID()
+                    _ = try await helper.scheduleWithFallbackSound(
+                        manager: AlarmManager.shared,
+                        id: newUUID,
+                        originalAlarmID: lookupUUID,
+                        title: fallbackTitle,
+                        schedule: .fixed(Date().addingTimeInterval(attemptDelay)),
+                        snoozeEnabled: false,
+                        snoozeInterval: nil,
+                        preferredSoundName: nil
+                    )
+                    didSchedule = true
+                    break
+                } catch {
+                    let attempt = index + 1
+                    print("[StopAlarmIntent] Fallback zombie reschedule attempt \(attempt)/\(respawnDelays.count) failed: \(error)")
+                    if attempt < respawnDelays.count {
+                        try? await Task.sleep(nanoseconds: 80_000_000)
+                    }
+                }
+            }
+
+            if didSchedule {
+                AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: newUUID)
+                if !suppressUnlockPrompt {
+                    NotificationCenter.default.post(
+                        name: .alarmKitCustomUIHandoffRequested,
+                        object: nil,
+                        userInfo: [
+                            "alarmId": lookupUUID.uuidString,
+                            "surfaceAlarmId": newUUID.uuidString
+                        ]
                     )
                 }
                 return .result()

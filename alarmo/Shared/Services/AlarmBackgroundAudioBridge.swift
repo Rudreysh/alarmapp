@@ -34,7 +34,7 @@ final class AlarmBackgroundAudioBridge {
     private var watchdogTimer: DispatchSourceTimer?
     private let watchdogQueue = DispatchQueue(label: "ht.alarmo.background-audio-bridge.watchdog")
     private var lastLockedRefreshAt: Date?
-    private let lockedRefreshCooldown: TimeInterval = 1.0
+    private let lockedRefreshCooldown: TimeInterval = 0.5
     private var silentBridgeSince: Date?
     private var lastAudibleAt: Date?
 
@@ -246,7 +246,13 @@ final class AlarmBackgroundAudioBridge {
         guard let alarmId = activeAlarmID else { return }
         let sourceAlarmId = activeSourceAlarmID ?? AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: alarmId)
         guard let uuid = UUID(uuidString: sourceAlarmId),
-              let sourceAlarm = (alarmStore ?? AlarmStore.shared).alarm(by: uuid) else { return }
+              let sourceAlarm = (alarmStore ?? AlarmStore.shared).alarm(by: uuid) else {
+            // Mapping or model can be transiently unavailable during rapid
+            // lock/unlock + surface-respawn churn. In that case force a locked
+            // refresh so AlarmKit surface/audio can recover instead of stalling.
+            triggerImmediateLockedRefresh(reason: "watchdog-missing-source")
+            return
+        }
 
         // If the audio session was interrupted (e.g. by AlarmKit stopping),
         // re-configure and restart playback.
@@ -272,7 +278,7 @@ final class AlarmBackgroundAudioBridge {
             // aggressively respawning the AlarmKit surface unless silence
             // persists for a sustained period.
             if let silentSince = silentBridgeSince,
-               now.timeIntervalSince(silentSince) >= 1.0 {
+               now.timeIntervalSince(silentSince) >= 0.25 {
                 triggerImmediateLockedRefresh(reason: "watchdog-persistent-silence")
                 silentBridgeSince = now
             }

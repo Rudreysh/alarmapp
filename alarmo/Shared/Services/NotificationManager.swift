@@ -62,6 +62,21 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     private var completedAlarmFlowIds: Set<String> = []
     private var completedAlarmFlowAt: [String: Date] = [:]
     private var issuedAlarmKitUnlockPromptSourceIds: Set<String> = []
+    private var pendingAlarmKitDismissalTasks: [String: Task<Void, Never>] = [:]
+    /// For each source alarm ID, the UUID of the currently-scheduled backup
+    /// AlarmKit alarm that will fire 30s after the original. Cleared when
+    /// the backup fires (then a new one is scheduled) OR when the user
+    /// presses Stop in-app (then the chain ends).
+    private var pendingBackupAlarmIds: [String: UUID] = [:]
+    /// The most recently-alerting AlarmKit alarm UUID for each source. Used
+    /// to dismiss the previous alarm before a new backup fires so only ONE
+    /// banner is ever visible at a time.
+    private var lastFiredAlarmIdsBySource: [String: UUID] = [:]
+    /// Delays (in seconds) to try when scheduling each backup. We try the
+    /// shortest first; if AlarmKit silently rejects it (some iOS builds reject
+    /// schedules under a certain threshold), we fall back to longer delays.
+    /// Worst-case gap of silence between AlarmKit fires.
+    private static let backupAlarmDelays: [TimeInterval] = [2.0, 3.0, 5.0]
     private enum AlarmFlowPhase {
         case idle
         case ringingLocked
@@ -92,6 +107,9 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         if !alarmKitUnlockPromptNotificationsEnabled {
             cancelAllAlarmKitUnlockPrompts()
         }
+        // Clean up stale ring-fallback notifications from a previous session
+        // that may have been killed without going through stopRinging.
+        cancelAllAlarmRingingFallbackChains()
         checkStatus()
         drainPendingAlarmStarts()
         startAlarmKitObservation()
@@ -418,6 +436,166 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         )
     }
 
+    // MARK: - Alarm Ringing Fallback Chain
+    //
+    // CRITICAL: this is the only mechanism that survives full app suspension.
+    // When an alarm fires, we schedule a chain of local notifications with
+    // sound at increasing intervals. iOS plays these notifications even when
+    // our app is suspended (no DispatchSource timer, no AVAudioPlayer can run
+    // when suspended). If anything in our app's audio pipeline fails — bridge
+    // interrupted, coordinator's player nil, AlarmKit's surface gone — the
+    // fallback chain still fires from the system level and the user is woken.
+    //
+    // The chain is cancelled the moment the user explicitly dismisses via
+    // Stop/Snooze in the in-app UI. So if everything works normally, the user
+    // dismisses within seconds and these notifications never actually fire.
+
+    private static let alarmRingingFallbackPrefix = "alarmo-ring-fallback-"
+    private let alarmRingingFallbackOffsets: [TimeInterval] = [
+        8, 18, 30, 45, 60, 90, 120, 180, 240, 300
+    ]
+
+    /// Schedule the fallback notification chain for an alarm. Safe to call
+    /// repeatedly — re-scheduling cancels the previous chain first.
+    func scheduleAlarmRingingFallbackChain(alarmId: String, soundName: String, alarmName: String) {
+        cancelAlarmRingingFallbackChain(alarmId: alarmId)
+
+        let center = UNUserNotificationCenter.current()
+        let resolvedSound = resolveAlarmRingingSound(soundName: soundName)
+        let displayTitle = alarmName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "Alarm"
+            : alarmName
+
+        for (index, offset) in alarmRingingFallbackOffsets.enumerated() {
+            let content = UNMutableNotificationContent()
+            content.title = displayTitle
+            content.body = ""
+            content.categoryIdentifier = AppNotificationCategory.alarmRing
+            content.threadIdentifier = "alarmo.alarm-ring-fallback.\(alarmId)"
+            content.userInfo = ["alarmId": alarmId, "alarmoFallbackIndex": index]
+            content.sound = resolvedSound
+            if #available(iOS 15.0, *) {
+                content.interruptionLevel = .timeSensitive
+                content.relevanceScore = 1.0
+            }
+
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: offset, repeats: false)
+            let identifier = "\(Self.alarmRingingFallbackPrefix)\(alarmId)-\(index)"
+            let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+            center.add(request) { error in
+                if let error {
+                    print("[NotificationManager] ❌ Failed to schedule fallback chain entry \(index) for \(alarmId): \(error)")
+                }
+            }
+        }
+        print("[NotificationManager] ⏰ Scheduled \(alarmRingingFallbackOffsets.count) fallback ring notifications for alarm \(alarmId)")
+    }
+
+    /// Cancel the fallback notification chain. Called on Stop/Snooze.
+    func cancelAlarmRingingFallbackChain(alarmId: String) {
+        let center = UNUserNotificationCenter.current()
+        let identifiers = (0..<alarmRingingFallbackOffsets.count).map {
+            "\(Self.alarmRingingFallbackPrefix)\(alarmId)-\($0)"
+        }
+        center.removePendingNotificationRequests(withIdentifiers: identifiers)
+        center.removeDeliveredNotifications(withIdentifiers: identifiers)
+        // Also remove ANY stragglers with the matching prefix (e.g. if offsets
+        // changed between app versions).
+        center.getPendingNotificationRequests { requests in
+            let stale = requests
+                .map(\.identifier)
+                .filter { $0.hasPrefix("\(Self.alarmRingingFallbackPrefix)\(alarmId)") }
+            if !stale.isEmpty {
+                center.removePendingNotificationRequests(withIdentifiers: stale)
+            }
+        }
+        center.getDeliveredNotifications { delivered in
+            let stale = delivered
+                .map(\.request.identifier)
+                .filter { $0.hasPrefix("\(Self.alarmRingingFallbackPrefix)\(alarmId)") }
+            if !stale.isEmpty {
+                center.removeDeliveredNotifications(withIdentifiers: stale)
+            }
+        }
+    }
+
+    /// Cancel ALL fallback chains across ALL alarms. Used on app launch /
+    /// dirty-shutdown recovery to clean up any leftover notifications from a
+    /// previous ring that didn't get explicitly cancelled.
+    func cancelAllAlarmRingingFallbackChains() {
+        let center = UNUserNotificationCenter.current()
+        center.getPendingNotificationRequests { requests in
+            let ids = requests
+                .map(\.identifier)
+                .filter { $0.hasPrefix(Self.alarmRingingFallbackPrefix) }
+            if !ids.isEmpty {
+                center.removePendingNotificationRequests(withIdentifiers: ids)
+            }
+        }
+        center.getDeliveredNotifications { delivered in
+            let ids = delivered
+                .map(\.request.identifier)
+                .filter { $0.hasPrefix(Self.alarmRingingFallbackPrefix) }
+            if !ids.isEmpty {
+                center.removeDeliveredNotifications(withIdentifiers: ids)
+            }
+        }
+    }
+
+    private func resolveAlarmRingingSound(soundName: String) -> UNNotificationSound {
+        // Try the user's chosen alarm sound first. If we have critical alert
+        // entitlement, use criticalSoundNamed to bypass silent mode + DND.
+        // Sound files must already be staged into Library/Sounds by the
+        // legacy alarm scheduler before reaching here.
+        let trimmed = soundName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty, trimmed != "default" {
+            for ext in ["caf", "wav", "aiff"] {
+                let candidateName = "\(sanitizedSoundFileBase(from: trimmed)).\(ext)"
+                if soundFileExistsInLibrary(named: candidateName) {
+                    if EntitlementInspector.hasCriticalAlertsAccess {
+                        return UNNotificationSound.criticalSoundNamed(
+                            UNNotificationSoundName(candidateName),
+                            withAudioVolume: 1.0
+                        )
+                    }
+                    return UNNotificationSound(named: UNNotificationSoundName(candidateName))
+                }
+            }
+        }
+        if EntitlementInspector.hasCriticalAlertsAccess {
+            return UNNotificationSound.defaultCriticalSound(withAudioVolume: 1.0)
+        }
+        return .default
+    }
+
+    private func sanitizedSoundFileBase(from raw: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(.init(charactersIn: "_-."))
+        let scalars = raw.unicodeScalars.map { allowed.contains($0) ? Character($0) : "_" }
+        let cleaned = String(scalars).trimmingCharacters(in: CharacterSet(charactersIn: "_-."))
+        return cleaned.isEmpty ? "alarm" : cleaned
+    }
+
+    private func soundFileExistsInLibrary(named fileName: String) -> Bool {
+        guard let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else {
+            return false
+        }
+        let url = library.appendingPathComponent("Sounds", isDirectory: true).appendingPathComponent(fileName)
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
+    /// Cancel any in-flight AlarmKit dismissals. Call from scenePhase inactive
+    /// to ensure a fast user re-lock cannot trigger a stale dismissal that
+    /// silences the lock-screen alarm surface.
+    func cancelPendingAlarmKitDismissals(reason: String = "manual") {
+        guard !pendingAlarmKitDismissalTasks.isEmpty else { return }
+        for (_, task) in pendingAlarmKitDismissalTasks {
+            task.cancel()
+        }
+        let count = pendingAlarmKitDismissalTasks.count
+        pendingAlarmKitDismissalTasks.removeAll()
+        print("[NotificationManager] Cancelled \(count) pending AlarmKit dismissal(s) (\(reason))")
+    }
+
     func cancelAlarmKitUnlockPrompt(alarmId: String) {
         let identifier = Self.alarmKitUnlockPromptIdentifier(alarmId: alarmId)
         let loopIdentifier = Self.alarmKitUnlockPromptLoopIdentifier(alarmId: alarmId)
@@ -464,6 +642,132 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         completedAlarmFlowAt[alarmId] = Date()
         issuedAlarmKitUnlockPromptSourceIds.remove(alarmId)
         alarmFlowPhaseBySource[alarmId] = .completed
+    }
+
+    // MARK: - Backup AlarmKit Chain (Alarmy-style)
+    //
+    // This is the GUARANTEED audio continuity mechanism. When an AlarmKit
+    // alarm fires, we schedule ONE backup alarm 30 seconds in the future.
+    // If the user dismisses the alarm in-app, we cancel the backup and the
+    // chain ends. If the user does NOT dismiss (e.g. they unlock+lock fast,
+    // and our app gets suspended), the backup fires after 30 seconds and
+    // creates a new AlarmKit alerting state — slide-to-stop UI returns,
+    // sound plays again. When the backup fires, we schedule a new backup,
+    // continuing the chain. This loops indefinitely until the user opens
+    // the app and presses Stop/Snooze.
+
+    /// Ensure a backup AlarmKit alarm is scheduled for the given source.
+    /// Idempotent — if one is already pending, no-op. Tries multiple delays
+    /// (shortest first) so we get the fastest possible re-fire while still
+    /// being accepted by AlarmKit.
+    @available(iOS 26.0, *)
+    @MainActor
+    func ensureBackupAlarmKitChain(sourceAlarmId: String) async {
+        guard AlarmManagerFacade.shared.selectedPath == .alarmKit else { return }
+        guard !isAlarmFlowSuppressed(sourceAlarmId) else { return }
+        if pendingBackupAlarmIds[sourceAlarmId] != nil { return }
+        guard let sourceUUID = UUID(uuidString: sourceAlarmId) else { return }
+        guard let originalAlarm = (alarmStore ?? AlarmStore.shared).alarm(by: sourceUUID) else { return }
+
+        let helper = AlarmSchedulerIOS26AlarmKit()
+        let title = originalAlarm.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "Alarm"
+            : originalAlarm.name
+
+        var lastError: Error?
+        for delay in Self.backupAlarmDelays {
+            let backupUUID = UUID()
+            do {
+                _ = try await helper.scheduleWithFallbackSound(
+                    manager: AlarmManager.shared,
+                    id: backupUUID,
+                    originalAlarmID: sourceUUID,
+                    title: title,
+                    schedule: .fixed(Date().addingTimeInterval(delay)),
+                    snoozeEnabled: false,
+                    snoozeInterval: nil,
+                    preferredSoundName: originalAlarm.soundName
+                )
+                AlarmCustomUIHandoffStore.request(alarmID: sourceUUID, surfaceAlarmID: backupUUID)
+                pendingBackupAlarmIds[sourceAlarmId] = backupUUID
+                print("[NotificationManager] 🔁 Scheduled backup AlarmKit alarm \(backupUUID.uuidString) for source=\(sourceAlarmId) at +\(delay)s")
+                return
+            } catch {
+                lastError = error
+                print("[NotificationManager] backup at +\(delay)s rejected: \(error)")
+            }
+        }
+        print("[NotificationManager] ❌ ALL backup AlarmKit schedule attempts failed: \(lastError?.localizedDescription ?? "unknown")")
+    }
+
+    /// Cancel the currently-pending backup alarm for a source. Called when
+    /// the backup fires (so the next one can be scheduled) OR when the user
+    /// presses Stop/Snooze in-app (chain ends).
+    @available(iOS 26.0, *)
+    func cancelPendingBackupAlarm(sourceAlarmId: String) {
+        guard let backupId = pendingBackupAlarmIds.removeValue(forKey: sourceAlarmId) else { return }
+        do {
+            try AlarmManager.shared.cancel(id: backupId)
+            print("[NotificationManager] 🛑 Cancelled backup AlarmKit alarm \(backupId.uuidString)")
+        } catch {
+            print("[NotificationManager] Cancel of backup \(backupId.uuidString) failed: \(error)")
+        }
+    }
+
+    /// Cancel ALL backup chains (both the one for sourceAlarmId and any
+    /// stragglers). Called from stopRingingInternal — comprehensive cleanup.
+    @available(iOS 26.0, *)
+    func cancelAllBackupAlarmKitChains() {
+        for (_, backupId) in pendingBackupAlarmIds {
+            try? AlarmManager.shared.cancel(id: backupId)
+        }
+        pendingBackupAlarmIds.removeAll()
+        lastFiredAlarmIdsBySource.removeAll()
+    }
+
+    /// Check whether the given alarm UUID is one of our pending backups.
+    /// Used in processAlarmKitAlertingAlarm to detect when a backup fires
+    /// so we can schedule the next link in the chain.
+    func isBackupAlarmKitAlarm(_ alarmId: UUID) -> (sourceAlarmId: String, backupId: UUID)? {
+        for (source, backup) in pendingBackupAlarmIds where backup == alarmId {
+            return (source, backup)
+        }
+        return nil
+    }
+
+    /// Aggressively kill EVERY AlarmKit alarm currently in the .alerting
+    /// state. Used by stopRingingInternal so the user pressing Stop in-app
+    /// nukes any zombie alarms created by previous respawn rounds even if
+    /// their handoff mapping was lost. Iterates a few times with short
+    /// delays to catch any alarm that respawns between passes.
+    func nukeAllAlertingAlarmKitSurfaces() {
+#if canImport(AlarmKit)
+        guard AlarmManagerFacade.shared.selectedPath == .alarmKit else { return }
+        guard #available(iOS 26.0, *) else { return }
+
+        Task { @MainActor in
+            // Three passes: covers the natural race where a zombie respawn
+            // fires between our query and our cancel.
+            for pass in 0..<3 {
+                do {
+                    let alarms = try AlarmManager.shared.alarms
+                    var killed = 0
+                    for alarm in alarms where alarm.state == .alerting {
+                        try? AlarmManager.shared.stop(id: alarm.id)
+                        try? AlarmManager.shared.cancel(id: alarm.id)
+                        killed += 1
+                    }
+                    if pass == 0 || killed > 0 {
+                        print("[NotificationManager] 🛑 nukeAllAlertingAlarmKitSurfaces pass \(pass): killed \(killed)")
+                    }
+                    if killed == 0 && pass > 0 { break }
+                } catch {
+                    print("[NotificationManager] nukeAllAlertingAlarmKitSurfaces fetch failed: \(error)")
+                }
+                try? await Task.sleep(nanoseconds: 200_000_000)
+            }
+        }
+#endif
     }
 
     func clearCompletedAlarmFlow(alarmId: String) {
@@ -518,6 +822,9 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
         Task { @MainActor in
             for pass in 0..<totalAttempts {
+                if UIApplication.shared.applicationState != .active {
+                    break
+                }
                 await dismissLinkedAlarmKitSurfacesOnce(sourceAlarmId: sourceAlarmId)
                 if pass < totalAttempts - 1 {
                     try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
@@ -671,6 +978,13 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     private func handle(notification: UNNotification) {
         let userInfo = notification.request.content.userInfo
         if let alarmId = userInfo["alarmId"] as? String {
+            // If the user already explicitly dismissed via Stop/Snooze, don't
+            // re-start the ring just because a stale fallback notification got
+            // tapped from the tray. Also prune any leftover fallback chain.
+            if isAlarmFlowSuppressed(alarmId) {
+                cancelAlarmRingingFallbackChain(alarmId: alarmId)
+                return
+            }
             // If user tapped an alarm notification from lock/home screen,
             // force custom ringing UI handoff and consume remaining runtime
             // follow-up notifications for this alarm.
@@ -715,49 +1029,42 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         )
     }
 
+    /// Respawn AlarmKit's alerting surface — but ONLY if there isn't one
+    /// already alerting AND we haven't respawned recently (3-second throttle).
+    /// This is the one place we programmatically respawn now; called from
+    /// scenePhase inactive when the user re-locks during an active ring.
+    /// Prevents the multiple-banner cascade by being strictly one-shot.
     func ensureAlarmKitSurfaceForLockedLoopIfNeeded(sourceAlarmId: String, force: Bool = false) {
 #if canImport(AlarmKit)
         guard AlarmManagerFacade.shared.selectedPath == .alarmKit else { return }
         guard #available(iOS 26.0, *) else { return }
-        guard UIApplication.shared.applicationState != .active else { return }
-        // Never resurrect surfaces when there is no active ringing session.
-        // This prevents stale lock-loop callbacks from re-triggering after
-        // Stop/Snooze already completed.
-        if !force {
-            let ringIsActive = (ringCoordinator?.isRinging == true) || AlarmBackgroundAudioBridge.shared.isPlaying
-            let lockedRingingPhase = alarmFlowPhase(for: sourceAlarmId) == .ringingLocked
-            guard ringIsActive || lockedRingingPhase else { return }
-        }
-        // The user has explicitly completed this alarm — never resurrect it.
         guard !isAlarmFlowSuppressed(sourceAlarmId) else { return }
-
+        // Strict 3-second throttle. The previous "force=true bypasses throttle"
+        // was the source of the multiple-banner cascade — every scene
+        // transition fired a new respawn within milliseconds.
         let now = Date()
-        let effectiveEnsureInterval = force ? max(0.5, lockedSurfaceEnsureInterval) : lockedSurfaceEnsureInterval
         if let last = lastLockedSurfaceEnsureAt[sourceAlarmId],
-           now.timeIntervalSince(last) < effectiveEnsureInterval {
+           now.timeIntervalSince(last) < 3.0 {
             return
         }
-        if lockedSurfaceEnsureInFlight.contains(sourceAlarmId) {
-            return
-        }
+        if lockedSurfaceEnsureInFlight.contains(sourceAlarmId) { return }
         lastLockedSurfaceEnsureAt[sourceAlarmId] = now
         lockedSurfaceEnsureInFlight.insert(sourceAlarmId)
 
         Task { @MainActor in
             defer { lockedSurfaceEnsureInFlight.remove(sourceAlarmId) }
+            // Only respawn if NO AlarmKit alarm is currently alerting for our
+            // source. If one is alerting, leave it alone — that's the surface
+            // the user is supposed to interact with.
             do {
                 let alarms = try AlarmManager.shared.alarms
                 let alreadyAlerting = alarms.contains { alarm in
-                    let surfaceId = alarm.id.uuidString
-                    let mappedSource = AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceId)
-                    return mappedSource == sourceAlarmId && alarm.state == .alerting
+                    let mappedSource = AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: alarm.id.uuidString)
+                    return (mappedSource == sourceAlarmId || alarm.id.uuidString == sourceAlarmId) && alarm.state == .alerting
                 }
-                // Never mutate an actively alerting AlarmKit surface from this
-                // recovery path. Doing so causes lock-screen UI flicker and
-                // ring/stop/ring oscillation.
                 if alreadyAlerting { return }
             } catch {
-                print("[NotificationManager] Failed to inspect AlarmKit alarms before locked ensure: \(error)")
+                print("[NotificationManager] inspect-before-respawn failed: \(error)")
             }
 
             let surfaceAlarmId = AlarmBackgroundAudioBridge.shared.currentAlarmID ?? sourceAlarmId
@@ -769,12 +1076,13 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             do {
                 _ = try await intent.perform()
                 self.setAlarmFlowPhase(.ringingLocked, for: sourceAlarmId)
-                print("[NotificationManager] 🔁 Ensured locked AlarmKit surface for source=\(sourceAlarmId)")
+                print("[NotificationManager] 🔁 Single-shot respawn (lock transition) for \(sourceAlarmId)")
             } catch {
-                print("[NotificationManager] Failed ensuring locked AlarmKit surface for \(sourceAlarmId): \(error)")
+                print("[NotificationManager] Lock-transition respawn failed: \(error)")
             }
         }
 #endif
+        _ = force
     }
 
     func enforceLockedRingingState(sourceAlarmId: String, surfaceAlarmId: String? = nil) {
@@ -783,29 +1091,15 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         guard #available(iOS 26.0, *) else { return }
         guard !isAlarmFlowSuppressed(sourceAlarmId) else { return }
         setAlarmFlowPhase(.ringingLocked, for: sourceAlarmId)
-        // Coordinator audio persists in background — only reinforce bridge when
-        // coordinator is not already handling this alarm. Restarting the bridge
-        // on top of a live coordinator session causes double audio and session
-        // conflicts that break sound continuity after multiple lock/unlock cycles.
-        let coordinatorHandlingForEnforce = ringCoordinator?.isRinging == true &&
-            ringCoordinator?.activeAlarm?.id.uuidString == sourceAlarmId
-        if !coordinatorHandlingForEnforce {
-            AlarmBackgroundAudioBridge.shared.reinforceLockedLoopNow(
-                surfaceAlarmId: surfaceAlarmId,
-                sourceAlarmId: sourceAlarmId,
-                reason: "scene-transition-lock"
-            )
-        }
-        // Only schedule a new AlarmKit surface when audio has stopped.
-        // Creating a surface causes AlarmKit to fire a system alarm sound,
-        // which sends an AVAudioSession interruption that briefly silences
-        // the bridge — producing the audible gap the user experiences.
-        // If bridge or coordinator was recently playing, no surface is needed.
-        let audioActiveForEnforce = AlarmBackgroundAudioBridge.shared.hasRecentAudiblePlayback(within: 2.0) ||
-            coordinatorHandlingForEnforce
-        if !audioActiveForEnforce {
-            ensureAlarmKitSurfaceForLockedLoopIfNeeded(sourceAlarmId: sourceAlarmId, force: true)
-        }
+        AlarmBackgroundAudioBridge.shared.reinforceLockedLoopNow(
+            surfaceAlarmId: surfaceAlarmId,
+            sourceAlarmId: sourceAlarmId,
+            reason: "scene-transition-lock"
+        )
+        // Respawn the AlarmKit surface ONCE if it's not currently alerting.
+        // The 3-second throttle in ensureAlarmKitSurfaceForLockedLoopIfNeeded
+        // prevents the cascade of overlapping banners we saw before.
+        ensureAlarmKitSurfaceForLockedLoopIfNeeded(sourceAlarmId: sourceAlarmId)
 #endif
     }
 
@@ -814,7 +1108,6 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     private func processAlarmKitAlarmUpdate(_ alarm: AlarmKit.Alarm) async {
         let surfaceAlarmId = alarm.id.uuidString
         let sourceAlarmId = AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceAlarmId)
-        let isBackgroundOrLocked = UIApplication.shared.applicationState != .active
 
         if alarm.state == .alerting {
             cancelPendingLockedSurfaceReassert(for: sourceAlarmId)
@@ -822,18 +1115,20 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             return
         }
 
-        // If the system surface was interrupted (for example hardware button
-        // interaction) while we are still in locked/background alarm flow,
-        // force the lock surface to reappear and keep bridge audio alive.
-        if isBackgroundOrLocked, shouldContinueAlarmKitUnlockPromptLoop(for: sourceAlarmId) {
-            scheduleLockedSurfaceReassert(
-                sourceAlarmId: sourceAlarmId,
-                surfaceAlarmId: surfaceAlarmId,
-                stateDescription: String(describing: alarm.state)
-            )
-        } else {
-            cancelPendingLockedSurfaceReassert(for: sourceAlarmId)
-        }
+        // Alarm transitioned out of .alerting. We do NOT programmatically
+        // respawn AlarmKit — earlier rounds of that approach created multiple
+        // overlapping AlarmKit surfaces (each with its own fallback sound when
+        // the user's selected sound couldn't be staged as CAF) and the user
+        // saw a chaotic stack of banners with mismatched audio.
+        //
+        // If the user explicitly pressed Stop/Snooze in-app, suppression is
+        // active and we just clean up. Otherwise we let AlarmKit's natural
+        // alerting state stand — sound continuity is provided by the bridge's
+        // AVAudioPlayer (.playback category bypasses silent mode and uses the
+        // user's actual selected sound).
+        cancelPendingLockedSurfaceReassert(for: sourceAlarmId)
+        _ = sourceAlarmId
+        _ = surfaceAlarmId
     }
 
     @available(iOS 26.0, *)
@@ -842,43 +1137,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         surfaceAlarmId: String,
         stateDescription: String
     ) {
-        cancelPendingLockedSurfaceReassert(for: sourceAlarmId)
-
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            self.pendingLockedSurfaceReassertWorkItems.removeValue(forKey: sourceAlarmId)
-
-            guard UIApplication.shared.applicationState != .active else { return }
-            guard self.shouldContinueAlarmKitUnlockPromptLoop(for: sourceAlarmId) else { return }
-
-            let coordinatorActiveForReassert = self.ringCoordinator?.isRinging == true &&
-                self.ringCoordinator?.activeAlarm?.id.uuidString == sourceAlarmId
-            if !coordinatorActiveForReassert {
-                AlarmBackgroundAudioBridge.shared.reinforceLockedLoopNow(
-                    surfaceAlarmId: surfaceAlarmId,
-                    sourceAlarmId: sourceAlarmId,
-                    reason: "alarm-update-non-alerting-\(stateDescription)"
-                )
-            }
-            self.setAlarmFlowPhase(.ringingLocked, for: sourceAlarmId)
-            // Only reassert an AlarmKit surface when audio has genuinely stopped.
-            // Scheduling a surface fires a new system alarm sound which causes an
-            // AVAudioSession interruption that silences the bridge, creating the
-            // audible gap. Skip when audio is still active.
-            let audioStillActive = AlarmBackgroundAudioBridge.shared.hasRecentAudiblePlayback(within: 2.0) ||
-                coordinatorActiveForReassert
-            if !audioStillActive {
-                self.ensureAlarmKitSurfaceForLockedLoopIfNeeded(sourceAlarmId: sourceAlarmId)
-            }
-            self.startAlarmKitUnlockPromptLoop(
-                sourceAlarmId: sourceAlarmId,
-                surfaceAlarmId: surfaceAlarmId,
-                alarmName: nil
-            )
-        }
-
-        pendingLockedSurfaceReassertWorkItems[sourceAlarmId] = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: workItem)
+        // INTENTIONALLY A NO-OP. Programmatic AlarmKit respawn was creating
+        // a cascade of overlapping alarm surfaces. AlarmKit's natural state
+        // stands; bridge audio is the continuity mechanism instead.
+        _ = sourceAlarmId
+        _ = surfaceAlarmId
+        _ = stateDescription
     }
 
     private func cancelPendingLockedSurfaceReassert(for sourceAlarmId: String) {
@@ -901,17 +1165,42 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             return
         }
 
-        // Only start bridge if coordinator is not already handling this alarm.
-        // Coordinator audio persists in background via the `audio` background mode;
-        // starting the bridge concurrently reconfigures the shared AVAudioSession
-        // and breaks continuity after multiple lock/unlock cycles.
-        let coordinatorHandlingThisAlarm = ringCoordinator?.isRinging == true &&
-            ringCoordinator?.activeAlarm?.id.uuidString == sourceAlarmId
-        if !coordinatorHandlingThisAlarm {
-            AlarmBackgroundAudioBridge.shared.start(
-                surfaceAlarmId: surfaceAlarmId,
-                sourceAlarmId: sourceAlarmId
-            )
+        // Always arm bridge audio on alerting updates so quick foreground/
+        // background churn never leaves the alarm without an active audio owner.
+        AlarmBackgroundAudioBridge.shared.start(
+            surfaceAlarmId: surfaceAlarmId,
+            sourceAlarmId: sourceAlarmId
+        )
+
+        // Dismiss the PREVIOUSLY-fired alarm for this source so banners
+        // don't stack. Only one AlarmKit alarm should be alerting at a time
+        // for any given source — the most recent backup or the original.
+        if let priorAlertingId = lastFiredAlarmIdsBySource[sourceAlarmId],
+           priorAlertingId != alarm.id {
+            try? AlarmManager.shared.stop(id: priorAlertingId)
+            try? AlarmManager.shared.cancel(id: priorAlertingId)
+            print("[NotificationManager] 🧹 Dismissed prior alerting alarm \(priorAlertingId.uuidString) to prevent banner stacking")
+        }
+        lastFiredAlarmIdsBySource[sourceAlarmId] = alarm.id
+
+        // Mark the backup slot empty if this was a backup that fired.
+        if let (chainSource, _) = isBackupAlarmKitAlarm(alarm.id) {
+            pendingBackupAlarmIds.removeValue(forKey: chainSource)
+        }
+
+        // BACKUP ALARM CHAIN: only fire backups when app is NOT in foreground.
+        // In foreground, the bridge audio is reliable and we don't want
+        // AlarmKit banners stacking up on the user's screen. When the user
+        // backgrounds/locks, the scenePhase handler kicks off the chain.
+        if UIApplication.shared.applicationState != .active {
+            await ensureBackupAlarmKitChain(sourceAlarmId: sourceAlarmId)
+        } else {
+            // Foreground: dismiss this alarm immediately so no banner shows
+            // over the in-app UI. Bridge keeps audio going.
+            try? AlarmManager.shared.stop(id: alarm.id)
+            try? AlarmManager.shared.cancel(id: alarm.id)
+            lastFiredAlarmIdsBySource.removeValue(forKey: sourceAlarmId)
+            print("[NotificationManager] 🧹 Foreground — dismissed alerting alarm \(alarm.id.uuidString) to avoid banner")
         }
 
         if UIApplication.shared.applicationState == .active {
@@ -925,13 +1214,20 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                     sourceAlarmId: sourceAlarmId,
                     surfaceAlarmId: surfaceAlarmId
                 )
-                dismissLinkedAlarmKitSurfacesAggressively(sourceAlarmId: sourceAlarmId)
-                do {
-                    try AlarmManager.shared.stop(id: alarm.id)
-                    print("[NotificationManager] Dismissed foreground AlarmKit surface: \(surfaceAlarmId)")
-                } catch {
-                    print("[NotificationManager] Failed to dismiss foreground AlarmKit surface \(surfaceAlarmId): \(error)")
-                }
+                // INTENTIONALLY do NOT dismiss the AlarmKit surface here.
+                //
+                // Strategy (matches Alarmy): AlarmKit stays alerting throughout
+                // the user's session. Its slide-to-stop is the persistent
+                // system-level banner. Audio bypasses silent mode reliably
+                // because it's AlarmKit's audio (we don't have critical-alert
+                // entitlement so our own notifications can't bypass silent
+                // mode). When the user finally presses Stop/Snooze in the
+                // in-app UI, `stopRingingInternal` dismisses AlarmKit.
+                //
+                // If the user presses slide-to-stop on AlarmKit's lock-screen
+                // surface, our StopAlarmIntent zombie-respawns the alarm —
+                // forcing the user to fully unlock and dismiss in-app.
+                _ = surfaceAlarmId  // referenced only for log clarity
             } else {
                 // Keep sound alive and retry through the standard handoff path.
                 if let sourceUUID = UUID(uuidString: sourceAlarmId) {
