@@ -26,7 +26,6 @@ final class AlarmBackgroundAudioBridge {
     static let shared = AlarmBackgroundAudioBridge()
     private static let outputVolumeDidChangeNotification = Notification.Name("AVSystemController_SystemVolumeDidChangeNotification")
 
-    private let soundPlayer = SoundPlayer()
     private weak var alarmStore: AlarmStore?
     private var activeAlarmID: String?
     private var activeSourceAlarmID: String?
@@ -77,7 +76,7 @@ final class AlarmBackgroundAudioBridge {
     }
 
     var isAudiblyPlaying: Bool {
-        soundPlayer.isCurrentlyPlaying
+        AlarmContinuousAudioEngine.shared.confirmStillPlaying()
     }
 
     /// Returns true only when playback has been observed recently by the
@@ -102,9 +101,12 @@ final class AlarmBackgroundAudioBridge {
         }
 
         if activeAlarmID == surfaceAlarmId {
-            if !soundPlayer.isCurrentlyPlaying {
-                soundPlayer.reassertLoopingPlayback(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
-            } else {
+            AlarmContinuousAudioEngine.shared.start(
+                soundName: alarm.soundName,
+                alarmId: resolvedSourceAlarmId,
+                volume: 1.0
+            )
+            if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
                 lastAudibleAt = Date()
             }
             if watchdogTimer == nil {
@@ -119,15 +121,12 @@ final class AlarmBackgroundAudioBridge {
         if activeSourceAlarmID == resolvedSourceAlarmId {
             activeAlarmID = surfaceAlarmId
             beginBackgroundTaskIfNeeded(named: "alarmo.backgroundAlarm.\(surfaceAlarmId)")
-            if !soundPlayer.isCurrentlyPlaying {
-                do {
-                    try AudioRouteManager.configureAlarmSession()
-                } catch {
-                    print("[AlarmBackgroundAudioBridge] Failed to configure alarm session during same-source rebind: \(error)")
-                }
-                soundPlayer.reassertLoopingPlayback(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
-            }
-            if soundPlayer.isCurrentlyPlaying {
+            AlarmContinuousAudioEngine.shared.start(
+                soundName: alarm.soundName,
+                alarmId: resolvedSourceAlarmId,
+                volume: 1.0
+            )
+            if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
                 lastAudibleAt = Date()
             }
             if watchdogTimer == nil {
@@ -141,19 +140,19 @@ final class AlarmBackgroundAudioBridge {
         pendingHandoffStopWorkItem = nil
 
         if let current = activeAlarmID, current != surfaceAlarmId {
-            stop(alarmId: current)
+            print("[Engine] Stop call removed from AlarmBackgroundAudioBridge.start(surface-switch) — engine continues")
+            _ = current
         }
 
         beginBackgroundTask(named: "alarmo.backgroundAlarm.\(surfaceAlarmId)")
-
-        do {
-            try AudioRouteManager.configureAlarmSession()
-        } catch {
-            print("[AlarmBackgroundAudioBridge] Failed to configure alarm session: \(error)")
+        AlarmContinuousAudioEngine.shared.start(
+            soundName: alarm.soundName,
+            alarmId: resolvedSourceAlarmId,
+            volume: 1.0
+        )
+        if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
+            lastAudibleAt = Date()
         }
-
-        soundPlayer.playLooping(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
-        lastAudibleAt = Date()
         activeAlarmID = surfaceAlarmId
         activeSourceAlarmID = resolvedSourceAlarmId
         startWatchdog()
@@ -165,7 +164,8 @@ final class AlarmBackgroundAudioBridge {
 
         pendingHandoffStopWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
-            self?.stop(alarmId: alarmId)
+            guard self != nil else { return }
+            print("[Engine] Stop call removed from AlarmBackgroundAudioBridge.handoffToForeground — engine continues")
         }
         pendingHandoffStopWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + stopDelay, execute: workItem)
@@ -182,7 +182,7 @@ final class AlarmBackgroundAudioBridge {
             print("[AlarmBackgroundAudioBridge] ⏹️ Stopping background audio bridge for \(activeAlarmID ?? "unknown")")
         }
 
-        soundPlayer.stop()
+        print("[Engine] Stop call removed from AlarmBackgroundAudioBridge.stop — engine continues")
         activeAlarmID = nil
         activeSourceAlarmID = nil
         lastAudibleAt = nil
@@ -262,25 +262,18 @@ final class AlarmBackgroundAudioBridge {
             return
         }
 
-        // If the audio session was interrupted (e.g. by AlarmKit stopping),
-        // re-configure and restart playback.
-        let session = AVAudioSession.sharedInstance()
-        if session.category != .playback {
-            do {
-                try AudioRouteManager.configureAlarmSession()
-                print("[AlarmBackgroundAudioBridge] ⚠️ Watchdog: re-configured audio session")
-            } catch {
-                print("[AlarmBackgroundAudioBridge] ⚠️ Watchdog: failed to re-configure session: \(error)")
-            }
-        }
-        if !soundPlayer.isCurrentlyPlaying {
+        if !AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
             let now = Date()
             if silentBridgeSince == nil {
                 silentBridgeSince = now
             }
 
             print("[AlarmBackgroundAudioBridge] ⚠️ Watchdog: detected silent bridge, restarting audio")
-            soundPlayer.reassertLoopingPlayback(resourceName: sourceAlarm.soundName, volume: 1.0, fadeDuration: 0)
+            AlarmContinuousAudioEngine.shared.start(
+                soundName: sourceAlarm.soundName,
+                alarmId: sourceAlarmId,
+                volume: 1.0
+            )
 
             // A side/volume button can create a very brief interruption. Avoid
             // aggressively respawning the AlarmKit surface unless silence
@@ -335,16 +328,17 @@ final class AlarmBackgroundAudioBridge {
 
         // If a bridge session exists but side/volume interaction left it silent,
         // immediately re-assert audio and refresh the AlarmKit lock surface.
-        if !soundPlayer.isCurrentlyPlaying {
-            do {
-                try AudioRouteManager.configureAlarmSession()
-            } catch {
-                print("[AlarmBackgroundAudioBridge] Failed to re-configure alarm session in reinforce: \(error)")
-            }
+        if !AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
             if let uuid = UUID(uuidString: resolvedSource),
                let alarm = (alarmStore ?? AlarmStore.shared).alarm(by: uuid) {
-                soundPlayer.reassertLoopingPlayback(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
-                lastAudibleAt = Date()
+                AlarmContinuousAudioEngine.shared.start(
+                    soundName: alarm.soundName,
+                    alarmId: resolvedSource,
+                    volume: 1.0
+                )
+                if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
+                    lastAudibleAt = Date()
+                }
             }
             triggerImmediateLockedRefresh(reason: "\(reason)-silent-bridge")
         }

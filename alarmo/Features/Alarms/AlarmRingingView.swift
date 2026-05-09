@@ -348,7 +348,7 @@ struct AlarmRingingView: View {
         }
         .onDisappear {
             if ringCoordinator.isRinging {
-                ringCoordinator.reassertRingingAudio(reason: "ringing-view-disappeared")
+                print("[View] AlarmRingingView disappeared — engine continues playing")
                 ringCoordinator.ensureLockPromptLoopAfterUnexpectedViewDismiss()
             }
         }

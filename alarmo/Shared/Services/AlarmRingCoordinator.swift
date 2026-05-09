@@ -51,9 +51,12 @@ final class AlarmRingCoordinator: ObservableObject {
         // (e.g. local notification + foreground timer callback).
         if isRinging, activeAlarm?.id == id {
             print("[AlarmRingCoordinator] ⏭️ Ignoring duplicate START RINGING for \(id) (Source: \(source))")
-            // If audio was interrupted during lock->unlock transition, force it
-            // back immediately while keeping the same ringing session/UI.
-            reassertRingingAudio(reason: "duplicate-start-\(source)")
+            AlarmContinuousAudioEngine.shared.start(
+                soundName: activeAlarm?.soundName ?? "",
+                alarmId: id.uuidString,
+                volume: 1.0
+            )
+            print("[Coordinator] Engine already active — attaching UI without restarting sound")
             ensureRingingUIPresentation(afterAudioMaxWait: 0.1)
             if ringingWatchdogTimer == nil {
                 startRingingWatchdog()
@@ -138,11 +141,16 @@ final class AlarmRingCoordinator: ObservableObject {
         // single source of truth for ringing audio + UI).
         NotificationManager.shared.cancelAlarmRingingFallbackChain(alarmId: alarm.id.uuidString)
 
-        // INSTANT audio — no fade. A fade-in (even 400ms) creates a
-        // near-silent window after unlock; if the user re-locks during that
-        // window, iOS suspends the app while no audio is playing, and the
-        // alarm goes silent permanently. Full volume from the first sample.
-        soundPlayer.playLooping(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
+        if AlarmContinuousAudioEngine.shared.isEngineActive {
+            print("[Coordinator] Engine already active — attaching UI without restarting sound")
+        } else {
+            AlarmContinuousAudioEngine.shared.start(
+                soundName: alarm.soundName,
+                alarmId: alarm.id.uuidString,
+                volume: 1.0
+            )
+            print("[Coordinator] Engine started from coordinator (fallback)")
+        }
         ensureRingingUIPresentation(afterAudioMaxWait: 0.1)
         if let bridgeSurfaceIdToStop {
             // Always defer the bridge stop, even if not currently active. The bridge
@@ -159,7 +167,7 @@ final class AlarmRingCoordinator: ObservableObject {
                 guard let self else { return }
                 self.deferredBridgeStopWorkItem = nil
                 guard self.isRinging, UIApplication.shared.applicationState == .active else { return }
-                AlarmBackgroundAudioBridge.shared.stop(alarmId: bridgeSurfaceIdToStop)
+                print("[Engine] Stop call removed from AlarmRingCoordinator.deferredBridgeStop — engine continues")
             }
             deferredBridgeStopWorkItem = workItem
             DispatchQueue.main.asyncAfter(deadline: .now() + 8.0, execute: workItem)
@@ -187,11 +195,11 @@ final class AlarmRingCoordinator: ObservableObject {
     func reassertRingingAudio(reason: String = "manual") {
         guard isRinging, !isPreviewMode, let alarm = activeAlarm else { return }
         print("[AlarmRingCoordinator] 🔁 Reasserting ringing audio (\(reason)) for \(alarm.id)")
-        // Non-destructive: only resumes/respawns when the player isn't already playing.
-        // Calling stop+start (playLooping) during scene transitions causes a guaranteed
-        // silence gap; if AVAudioSession.setActive throws during the transition, the
-        // player can fail to restart at all.
-        soundPlayer.reassertLoopingPlayback(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
+        AlarmContinuousAudioEngine.shared.start(
+            soundName: alarm.soundName,
+            alarmId: alarm.id.uuidString,
+            volume: 1.0
+        )
         if alarm.vibrateEnabled {
             hapticsPlayer.startRepeating()
         }
@@ -235,7 +243,17 @@ final class AlarmRingCoordinator: ObservableObject {
             AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: $0)
         }
         AlarmBackgroundAudioBridge.shared.stop()
-        soundPlayer.stop()
+        if !isPreviewMode {
+            assert(
+                AlarmContinuousAudioEngine.shared.isEngineActive,
+                "Stop called but engine was not active — possible double stop"
+            )
+            AlarmContinuousAudioEngine.shared.stop(
+                reason: preserveSession ? "user-snooze" : "user-stop"
+            )
+        } else {
+            soundPlayer.stop()
+        }
         hapticsPlayer.stop()
         
         if let alarm = activeAlarm {
@@ -361,9 +379,7 @@ final class AlarmRingCoordinator: ObservableObject {
             surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString,
             alarmName: alarm.name
         )
-        NotificationManager.shared.ensureAlarmKitSurfaceForLockedLoopIfNeeded(
-            sourceAlarmId: alarm.id.uuidString
-        )
+        print("[Engine] Stop call removed from ensureLockPromptLoopAfterUnexpectedViewDismiss — engine continues")
     }
 
     func cancelDeferredBridgeStop(reason: String = "manual") {
@@ -602,7 +618,7 @@ final class AlarmRingCoordinator: ObservableObject {
 
     private func continueRingingUIPresentation(until deadline: Date) {
         guard isRinging else { return }
-        if soundPlayer.isCurrentlyPlaying || Date() >= deadline {
+        if AlarmContinuousAudioEngine.shared.confirmStillPlaying() || Date() >= deadline {
             isRingingUIVisible = true
             ringingUIPresentationWorkItem = nil
             return
@@ -616,15 +632,16 @@ final class AlarmRingCoordinator: ObservableObject {
 
     private func ringingWatchdogTick() {
         guard isRinging, !isPreviewMode, let alarm = activeAlarm else { return }
-        let coordinatorAudible = soundPlayer.isCurrentlyPlaying
+        let coordinatorAudible = AlarmContinuousAudioEngine.shared.confirmStillPlaying()
         let bridgeAudible = AlarmBackgroundAudioBridge.shared.isAudiblyPlaying
         if coordinatorAudible || bridgeAudible { return }
 
         print("[AlarmRingCoordinator] ⚠️ Watchdog: NO audible audio (coord=\(coordinatorAudible), bridge=\(bridgeAudible)) — emergency recovery")
-        // Re-assert session before restarting playback in case it was deactivated
-        // by a phone call or system interruption while the app was in background.
-        try? AudioRouteManager.configureAlarmSession()
-        soundPlayer.reassertLoopingPlayback(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
+        AlarmContinuousAudioEngine.shared.start(
+            soundName: alarm.soundName,
+            alarmId: alarm.id.uuidString,
+            volume: 1.0
+        )
         if alarm.vibrateEnabled {
             hapticsPlayer.startRepeating()
         }

@@ -750,6 +750,19 @@ struct StopAlarmIntent: LiveActivityIntent {
         let trimmedAlarmName = resolvedAlarmName?.trimmingCharacters(in: .whitespacesAndNewlines)
         
         if shouldUseLockedHandling {
+            if AlarmContinuousAudioEngine.shared.isEngineActive &&
+                AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
+                print("[Respawn] Engine active and healthy — skipping AlarmKit respawn")
+                if !suppressUnlockPrompt {
+                    NotificationManager.shared.scheduleAlarmAuthenticationPrompt(
+                        sourceAlarmId: lookupUUID.uuidString,
+                        surfaceAlarmId: uuid.uuidString,
+                        alarmName: trimmedAlarmName
+                    )
+                }
+                AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: uuid)
+                return .result()
+            }
             let originalAlarm = await MainActor.run { AlarmStore.shared.alarm(by: lookupUUID) }
             if !suppressUnlockPrompt {
                 let promptTitle = originalAlarm?.name ?? trimmedAlarmName

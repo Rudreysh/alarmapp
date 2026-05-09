@@ -1232,6 +1232,16 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         guard AlarmManagerFacade.shared.selectedPath == .alarmKit else { return }
         guard #available(iOS 26.0, *) else { return }
         guard !isAlarmFlowSuppressed(sourceAlarmId) else { return }
+        if AlarmContinuousAudioEngine.shared.isEngineActive &&
+            AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
+            print("[Respawn] Engine active and healthy — skipping AlarmKit respawn")
+            scheduleAlarmAuthenticationPrompt(
+                sourceAlarmId: sourceAlarmId,
+                surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID ?? sourceAlarmId,
+                alarmName: (ringCoordinator?.activeAlarm?.name)
+            )
+            return
+        }
         // Strict 3-second throttle. The previous "force=true bypasses throttle"
         // was the source of the multiple-banner cascade — every scene
         // transition fired a new respawn within milliseconds.
@@ -1410,6 +1420,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     private func processAlarmKitAlertingAlarm(_ alarm: AlarmKit.Alarm) async {
         let surfaceAlarmId = alarm.id.uuidString
         let sourceAlarmId = AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceAlarmId)
+        let sourceAlarm: Alarm? = {
+            guard let uuid = UUID(uuidString: sourceAlarmId) else { return nil }
+            return (alarmStore ?? AlarmStore.shared).alarm(by: uuid)
+        }()
         print("[NotificationManager] 🔔 AlarmKit alarm alerting: surface=\(surfaceAlarmId), source=\(sourceAlarmId)")
 
         // If user already pressed Stop/Snooze, ignore stale or in-flight
@@ -1419,6 +1433,17 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             try? AlarmManager.shared.cancel(id: alarm.id)
             setAlarmFlowPhase(.completed, for: sourceAlarmId)
             return
+        }
+
+        if let sourceAlarm {
+            AlarmContinuousAudioEngine.shared.start(
+                soundName: sourceAlarm.soundName,
+                alarmId: sourceAlarm.id.uuidString,
+                volume: 1.0
+            )
+            print("[AlarmKit→Engine] Engine start triggered from alerting callback. alarmId: \(sourceAlarm.id.uuidString)")
+        } else {
+            print("[AlarmKit→Engine] Source alarm model missing for \(sourceAlarmId); engine start skipped")
         }
 
         // Always arm bridge audio on alerting updates so quick foreground/
