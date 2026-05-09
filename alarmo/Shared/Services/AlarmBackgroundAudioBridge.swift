@@ -434,15 +434,9 @@ final class AlarmBackgroundAudioBridge {
             return
         }
         guard appState != .active else { return }
-
-        let sourceAlarmId = activeSourceAlarmID
-            ?? activeAlarmID
-            ?? AlarmCustomUIHandoffStore.pendingRequest()?.sourceAlarmID
-        guard let sourceAlarmId else { return }
-        NotificationManager.shared.scheduleHardwareButtonRespawnIfNeeded(
-            sourceAlarmId: sourceAlarmId,
-            alarmName: nil,
-            reason: "Volume button detected via audio session"
-        )
+        // Intentionally ignore hardware volume-button events while ringing.
+        // Button-driven AlarmKit stop/cancel+respawn introduced audible gaps.
+        // Audio continuity is now maintained by engine/bridge watchdog paths.
+        swiftlog("[Bridge] Volume button event ignored during active ringing")
     }
 }

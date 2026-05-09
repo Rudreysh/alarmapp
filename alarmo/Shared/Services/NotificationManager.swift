@@ -1302,6 +1302,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         alarmName: String?,
         reason: String
     ) {
+        // Hardware side/volume button events must not alter ringing continuity.
+        // Ignore these trigger reasons entirely.
+        if reason.localizedCaseInsensitiveContains("button") {
+            print("[NotificationManager] Ignoring hardware-button respawn trigger: \(reason)")
+            return
+        }
 #if canImport(AlarmKit)
         guard AlarmManagerFacade.shared.selectedPath == .alarmKit else { return }
         guard #available(iOS 26.0, *) else { return }
@@ -1390,20 +1396,15 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             return
         }
 
-        // Alarm transitioned out of .alerting. We do NOT programmatically
-        // respawn AlarmKit — earlier rounds of that approach created multiple
-        // overlapping AlarmKit surfaces (each with its own fallback sound when
-        // the user's selected sound couldn't be staged as CAF) and the user
-        // saw a chaotic stack of banners with mismatched audio.
-        //
-        // If the user explicitly pressed Stop/Snooze in-app, suppression is
-        // active and we just clean up. Otherwise we let AlarmKit's natural
-        // alerting state stand — sound continuity is provided by the bridge's
-        // AVAudioPlayer (.playback category bypasses silent mode and uses the
-        // user's actual selected sound).
         cancelPendingLockedSurfaceReassert(for: sourceAlarmId)
-        _ = sourceAlarmId
-        _ = surfaceAlarmId
+        // Reassert a lock-screen surface only when a ringing flow unexpectedly
+        // drops out of .alerting. This is throttled and one-shot to avoid
+        // banner cascades while preserving continuous ringing behavior.
+        scheduleLockedSurfaceReassert(
+            sourceAlarmId: sourceAlarmId,
+            surfaceAlarmId: surfaceAlarmId,
+            stateDescription: "\(alarm.state)"
+        )
     }
 
     @available(iOS 26.0, *)
@@ -1412,12 +1413,22 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         surfaceAlarmId: String,
         stateDescription: String
     ) {
-        // INTENTIONALLY A NO-OP. Programmatic AlarmKit respawn was creating
-        // a cascade of overlapping alarm surfaces. AlarmKit's natural state
-        // stands; bridge audio is the continuity mechanism instead.
-        _ = sourceAlarmId
-        _ = surfaceAlarmId
-        _ = stateDescription
+        guard !isAlarmFlowSuppressed(sourceAlarmId) else { return }
+        let phase = alarmFlowPhase(for: sourceAlarmId)
+        guard phase == .ringingLocked || phase == .ringingUnlocked else { return }
+
+        pendingLockedSurfaceReassertWorkItems[sourceAlarmId]?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.pendingLockedSurfaceReassertWorkItems.removeValue(forKey: sourceAlarmId)
+            // Reassert only if we're still ringing and custom UI has not
+            // explicitly completed stop/snooze flow.
+            guard !self.isAlarmFlowSuppressed(sourceAlarmId) else { return }
+            self.ensureAlarmKitSurfaceForLockedLoopIfNeeded(sourceAlarmId: sourceAlarmId, force: true)
+            print("[NotificationManager] 🔁 Reasserted AlarmKit surface after state=\(stateDescription) source=\(sourceAlarmId) surface=\(surfaceAlarmId)")
+        }
+        pendingLockedSurfaceReassertWorkItems[sourceAlarmId] = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + lockedSurfaceEnsureInterval, execute: workItem)
     }
 
     private func cancelPendingLockedSurfaceReassert(for sourceAlarmId: String) {
