@@ -7,6 +7,7 @@ import UIKit
 final class AlarmRingCoordinator: ObservableObject {
     @Published private(set) var activeAlarm: Alarm?
     @Published private(set) var isRinging: Bool = false
+    @Published private(set) var isRingingUIVisible: Bool = false
     @Published var isPreviewMode: Bool = false
     @Published var missionTimeoutTriggered: Bool = false
     @Published private(set) var activeSession: AlarmSession?
@@ -31,6 +32,7 @@ final class AlarmRingCoordinator: ObservableObject {
     private let ringingWatchdogQueue = DispatchQueue(label: "ht.alarmo.ring-coordinator.watchdog")
     private var deferredBridgeStopWorkItem: DispatchWorkItem?
     private var ringingBackgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+    private var ringingUIPresentationWorkItem: DispatchWorkItem?
     
     func configure(alarmStore: AlarmStore, foregroundScheduler: AlarmForegroundScheduler?, modelContext: ModelContext) {
         self.alarmStore = alarmStore
@@ -52,6 +54,7 @@ final class AlarmRingCoordinator: ObservableObject {
             // If audio was interrupted during lock->unlock transition, force it
             // back immediately while keeping the same ringing session/UI.
             reassertRingingAudio(reason: "duplicate-start-\(source)")
+            ensureRingingUIPresentation(afterAudioMaxWait: 0.1)
             if ringingWatchdogTimer == nil {
                 startRingingWatchdog()
             }
@@ -92,6 +95,7 @@ final class AlarmRingCoordinator: ObservableObject {
         print("[AlarmRingCoordinator] 🔔 START RINGING: \(alarm.name) (Source: \(source)) wallpaperId=\(alarm.wallpaperId) sound=\(alarm.soundName)")
         
         activeAlarm = alarm
+        isRingingUIVisible = false
         isRinging = true
         isPreviewMode = false
         missionTimeoutTriggered = false
@@ -139,6 +143,7 @@ final class AlarmRingCoordinator: ObservableObject {
         // window, iOS suspends the app while no audio is playing, and the
         // alarm goes silent permanently. Full volume from the first sample.
         soundPlayer.playLooping(resourceName: alarm.soundName, volume: 1.0, fadeDuration: 0)
+        ensureRingingUIPresentation(afterAudioMaxWait: 0.1)
         if let bridgeSurfaceIdToStop {
             // Always defer the bridge stop, even if not currently active. The bridge
             // is our most reliable safety net (50ms watchdog + audio-background
@@ -197,6 +202,7 @@ final class AlarmRingCoordinator: ObservableObject {
         activeAlarm = alarm
         isPreviewMode = true
         isRinging = true
+        isRingingUIVisible = true
         
         soundPlayer.playLooping(resourceName: alarm.soundName, volume: alarm.soundVolume, fadeDuration: TimeInterval(alarm.gentleWakeUpSeconds))
         if alarm.vibrateEnabled {
@@ -220,6 +226,8 @@ final class AlarmRingCoordinator: ObservableObject {
         missionTimeoutWorkItem = nil
         deferredBridgeStopWorkItem?.cancel()
         deferredBridgeStopWorkItem = nil
+        ringingUIPresentationWorkItem?.cancel()
+        ringingUIPresentationWorkItem = nil
         stopRingingWatchdog()
         let bridgeSurfaceAlarmId = AlarmBackgroundAudioBridge.shared.currentAlarmID
         let bridgeSourceAlarmId = AlarmBackgroundAudioBridge.shared.currentSourceAlarmID
@@ -326,6 +334,7 @@ final class AlarmRingCoordinator: ObservableObject {
         }
 
         isRinging = false
+        isRingingUIVisible = false
         endRingingBackgroundTask()
         UserDefaults.standard.removeObject(forKey: "last_ringing_alarm_id")
         tamperService.end()
@@ -582,6 +591,27 @@ final class AlarmRingCoordinator: ObservableObject {
         ringingWatchdogTimer?.setEventHandler {}
         ringingWatchdogTimer?.cancel()
         ringingWatchdogTimer = nil
+    }
+
+    private func ensureRingingUIPresentation(afterAudioMaxWait maxWait: TimeInterval) {
+        ringingUIPresentationWorkItem?.cancel()
+        ringingUIPresentationWorkItem = nil
+        let deadline = Date().addingTimeInterval(maxWait)
+        continueRingingUIPresentation(until: deadline)
+    }
+
+    private func continueRingingUIPresentation(until deadline: Date) {
+        guard isRinging else { return }
+        if soundPlayer.isCurrentlyPlaying || Date() >= deadline {
+            isRingingUIVisible = true
+            ringingUIPresentationWorkItem = nil
+            return
+        }
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.continueRingingUIPresentation(until: deadline)
+        }
+        ringingUIPresentationWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02, execute: workItem)
     }
 
     private func ringingWatchdogTick() {

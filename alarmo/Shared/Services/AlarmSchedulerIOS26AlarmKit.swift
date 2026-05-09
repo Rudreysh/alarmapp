@@ -480,6 +480,9 @@ extension AlarmSchedulerIOS26AlarmKit {
             schedule: schedule,
             attributes: attributes,
             stopIntent: StopAlarmIntent(alarmID: alarmID.uuidString, originalAlarmID: originalAlarmID?.uuidString),
+            // AlarmKit's secondaryIntent can add a second button, but it does not
+            // replace lock-screen slide-to-stop handling or force immediate auth
+            // for that swipe path. Auth prompting is handled via notification action.
             secondaryIntent: nil,
             sound: alertSound
         )
@@ -748,6 +751,14 @@ struct StopAlarmIntent: LiveActivityIntent {
         
         if shouldUseLockedHandling {
             let originalAlarm = await MainActor.run { AlarmStore.shared.alarm(by: lookupUUID) }
+            if !suppressUnlockPrompt {
+                let promptTitle = originalAlarm?.name ?? trimmedAlarmName
+                NotificationManager.shared.scheduleAlarmAuthenticationPrompt(
+                    sourceAlarmId: lookupUUID.uuidString,
+                    surfaceAlarmId: uuid.uuidString,
+                    alarmName: promptTitle
+                )
+            }
             if let originalAlarm = originalAlarm {
                 let helper = AlarmSchedulerIOS26AlarmKit()
                 let title = originalAlarm.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Alarm" : originalAlarm.name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -761,12 +772,9 @@ struct StopAlarmIntent: LiveActivityIntent {
                 // quick unlock->relock or hardware-button interruptions.
 
                 // Must use a new UUID so AlarmKit doesn't drop the request.
-                // Deterministic respawn ladder avoids a silent terminal state
-                // when immediate retries race with system teardown.
-                // NOTE: AlarmKit silently rejects schedules under ~2 seconds
-                // in the future on most iOS 26.x builds — short delays return
-                // success but never actually fire. Start at 2s minimum.
-                let respawnDelays: [TimeInterval] = [2.0, 3.0, 5.0, 10.0, 30.0]
+                // Feature requirement: keep zombie respawn at +4.0s baseline
+                // with +0.2s retry increments for 4 attempts total.
+                let respawnDelays: [TimeInterval] = [4.0, 4.2, 4.4, 4.6]
                 let snoozeInterval = helper.resolvedSnoozeInterval(for: originalAlarm)
                 let snoozeEnabled = snoozeInterval != nil
 
@@ -804,16 +812,6 @@ struct StopAlarmIntent: LiveActivityIntent {
                     // while still tracking the current AlarmKit surface id to dismiss it on unlock.
                     AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: newUUID)
                     if !suppressUnlockPrompt {
-                        NotificationManager.shared.scheduleAlarmKitUnlockPrompt(
-                            sourceAlarmId: lookupUUID.uuidString,
-                            surfaceAlarmId: newUUID.uuidString,
-                            alarmName: title
-                        )
-                        NotificationManager.shared.startAlarmKitUnlockPromptLoop(
-                            sourceAlarmId: lookupUUID.uuidString,
-                            surfaceAlarmId: newUUID.uuidString,
-                            alarmName: title
-                        )
                         NotificationCenter.default.post(
                             name: .alarmKitCustomUIHandoffRequested,
                             object: nil,
@@ -834,12 +832,7 @@ struct StopAlarmIntent: LiveActivityIntent {
                     )
                 }
                 if !suppressUnlockPrompt {
-                    NotificationManager.shared.scheduleAlarmKitUnlockPrompt(
-                        sourceAlarmId: lookupUUID.uuidString,
-                        surfaceAlarmId: uuid.uuidString,
-                        alarmName: title
-                    )
-                    NotificationManager.shared.startAlarmKitUnlockPromptLoop(
+                    NotificationManager.shared.scheduleAlarmAuthenticationPrompt(
                         sourceAlarmId: lookupUUID.uuidString,
                         surfaceAlarmId: uuid.uuidString,
                         alarmName: title
@@ -857,7 +850,7 @@ struct StopAlarmIntent: LiveActivityIntent {
                 let candidate = trimmedAlarmName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 return candidate.isEmpty ? "Alarm" : candidate
             }()
-            let respawnDelays: [TimeInterval] = [0.25, 0.4, 0.55, 0.75, 1.0, 1.4]
+            let respawnDelays: [TimeInterval] = [4.0, 4.2, 4.4, 4.6]
             var didSchedule = false
             var newUUID = UUID()
             for (index, attemptDelay) in respawnDelays.enumerated() {

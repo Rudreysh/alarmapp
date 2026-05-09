@@ -24,6 +24,7 @@ import AVFoundation
 @MainActor
 final class AlarmBackgroundAudioBridge {
     static let shared = AlarmBackgroundAudioBridge()
+    private static let outputVolumeDidChangeNotification = Notification.Name("AVSystemController_SystemVolumeDidChangeNotification")
 
     private let soundPlayer = SoundPlayer()
     private weak var alarmStore: AlarmStore?
@@ -54,6 +55,13 @@ final class AlarmBackgroundAudioBridge {
             object: nil,
             queue: .main
         ) { _ in }
+        NotificationCenter.default.addObserver(
+            forName: Self.outputVolumeDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleOutputVolumeDidChange()
+        }
     }
 
     var currentAlarmID: String? {
@@ -340,5 +348,24 @@ final class AlarmBackgroundAudioBridge {
             }
             triggerImmediateLockedRefresh(reason: "\(reason)-silent-bridge")
         }
+    }
+
+    private func handleOutputVolumeDidChange() {
+        guard activeAlarmID != nil else { return }
+        let appState = UIApplication.shared.applicationState
+        if appState == .active && NotificationManager.shared.isCustomAlarmUIVisibleInForeground() {
+            return
+        }
+        guard appState != .active else { return }
+
+        let sourceAlarmId = activeSourceAlarmID
+            ?? activeAlarmID
+            ?? AlarmCustomUIHandoffStore.pendingRequest()?.sourceAlarmID
+        guard let sourceAlarmId else { return }
+        NotificationManager.shared.scheduleHardwareButtonRespawnIfNeeded(
+            sourceAlarmId: sourceAlarmId,
+            alarmName: nil,
+            reason: "Volume button detected via audio session"
+        )
     }
 }

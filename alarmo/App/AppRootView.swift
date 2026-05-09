@@ -29,6 +29,10 @@ struct AppRootView: View {
     @State private var alarmKitFailureMessage = "AlarmKit scheduling failed."
     @State private var customUIHandoffRetryWorkItem: DispatchWorkItem?
     @State private var stopAlarmKitSurfaceTask: Task<Void, Never>?
+    @State private var customUIHandoffInProgress = false
+    @State private var customUIHandoffActiveRequestKey: String?
+    @State private var customUIHandoffStartedAt: Date?
+    @State private var customUIHandoffAttemptCount: Int = 0
     @AppStorage("settings.alarmThemeStyleRaw") private var appThemeStyleRaw: String = AlarmThemeStyle.default.rawValue
 
     init() {
@@ -75,7 +79,7 @@ struct AppRootView: View {
                 notificationManager.recoverAlarmKitAlertingIfNeeded()
                 alarmScheduler.reconcilePersistedAlarms(alarmStore.alarms)
             }
-            handlePendingCustomAlarmUIHandoff()
+            handlePendingCustomAlarmUIHandoff(trigger: "onAppear")
             NotificationOrchestrator.shared.reconcileAlarmLifecycleNotifications(alarms: alarmStore.alarms)
             shutdownDetectionService.startMonitoring(alarmStore: alarmStore, ringCoordinator: ringCoordinator, ringingAlarmId: ringCoordinator.activeAlarm?.id)
             accountabilityManager.ensureShieldRestoredOnLaunch()
@@ -96,7 +100,7 @@ struct AppRootView: View {
         .environmentObject(pomodoroEngine)
         .environmentObject(navigationStore)
         .fullScreenCover(isPresented: Binding(
-            get: { ringCoordinator.isRinging },
+            get: { ringCoordinator.isRingingUIVisible },
             set: { _ in }
         )) {
             AlarmRingingView(ringCoordinator: ringCoordinator)
@@ -152,7 +156,7 @@ struct AppRootView: View {
                 notificationManager.recoverAlarmFromDeliveredNotificationsIfNeeded()
                 notificationManager.recoverAlarmKitAlertingIfNeeded()
                 enforceAlarmCustomUIIfNeeded()
-                handlePendingCustomAlarmUIHandoff()
+                handlePendingCustomAlarmUIHandoff(trigger: "scenePhase.active")
                 refreshAlarmUnlockPromptIfNeeded()
             } else if newPhase == .inactive || newPhase == .background {
                 pomodoroEngine.handleSceneDidEnterBackground()
@@ -166,6 +170,11 @@ struct AppRootView: View {
                 ringCoordinator.cancelDeferredBridgeStop(reason: "scene-inactive-background")
                 if ringCoordinator.isRinging, let alarm = ringCoordinator.activeAlarm {
                     ringCoordinator.reassertRingingAudio(reason: "scene-inactive-background")
+                    notificationManager.scheduleHardwareButtonRespawnIfNeeded(
+                        sourceAlarmId: alarm.id.uuidString,
+                        alarmName: alarm.name,
+                        reason: "Side button detected via scenePhase"
+                    )
                     notificationManager.startAlarmKitUnlockPromptLoop(
                         sourceAlarmId: alarm.id.uuidString,
                         surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString,
@@ -186,6 +195,11 @@ struct AppRootView: View {
                 } else if let surfaceAlarmId = AlarmBackgroundAudioBridge.shared.currentAlarmID {
                     let sourceAlarmId = AlarmBackgroundAudioBridge.shared.currentSourceAlarmID
                         ?? AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceAlarmId)
+                    notificationManager.scheduleHardwareButtonRespawnIfNeeded(
+                        sourceAlarmId: sourceAlarmId,
+                        alarmName: nil,
+                        reason: "Side button detected via scenePhase"
+                    )
                     notificationManager.enforceLockedRingingState(
                         sourceAlarmId: sourceAlarmId,
                         surfaceAlarmId: surfaceAlarmId
@@ -197,7 +211,7 @@ struct AppRootView: View {
             handleAlarmHandoffURL(url)
         }
         .onReceive(NotificationCenter.default.publisher(for: .alarmKitCustomUIHandoffRequested)) { _ in
-            handlePendingCustomAlarmUIHandoff()
+            handlePendingCustomAlarmUIHandoff(trigger: "customUIHandoffRequested")
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             // Fires BEFORE scenePhase becomes .active and BEFORE
@@ -217,7 +231,7 @@ struct AppRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             notificationManager.recoverAlarmKitAlertingIfNeeded()
             enforceAlarmCustomUIIfNeeded()
-            handlePendingCustomAlarmUIHandoff()
+            handlePendingCustomAlarmUIHandoff(trigger: "didBecomeActive")
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
             // Earliest moment after FaceID/Touch ID auth. Force-reset the
@@ -231,7 +245,7 @@ struct AppRootView: View {
                 AlarmBackgroundAudioBridge.shared.reinforceLockedLoopNow(reason: "protectedDataAvailable")
             }
             enforceAlarmCustomUIIfNeeded()
-            handlePendingCustomAlarmUIHandoff()
+            handlePendingCustomAlarmUIHandoff(trigger: "protectedDataAvailable")
         }
         .onReceive(settingsStore.$notificationPrefs) { _ in
             NotificationOrchestrator.shared.reconcileAlarmLifecycleNotifications(alarms: alarmStore.alarms)
@@ -303,7 +317,7 @@ struct AppRootView: View {
         return !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private func handlePendingCustomAlarmUIHandoff() {
+    private func handlePendingCustomAlarmUIHandoff(trigger: String, bypassDedup: Bool = false) {
         guard foregroundScheduler != nil else { return }
 
         let pending = AlarmCustomUIHandoffStore.pendingRequest()
@@ -315,6 +329,27 @@ struct AppRootView: View {
             ?? AlarmBackgroundAudioBridge.shared.currentAlarmID
             ?? sourceAlarmId
         guard let sourceAlarmId, let surfaceAlarmId else { return }
+        let requestKey = "\(sourceAlarmId)|\(surfaceAlarmId)"
+        let isNewRequest = customUIHandoffActiveRequestKey != requestKey
+        if isNewRequest {
+            customUIHandoffRetryWorkItem?.cancel()
+            customUIHandoffRetryWorkItem = nil
+            customUIHandoffAttemptCount = 0
+            customUIHandoffStartedAt = Date()
+            customUIHandoffInProgress = false
+            customUIHandoffActiveRequestKey = requestKey
+        }
+        if !bypassDedup {
+            if customUIHandoffInProgress && customUIHandoffActiveRequestKey == requestKey {
+                return
+            }
+            customUIHandoffInProgress = true
+            customUIHandoffActiveRequestKey = requestKey
+            if customUIHandoffStartedAt == nil {
+                customUIHandoffStartedAt = Date()
+            }
+            print("[AppRootView] 🚀 Custom UI handoff trigger=\(trigger) request=\(requestKey)")
+        }
 
         customUIHandoffRetryWorkItem?.cancel()
         customUIHandoffRetryWorkItem = nil
@@ -327,6 +362,12 @@ struct AppRootView: View {
         if didStartPrimary || didStartMapped {
             let resolvedSource = didStartPrimary ? sourceAlarmId : mappedSource
             AlarmCustomUIHandoffStore.clear()
+            customUIHandoffInProgress = false
+            customUIHandoffActiveRequestKey = nil
+            customUIHandoffStartedAt = nil
+            customUIHandoffAttemptCount = 0
+            notificationManager.cancelAlarmAuthenticationPrompt(sourceAlarmId: resolvedSource)
+            notificationManager.cancelCustomUIHandoffFallbackNotification(sourceAlarmId: resolvedSource)
             refreshAlarmUnlockPromptIfNeeded(
                 sourceAlarmId: resolvedSource,
                 surfaceAlarmId: surfaceAlarmId,
@@ -340,22 +381,48 @@ struct AppRootView: View {
             // goes silent. The deferred-and-cancellable dismissal below preserves
             // AlarmKit's lock-screen surface as a fallback audio source until we
             // know the user is committed to staying in-app.
-            stopAlarmKitSurfaceAfterCustomAudioStarts(alarmId: surfaceAlarmId)
+            stopAlarmKitSurfaceAfterCustomAudioStarts(
+                alarmId: surfaceAlarmId,
+                sourceAlarmId: resolvedSource
+            )
             return
         }
 
-        // Do not allow a silent unlock state: keep prompting + retrying custom UI
-        // whether or not bridge audio is currently active.
+        let startedAt = customUIHandoffStartedAt ?? Date()
+        if Date().timeIntervalSince(startedAt) >= 5.0 {
+            customUIHandoffInProgress = false
+            customUIHandoffActiveRequestKey = nil
+            customUIHandoffStartedAt = nil
+            customUIHandoffAttemptCount = 0
+            notificationManager.scheduleCustomUIHandoffFallbackNotification(
+                sourceAlarmId: mappedSource,
+                alarmName: ringCoordinator.activeAlarm?.name
+            )
+            return
+        }
+
         notificationManager.scheduleAlarmKitUnlockPrompt(
             sourceAlarmId: mappedSource,
             surfaceAlarmId: surfaceAlarmId
         )
+        customUIHandoffAttemptCount += 1
+        let retryDelay: TimeInterval
+        switch customUIHandoffAttemptCount {
+        case 1:
+            retryDelay = 0.1
+        case 2:
+            retryDelay = 0.2
+        case 3:
+            retryDelay = 0.3
+        default:
+            retryDelay = 0.6
+        }
         let retry = DispatchWorkItem { [weak notificationManager, weak ringCoordinator] in
             guard notificationManager != nil, ringCoordinator != nil else { return }
-            handlePendingCustomAlarmUIHandoff()
+            handlePendingCustomAlarmUIHandoff(trigger: "retry", bypassDedup: true)
         }
         customUIHandoffRetryWorkItem = retry
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: retry)
+        DispatchQueue.main.asyncAfter(deadline: .now() + retryDelay, execute: retry)
     }
 
     private func enforceAlarmCustomUIIfNeeded() {
@@ -386,33 +453,17 @@ struct AppRootView: View {
     private func handleAlarmHandoffURL(_ url: URL) {
         guard let alarmID = AlarmCustomUIHandoffStore.alarmID(from: url) else { return }
         AlarmCustomUIHandoffStore.request(alarmID: alarmID)
-
-        DispatchQueue.main.async {
-            handlePendingCustomAlarmUIHandoff()
-        }
+        handlePendingCustomAlarmUIHandoff(trigger: "handoffURL")
     }
 
-    private func stopAlarmKitSurfaceAfterCustomAudioStarts(alarmId: String) {
-        // INTENTIONALLY A NO-OP.
-        //
-        // Previously this dismissed AlarmKit's surface 1.5s after unlock so the
-        // in-app UI could take over. But dismissing AlarmKit removes the only
-        // audio source that bypasses silent mode without the critical-alert
-        // entitlement. If the user re-locks at any point or the bridge briefly
-        // fails, the alarm goes silent.
-        //
-        // New strategy (matches Alarmy): AlarmKit stays alerting from the moment
-        // the alarm fires until the user presses Stop/Snooze in our in-app UI.
-        // AlarmKit's slide-to-stop is the ONE persistent banner the user sees;
-        // pressing it triggers StopAlarmIntent which zombie-respawns the alarm
-        // (existing logic in AlarmSchedulerIOS26AlarmKit.StopAlarmIntent).
-        //
-        // The only path that dismisses AlarmKit now is
-        // `AlarmRingCoordinator.stopRingingInternal`, called when the user
-        // presses Stop/Snooze in the in-app AlarmRingingView.
+    private func stopAlarmKitSurfaceAfterCustomAudioStarts(alarmId: String, sourceAlarmId: String) {
         stopAlarmKitSurfaceTask?.cancel()
-        stopAlarmKitSurfaceTask = nil
-        _ = alarmId
+        stopAlarmKitSurfaceTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard ringCoordinator.isRinging else { return }
+            notificationManager.dismissLinkedAlarmKitSurfaces(sourceAlarmId: sourceAlarmId)
+            _ = alarmId
+        }
     }
 
     private func refreshAlarmUnlockPromptIfNeeded(
