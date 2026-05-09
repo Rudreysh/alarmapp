@@ -152,8 +152,10 @@ struct AppRootView: View {
                     // and schedule a new one.
                     notificationManager.cancelAllBackupAlarmKitChains()
                     Task {
-                        if !(AlarmContinuousAudioEngine.shared.isEngineActive &&
-                             AlarmContinuousAudioEngine.shared.cachedIsHealthy) {
+                        let engineLiveHealthy = AlarmContinuousAudioEngine.shared.isEngineActive &&
+                            AlarmContinuousAudioEngine.shared.cachedIsHealthy &&
+                            AlarmContinuousAudioEngine.shared.confirmStillPlaying()
+                        if !engineLiveHealthy {
                             await notificationManager.ensureBackupAlarmKitChain(sourceAlarmId: alarm.id.uuidString)
                             print("[AppRoot] Scene active — backup chain scheduled (engine not healthy)")
                         } else {
@@ -197,8 +199,10 @@ struct AppRootView: View {
                     // a fresh AlarmKit alarm fires every 2s as a fallback.
                     if #available(iOS 26.0, *) {
                         Task {
-                            if !(AlarmContinuousAudioEngine.shared.isEngineActive &&
-                                 AlarmContinuousAudioEngine.shared.cachedIsHealthy) {
+                            let engineLiveHealthy = AlarmContinuousAudioEngine.shared.isEngineActive &&
+                                AlarmContinuousAudioEngine.shared.cachedIsHealthy &&
+                                AlarmContinuousAudioEngine.shared.confirmStillPlaying()
+                            if !engineLiveHealthy {
                                 await notificationManager.ensureBackupAlarmKitChain(sourceAlarmId: alarm.id.uuidString)
                                 print("[AppRoot] Scene background — backup chain scheduled (engine not healthy)")
                             } else {

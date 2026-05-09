@@ -12,7 +12,7 @@ final class AlarmAppDelegate: NSObject, UIApplicationDelegate {
         // This must be done early so the session is ready before any notification triggers playback.
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [])
+            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try session.setActive(true)
             print("[AlarmAppDelegate] ✅ Audio session pre-configured for alarm playback")
         } catch {

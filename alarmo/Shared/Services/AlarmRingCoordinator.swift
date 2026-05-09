@@ -647,6 +647,9 @@ final class AlarmRingCoordinator: ObservableObject {
 
     private func ringingWatchdogTick() {
         guard isRinging, !isPreviewMode, let alarm = activeAlarm else { return }
+        if AlarmContinuousAudioEngine.shared.isInInterruptionRecoveryWindow {
+            return
+        }
         let coordinatorAudible = AlarmContinuousAudioEngine.shared.cachedIsHealthy
         let bridgeAudible = AlarmBackgroundAudioBridge.shared.isAudiblyPlaying
         if coordinatorAudible || bridgeAudible {

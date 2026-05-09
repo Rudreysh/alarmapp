@@ -66,6 +66,14 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             try configureSession()
         } catch {
             swiftlog("[Engine] Failed to configure session before start: \(error)")
+            if let nsError = error as NSError?,
+               nsError.domain == NSOSStatusErrorDomain,
+               nsError.code == 560557684 {
+                // Background + lock transition can temporarily deny activation
+                // while another non-mixable owner is active. Give the system
+                // a short recovery window and avoid runaway retry storms.
+                interruptionGraceUntil = Date().addingTimeInterval(4.0)
+            }
         }
 
         if currentAlarmId != alarmId || player == nil {
@@ -257,7 +265,9 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
     private func configureSession() throws {
         installObserversIfNeeded()
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playback, mode: .default, options: [])
+        // .mixWithOthers prevents `cannotInterruptOthers` activation failures
+        // while app is backgrounded/locked and system surfaces are transitioning.
+        try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
         try session.setActive(true, options: [])
     }
 
@@ -295,6 +305,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             cachedIsHealthy = true
         case .ended:
             swiftlog("[Engine] Interruption ended — attempting session recovery")
+            interruptionGraceUntil = nil
 
             do {
                 try AVAudioSession.sharedInstance().setActive(true, options: [])
@@ -302,7 +313,6 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
                 if player?.isPlaying == true {
                     isPlaying = true
                     cachedIsHealthy = true
-                    interruptionGraceUntil = nil
                     lastConfirmedPlayingAt = Date()
                     swiftlog("[Engine] Interruption ended — immediate resume succeeded at \(String(format: "%.2f", player?.currentTime ?? 0))s")
                     return
@@ -323,7 +333,6 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
                         if self.player?.isPlaying == true {
                             self.isPlaying = true
                             self.cachedIsHealthy = true
-                            self.interruptionGraceUntil = nil
                             self.lastConfirmedPlayingAt = Date()
                             swiftlog("[Engine] Interruption recovery — retry \(index + 1) succeeded at +\(delay)s, currentTime=\(String(format: "%.2f", self.player?.currentTime ?? 0))s")
                         }

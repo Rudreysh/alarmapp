@@ -300,6 +300,14 @@ final class AlarmBackgroundAudioBridge {
             return
         }
 
+        // During known interruption windows, avoid triggering aggressive
+        // respawn/recovery churn; let engine interruption retries settle first.
+        if AlarmContinuousAudioEngine.shared.isInInterruptionRecoveryWindow {
+            silentBridgeSince = nil
+            watchdogRecoveryInProgress = false
+            return
+        }
+
         let engineHealthy = AlarmContinuousAudioEngine.shared.cachedIsHealthy
         if !engineHealthy {
             let now = Date()
