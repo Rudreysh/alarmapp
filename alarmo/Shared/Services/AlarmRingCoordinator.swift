@@ -33,6 +33,12 @@ final class AlarmRingCoordinator: ObservableObject {
     private var deferredBridgeStopWorkItem: DispatchWorkItem?
     private var ringingBackgroundTaskID: UIBackgroundTaskIdentifier = .invalid
     private var ringingUIPresentationWorkItem: DispatchWorkItem?
+    // Coordinator watchdog failure tracking
+    private var watchdogConsecutiveFailures: Int = 0
+    private var watchdogLastRecoveryAt: Date = .distantPast
+    private var watchdogRecoveryInProgress: Bool = false
+    private let watchdogMaxAttempts: Int = 5
+    private let watchdogBackoffSeconds: TimeInterval = 3.0
     
     func configure(alarmStore: AlarmStore, foregroundScheduler: AlarmForegroundScheduler?, modelContext: ModelContext) {
         self.alarmStore = alarmStore
@@ -100,6 +106,9 @@ final class AlarmRingCoordinator: ObservableObject {
         activeAlarm = alarm
         isRingingUIVisible = false
         isRinging = true
+        watchdogConsecutiveFailures = 0
+        watchdogLastRecoveryAt = .distantPast
+        watchdogRecoveryInProgress = false
         isPreviewMode = false
         missionTimeoutTriggered = false
         if let restoredSession = alarmSessionSnapshots[alarm.id] {
@@ -194,6 +203,9 @@ final class AlarmRingCoordinator: ObservableObject {
 
     func reassertRingingAudio(reason: String = "manual") {
         guard isRinging, !isPreviewMode, let alarm = activeAlarm else { return }
+        watchdogConsecutiveFailures = 0
+        watchdogRecoveryInProgress = false
+        print("[Coordinator] Watchdog state reset on reassert — reason: \(reason)")
         print("[AlarmRingCoordinator] 🔁 Reasserting ringing audio (\(reason)) for \(alarm.id)")
         AlarmContinuousAudioEngine.shared.start(
             soundName: alarm.soundName,
@@ -607,6 +619,9 @@ final class AlarmRingCoordinator: ObservableObject {
         ringingWatchdogTimer?.setEventHandler {}
         ringingWatchdogTimer?.cancel()
         ringingWatchdogTimer = nil
+        watchdogConsecutiveFailures = 0
+        watchdogLastRecoveryAt = .distantPast
+        watchdogRecoveryInProgress = false
     }
 
     private func ensureRingingUIPresentation(afterAudioMaxWait maxWait: TimeInterval) {
@@ -632,11 +647,29 @@ final class AlarmRingCoordinator: ObservableObject {
 
     private func ringingWatchdogTick() {
         guard isRinging, !isPreviewMode, let alarm = activeAlarm else { return }
-        let coordinatorAudible = AlarmContinuousAudioEngine.shared.confirmStillPlaying()
+        let coordinatorAudible = AlarmContinuousAudioEngine.shared.cachedIsHealthy
         let bridgeAudible = AlarmBackgroundAudioBridge.shared.isAudiblyPlaying
-        if coordinatorAudible || bridgeAudible { return }
+        if coordinatorAudible || bridgeAudible {
+            watchdogConsecutiveFailures = 0
+            watchdogRecoveryInProgress = false
+            return
+        }
 
-        print("[AlarmRingCoordinator] ⚠️ Watchdog: NO audible audio (coord=\(coordinatorAudible), bridge=\(bridgeAudible)) — emergency recovery")
+        watchdogConsecutiveFailures += 1
+        guard watchdogConsecutiveFailures <= watchdogMaxAttempts else {
+            if watchdogConsecutiveFailures == watchdogMaxAttempts + 1 {
+                print("[Coordinator] Watchdog: cap reached (\(watchdogMaxAttempts) attempts) — AlarmKit fallback active")
+            }
+            return
+        }
+
+        guard !watchdogRecoveryInProgress else { return }
+        let elapsed = Date().timeIntervalSince(watchdogLastRecoveryAt)
+        guard elapsed >= watchdogBackoffSeconds else { return }
+
+        watchdogLastRecoveryAt = Date()
+        watchdogRecoveryInProgress = true
+        print("[Coordinator] ⚠️ Watchdog: NO audible audio — attempt \(watchdogConsecutiveFailures)/\(watchdogMaxAttempts)")
         AlarmContinuousAudioEngine.shared.start(
             soundName: alarm.soundName,
             alarmId: alarm.id.uuidString,
@@ -655,6 +688,10 @@ final class AlarmRingCoordinator: ObservableObject {
                 sourceAlarmId: alarm.id.uuidString,
                 surfaceAlarmId: surfaceAlarmId
             )
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.watchdogRecoveryInProgress = false
         }
     }
 

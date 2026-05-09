@@ -9,13 +9,6 @@ import AppIntents
 import AVFoundation
 #endif
 
-private extension Data {
-    mutating func append<T: FixedWidthInteger>(littleEndian value: T) {
-        var le = value.littleEndian
-        Swift.withUnsafeBytes(of: &le) { self.append(contentsOf: $0) }
-    }
-}
-
 /// AlarmKit-backed scheduler used on iOS 26+ when available.
 ///
 /// Uses Apple-supported system alarm APIs for lock-screen/alarm-surface behavior.
@@ -58,6 +51,15 @@ final class AlarmSchedulerIOS26AlarmKit: AlarmScheduler {
                 logger.error("AlarmKit authorization denied while scheduling \(id.uuidString, privacy: .public)")
                 throw AlarmSchedulingError.alarmKitPermissionDenied
             }
+
+            // Pre-stage selected sound now so engine has a local file ready when
+            // alarm fires, even after app relaunch/background transitions.
+            if !sound.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               sound.lowercased() != "default" {
+                _ = stageNotificationSound(named: sound)
+                print("[Scheduler] Pre-staged sound at schedule time: '\(sound)'")
+            }
+            _ = Self.ensureSilentAlertSoundStaged()
 
             let snoozeInterval: TimeInterval? = snoozeEnabled ? 300 : nil
             let effectiveSoundName = try await scheduleWithFallbackSound(
@@ -168,6 +170,16 @@ final class AlarmSchedulerIOS26AlarmKit: AlarmScheduler {
             let schedule = makeSchedule(for: alarm)
             let snoozeInterval = resolvedSnoozeInterval(for: alarm)
             let snoozeEnabled = snoozeInterval != nil
+
+            // Pre-stage selected sound now so engine can resolve it reliably
+            // while locked/backgrounded.
+            if !alarm.soundName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               alarm.soundName.lowercased() != "default" {
+                _ = stageNotificationSound(named: alarm.soundName)
+                print("[Scheduler] Pre-staged sound at schedule time: '\(alarm.soundName)'")
+            }
+            _ = Self.ensureSilentAlertSoundStaged()
+
             let effectiveSoundName = try await scheduleWithFallbackSound(
                 manager: manager,
                 id: alarm.id,
@@ -266,66 +278,72 @@ extension AlarmSchedulerIOS26AlarmKit {
     var fallbackAlarmSoundKey: String { "cockpitalert" }
     var maxAlarmKitSoundDuration: TimeInterval { 29.5 }
 
-    /// Filename of the silent CAF sound used for AlarmKit when the user's
-    /// selected sound can't be staged. Lives under Library/Sounds.
-    var silentAlertSoundFileName: String { "alarmo_silent.wav" }
-
-    /// Generates (once, idempotently) a small silent WAV file in
-    /// Library/Sounds and returns its filename. AlarmKit gets pointed at
-    /// this file so its alert produces no audible sound — the bridge
-    /// AVAudioPlayer plays the user's actual selected sound instead.
-    /// Returns nil if creation fails for any reason.
-    func ensureSilentAlertSoundStaged() -> String? {
-        let fileName = silentAlertSoundFileName
+    /// Stages a valid 1-second silent CAF file into Library/Sounds/ for use as
+    /// AlarmKit sound. Returns the staged FILE NAME (with extension) to pass to
+    /// `AlertConfiguration.AlertSound.named(...)`.
+    @discardableResult
+    static func ensureSilentAlertSoundStaged() -> String? {
+        let silentFileName = "alarmo_silence.caf"
         guard let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else {
+            print("[SilentSound] ❌ nil-libraryDir")
             return nil
         }
         let soundsDir = library.appendingPathComponent("Sounds", isDirectory: true)
         do {
             try FileManager.default.createDirectory(at: soundsDir, withIntermediateDirectories: true)
         } catch {
-            print("[AlarmSchedulerIOS26AlarmKit] silent-sound stage: failed to create Sounds dir: \(error)")
+            print("[SilentSound] ❌ create-sounds-dir-failed: \(error)")
             return nil
         }
-        let url = soundsDir.appendingPathComponent(fileName, isDirectory: false)
-        if FileManager.default.fileExists(atPath: url.path) {
-            return fileName
+        let destinationURL = soundsDir.appendingPathComponent(silentFileName, isDirectory: false)
+        if FileManager.default.fileExists(atPath: destinationURL.path),
+           let attrs = try? FileManager.default.attributesOfItem(atPath: destinationURL.path),
+           let size = attrs[.size] as? Int,
+           size > 1000 {
+            print("[SilentSound] ✅ existing-valid: \(silentFileName) size=\(size)")
+            return silentFileName
         }
-
-        // Build a minimal silent WAV: 1 second of 8 kHz, mono, 16-bit PCM,
-        // all zero samples. WAV is universally supported by iOS notification
-        // sound subsystem. Total size: ~16 KB (44-byte header + 16 KB data).
-        let sampleRate: UInt32 = 8000
-        let bitsPerSample: UInt16 = 16
-        let channels: UInt16 = 1
-        let durationSeconds: UInt32 = 1
-        let byteRate: UInt32 = sampleRate * UInt32(channels) * UInt32(bitsPerSample) / 8
-        let blockAlign: UInt16 = channels * bitsPerSample / 8
-        let dataSize: UInt32 = sampleRate * UInt32(blockAlign) * durationSeconds
-        let chunkSize: UInt32 = 36 + dataSize
-
-        var data = Data()
-        data.append(contentsOf: "RIFF".utf8)
-        data.append(littleEndian: chunkSize)
-        data.append(contentsOf: "WAVE".utf8)
-        data.append(contentsOf: "fmt ".utf8)
-        data.append(littleEndian: UInt32(16))         // fmt chunk size
-        data.append(littleEndian: UInt16(1))          // PCM format
-        data.append(littleEndian: channels)
-        data.append(littleEndian: sampleRate)
-        data.append(littleEndian: byteRate)
-        data.append(littleEndian: blockAlign)
-        data.append(littleEndian: bitsPerSample)
-        data.append(contentsOf: "data".utf8)
-        data.append(littleEndian: dataSize)
-        data.append(Data(count: Int(dataSize)))       // all zeros = silence
-
+        let settings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVSampleRateKey: 44_100.0,
+            AVNumberOfChannelsKey: 1,
+            AVLinearPCMBitDepthKey: 16,
+            AVLinearPCMIsBigEndianKey: false,
+            AVLinearPCMIsFloatKey: false
+        ]
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("alarmo_silence_temp.caf")
         do {
-            try data.write(to: url, options: .atomic)
-            print("[AlarmSchedulerIOS26AlarmKit] 🤫 Generated silent AlarmKit sound at \(url.path)")
-            return fileName
+            let audioFile = try AVAudioFile(
+                forWriting: tempURL,
+                settings: settings,
+                commonFormat: .pcmFormatInt16,
+                interleaved: false
+            )
+            let frameCount = AVAudioFrameCount(44_100)
+            guard let buffer = AVAudioPCMBuffer(
+                pcmFormat: audioFile.processingFormat,
+                frameCapacity: frameCount
+            ) else {
+                print("[SilentSound] ❌ generation-failed: buffer-allocation")
+                return nil
+            }
+            buffer.frameLength = frameCount
+            try audioFile.write(from: buffer)
+
+            if FileManager.default.fileExists(atPath: destinationURL.path) {
+                try FileManager.default.removeItem(at: destinationURL)
+            }
+            try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+            guard let verifyPlayer = try? AVAudioPlayer(contentsOf: destinationURL),
+                  verifyPlayer.duration > 0 else {
+                print("[SilentSound] ❌ generation-failed: verify-player")
+                return nil
+            }
+            print("[SilentSound] ✅ generated-valid: \(silentFileName) duration=\(String(format: "%.2f", verifyPlayer.duration))")
+            return silentFileName
         } catch {
-            print("[AlarmSchedulerIOS26AlarmKit] silent-sound stage: failed to write file: \(error)")
+            try? FileManager.default.removeItem(at: tempURL)
+            print("[SilentSound] ❌ generation-failed: \(error)")
             return nil
         }
     }
@@ -418,6 +436,8 @@ extension AlarmSchedulerIOS26AlarmKit {
         soundName: String? = nil,
         useSystemDefaultSound: Bool = false
     ) -> AlarmManager.AlarmConfiguration<AlarmoAlarmMetadata> {
+        _ = useSystemDefaultSound
+        _ = Self.ensureSilentAlertSoundStaged()
         let alertPresentation: AlarmPresentation.Alert
         if #available(iOS 26.1, *) {
             alertPresentation = AlarmPresentation.Alert(
@@ -449,30 +469,14 @@ extension AlarmSchedulerIOS26AlarmKit {
             tintColor: .blue
         )
 
-        // Resolve the alarm sound. AlarmKit needs an audible fallback so the
-        // user always hears SOMETHING from the system level even if our
-        // bridge AVAudioPlayer fails. Without an audible AlarmKit sound, a
-        // bridge failure produces total silence and the user has to open
-        // the app to recover.
-        let alertSound: AlertConfiguration.AlertSound
-        if useSystemDefaultSound {
-            alertSound = .default
+        // AlarmKit ALWAYS uses silent sound. Engine owns real audio.
+        let alarmKitSound: AlertConfiguration.AlertSound
+        if let silentSoundFile = Self.ensureSilentAlertSoundStaged() {
+            alarmKitSound = .named(silentSoundFile)
+            print("[Scheduler] ✅ AlarmKit sound: .named('\(silentSoundFile)') — engine owns real audio")
         } else {
-            if let name = soundName, !name.isEmpty, name != "default" {
-                if let stagedName = stageNotificationSound(named: name) {
-                    alertSound = .named(stagedName)
-                } else if let stagedFallback = stageNotificationSound(named: fallbackAlarmSoundKey) {
-                    alertSound = .named(stagedFallback)
-                } else {
-                    alertSound = .named("")
-                }
-            } else {
-                if let stagedFallback = stageNotificationSound(named: fallbackAlarmSoundKey) {
-                    alertSound = .named(stagedFallback)
-                } else {
-                    alertSound = .named("")
-                }
-            }
+            alarmKitSound = .default
+            print("[Scheduler] ⚠️ AlarmKit silent staging failed — using .default (session conflict possible)")
         }
 
         return AlarmManager.AlarmConfiguration(
@@ -484,7 +488,7 @@ extension AlarmSchedulerIOS26AlarmKit {
             // replace lock-screen slide-to-stop handling or force immediate auth
             // for that swipe path. Auth prompting is handled via notification action.
             secondaryIntent: nil,
-            sound: alertSound
+            sound: alarmKitSound
         )
     }
 
@@ -690,6 +694,12 @@ extension AlarmSchedulerIOS26AlarmKit {
 }
 
 @available(iOS 26.0, *)
+@inline(__always)
+private func swiftlog(_ message: String) {
+    print(message)
+}
+
+@available(iOS 26.0, *)
 struct StopAlarmIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Stop Alarm"
     // Keep this false so lock-screen Stop intent can run repeatedly without
@@ -750,9 +760,11 @@ struct StopAlarmIntent: LiveActivityIntent {
         let trimmedAlarmName = resolvedAlarmName?.trimmingCharacters(in: .whitespacesAndNewlines)
         
         if shouldUseLockedHandling {
-            if AlarmContinuousAudioEngine.shared.isEngineActive &&
-                AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
-                print("[Respawn] Engine active and healthy — skipping AlarmKit respawn")
+            let engineHealthy = AlarmContinuousAudioEngine.shared.isEngineActive &&
+                AlarmContinuousAudioEngine.shared.confirmStillPlaying()
+            swiftlog("[StopIntent] Engine health: active=\(AlarmContinuousAudioEngine.shared.isEngineActive) healthy=\(engineHealthy)")
+
+            if engineHealthy {
                 if !suppressUnlockPrompt {
                     NotificationManager.shared.scheduleAlarmAuthenticationPrompt(
                         sourceAlarmId: lookupUUID.uuidString,
@@ -761,8 +773,11 @@ struct StopAlarmIntent: LiveActivityIntent {
                     )
                 }
                 AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: uuid)
+                swiftlog("[StopIntent] Engine healthy — notification posted, AlarmKit respawn skipped")
                 return .result()
             }
+
+            swiftlog("[StopIntent] Engine not healthy — proceeding with AlarmKit respawn fallback")
             let originalAlarm = await MainActor.run { AlarmStore.shared.alarm(by: lookupUUID) }
             if !suppressUnlockPrompt {
                 let promptTitle = originalAlarm?.name ?? trimmedAlarmName

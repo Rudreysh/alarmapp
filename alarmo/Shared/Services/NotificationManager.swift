@@ -829,6 +829,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         if pendingBackupAlarmIds[sourceAlarmId] != nil { return }
         guard let sourceUUID = UUID(uuidString: sourceAlarmId) else { return }
         guard let originalAlarm = (alarmStore ?? AlarmStore.shared).alarm(by: sourceUUID) else { return }
+        if AlarmContinuousAudioEngine.shared.isEngineActive &&
+            AlarmContinuousAudioEngine.shared.cachedIsHealthy {
+            print("[Backup] Skipping backup chain — engine is active and healthy (would cause session conflict)")
+            return
+        }
+        print("[Backup] Engine not healthy — scheduling backup AlarmKit chain")
 
         let helper = AlarmSchedulerIOS26AlarmKit()
         let title = originalAlarm.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -1420,6 +1426,28 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     private func processAlarmKitAlertingAlarm(_ alarm: AlarmKit.Alarm) async {
         let surfaceAlarmId = alarm.id.uuidString
         let sourceAlarmId = AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceAlarmId)
+        if AlarmContinuousAudioEngine.shared.isEngineActive &&
+            AlarmContinuousAudioEngine.shared.cachedIsHealthy {
+            if UIApplication.shared.applicationState == .active {
+                print("[AlarmKit] Engine healthy in foreground — dismissing surface \(surfaceAlarmId)")
+                try? AlarmManager.shared.stop(id: alarm.id)
+                try? AlarmManager.shared.cancel(id: alarm.id)
+            } else {
+                // While locked/background, keep AlarmKit surface alive so lock-screen
+                // controls remain visible. With silent AlarmKit sound configured,
+                // this no longer competes with engine audio.
+                AlarmBackgroundAudioBridge.shared.start(
+                    surfaceAlarmId: surfaceAlarmId,
+                    sourceAlarmId: sourceAlarmId
+                )
+                startAlarmKitUnlockPromptLoop(
+                    sourceAlarmId: sourceAlarmId,
+                    surfaceAlarmId: surfaceAlarmId,
+                    alarmName: nil
+                )
+            }
+            return
+        }
         let sourceAlarm: Alarm? = {
             guard let uuid = UUID(uuidString: sourceAlarmId) else { return nil }
             return (alarmStore ?? AlarmStore.shared).alarm(by: uuid)
@@ -1436,6 +1464,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         }
 
         if let sourceAlarm {
+            print("[NotificationManager] Engine start with real sound: \(sourceAlarm.soundName)")
             AlarmContinuousAudioEngine.shared.start(
                 soundName: sourceAlarm.soundName,
                 alarmId: sourceAlarm.id.uuidString,

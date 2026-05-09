@@ -350,6 +350,8 @@ struct AlarmRingingView: View {
             if ringCoordinator.isRinging {
                 print("[View] AlarmRingingView disappeared — engine continues playing")
                 ringCoordinator.ensureLockPromptLoopAfterUnexpectedViewDismiss()
+            } else {
+                print("[View] AlarmRingingView disappeared after Stop/Snooze — cleanup complete")
             }
         }
     }

@@ -12,7 +12,7 @@ class AudioRouteManager: ObservableObject {
     private init() {
         checkCurrentRoute()
         NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { _ in
-            self.checkCurrentRoute()
+            self.handleRouteChange()
         }
     }
     
@@ -51,6 +51,11 @@ class AudioRouteManager: ObservableObject {
             try session.setActive(true, options: [])
         } catch {
             print("[AudioRouteManager] ⚠️ setActive(true) failed (\(error)) — attempting hard reset")
+            guard !AlarmContinuousAudioEngine.shared.isEngineActive else {
+                print("[AudioRouteManager] Session reset BLOCKED — engine owns session during alarm")
+                return
+            }
+            print("[AudioRouteManager] Session reset proceeding — engine not active")
             try? session.setActive(false, options: [])
             try session.setCategory(.playback, mode: .default, options: alarmOptions)
             try session.setActive(true, options: [])
@@ -61,7 +66,15 @@ class AudioRouteManager: ObservableObject {
     /// session is suspected to be in a stuck state (e.g. on app resume after
     /// AlarmKit interfered). Any currently-playing AVAudioPlayer should be
     /// reasserted by callers AFTER this returns.
-    static func forceResetAlarmSession() {
+    func forceResetAlarmSession() {
+        // GUARD: Engine owns the audio session while alarm is ringing.
+        // Resetting the session here would call setActive(false) which stops the engine player.
+        // willEnterForeground and protectedDataDidBecomeAvailable both trigger this.
+        guard !AlarmContinuousAudioEngine.shared.isEngineActive else {
+            print("[AudioRouteManager] forceResetAlarmSession SKIPPED — engine active, session owned by engine")
+            return
+        }
+        print("[AudioRouteManager] forceResetAlarmSession proceeding — engine not active")
         let session = AVAudioSession.sharedInstance()
         try? session.setActive(false, options: [.notifyOthersOnDeactivation])
         try? session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
@@ -97,6 +110,14 @@ class AudioRouteManager: ObservableObject {
         DispatchQueue.main.async {
             self.isExternalConnected = hasExternal
         }
+    }
+
+    private func handleRouteChange() {
+        guard !AlarmContinuousAudioEngine.shared.isEngineActive else {
+            print("[AudioRouteManager] Route change ignored — engine owns session")
+            return
+        }
+        checkCurrentRoute()
     }
 
     private static func hasExternalOutput(route: AVAudioSessionRouteDescription) -> Bool {

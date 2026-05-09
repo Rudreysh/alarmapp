@@ -2,6 +2,11 @@ import Foundation
 import UIKit
 import AVFoundation
 
+@inline(__always)
+private func swiftlog(_ message: String) {
+    print(message)
+}
+
 /// Plays the alarm sound using an app-owned AVAudioPlayer while the phone is
 /// locked, providing seamless audio continuity when AlarmKit stops its own
 /// system-managed sound after the user swipes "Stop".
@@ -37,6 +42,20 @@ final class AlarmBackgroundAudioBridge {
     private let lockedRefreshCooldown: TimeInterval = 0.5
     private var silentBridgeSince: Date?
     private var lastAudibleAt: Date?
+    private var consecutiveWatchdogFailures: Int = 0
+    private var lastWatchdogRecoveryAttemptAt: Date = .distantPast
+    private var watchdogRecoveryInProgress: Bool = false
+
+    // Backoff schedule: attempt 1 = 0.5s wait, 2 = 1s, 3 = 2s, 4+ = 5s max
+    private func watchdogBackoffInterval() -> TimeInterval {
+        switch consecutiveWatchdogFailures {
+        case 0:      return 0.0
+        case 1:      return 0.5
+        case 2:      return 1.0
+        case 3:      return 2.0
+        default:     return 5.0
+        }
+    }
 
     private init() {
         NotificationCenter.default.addObserver(
@@ -76,7 +95,7 @@ final class AlarmBackgroundAudioBridge {
     }
 
     var isAudiblyPlaying: Bool {
-        AlarmContinuousAudioEngine.shared.confirmStillPlaying()
+        AlarmContinuousAudioEngine.shared.cachedIsHealthy
     }
 
     /// Returns true only when playback has been observed recently by the
@@ -99,6 +118,22 @@ final class AlarmBackgroundAudioBridge {
             print("[AlarmBackgroundAudioBridge] Alarm not found for source=\(resolvedSourceAlarmId), surface=\(surfaceAlarmId)")
             return
         }
+
+        if AlarmContinuousAudioEngine.shared.isEngineActive {
+            swiftlog("[Bridge] Engine already active — bridge skipping audio, managing AlarmKit surfaces only")
+            activeAlarmID = surfaceAlarmId
+            activeSourceAlarmID = resolvedSourceAlarmId
+            beginBackgroundTaskIfNeeded(named: "alarmo.backgroundAlarm.\(surfaceAlarmId)")
+            if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
+                lastAudibleAt = Date()
+            }
+            if watchdogTimer == nil {
+                startWatchdog()
+            }
+            return
+        }
+
+        swiftlog("[Bridge] Engine not active — starting engine from bridge as fallback")
 
         if activeAlarmID == surfaceAlarmId {
             AlarmContinuousAudioEngine.shared.start(
@@ -187,6 +222,9 @@ final class AlarmBackgroundAudioBridge {
         activeSourceAlarmID = nil
         lastAudibleAt = nil
         silentBridgeSince = nil
+        consecutiveWatchdogFailures = 0
+        lastWatchdogRecoveryAttemptAt = .distantPast
+        watchdogRecoveryInProgress = false
         endBackgroundTask()
     }
 
@@ -262,13 +300,30 @@ final class AlarmBackgroundAudioBridge {
             return
         }
 
-        if !AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
+        let engineHealthy = AlarmContinuousAudioEngine.shared.cachedIsHealthy
+        if !engineHealthy {
             let now = Date()
             if silentBridgeSince == nil {
                 silentBridgeSince = now
             }
 
-            print("[AlarmBackgroundAudioBridge] ⚠️ Watchdog: detected silent bridge, restarting audio")
+            consecutiveWatchdogFailures += 1
+            let backoff = watchdogBackoffInterval()
+            let timeSinceLast = Date().timeIntervalSince(lastWatchdogRecoveryAttemptAt)
+            guard timeSinceLast >= backoff else {
+                let remaining = max(0, backoff - timeSinceLast)
+                print("[Bridge] Watchdog: silence detected (failure \(consecutiveWatchdogFailures)) — backoff \(String(format: "%.1f", remaining))s remaining")
+                return
+            }
+
+            guard !watchdogRecoveryInProgress else {
+                print("[Bridge] Watchdog: recovery in progress — skipping this tick")
+                return
+            }
+
+            lastWatchdogRecoveryAttemptAt = Date()
+            watchdogRecoveryInProgress = true
+            print("[Bridge] Watchdog: silence — failure \(consecutiveWatchdogFailures), attempting recovery")
             AlarmContinuousAudioEngine.shared.start(
                 soundName: sourceAlarm.soundName,
                 alarmId: sourceAlarmId,
@@ -283,15 +338,28 @@ final class AlarmBackgroundAudioBridge {
                 triggerImmediateLockedRefresh(reason: "watchdog-persistent-silence")
                 silentBridgeSince = now
             }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                self?.watchdogRecoveryInProgress = false
+            }
         } else {
             silentBridgeSince = nil
             lastAudibleAt = Date()
+            consecutiveWatchdogFailures = 0
+            lastWatchdogRecoveryAttemptAt = .distantPast
+            watchdogRecoveryInProgress = false
         }
 
         // SoundPlayer handles interruption internally via its own observers,
         // but as a safety net, if no audio appears to be playing and we haven't
         // been told to stop, restart it.
         print("[AlarmBackgroundAudioBridge] 🔍 Watchdog: bridge active for surface=\(alarmId), source=\(sourceAlarmId)")
+    }
+
+    func resetWatchdogBackoff() {
+        consecutiveWatchdogFailures = 0
+        lastWatchdogRecoveryAttemptAt = .distantPast
+        watchdogRecoveryInProgress = false
+        swiftlog("[Bridge] Watchdog backoff reset")
     }
 
     private func triggerImmediateLockedRefresh(reason: String) {
@@ -319,6 +387,13 @@ final class AlarmBackgroundAudioBridge {
             ?? activeSourceAlarmID
             ?? resolvedSurface.map { AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: $0) }
         guard let resolvedSurface, let resolvedSource else { return }
+
+        if AlarmContinuousAudioEngine.shared.isEngineActive &&
+            (AlarmContinuousAudioEngine.shared.cachedIsHealthy ||
+             AlarmContinuousAudioEngine.shared.isInInterruptionRecoveryWindow) {
+            print("[Bridge] \(reason): engine healthy/recovering — skip locked-loop audio reset")
+            return
+        }
 
         if activeAlarmID == nil {
             start(surfaceAlarmId: resolvedSurface, sourceAlarmId: resolvedSource)

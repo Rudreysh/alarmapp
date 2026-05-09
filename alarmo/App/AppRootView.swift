@@ -123,6 +123,8 @@ struct AppRootView: View {
         }
             .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
+                AlarmContinuousAudioEngine.shared.recoverIfNeeded()
+                print("[AppRoot] Engine recovery check on active — isEngineActive: \(AlarmContinuousAudioEngine.shared.isEngineActive)")
                 if hasPendingLiveActivityOpenRequest() {
                     navigationStore.selectedTab = .timer
                     navigationStore.requestedTimerMode = .pomo
@@ -150,7 +152,13 @@ struct AppRootView: View {
                     // and schedule a new one.
                     notificationManager.cancelAllBackupAlarmKitChains()
                     Task {
-                        await notificationManager.ensureBackupAlarmKitChain(sourceAlarmId: alarm.id.uuidString)
+                        if !(AlarmContinuousAudioEngine.shared.isEngineActive &&
+                             AlarmContinuousAudioEngine.shared.cachedIsHealthy) {
+                            await notificationManager.ensureBackupAlarmKitChain(sourceAlarmId: alarm.id.uuidString)
+                            print("[AppRoot] Scene active — backup chain scheduled (engine not healthy)")
+                        } else {
+                            print("[AppRoot] Scene active — backup chain skipped (engine healthy, avoiding session conflict)")
+                        }
                     }
                 }
                 notificationManager.recoverAlarmFromDeliveredNotificationsIfNeeded()
@@ -189,7 +197,13 @@ struct AppRootView: View {
                     // a fresh AlarmKit alarm fires every 2s as a fallback.
                     if #available(iOS 26.0, *) {
                         Task {
-                            await notificationManager.ensureBackupAlarmKitChain(sourceAlarmId: alarm.id.uuidString)
+                            if !(AlarmContinuousAudioEngine.shared.isEngineActive &&
+                                 AlarmContinuousAudioEngine.shared.cachedIsHealthy) {
+                                await notificationManager.ensureBackupAlarmKitChain(sourceAlarmId: alarm.id.uuidString)
+                                print("[AppRoot] Scene background — backup chain scheduled (engine not healthy)")
+                            } else {
+                                print("[AppRoot] Scene background — backup chain skipped (engine healthy)")
+                            }
                         }
                     }
                 } else if let surfaceAlarmId = AlarmBackgroundAudioBridge.shared.currentAlarmID {
@@ -221,7 +235,11 @@ struct AppRootView: View {
             // back" actually work — without the force-reset, the session can
             // be in a state where setActive(true) is technically successful
             // but no actual audio output happens.
-            AudioRouteManager.forceResetAlarmSession()
+            if !AlarmContinuousAudioEngine.shared.isEngineActive {
+                AudioRouteManager.shared.forceResetAlarmSession()
+            } else {
+                print("[AppRoot] willEnterForeground: skipping AudioRouteManager reset — engine active")
+            }
             if ringCoordinator.isRinging {
                 ringCoordinator.reassertRingingAudio(reason: "willEnterForeground")
             } else if AlarmBackgroundAudioBridge.shared.isPlaying {
@@ -229,6 +247,8 @@ struct AppRootView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            AlarmContinuousAudioEngine.shared.recoverIfNeeded()
+            print("[AppRoot] Engine recovery check on active — isEngineActive: \(AlarmContinuousAudioEngine.shared.isEngineActive)")
             notificationManager.recoverAlarmKitAlertingIfNeeded()
             enforceAlarmCustomUIIfNeeded()
             handlePendingCustomAlarmUIHandoff(trigger: "didBecomeActive")
@@ -238,7 +258,11 @@ struct AppRootView: View {
             // audio session to clear AlarmKit's audio session interference,
             // then reassert audio. This minimizes the silence window the
             // user perceives between unlock and audio resuming.
-            AudioRouteManager.forceResetAlarmSession()
+            if !AlarmContinuousAudioEngine.shared.isEngineActive {
+                AudioRouteManager.shared.forceResetAlarmSession()
+            } else {
+                print("[AppRoot] protectedDataAvailable: skipping AudioRouteManager reset — engine active")
+            }
             if ringCoordinator.isRinging {
                 ringCoordinator.reassertRingingAudio(reason: "protectedDataAvailable")
             } else if AlarmBackgroundAudioBridge.shared.isPlaying {

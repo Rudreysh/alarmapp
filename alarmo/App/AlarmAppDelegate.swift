@@ -18,6 +18,12 @@ final class AlarmAppDelegate: NSObject, UIApplicationDelegate {
         } catch {
             print("[AlarmAppDelegate] ⚠️ Failed to pre-configure audio session: \(error)")
         }
+        
+#if canImport(AlarmKit)
+        if #available(iOS 26.0, *) {
+            _ = AlarmSchedulerIOS26AlarmKit.ensureSilentAlertSoundStaged()
+        }
+#endif
 
         // AlarmKit authorization is requested from explicit UI flows (onboarding/settings)
         // and before scheduling. Avoid launch-time prompts that can trap onboarding.
