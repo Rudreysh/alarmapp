@@ -1457,6 +1457,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             return (alarmStore ?? AlarmStore.shared).alarm(by: uuid)
         }()
         print("[NotificationManager] 🔔 AlarmKit alarm alerting: surface=\(surfaceAlarmId), source=\(sourceAlarmId)")
+        setAlarmFlowPhase(
+            UIApplication.shared.applicationState == .active ? .ringingUnlocked : .ringingLocked,
+            for: sourceAlarmId
+        )
 
         // If user already pressed Stop/Snooze, ignore stale or in-flight
         // AlarmKit callbacks and tear down the surface instead of resurrecting UI.
@@ -1468,19 +1472,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         }
 
         if let sourceAlarm {
-            print("[NotificationManager] Engine start with real sound: \(sourceAlarm.soundName)")
-            // Preserve current targetVolume when engine is already active so
-            // re-entry from an alerting callback doesn't override a level the
-            // user (or a prior recovery path) has already set.
-            let startVolume: Float = AlarmContinuousAudioEngine.shared.isEngineActive
-                ? AlarmContinuousAudioEngine.shared.targetVolume
-                : 1.0
-            AlarmContinuousAudioEngine.shared.start(
-                soundName: sourceAlarm.soundName,
+            print("[NotificationManager] AlarmKit alerting — deferring engine audible start via state machine. sound=\(sourceAlarm.soundName)")
+            AlarmAudioStateController.shared.handleAlarmKitAlerting(
                 alarmId: sourceAlarm.id.uuidString,
-                volume: startVolume
+                soundName: sourceAlarm.soundName,
+                reason: "alarmkit-alerting"
             )
-            print("[AlarmKit→Engine] Engine start triggered from alerting callback. alarmId: \(sourceAlarm.id.uuidString), volume: \(startVolume)")
         } else {
             print("[AlarmKit→Engine] Source alarm model missing for \(sourceAlarmId); engine start skipped")
         }

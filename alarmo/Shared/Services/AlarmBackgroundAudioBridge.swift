@@ -120,6 +120,37 @@ final class AlarmBackgroundAudioBridge {
             : 1.0
     }
 
+    private func startOrPrepareEngine(soundName: String, alarmId: String, reason: String) {
+        let controller = AlarmAudioStateController.shared
+        if controller.currentAlarmId != alarmId || controller.currentAlarmRunId == nil {
+            controller.beginAlarmSession(alarmId: alarmId, soundName: soundName, reason: "bridge-\(reason)")
+        }
+        if controller.phase == .alarmKitSettling || controller.phase == .appEnginePreparing || controller.phase == .alarmKitFallback {
+            if let runId = controller.currentAlarmRunId {
+                AlarmContinuousAudioEngine.shared.prepareSilently(
+                    soundName: soundName,
+                    alarmId: alarmId,
+                    alarmRunId: runId
+                )
+                swiftlog("[Bridge] delegated to prepareSilently — phase=\(controller.phase.rawValue)")
+            }
+            return
+        }
+        if controller.phase == .appEnginePrimary {
+            swiftlog("[Bridge] skipped because AppEngine is primary")
+            return
+        }
+        if controller.canStartAudibleAppAudio(reason: "bridge-\(reason)") {
+            AlarmContinuousAudioEngine.shared.start(
+                soundName: soundName,
+                alarmId: alarmId,
+                volume: engineStartVolume()
+            )
+        } else {
+            swiftlog("[Bridge] audible start blocked by phase=\(controller.phase.rawValue)")
+        }
+    }
+
     func start(surfaceAlarmId: String, sourceAlarmId: String? = nil) {
         let resolvedSourceAlarmId = sourceAlarmId
             ?? AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceAlarmId)
@@ -146,11 +177,7 @@ final class AlarmBackgroundAudioBridge {
         swiftlog("[Bridge] Engine not active — starting engine from bridge as fallback")
 
         if activeAlarmID == surfaceAlarmId {
-            AlarmContinuousAudioEngine.shared.start(
-                soundName: alarm.soundName,
-                alarmId: resolvedSourceAlarmId,
-                volume: engineStartVolume()
-            )
+            startOrPrepareEngine(soundName: alarm.soundName, alarmId: resolvedSourceAlarmId, reason: "bridge-active-same-surface")
             if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
                 lastAudibleAt = Date()
             }
@@ -166,11 +193,7 @@ final class AlarmBackgroundAudioBridge {
         if activeSourceAlarmID == resolvedSourceAlarmId {
             activeAlarmID = surfaceAlarmId
             beginBackgroundTaskIfNeeded(named: "alarmo.backgroundAlarm.\(surfaceAlarmId)")
-            AlarmContinuousAudioEngine.shared.start(
-                soundName: alarm.soundName,
-                alarmId: resolvedSourceAlarmId,
-                volume: engineStartVolume()
-            )
+            startOrPrepareEngine(soundName: alarm.soundName, alarmId: resolvedSourceAlarmId, reason: "bridge-rebind")
             if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
                 lastAudibleAt = Date()
             }
@@ -190,11 +213,7 @@ final class AlarmBackgroundAudioBridge {
         }
 
         beginBackgroundTask(named: "alarmo.backgroundAlarm.\(surfaceAlarmId)")
-        AlarmContinuousAudioEngine.shared.start(
-            soundName: alarm.soundName,
-            alarmId: resolvedSourceAlarmId,
-            volume: engineStartVolume()
-        )
+        startOrPrepareEngine(soundName: alarm.soundName, alarmId: resolvedSourceAlarmId, reason: "bridge-fallback-start")
         if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
             lastAudibleAt = Date()
         }
@@ -342,11 +361,7 @@ final class AlarmBackgroundAudioBridge {
             lastWatchdogRecoveryAttemptAt = Date()
             watchdogRecoveryInProgress = true
             print("[Bridge] Watchdog: silence — failure \(consecutiveWatchdogFailures), attempting recovery")
-            AlarmContinuousAudioEngine.shared.start(
-                soundName: sourceAlarm.soundName,
-                alarmId: sourceAlarmId,
-                volume: engineStartVolume()
-            )
+            startOrPrepareEngine(soundName: sourceAlarm.soundName, alarmId: sourceAlarmId, reason: "bridge-watchdog-recovery")
 
             // A side/volume button can create a very brief interruption. Avoid
             // aggressively respawning the AlarmKit surface unless silence
@@ -424,11 +439,7 @@ final class AlarmBackgroundAudioBridge {
         if !AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
             if let uuid = UUID(uuidString: resolvedSource),
                let alarm = (alarmStore ?? AlarmStore.shared).alarm(by: uuid) {
-                AlarmContinuousAudioEngine.shared.start(
-                    soundName: alarm.soundName,
-                    alarmId: resolvedSource,
-                    volume: engineStartVolume()
-                )
+                startOrPrepareEngine(soundName: alarm.soundName, alarmId: resolvedSource, reason: "bridge-reinforce")
                 if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
                     lastAudibleAt = Date()
                 }

@@ -57,12 +57,16 @@ final class AlarmRingCoordinator: ObservableObject {
         // (e.g. local notification + foreground timer callback).
         if isRinging, activeAlarm?.id == id {
             print("[AlarmRingCoordinator] ⏭️ Ignoring duplicate START RINGING for \(id) (Source: \(source))")
-            AlarmContinuousAudioEngine.shared.start(
-                soundName: activeAlarm?.soundName ?? "",
-                alarmId: id.uuidString,
-                volume: 1.0
-            )
-            print("[Coordinator] Engine already active — attaching UI without restarting sound")
+            if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-duplicate-startRinging") {
+                AlarmContinuousAudioEngine.shared.start(
+                    soundName: activeAlarm?.soundName ?? "",
+                    alarmId: id.uuidString,
+                    volume: 1.0
+                )
+                print("[Coordinator] Engine already active — attaching UI without restarting sound")
+            } else {
+                print("[Coordinator] Audible start blocked by phase in duplicate path")
+            }
             ensureRingingUIPresentation(afterAudioMaxWait: 0.1)
             if ringingWatchdogTimer == nil {
                 startRingingWatchdog()
@@ -150,15 +154,30 @@ final class AlarmRingCoordinator: ObservableObject {
         // single source of truth for ringing audio + UI).
         NotificationManager.shared.cancelAlarmRingingFallbackChain(alarmId: alarm.id.uuidString)
 
+        AlarmAudioStateController.shared.beginAlarmSession(
+            alarmId: alarm.id.uuidString,
+            soundName: alarm.soundName,
+            reason: "coordinator-startRinging"
+        )
+
         if AlarmContinuousAudioEngine.shared.isEngineActive {
             print("[Coordinator] Engine already active — attaching UI without restarting sound")
         } else {
-            AlarmContinuousAudioEngine.shared.start(
-                soundName: alarm.soundName,
-                alarmId: alarm.id.uuidString,
-                volume: 1.0
-            )
-            print("[Coordinator] Engine started from coordinator (fallback)")
+            if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-startRinging-primary") {
+                AlarmContinuousAudioEngine.shared.start(
+                    soundName: alarm.soundName,
+                    alarmId: alarm.id.uuidString,
+                    volume: 1.0
+                )
+                print("[Coordinator] Engine started from coordinator (fallback)")
+            } else if let runId = AlarmAudioStateController.shared.currentAlarmRunId {
+                AlarmContinuousAudioEngine.shared.prepareSilently(
+                    soundName: alarm.soundName,
+                    alarmId: alarm.id.uuidString,
+                    alarmRunId: runId
+                )
+                print("[Coordinator] Audible start blocked — prepared silently")
+            }
         }
         ensureRingingUIPresentation(afterAudioMaxWait: 0.1)
         if let bridgeSurfaceIdToStop {
@@ -207,11 +226,15 @@ final class AlarmRingCoordinator: ObservableObject {
         watchdogRecoveryInProgress = false
         print("[Coordinator] Watchdog state reset on reassert — reason: \(reason)")
         print("[AlarmRingCoordinator] 🔁 Reasserting ringing audio (\(reason)) for \(alarm.id)")
-        AlarmContinuousAudioEngine.shared.start(
-            soundName: alarm.soundName,
-            alarmId: alarm.id.uuidString,
-            volume: 1.0
-        )
+        if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-reassert-\(reason)") {
+            AlarmContinuousAudioEngine.shared.start(
+                soundName: alarm.soundName,
+                alarmId: alarm.id.uuidString,
+                volume: 1.0
+            )
+        } else {
+            print("[Coordinator] Reassert audible start blocked by phase")
+        }
         if alarm.vibrateEnabled {
             hapticsPlayer.startRepeating()
         }
@@ -260,9 +283,9 @@ final class AlarmRingCoordinator: ObservableObject {
                 AlarmContinuousAudioEngine.shared.isEngineActive,
                 "Stop called but engine was not active — possible double stop"
             )
-            AlarmContinuousAudioEngine.shared.stop(
-                reason: preserveSession ? "user-snooze" : "user-stop"
-            )
+            let stopReason = preserveSession ? "user-snooze" : "user-stop"
+            AlarmAudioStateController.shared.recordStopped(reason: stopReason)
+            AlarmContinuousAudioEngine.shared.stop(reason: stopReason)
         } else {
             soundPlayer.stop()
         }
@@ -673,11 +696,15 @@ final class AlarmRingCoordinator: ObservableObject {
         watchdogLastRecoveryAt = Date()
         watchdogRecoveryInProgress = true
         print("[Coordinator] ⚠️ Watchdog: NO audible audio — attempt \(watchdogConsecutiveFailures)/\(watchdogMaxAttempts)")
-        AlarmContinuousAudioEngine.shared.start(
-            soundName: alarm.soundName,
-            alarmId: alarm.id.uuidString,
-            volume: 1.0
-        )
+        if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-watchdog-recovery") {
+            AlarmContinuousAudioEngine.shared.start(
+                soundName: alarm.soundName,
+                alarmId: alarm.id.uuidString,
+                volume: 1.0
+            )
+        } else {
+            print("[Coordinator] Watchdog audible restart blocked by phase")
+        }
         if alarm.vibrateEnabled {
             hapticsPlayer.startRepeating()
         }

@@ -239,7 +239,9 @@ struct AppRootView: View {
             // back" actually work — without the force-reset, the session can
             // be in a state where setActive(true) is technically successful
             // but no actual audio output happens.
-            if !AlarmContinuousAudioEngine.shared.isEngineActive {
+            if AlarmAudioStateController.shared.isAlarmRinging {
+                print("[AppRoot] willEnterForeground: forceReset skipped because alarm is ringing")
+            } else if !AlarmContinuousAudioEngine.shared.isEngineActive {
                 AudioRouteManager.shared.forceResetAlarmSession()
             } else {
                 print("[AppRoot] willEnterForeground: skipping AudioRouteManager reset — engine active")
@@ -262,7 +264,9 @@ struct AppRootView: View {
             // audio session to clear AlarmKit's audio session interference,
             // then reassert audio. This minimizes the silence window the
             // user perceives between unlock and audio resuming.
-            if !AlarmContinuousAudioEngine.shared.isEngineActive {
+            if AlarmAudioStateController.shared.isAlarmRinging {
+                print("[AppRoot] protectedDataAvailable: forceReset skipped because alarm is ringing")
+            } else if !AlarmContinuousAudioEngine.shared.isEngineActive {
                 AudioRouteManager.shared.forceResetAlarmSession()
             } else {
                 print("[AppRoot] protectedDataAvailable: skipping AudioRouteManager reset — engine active")

@@ -469,9 +469,18 @@ extension AlarmSchedulerIOS26AlarmKit {
             tintColor: .blue
         )
 
-        // AlarmKit ALWAYS uses silent sound. Engine owns real audio.
+        let shouldUseAudibleFallback = AlarmAudioStateController.shared.phase == .alarmKitFallback
+
+        // Default policy: AlarmKit uses silent sound; engine owns real audio.
+        // Fallback policy: if engine failed and we have a resolvable custom sound,
+        // allow AlarmKit to become audible as the sole owner.
         let alarmKitSound: AlertConfiguration.AlertSound
-        if let silentSoundFile = Self.ensureSilentAlertSoundStaged() {
+        if shouldUseAudibleFallback,
+           let requested = soundName,
+           let staged = stageNotificationSound(named: requested) {
+            alarmKitSound = .named(staged)
+            print("[Scheduler] ⚠️ AlarmKit fallback custom sound selected: .named('\(staged)')")
+        } else if let silentSoundFile = Self.ensureSilentAlertSoundStaged() {
             alarmKitSound = .named(silentSoundFile)
             print("[Scheduler] ✅ AlarmKit sound: .named('\(silentSoundFile)') — engine owns real audio")
         } else {
@@ -643,6 +652,10 @@ extension AlarmSchedulerIOS26AlarmKit {
             }
         }
         return fallbackMatch
+    }
+
+    func resolvedSoundURL(for rawName: String) -> URL? {
+        resolveSoundURL(for: rawName)
     }
 
     private func audioDuration(of url: URL) -> TimeInterval {
