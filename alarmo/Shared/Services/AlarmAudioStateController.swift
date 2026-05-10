@@ -23,7 +23,7 @@ final class AlarmAudioStateController {
     static let postInterruptionGraceDelay: TimeInterval = 0.4
     static let appEngineProgressCheckDelay: TimeInterval = 0.5
     static let appEngineFadeInDuration: TimeInterval = 8.0
-    static let appEngineInitialVolume: Float = 0.0
+    static let appEngineInitialVolume: Float = 0.15
     static let appEngineFirstFadeTargetVolume: Float = 0.2
     static let appEngineFinalTargetVolume: Float = 1.0
 
@@ -357,7 +357,10 @@ final class AlarmAudioStateController {
             return false
         case .appEngineFadingIn, .appEnginePrimary:
             return true
-        case .alarmKitFallback, .stopped:
+        case .alarmKitFallback:
+            // In fallback, engine failure must trigger AlarmKit audible recovery.
+            return true
+        case .stopped:
             return false
         }
     }

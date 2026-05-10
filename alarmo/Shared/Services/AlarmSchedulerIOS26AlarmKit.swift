@@ -790,6 +790,13 @@ struct StopAlarmIntent: LiveActivityIntent {
                     )
                 }
                 AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: uuid)
+                await MainActor.run {
+                    swiftlog("[StopIntent] Invoking post-stop gentle ramp for alarm \(lookupUUID.uuidString)")
+                    AlarmContinuousAudioEngine.shared.applyPostStopGentleRamp(
+                        reason: "stop-intent-engine-healthy"
+                    )
+                    AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-after-post-stop-ramp-call")
+                }
                 swiftlog("[StopIntent] Engine healthy — notification posted, AlarmKit respawn skipped")
                 AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-engine-healthy-return")
                 return .result()

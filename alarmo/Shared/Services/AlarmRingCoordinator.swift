@@ -436,6 +436,12 @@ final class AlarmRingCoordinator: ObservableObject {
 
     func ensureLockPromptLoopAfterUnexpectedViewDismiss() {
         guard isRinging, !isPreviewMode, let alarm = activeAlarm else { return }
+        let phase = AlarmAudioStateController.shared.phase
+        guard phase == .appEnginePrimary || phase == .alarmKitFallback else {
+            print("[Coordinator] Lock prompt loop suppressed — phase \(phase.rawValue) (settling, not unexpected disappearance)")
+            return
+        }
+        print("[Coordinator] Lock prompt loop — engine is primary, view disappeared unexpectedly")
         NotificationManager.shared.startAlarmKitUnlockPromptLoop(
             sourceAlarmId: alarm.id.uuidString,
             surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString,
@@ -744,10 +750,15 @@ final class AlarmRingCoordinator: ObservableObject {
         // guarantee the user hears something even if our app is suspended next.
         if UIApplication.shared.applicationState != .active {
             let surfaceAlarmId = AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString
-            NotificationManager.shared.enforceLockedRingingState(
-                sourceAlarmId: alarm.id.uuidString,
-                surfaceAlarmId: surfaceAlarmId
-            )
+            let phase = AlarmAudioStateController.shared.phase
+            if phase == .appEnginePrimary || phase == .alarmKitFallback {
+                NotificationManager.shared.enforceLockedRingingState(
+                    sourceAlarmId: alarm.id.uuidString,
+                    surfaceAlarmId: surfaceAlarmId
+                )
+            } else {
+                print("[Coordinator] enforceLockedRingingState suppressed by watchdog — phase \(phase.rawValue)")
+            }
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in

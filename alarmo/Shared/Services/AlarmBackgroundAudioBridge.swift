@@ -426,6 +426,11 @@ final class AlarmBackgroundAudioBridge {
         sourceAlarmId: String? = nil,
         reason: String = "manual"
     ) {
+        let phase = AlarmAudioStateController.shared.phase
+        guard phase == .appEnginePrimary || phase == .alarmKitFallback else {
+            print("[Bridge] Locked refresh suppressed — phase \(phase.rawValue) (engine not primary)")
+            return
+        }
         let resolvedSurface = surfaceAlarmId ?? activeAlarmID
         let resolvedSource = sourceAlarmId
             ?? activeSourceAlarmID

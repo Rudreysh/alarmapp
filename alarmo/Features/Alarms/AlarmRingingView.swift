@@ -347,11 +347,16 @@ struct AlarmRingingView: View {
             logActiveAlarmIfNeeded()
         }
         .onDisappear {
+            let phase = AlarmAudioStateController.shared.phase
             if ringCoordinator.isRinging {
-                print("[View] AlarmRingingView disappeared — engine continues playing")
-                ringCoordinator.ensureLockPromptLoopAfterUnexpectedViewDismiss()
+                if phase == .appEnginePrimary || phase == .alarmKitFallback {
+                    print("[AlarmRingingView] onDisappear — engine primary, calling lock prompt loop")
+                    ringCoordinator.ensureLockPromptLoopAfterUnexpectedViewDismiss()
+                } else {
+                    print("[AlarmRingingView] onDisappear — phase \(phase.rawValue), suppressing lock prompt loop (settling)")
+                }
             } else {
-                print("[View] AlarmRingingView disappeared after Stop/Snooze — cleanup complete")
+                print("[AlarmRingingView] onDisappear after Stop/Snooze — cleanup complete")
             }
         }
     }

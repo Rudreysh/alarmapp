@@ -195,10 +195,15 @@ struct AppRootView: View {
                         surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString,
                         alarmName: alarm.name
                     )
-                    notificationManager.enforceLockedRingingState(
-                        sourceAlarmId: alarm.id.uuidString,
-                        surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString
-                    )
+                    let phase = AlarmAudioStateController.shared.phase
+                    if phase == .appEnginePrimary || phase == .alarmKitFallback {
+                        notificationManager.enforceLockedRingingState(
+                            sourceAlarmId: alarm.id.uuidString,
+                            surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString
+                        )
+                    } else {
+                        print("[AppRoot] enforceLockedRingingState suppressed — phase \(phase.rawValue) (engine not primary yet)")
+                    }
                     // App is now backgrounded/locked. Bridge audio can fail
                     // when iOS suspends us. Arm the AlarmKit backup chain so
                     // a fresh AlarmKit alarm fires every 2s as a fallback.
@@ -227,10 +232,15 @@ struct AppRootView: View {
                         alarmName: nil,
                         reason: "Side button detected via scenePhase"
                     )
-                    notificationManager.enforceLockedRingingState(
-                        sourceAlarmId: sourceAlarmId,
-                        surfaceAlarmId: surfaceAlarmId
-                    )
+                    let phase = AlarmAudioStateController.shared.phase
+                    if phase == .appEnginePrimary || phase == .alarmKitFallback {
+                        notificationManager.enforceLockedRingingState(
+                            sourceAlarmId: sourceAlarmId,
+                            surfaceAlarmId: surfaceAlarmId
+                        )
+                    } else {
+                        print("[AppRoot] enforceLockedRingingState suppressed — phase \(phase.rawValue)")
+                    }
                 }
             }
         }

@@ -28,6 +28,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
     private let meterInterval: TimeInterval = 0.25
     private var watchdogConsecutiveFailures: Int = 0
     private var watchdogRecoveryWorkItem: DispatchWorkItem?
+    private var postStopRampWorkItem: DispatchWorkItem?
     private var observersInstalled = false
     private let appGroupId = "group.ht.alarmo"
     private var interruptionGraceUntil: Date?
@@ -599,6 +600,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         }
 
         p.volume = AlarmAudioStateController.appEngineInitialVolume
+        log("[Engine] startFadeIn: starting at volume \(String(format: "%.2f", AlarmAudioStateController.appEngineInitialVolume))")
         self.targetVolume = targetVolume
         let playResult = p.play()
         guard playResult && p.isPlaying else {
@@ -644,6 +646,51 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             self.startWatchdogIfNeeded()
             self.persistEngineState()
         }
+    }
+
+    /// Re-applies a gentle ramp while already playing. Used after lock-screen
+    /// StopIntent flows where audio continues but should re-escalate.
+    func applyPostStopGentleRamp(
+        duration: TimeInterval = AlarmAudioStateController.appEngineFadeInDuration,
+        reason: String = "post-stop"
+    ) {
+        guard let p = player, p.isPlaying else {
+            log("[Engine] postStopRamp: no playing player — reason=\(reason)")
+            return
+        }
+        
+        let initialVolume = AlarmAudioStateController.appEngineInitialVolume
+        
+        log("[Engine] postStopRamp: dropping to \(String(format: "%.2f", initialVolume)) then ramping to \(String(format: "%.2f", targetVolume)) over \(String(format: "%.1f", duration))s — reason=\(reason)")
+        log("[Engine] postStopRamp: player currently at volume=\(String(format: "%.2f", p.volume)) isPlaying=\(p.isPlaying)")
+        
+        // Step 1: Drop volume synchronously so there is a real ramp range.
+        p.volume = initialVolume
+        
+        // Step 2: Manual stepped ramp for deterministic behavior on lock/intent paths.
+        postStopRampWorkItem?.cancel()
+        let rampWorkItem = DispatchWorkItem { [weak self, weak p] in
+            guard let self, let player = p else { return }
+            let steps = max(1, Int(duration / 0.1))
+            let stepDuration = duration / Double(steps)
+            let delta = (self.targetVolume - initialVolume) / Float(steps)
+            for index in 1...steps {
+                DispatchQueue.main.asyncAfter(deadline: .now() + stepDuration * Double(index)) { [weak self, weak p] in
+                    guard let self, let player = p, player.isPlaying else { return }
+                    let next = min(self.targetVolume, initialVolume + delta * Float(index))
+                    player.volume = next
+                    if index == steps {
+                        self.log("[Engine] postStopRamp: ramp complete at volume \(String(format: "%.2f", player.volume))")
+                        self.debugVolumeSnapshot(context: "post-stop-ramp-complete-\(reason)")
+                    }
+                }
+            }
+        }
+        postStopRampWorkItem = rampWorkItem
+        DispatchQueue.main.async(execute: rampWorkItem)
+        
+        log("[Engine] postStopRamp: ramp started \(String(format: "%.2f", initialVolume)) → \(String(format: "%.2f", targetVolume)) over \(String(format: "%.1f", duration))s")
+        debugVolumeSnapshot(context: "post-stop-ramp-start-\(reason)")
     }
 
     private func verifyFadeInProgress(alarmRunId: UUID) {
