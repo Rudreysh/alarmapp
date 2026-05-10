@@ -121,8 +121,9 @@ struct AppRootView: View {
         .onChange(of: ringCoordinator.activeAlarm) { newAlarm in
             shutdownDetectionService.startMonitoring(alarmStore: alarmStore, ringCoordinator: ringCoordinator, ringingAlarmId: newAlarm?.id)
         }
-            .onChange(of: scenePhase) { _, newPhase in
+        .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
+                AlarmAudioStateController.shared.handleAppBecameActive()
                 AlarmContinuousAudioEngine.shared.recoverIfNeeded()
                 print("[AppRoot] Engine recovery check on active — isEngineActive: \(AlarmContinuousAudioEngine.shared.isEngineActive)")
                 if hasPendingLiveActivityOpenRequest() {
@@ -156,8 +157,12 @@ struct AppRootView: View {
                             AlarmContinuousAudioEngine.shared.cachedIsHealthy &&
                             AlarmContinuousAudioEngine.shared.confirmStillPlaying()
                         if !engineLiveHealthy {
-                            await notificationManager.ensureBackupAlarmKitChain(sourceAlarmId: alarm.id.uuidString)
-                            print("[AppRoot] Scene active — backup chain scheduled (engine not healthy)")
+                            if AlarmAudioStateController.shared.shouldAllowAlarmKitRespawn() {
+                                await notificationManager.ensureBackupAlarmKitChain(sourceAlarmId: alarm.id.uuidString)
+                                print("[AppRoot] Scene active — backup chain scheduled (engine not healthy)")
+                            } else {
+                                print("[AppRoot] Scene active — backup chain suppressed by phase \(AlarmAudioStateController.shared.phase.rawValue)")
+                            }
                         } else {
                             print("[AppRoot] Scene active — backup chain skipped (engine healthy, avoiding session conflict)")
                         }
@@ -203,8 +208,12 @@ struct AppRootView: View {
                                 AlarmContinuousAudioEngine.shared.cachedIsHealthy &&
                                 AlarmContinuousAudioEngine.shared.confirmStillPlaying()
                             if !engineLiveHealthy {
-                                await notificationManager.ensureBackupAlarmKitChain(sourceAlarmId: alarm.id.uuidString)
-                                print("[AppRoot] Scene background — backup chain scheduled (engine not healthy)")
+                                if AlarmAudioStateController.shared.shouldAllowAlarmKitRespawn() {
+                                    await notificationManager.ensureBackupAlarmKitChain(sourceAlarmId: alarm.id.uuidString)
+                                    print("[AppRoot] Scene background — backup chain scheduled (engine not healthy)")
+                                } else {
+                                    print("[AppRoot] Scene background — backup chain suppressed by phase \(AlarmAudioStateController.shared.phase.rawValue)")
+                                }
                             } else {
                                 print("[AppRoot] Scene background — backup chain skipped (engine healthy)")
                             }
@@ -253,6 +262,7 @@ struct AppRootView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            AlarmAudioStateController.shared.handleAppBecameActive()
             AlarmContinuousAudioEngine.shared.recoverIfNeeded()
             print("[AppRoot] Engine recovery check on active — isEngineActive: \(AlarmContinuousAudioEngine.shared.isEngineActive)")
             notificationManager.recoverAlarmKitAlertingIfNeeded()

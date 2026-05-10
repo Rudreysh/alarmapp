@@ -771,11 +771,15 @@ struct StopAlarmIntent: LiveActivityIntent {
             AlarmStore.shared.alarm(by: lookupUUID)?.name
         }
         let trimmedAlarmName = resolvedAlarmName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-entry")
         
         if shouldUseLockedHandling {
+            AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-locked-handling")
             let engineHealthy = AlarmContinuousAudioEngine.shared.isEngineActive &&
                 AlarmContinuousAudioEngine.shared.confirmStillPlaying()
             swiftlog("[StopIntent] Engine health: active=\(AlarmContinuousAudioEngine.shared.isEngineActive) healthy=\(engineHealthy)")
+            let respawnAppropriate = !engineHealthy &&
+                AlarmAudioStateController.shared.isEngineUnhealthinessAFailure()
 
             if engineHealthy {
                 if !suppressUnlockPrompt {
@@ -787,10 +791,18 @@ struct StopAlarmIntent: LiveActivityIntent {
                 }
                 AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: uuid)
                 swiftlog("[StopIntent] Engine healthy — notification posted, AlarmKit respawn skipped")
+                AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-engine-healthy-return")
                 return .result()
             }
 
-            swiftlog("[StopIntent] Engine not healthy — proceeding with AlarmKit respawn fallback")
+            if !respawnAppropriate {
+                swiftlog("[StopIntent] Engine not healthy but expected in phase \(AlarmAudioStateController.shared.phase.rawValue) — skipping respawn")
+                AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-unhealthy-expected-return")
+                return .result()
+            }
+
+            swiftlog("[StopIntent] Engine not healthy (confirmed failure in phase \(AlarmAudioStateController.shared.phase.rawValue)) — proceeding with AlarmKit respawn fallback")
+            AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-respawn-fallback")
             let originalAlarm = await MainActor.run { AlarmStore.shared.alarm(by: lookupUUID) }
             if !suppressUnlockPrompt {
                 let promptTitle = originalAlarm?.name ?? trimmedAlarmName

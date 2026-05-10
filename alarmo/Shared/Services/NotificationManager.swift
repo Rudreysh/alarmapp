@@ -824,6 +824,20 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     @available(iOS 26.0, *)
     @MainActor
     func ensureBackupAlarmKitChain(sourceAlarmId: String) async {
+        guard AlarmAudioStateController.shared.shouldAllowAlarmKitRespawn() else {
+            print("[Backup] Chain suppressed by phase \(AlarmAudioStateController.shared.phase.rawValue) — shouldAllowAlarmKitRespawn=false")
+            return
+        }
+
+        let precheckEngineAppearsHealthy = AlarmContinuousAudioEngine.shared.isEngineActive &&
+            AlarmContinuousAudioEngine.shared.cachedIsHealthy
+        let precheckEngineLiveHealthy = precheckEngineAppearsHealthy &&
+            AlarmContinuousAudioEngine.shared.confirmStillPlaying()
+        if !precheckEngineLiveHealthy && !AlarmAudioStateController.shared.isEngineUnhealthinessAFailure() {
+            print("[Backup] Engine not healthy but not a failure in phase \(AlarmAudioStateController.shared.phase.rawValue) — skipping backup")
+            return
+        }
+
         guard AlarmManagerFacade.shared.selectedPath == .alarmKit else { return }
         guard !isAlarmFlowSuppressed(sourceAlarmId) else { return }
         if pendingBackupAlarmIds[sourceAlarmId] != nil { return }

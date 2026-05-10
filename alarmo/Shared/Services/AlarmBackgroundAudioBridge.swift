@@ -338,6 +338,13 @@ final class AlarmBackgroundAudioBridge {
         }
 
         let engineHealthy = AlarmContinuousAudioEngine.shared.cachedIsHealthy
+        if AlarmAudioStateController.shared.isSilenceExpected() {
+            consecutiveWatchdogFailures = 0
+            lastWatchdogRecoveryAttemptAt = .distantPast
+            watchdogRecoveryInProgress = false
+            silentBridgeSince = nil
+            return
+        }
         if !engineHealthy {
             let now = Date()
             if silentBridgeSince == nil {
@@ -368,6 +375,10 @@ final class AlarmBackgroundAudioBridge {
             // persists for a sustained period.
             if let silentSince = silentBridgeSince,
                now.timeIntervalSince(silentSince) >= 0.25 {
+                guard !AlarmAudioStateController.shared.isSilenceExpected() else {
+                    swiftlog("[Bridge] Locked refresh suppressed — silence expected in phase \(AlarmAudioStateController.shared.phase.rawValue)")
+                    return
+                }
                 triggerImmediateLockedRefresh(reason: "watchdog-persistent-silence")
                 silentBridgeSince = now
             }

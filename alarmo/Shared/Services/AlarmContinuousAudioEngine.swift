@@ -23,6 +23,9 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
     private var lastConfirmedPlayingAt: Date?
     private var watchdogTimer: Timer?
     private let watchdogInterval: TimeInterval = 2.0
+    private var meterTimer: DispatchSourceTimer?
+    private let meterQueue = DispatchQueue(label: "ht.alarmo.engine.meter")
+    private let meterInterval: TimeInterval = 0.25
     private var watchdogConsecutiveFailures: Int = 0
     private var watchdogRecoveryWorkItem: DispatchWorkItem?
     private var observersInstalled = false
@@ -49,6 +52,10 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         return Date() < deadline
     }
 
+    var currentPlayerVolume: Float {
+        player?.volume ?? 0
+    }
+
     func isPlayingAlarm(alarmId: String) -> Bool {
         currentAlarmId == alarmId && player?.isPlaying == true
     }
@@ -59,9 +66,11 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         }
         if currentAlarmId == alarmId, player?.isPlaying == true {
             swiftlog("[Engine] engine already playing for this alarm — not restarting")
+            debugVolumeSnapshot(context: "start-already-playing")
             lastConfirmedPlayingAt = Date()
             isPlaying = true
             cachedIsHealthy = true
+            startMeteringIfNeeded()
             Task { @MainActor in
                 AlarmBackgroundAudioBridge.shared.resetWatchdogBackoff()
             }
@@ -150,8 +159,10 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
                     AlarmBackgroundAudioBridge.shared.resetWatchdogBackoff()
                 }
                 startWatchdogIfNeeded()
+                startMeteringIfNeeded()
                 persistEngineState()
                 swiftlog("[Engine] Started — alarmId: \(alarmId) sound: \(soundName) time: 0")
+                debugVolumeSnapshot(context: "start-success")
                 
                 let capturedAlarmId = alarmId
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
@@ -205,6 +216,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         isProgressingNow = false
         clearEngineState()
         stopWatchdog()
+        stopMetering()
         player?.stop()
         player = nil
         isPlaying = false
@@ -233,7 +245,8 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         isProgressingNow = live
         if live {
             lastConfirmedPlayingAt = Date()
-            swiftlog("[Engine] confirmStillPlaying → true: currentTime=\(String(format: "%.2f", player.currentTime))s")
+            let output = AVAudioSession.sharedInstance().outputVolume
+            swiftlog("[Engine] confirmStillPlaying → true: currentTime=\(String(format: "%.2f", player.currentTime))s playerVolume=\(String(format: "%.2f", player.volume)) targetVolume=\(String(format: "%.2f", targetVolume)) outputVolume=\(String(format: "%.2f", output))")
         } else {
             swiftlog("[Engine] confirmStillPlaying → false: player exists but isPlaying=false")
         }
@@ -328,6 +341,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         case .began:
             let phase = AlarmAudioStateController.shared.phase
             log("[Engine] Interruption began — phase=\(phase.rawValue)")
+            debugVolumeSnapshot(context: "interruption-began")
             isCurrentlyInterrupted = true
             wasHealthyBeforeInterruption = cachedIsHealthy
 
@@ -345,6 +359,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             }
         case .ended:
             log("[Engine] Interruption ended")
+            debugVolumeSnapshot(context: "interruption-ended")
             isCurrentlyInterrupted = false
             interruptionGraceUntil = nil
             let phase = AlarmAudioStateController.shared.phase
@@ -560,15 +575,19 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
     }
 
     func startFadeIn(alarmRunId: UUID, fadeInDuration: TimeInterval = 8.0, targetVolume: Float = 1.0) {
+        swiftlog("[Engine] startFadeIn ENTRY — requestedRunId=\(alarmRunId.uuidString) currentRunId=\(currentAlarmRunId?.uuidString ?? "nil") player=\(player != nil ? "exists" : "nil") phase=\(AlarmAudioStateController.shared.phase.rawValue)")
+        debugVolumeSnapshot(context: "startFadeIn-entry")
         guard currentAlarmRunId == alarmRunId else {
-            log("[Engine] startFadeIn: runId mismatch current=\(currentAlarmRunId?.uuidString ?? "nil") requested=\(alarmRunId.uuidString)")
+            log("[Engine] startFadeIn BLOCKED — runId MISMATCH: current=\(currentAlarmRunId?.uuidString ?? "nil") requested=\(alarmRunId.uuidString)")
+            AlarmAudioStateController.shared.recordFallback(reason: "fadein-runid-mismatch")
             return
         }
         guard let p = player else {
-            log("[Engine] startFadeIn: no player")
+            log("[Engine] startFadeIn BLOCKED — no player exists")
             AlarmAudioStateController.shared.recordFallback(reason: "no-player-at-fadein")
             return
         }
+        log("[Engine] startFadeIn proceeding with player — duration=\(String(format: "%.2f", p.duration))s")
 
         do {
             try AVAudioSession.sharedInstance().setActive(true, options: [])
@@ -590,6 +609,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
 
         isPlaying = true
         isProgressingNow = true
+        startMeteringIfNeeded()
         AlarmAudioStateController.shared.recordFadeInStarted()
         let firstTarget = min(max(AlarmAudioStateController.appEngineFirstFadeTargetVolume, 0), targetVolume)
         let firstLeg = min(2.0, fadeInDuration)
@@ -599,6 +619,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + firstLeg) { [weak self] in
                 guard let self, self.currentAlarmRunId == alarmRunId, self.player?.isPlaying == true else { return }
                 self.player?.setVolume(targetVolume, fadeDuration: secondLeg)
+                self.debugVolumeSnapshot(context: "startFadeIn-second-leg")
             }
         }
         log("[Engine] startFadeIn: fade started duration=\(String(format: "%.2f", fadeInDuration)) target=\(targetVolume) firstTarget=\(firstTarget)")
@@ -615,6 +636,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             self.isProgressingNow = true
             self.lastConfirmedPlayingAt = Date()
             self.log("[Engine] Volume ramp complete: \(String(format: "%.2f", self.player?.volume ?? 0))")
+            self.debugVolumeSnapshot(context: "startFadeIn-ramp-complete")
             AlarmAudioStateController.shared.recordEnginePrimary()
             Task { @MainActor in
                 AlarmBackgroundAudioBridge.shared.resetWatchdogBackoff()
@@ -631,6 +653,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             isProgressingNow = true
             lastConfirmedPlayingAt = Date()
             log("[Engine] Fade-in verification: progressing at \(String(format: "%.3f", p.currentTime))s ✅")
+            debugVolumeSnapshot(context: "fadein-progress-check")
         } else {
             cachedIsHealthy = false
             isProgressingNow = false
@@ -670,9 +693,61 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             isProgressingNow = true
             lastConfirmedPlayingAt = Date()
             watchdogConsecutiveFailures = 0
+            startMeteringIfNeeded()
             persistEngineState()
             swiftlog("[Engine] Watchdog recovery successful — playing from recovered player")
         }
+    }
+
+    private func startMeteringIfNeeded() {
+        guard meterTimer == nil else { return }
+        meterTimer = DispatchSource.makeTimerSource(queue: meterQueue)
+        meterTimer?.schedule(
+            deadline: .now() + meterInterval,
+            repeating: meterInterval,
+            leeway: .milliseconds(50)
+        )
+        meterTimer?.setEventHandler { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.meterTick()
+            }
+        }
+        meterTimer?.resume()
+    }
+
+    private func stopMetering() {
+        meterTimer?.setEventHandler {}
+        meterTimer?.cancel()
+        meterTimer = nil
+    }
+
+    private func meterTick() {
+        guard isEngineActive, let p = player, p.isPlaying else {
+            if !isEngineActive {
+                stopMetering()
+            }
+            return
+        }
+
+        if !p.isMeteringEnabled {
+            p.isMeteringEnabled = true
+        }
+        p.updateMeters()
+
+        let avgDb = p.averagePower(forChannel: 0)
+        let peakDb = p.peakPower(forChannel: 0)
+        let avgLin = pow(10.0, avgDb / 20.0)
+        let peakLin = pow(10.0, peakDb / 20.0)
+        let output = AVAudioSession.sharedInstance().outputVolume
+
+        swiftlog(
+            "[Engine][Meter] phase=\(AlarmAudioStateController.shared.phase.rawValue) " +
+            "time=\(String(format: "%.2f", p.currentTime))s " +
+            "avgDbFS=\(String(format: "%.1f", avgDb)) peakDbFS=\(String(format: "%.1f", peakDb)) " +
+            "avgLin=\(String(format: "%.3f", avgLin)) peakLin=\(String(format: "%.3f", peakLin)) " +
+            "playerVolume=\(String(format: "%.2f", p.volume)) targetVolume=\(String(format: "%.2f", targetVolume)) " +
+            "outputVolume=\(String(format: "%.2f", output))"
+        )
     }
 
     private func persistenceDefaults() -> UserDefaults? {
@@ -743,6 +818,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
                 startWatchdogIfNeeded()
                 persistEngineState()
                 log("[Engine] Fallback sound started successfully")
+                debugVolumeSnapshot(context: "fallback-start-success")
             } else {
                 cachedIsHealthy = false
                 isPlaying = false
@@ -751,6 +827,18 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         } catch {
             log("[Engine] Fallback player init failed: \(error.localizedDescription)")
         }
+    }
+
+    func debugVolumeSnapshot(context: String) {
+        let session = AVAudioSession.sharedInstance()
+        let output = session.outputVolume
+        let category = session.category.rawValue
+        let mode = session.mode.rawValue
+        let route = session.currentRoute.outputs.map(\.portType.rawValue).joined(separator: ",")
+        let playerVol = player?.volume ?? -1
+        let time = player?.currentTime ?? -1
+        let playing = player?.isPlaying ?? false
+        swiftlog("[Engine][Levels] context=\(context) phase=\(AlarmAudioStateController.shared.phase.rawValue) playerVolume=\(String(format: "%.2f", playerVol)) targetVolume=\(String(format: "%.2f", targetVolume)) outputVolume=\(String(format: "%.2f", output)) isPlaying=\(playing) currentTime=\(String(format: "%.2f", time)) category=\(category) mode=\(mode) route=\(route)")
     }
 
 #if DEBUG

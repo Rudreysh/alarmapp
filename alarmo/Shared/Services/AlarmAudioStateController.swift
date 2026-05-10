@@ -42,15 +42,17 @@ final class AlarmAudioStateController {
     private(set) var terminalActionRecorded: Bool = false
 
     private var takeoverWorkItem: DispatchWorkItem?
+    private var takeoverScheduled: Bool = false
+    private var takeoverScheduledAt: Date?
 
     private let allowedTransitions: [AlarmAudioPhase: Set<AlarmAudioPhase>] = [
-        .waitingForAlarmKit: [.alarmKitSettling, .stopped],
-        .alarmKitSettling: [.appEnginePreparing, .alarmKitFallback, .stopped],
+        .waitingForAlarmKit: [.alarmKitSettling, .appEnginePreparing, .stopped],
+        .alarmKitSettling: [.appEnginePreparing, .appEngineFadingIn, .appEnginePrimary, .alarmKitFallback, .stopped],
         .appEnginePreparing: [.appEngineFadingIn, .alarmKitFallback, .stopped],
         .appEngineFadingIn: [.appEnginePrimary, .alarmKitFallback, .stopped],
         .appEnginePrimary: [.alarmKitFallback, .stopped],
         .alarmKitFallback: [.appEnginePreparing, .stopped],
-        .stopped: [.waitingForAlarmKit]
+        .stopped: [.waitingForAlarmKit, .alarmKitSettling]
     ]
 
     private init() {}
@@ -93,6 +95,15 @@ final class AlarmAudioStateController {
     }
 
     func beginAlarmSession(alarmId: String, soundName: String, reason: String) {
+        if currentAlarmId == alarmId,
+           currentAlarmRunId != nil,
+           phase != .stopped {
+            log("[StateController] beginAlarmSession: already tracking alarmId=\(alarmId) runId=\(currentAlarmRunId!.uuidString) — skipping reset (reason=\(reason))")
+            return
+        }
+
+        takeoverScheduled = false
+        takeoverScheduledAt = nil
         currentAlarmId = alarmId
         currentAlarmRunId = UUID()
         selectedSoundName = soundName
@@ -102,8 +113,8 @@ final class AlarmAudioStateController {
         appEnginePreparedAt = nil
         appEngineFadeInStartedAt = nil
         appEnginePrimaryConfirmedAt = nil
+        log("[StateController] beginAlarmSession: new session alarmId=\(alarmId) runId=\(currentAlarmRunId!.uuidString) reason=\(reason)")
         transitionAudioPhase(to: .waitingForAlarmKit, reason: reason)
-        log("Session begun alarmId=\(alarmId) runId=\(currentAlarmRunId!.uuidString)")
     }
 
     func recordAlarmKitAlerting() {
@@ -124,10 +135,11 @@ final class AlarmAudioStateController {
     func recordEnginePrimary() {
         appEnginePrimaryConfirmedAt = Date()
         transitionAudioPhase(to: .appEnginePrimary, reason: "engine-primary-confirmed")
-        if let alarmId = currentAlarmId {
-            log("Engine primary — dismissing current AlarmKit surfaces for \(alarmId)")
-            NotificationManager.shared.dismissLinkedAlarmKitSurfaces(sourceAlarmId: alarmId)
-        }
+        NotificationCenter.default.post(
+            name: .alarmEngineBecamePrimary,
+            object: nil
+        )
+        log("[StateController] Engine primary — background tasks ending, AlarmKit surface PRESERVED for slide-to-stop")
     }
 
     func recordFallback(reason: String) {
@@ -142,6 +154,8 @@ final class AlarmAudioStateController {
     }
 
     func recordStopped(reason: String) {
+        takeoverScheduled = false
+        takeoverScheduledAt = nil
         terminalActionRecorded = true
         takeoverWorkItem?.cancel()
         takeoverWorkItem = nil
@@ -153,13 +167,32 @@ final class AlarmAudioStateController {
     }
 
     func handleAlarmKitAlerting(alarmId: String, soundName: String, reason: String) {
-        if phase == .stopped || currentAlarmId != alarmId {
+        if phase == .appEngineFadingIn || phase == .appEnginePrimary {
+            log("[StateController] AlarmKit alerting — engine already primary, dismissing surface only")
+            NotificationManager.shared.dismissLinkedAlarmKitSurfaces(sourceAlarmId: alarmId)
+            return
+        }
+
+        if phase == .alarmKitSettling || phase == .appEnginePreparing {
+            log("[StateController] AlarmKit alerting — already in \(phase.rawValue), takeover scheduled at \(takeoverScheduledAt?.description ?? "unknown"), ignoring")
+            return
+        }
+
+        log("[StateController] AlarmKit alerting — setting up session. currentPhase=\(phase.rawValue)")
+
+        if phase == .stopped {
             beginAlarmSession(alarmId: alarmId, soundName: soundName, reason: reason)
         }
+
         if phase == .waitingForAlarmKit {
             recordAlarmKitAlerting()
         }
-        guard let runId = currentAlarmRunId else { return }
+
+        guard let runId = currentAlarmRunId else {
+            log("[StateController] handleAlarmKitAlerting: no runId after session begin — aborting")
+            return
+        }
+        log("[StateController] handleAlarmKitAlerting: using runId=\(runId.uuidString)")
         if #available(iOS 26.0, *) {
             selectedSoundURL = AlarmSchedulerIOS26AlarmKit().resolvedSoundURL(for: soundName)
         } else {
@@ -171,7 +204,31 @@ final class AlarmAudioStateController {
             alarmId: alarmId,
             alarmRunId: runId
         )
-        scheduleDelayedTakeover(alarmRunId: runId, delay: Self.alarmKitSettleDelay)
+
+        scheduleDelayedTakeover(
+            alarmRunId: runId,
+            delay: Self.alarmKitSettleDelay
+        )
+    }
+
+    /// Called when foreground timer detects due alarm before AlarmKit alerting.
+    /// Creates/reuses session and schedules takeover with the same runId.
+    func handleForegroundTimerAlarm(alarmId: String, soundName: String) {
+        log("[StateController] handleForegroundTimerAlarm: alarmId=\(alarmId)")
+        beginAlarmSession(alarmId: alarmId, soundName: soundName, reason: "foreground-timer")
+        guard let runId = currentAlarmRunId else { return }
+        log("[StateController] handleForegroundTimerAlarm: runId=\(runId.uuidString)")
+
+        AlarmContinuousAudioEngine.shared.prepareSilently(
+            soundName: soundName,
+            alarmId: alarmId,
+            alarmRunId: runId
+        )
+
+        scheduleDelayedTakeover(
+            alarmRunId: runId,
+            delay: Self.alarmKitSettleDelay
+        )
     }
 
     func scheduleEarlyTakeoverAfterInterruptionEnd() {
@@ -180,23 +237,28 @@ final class AlarmAudioStateController {
     }
 
     func requestAppEngineTakeoverIfAllowed(alarmRunId: UUID, reason: String) {
+        log("[StateController] requestAppEngineTakeoverIfAllowed ENTRY — phase=\(phase.rawValue) currentRunId=\(currentAlarmRunId?.uuidString ?? "nil") requestedRunId=\(alarmRunId.uuidString) reason=\(reason)")
         guard currentAlarmRunId == alarmRunId else {
-            log("Takeover ignored — runId mismatch")
+            log("[StateController] Takeover blocked — runId mismatch: current=\(currentAlarmRunId?.uuidString ?? "nil") requested=\(alarmRunId.uuidString)")
             return
         }
         guard !terminalActionRecorded else {
-            log("Takeover ignored — terminal action recorded")
+            log("[StateController] Takeover blocked — terminal action recorded")
             return
         }
         guard phase == .alarmKitSettling || phase == .appEnginePreparing else {
-            log("Takeover ignored — phase=\(phase.rawValue)")
+            log("[StateController] Takeover blocked — phase \(phase.rawValue) not eligible")
+            return
+        }
+        guard currentAlarmId != nil else {
+            log("[StateController] Takeover blocked — no active alarm")
             return
         }
         guard AlarmContinuousAudioEngine.shared.currentAlarmRunId == alarmRunId else {
-            log("Takeover ignored — engine not prepared for runId")
+            log("[StateController] Takeover blocked — engine not prepared for runId")
             return
         }
-        log("Takeover proceeding reason=\(reason)")
+        log("[StateController] Takeover proceeding — calling startFadeIn")
         AlarmContinuousAudioEngine.shared.startFadeIn(
             alarmRunId: alarmRunId,
             fadeInDuration: Self.appEngineFadeInDuration,
@@ -205,16 +267,106 @@ final class AlarmAudioStateController {
     }
 
     private func scheduleDelayedTakeover(alarmRunId: UUID, delay: TimeInterval) {
-        takeoverWorkItem?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            self?.requestAppEngineTakeoverIfAllowed(alarmRunId: alarmRunId, reason: "delay-\(String(format: "%.2f", delay))s")
+        guard !takeoverScheduled else {
+            log("[StateController] Takeover already scheduled at \(takeoverScheduledAt.map { String(describing: $0) } ?? "unknown") — not rescheduling")
+            return
         }
-        takeoverWorkItem = work
-        log("Takeover scheduled in \(String(format: "%.2f", delay))s runId=\(alarmRunId.uuidString)")
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+
+        takeoverScheduled = true
+        takeoverScheduledAt = Date()
+
+        log("[StateController] Takeover scheduled in \(delay)s for runId: \(alarmRunId)")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            self?.requestAppEngineTakeoverIfAllowed(
+                alarmRunId: alarmRunId,
+                reason: "settle-delay-\(String(format: "%.2f", delay))s"
+            )
+        }
+    }
+
+    /// Called when app becomes active. If takeover is pending and still in a
+    /// settling phase, trigger immediate or remaining-delay takeover.
+    func handleAppBecameActive() {
+        guard let runId = currentAlarmRunId,
+              phase == .alarmKitSettling || phase == .appEnginePreparing else {
+            return
+        }
+
+        let elapsed = takeoverScheduledAt.map { Date().timeIntervalSince($0) } ?? 0
+        log("[StateController] handleAppBecameActive: phase=\(phase.rawValue) elapsed=\(String(format: "%.2f", elapsed))s takeoverScheduled=\(takeoverScheduled)")
+
+        guard takeoverScheduled else {
+            log("[StateController] handleAppBecameActive: no takeover scheduled — nothing to trigger")
+            return
+        }
+
+        if elapsed >= Self.alarmKitSettleDelay {
+            log("[StateController] handleAppBecameActive: settle delay elapsed — triggering immediate takeover")
+            requestAppEngineTakeoverIfAllowed(
+                alarmRunId: runId,
+                reason: "foreground-activation-fallback-elapsed-\(String(format: "%.2f", elapsed))s"
+            )
+        } else {
+            let remaining = Self.alarmKitSettleDelay - elapsed
+            log("[StateController] handleAppBecameActive: \(String(format: "%.2f", remaining))s remaining — scheduling residual takeover")
+            DispatchQueue.main.asyncAfter(deadline: .now() + remaining) { [weak self] in
+                self?.requestAppEngineTakeoverIfAllowed(
+                    alarmRunId: runId,
+                    reason: "foreground-activation-residual-\(String(format: "%.2f", remaining))s"
+                )
+            }
+        }
+    }
+
+    // MARK: - Phase-Aware Health Queries
+
+    /// Returns true when silence (no audible app audio) is expected.
+    /// Watchdogs must NOT treat silence as failure when this returns true.
+    func isSilenceExpected() -> Bool {
+        switch phase {
+        case .waitingForAlarmKit, .alarmKitSettling, .appEnginePreparing:
+            return true
+        case .appEngineFadingIn, .appEnginePrimary, .alarmKitFallback:
+            return false
+        case .stopped:
+            return true
+        }
+    }
+
+    /// Returns true when AlarmKit backup/respawn scheduling is appropriate.
+    /// Returns false during settling — respawning during settling causes crash loop.
+    func shouldAllowAlarmKitRespawn() -> Bool {
+        switch phase {
+        case .waitingForAlarmKit, .alarmKitSettling, .appEnginePreparing:
+            return false
+        case .appEngineFadingIn, .appEnginePrimary:
+            return false
+        case .alarmKitFallback:
+            return true
+        case .stopped:
+            return false
+        }
+    }
+
+    /// Returns true when engine being "not healthy" is a genuine failure.
+    /// Returns false during phases where engine is intentionally not playing yet.
+    func isEngineUnhealthinessAFailure() -> Bool {
+        switch phase {
+        case .waitingForAlarmKit, .alarmKitSettling, .appEnginePreparing:
+            return false
+        case .appEngineFadingIn, .appEnginePrimary:
+            return true
+        case .alarmKitFallback, .stopped:
+            return false
+        }
     }
 
     private func log(_ message: String) {
         print("[AlarmAudio] \(message)")
     }
+}
+
+extension Notification.Name {
+    static let alarmEngineBecamePrimary = Notification.Name("AlarmEngineBecamePrimary")
 }

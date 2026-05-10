@@ -33,6 +33,7 @@ final class AlarmRingCoordinator: ObservableObject {
     private var deferredBridgeStopWorkItem: DispatchWorkItem?
     private var ringingBackgroundTaskID: UIBackgroundTaskIdentifier = .invalid
     private var ringingUIPresentationWorkItem: DispatchWorkItem?
+    private var alarmEnginePrimaryObserver: NSObjectProtocol?
     // Coordinator watchdog failure tracking
     private var watchdogConsecutiveFailures: Int = 0
     private var watchdogLastRecoveryAt: Date = .distantPast
@@ -44,6 +45,24 @@ final class AlarmRingCoordinator: ObservableObject {
         self.alarmStore = alarmStore
         self.foregroundScheduler = foregroundScheduler
         self.modelContext = modelContext
+        if alarmEnginePrimaryObserver == nil {
+            alarmEnginePrimaryObserver = NotificationCenter.default.addObserver(
+                forName: .alarmEngineBecamePrimary,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                guard let self else { return }
+                self.endRingingBackgroundTask()
+                AlarmBackgroundAudioBridge.shared.stop()
+                print("[Coordinator] Ring background task ended — engine is now primary audio owner")
+            }
+        }
+    }
+
+    deinit {
+        if let observer = alarmEnginePrimaryObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 
     @discardableResult
@@ -154,16 +173,22 @@ final class AlarmRingCoordinator: ObservableObject {
         // single source of truth for ringing audio + UI).
         NotificationManager.shared.cancelAlarmRingingFallbackChain(alarmId: alarm.id.uuidString)
 
-        AlarmAudioStateController.shared.beginAlarmSession(
-            alarmId: alarm.id.uuidString,
-            soundName: alarm.soundName,
-            reason: "coordinator-startRinging"
-        )
-
-        if AlarmContinuousAudioEngine.shared.isEngineActive {
-            print("[Coordinator] Engine already active — attaching UI without restarting sound")
+        if source == .foregroundTimer {
+            AlarmAudioStateController.shared.handleForegroundTimerAlarm(
+                alarmId: alarm.id.uuidString,
+                soundName: alarm.soundName
+            )
+            print("[Coordinator] Foreground timer path delegated to state controller (silent prepare + scheduled takeover)")
         } else {
-            if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-startRinging-primary") {
+            AlarmAudioStateController.shared.beginAlarmSession(
+                alarmId: alarm.id.uuidString,
+                soundName: alarm.soundName,
+                reason: "coordinator-startRinging"
+            )
+
+            if AlarmContinuousAudioEngine.shared.isEngineActive {
+                print("[Coordinator] Engine already active — attaching UI without restarting sound")
+            } else if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-startRinging-primary") {
                 AlarmContinuousAudioEngine.shared.start(
                     soundName: alarm.soundName,
                     alarmId: alarm.id.uuidString,
@@ -226,6 +251,7 @@ final class AlarmRingCoordinator: ObservableObject {
         watchdogRecoveryInProgress = false
         print("[Coordinator] Watchdog state reset on reassert — reason: \(reason)")
         print("[AlarmRingCoordinator] 🔁 Reasserting ringing audio (\(reason)) for \(alarm.id)")
+        AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "coordinator-reassert-before-\(reason)")
         if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-reassert-\(reason)") {
             AlarmContinuousAudioEngine.shared.start(
                 soundName: alarm.soundName,
@@ -235,6 +261,7 @@ final class AlarmRingCoordinator: ObservableObject {
         } else {
             print("[Coordinator] Reassert audible start blocked by phase")
         }
+        AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "coordinator-reassert-after-\(reason)")
         if alarm.vibrateEnabled {
             hapticsPlayer.startRepeating()
         }
@@ -673,6 +700,10 @@ final class AlarmRingCoordinator: ObservableObject {
         if AlarmContinuousAudioEngine.shared.isInInterruptionRecoveryWindow {
             return
         }
+        if AlarmAudioStateController.shared.isSilenceExpected() {
+            watchdogConsecutiveFailures = 0
+            return
+        }
         let coordinatorAudible = AlarmContinuousAudioEngine.shared.cachedIsHealthy
         let bridgeAudible = AlarmBackgroundAudioBridge.shared.isAudiblyPlaying
         if coordinatorAudible || bridgeAudible {
@@ -696,15 +727,14 @@ final class AlarmRingCoordinator: ObservableObject {
         watchdogLastRecoveryAt = Date()
         watchdogRecoveryInProgress = true
         print("[Coordinator] ⚠️ Watchdog: NO audible audio — attempt \(watchdogConsecutiveFailures)/\(watchdogMaxAttempts)")
-        if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-watchdog-recovery") {
-            AlarmContinuousAudioEngine.shared.start(
-                soundName: alarm.soundName,
-                alarmId: alarm.id.uuidString,
-                volume: 1.0
-            )
-        } else {
-            print("[Coordinator] Watchdog audible restart blocked by phase")
+        guard AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-watchdog-recovery") else {
+            return
         }
+        AlarmContinuousAudioEngine.shared.start(
+            soundName: alarm.soundName,
+            alarmId: alarm.id.uuidString,
+            volume: 1.0
+        )
         if alarm.vibrateEnabled {
             hapticsPlayer.startRepeating()
         }
@@ -757,6 +787,7 @@ final class AlarmRingCoordinator: ObservableObject {
         guard ringingBackgroundTaskID != .invalid else { return }
         UIApplication.shared.endBackgroundTask(ringingBackgroundTaskID)
         ringingBackgroundTaskID = .invalid
+        print("[Coordinator] Ring coordinator background task ended cleanly")
     }
 }
 
