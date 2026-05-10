@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import UserNotifications
 import UIKit
+import AVFoundation
 
 #if canImport(AlarmKit)
 import AlarmKit
@@ -132,6 +133,37 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
     func isCustomAlarmUIVisibleInForeground() -> Bool {
         UIApplication.shared.applicationState == .active && (ringCoordinator?.isRingingUIVisible == true)
+    }
+
+    private func appStateTag() -> String {
+        switch UIApplication.shared.applicationState {
+        case .active: return "active"
+        case .inactive: return "inactive"
+        case .background: return "background"
+        @unknown default: return "unknown"
+        }
+    }
+
+    private func logAlarmTrace(
+        event: String,
+        sourceAlarmId: String? = nil,
+        surfaceAlarmId: String? = nil,
+        extra: String = ""
+    ) {
+        let controller = AlarmAudioStateController.shared
+        let engine = AlarmContinuousAudioEngine.shared
+        let bridge = AlarmBackgroundAudioBridge.shared
+        let output = AVAudioSession.sharedInstance().outputVolume
+        print(
+            "🚨 [ALARMTRACE] EVENT=\(event.uppercased()) APP_STATE=\(appStateTag().uppercased()) " +
+            "PHASE=\(controller.phase.rawValue.uppercased()) OWNER=\(controller.audibleOwner.rawValue.uppercased()) " +
+            "SRC=\(sourceAlarmId ?? "nil") SURFACE=\(surfaceAlarmId ?? "nil") " +
+            "RC_RINGING=\(ringCoordinator?.isRinging == true) RC_UI_VISIBLE=\(ringCoordinator?.isRingingUIVisible == true) " +
+            "ENGINE_ACTIVE=\(engine.isEngineActive) ENGINE_HEALTHY=\(engine.cachedIsHealthy) " +
+            "ENGINE_VOL=\(String(format: "%.2f", engine.currentPlayerVolume)) OUTPUT_VOL=\(String(format: "%.2f", output)) " +
+            "BRIDGE_PLAYING=\(bridge.isPlaying) BRIDGE_SURFACE=\(bridge.currentAlarmID ?? "nil") BRIDGE_SOURCE=\(bridge.currentSourceAlarmID ?? "nil") " +
+            "\(extra)"
+        )
     }
 
     /// Observe AlarmKit alarm state changes on iOS 26+.
@@ -346,6 +378,18 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             options: [.hiddenPreviewsShowTitle, .hiddenPreviewsShowSubtitle]
         )
 
+        let alarmStopCardAction = UNNotificationAction(
+            identifier: AppNotificationAction.alarmStopCardAction,
+            title: "Stop",
+            options: [.destructive, .authenticationRequired]
+        )
+        let alarmStopCardCategory = UNNotificationCategory(
+            identifier: AppNotificationCategory.alarmStopCard,
+            actions: [alarmStopCardAction],
+            intentIdentifiers: [],
+            options: [.customDismissAction]
+        )
+
         let markDone = UNNotificationAction(
             identifier: AppNotificationAction.planMarkDone,
             title: "Mark Done",
@@ -401,6 +445,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             alarmCategory,
             alarmKitUnlockCategory,
             alarmAuthPromptCategory,
+            alarmStopCardCategory,
             planCategory,
             focusCategory,
             countdownCategory
@@ -413,6 +458,16 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         alarmName: String? = nil,
         fireDate: Date? = nil
     ) {
+        guard UIApplication.shared.applicationState != .active else {
+            print("[NotificationManager] Unlock prompt suppressed — app is active")
+            return
+        }
+        logAlarmTrace(
+            event: "schedule-unlock-prompt",
+            sourceAlarmId: sourceAlarmId,
+            surfaceAlarmId: surfaceAlarmId,
+            extra: "alarmName=\(alarmName ?? "nil") fireDate=\(fireDate?.description ?? "nil")"
+        )
         guard alarmKitUnlockPromptNotificationsEnabled else { return }
         // Only emit unlock prompts while an alarm flow is actively ringing
         // either in-app or through the lock-screen bridge.
@@ -462,6 +517,16 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         surfaceAlarmId: String? = nil,
         alarmName: String? = nil
     ) {
+        guard UIApplication.shared.applicationState != .active else {
+            print("[NotificationManager] Unlock prompt loop suppressed — app is active")
+            return
+        }
+        logAlarmTrace(
+            event: "start-unlock-prompt-loop",
+            sourceAlarmId: sourceAlarmId,
+            surfaceAlarmId: surfaceAlarmId,
+            extra: "alarmName=\(alarmName ?? "nil")"
+        )
         // No loop notifications. Keep a single unlock prompt only.
         scheduleAlarmKitUnlockPrompt(
             sourceAlarmId: sourceAlarmId,
@@ -475,14 +540,23 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         surfaceAlarmId: String? = nil,
         alarmName: String? = nil
     ) {
+        guard UIApplication.shared.applicationState != .active else {
+            print("[NotificationManager] Auth prompt suppressed — app is active, UI handles interaction")
+            return
+        }
+        logAlarmTrace(
+            event: "schedule-auth-prompt",
+            sourceAlarmId: sourceAlarmId,
+            surfaceAlarmId: surfaceAlarmId,
+            extra: "alarmName=\(alarmName ?? "nil")"
+        )
         let center = UNUserNotificationCenter.current()
         cancelAlarmAuthenticationPrompt(sourceAlarmId: sourceAlarmId)
 
         let content = UNMutableNotificationContent()
-        let label = resolvedAlarmLabel(sourceAlarmId: sourceAlarmId, alarmName: alarmName)
-        content.title = "Authenticate to Stop or Snooze"
-        content.body = "\(label) is ringing — authenticate to stop"
-        content.categoryIdentifier = AppNotificationCategory.alarmAuthPrompt
+        content.title = timeAwareGreeting()
+        content.body = ""
+        content.categoryIdentifier = AppNotificationCategory.alarmStopCard
         content.threadIdentifier = "alarmo.alarmkit.auth"
         content.sound = nil
         content.userInfo = [
@@ -505,6 +579,20 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             if let error {
                 print("[NotificationManager] Failed to schedule auth prompt for \(sourceAlarmId): \(error)")
             }
+        }
+    }
+
+    private func timeAwareGreeting() -> String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12:
+            return "🌅 Good morning"
+        case 12..<17:
+            return "☀️ Good afternoon"
+        case 17..<21:
+            return "🌆 Good evening"
+        default:
+            return "🌙 Good night"
         }
     }
 
@@ -828,6 +916,11 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             print("[Backup] Chain suppressed by phase \(AlarmAudioStateController.shared.phase.rawValue) — shouldAllowAlarmKitRespawn=false")
             return
         }
+        guard !(UIApplication.shared.applicationState == .active &&
+                AlarmAudioStateController.shared.phase == .appEnginePrimary) else {
+            print("[Backup] Chain suppressed — app active + engine primary, no backup surface needed")
+            return
+        }
 
         let precheckEngineAppearsHealthy = AlarmContinuousAudioEngine.shared.isEngineActive &&
             AlarmContinuousAudioEngine.shared.cachedIsHealthy
@@ -1147,7 +1240,14 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             try? AudioRouteManager.configureAlarmSession()
         }
 
-        if action == AppNotificationAction.alarmAuthPromptUnlock ||
+        if action == AppNotificationAction.alarmStopCardAction ||
+            response.notification.request.content.categoryIdentifier == AppNotificationCategory.alarmStopCard {
+            let userInfo = response.notification.request.content.userInfo
+            let sourceAlarmId = (userInfo[AlarmAuthenticationPrompt.userInfoSourceAlarmIDKey] as? String)
+                ?? (userInfo[AlarmKitUnlockPrompt.userInfoSourceAlarmIDKey] as? String)
+                ?? response.notification.request.identifier
+            handleNotificationStopAction(alarmId: sourceAlarmId)
+        } else if action == AppNotificationAction.alarmAuthPromptUnlock ||
             response.notification.request.content.categoryIdentifier == AppNotificationCategory.alarmAuthPrompt {
             handleAlarmAuthenticationPromptAction(notification: response.notification)
         } else if action == AppNotificationAction.alarmKitUnlockDismiss ||
@@ -1177,6 +1277,35 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             handle(notification: response.notification)
         }
         completionHandler()
+    }
+
+    func handleNotificationStopAction(alarmId: String) {
+        print("[NotificationManager] Stop action from notification card — alarmId: \(alarmId)")
+        guard AlarmAudioStateController.shared.phase != .stopped else { return }
+
+        // Prefer existing stop flow first.
+        if ringCoordinator?.isRinging == true {
+            ringCoordinator?.stopRinging()
+        } else {
+            AlarmContinuousAudioEngine.shared.stop(reason: "notification-stop-action")
+            AlarmAudioStateController.shared.recordStopped(reason: "notification-stop-action")
+        }
+
+        // Defensive cleanup for any active AlarmKit surfaces.
+#if canImport(AlarmKit)
+        if #available(iOS 26.0, *) {
+            Task { @MainActor in
+                do {
+                    let alarms = try AlarmManager.shared.alarms
+                    for alarm in alarms where alarm.state == .alerting {
+                        try? AlarmManager.shared.cancel(id: alarm.id)
+                    }
+                } catch {
+                    print("[NotificationManager] Stop action cleanup failed: \(error)")
+                }
+            }
+        }
+#endif
     }
 
     private func handle(notification: UNNotification) {
@@ -1229,6 +1358,11 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     }
 
     private func requestCustomUIHandoff(sourceAlarmId: String, surfaceAlarmId: String? = nil) {
+        logAlarmTrace(
+            event: "request-custom-ui-handoff",
+            sourceAlarmId: sourceAlarmId,
+            surfaceAlarmId: surfaceAlarmId
+        )
         guard let sourceUUID = UUID(uuidString: sourceAlarmId) else { return }
         let surfaceUUID = surfaceAlarmId.flatMap(UUID.init(uuidString:))
         AlarmCustomUIHandoffStore.request(
@@ -1251,6 +1385,21 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     /// scenePhase inactive when the user re-locks during an active ring.
     /// Prevents the multiple-banner cascade by being strictly one-shot.
     func ensureAlarmKitSurfaceForLockedLoopIfNeeded(sourceAlarmId: String, force: Bool = false) {
+        guard UIApplication.shared.applicationState != .active else {
+            print("[NotificationManager] Locked loop surface suppressed — app is active")
+            return
+        }
+        let phase = AlarmAudioStateController.shared.phase
+        guard phase != .appEnginePrimary && phase != .appEngineFadingIn else {
+            print("[NotificationManager] Locked loop surface suppressed — phase=\(phase.rawValue)")
+            return
+        }
+        logAlarmTrace(
+            event: "ensure-locked-loop-surface-if-needed-entry",
+            sourceAlarmId: sourceAlarmId,
+            surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID,
+            extra: "force=\(force)"
+        )
 #if canImport(AlarmKit)
         guard AlarmManagerFacade.shared.selectedPath == .alarmKit else { return }
         guard #available(iOS 26.0, *) else { return }
@@ -1316,6 +1465,21 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         alarmName: String?,
         reason: String
     ) {
+        guard UIApplication.shared.applicationState != .active else {
+            print("[NotificationManager] Side button respawn suppressed — app is active, engine primary")
+            return
+        }
+        let phase = AlarmAudioStateController.shared.phase
+        guard phase != .appEnginePrimary && phase != .appEngineFadingIn else {
+            print("[NotificationManager] Side button respawn suppressed — phase=\(phase.rawValue)")
+            return
+        }
+        logAlarmTrace(
+            event: "schedule-hardware-button-respawn-if-needed-entry",
+            sourceAlarmId: sourceAlarmId,
+            surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID,
+            extra: "reason=\(reason) alarmName=\(alarmName ?? "nil")"
+        )
 #if canImport(AlarmKit)
         guard AlarmManagerFacade.shared.selectedPath == .alarmKit else { return }
         guard #available(iOS 26.0, *) else { return }
@@ -1379,6 +1543,11 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     }
 
     func enforceLockedRingingState(sourceAlarmId: String, surfaceAlarmId: String? = nil) {
+        logAlarmTrace(
+            event: "enforce-locked-ringing-state-entry",
+            sourceAlarmId: sourceAlarmId,
+            surfaceAlarmId: surfaceAlarmId
+        )
 #if canImport(AlarmKit)
         guard AlarmManagerFacade.shared.selectedPath == .alarmKit else { return }
         guard #available(iOS 26.0, *) else { return }
@@ -1443,6 +1612,19 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     private func processAlarmKitAlertingAlarm(_ alarm: AlarmKit.Alarm) async {
         let surfaceAlarmId = alarm.id.uuidString
         let sourceAlarmId = AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceAlarmId)
+        let phase = AlarmAudioStateController.shared.phase
+        let appIsActive = UIApplication.shared.applicationState == .active
+        if appIsActive && (phase == .appEnginePrimary || phase == .appEngineFadingIn) {
+            print("[NotificationManager] AlarmKit surface auto-dismissed — app active phase=\(phase.rawValue) surface=\(surfaceAlarmId)")
+            try? AlarmManager.shared.stop(id: alarm.id)
+            try? AlarmManager.shared.cancel(id: alarm.id)
+            return
+        }
+        logAlarmTrace(
+            event: "process-alerting-entry",
+            sourceAlarmId: sourceAlarmId,
+            surfaceAlarmId: surfaceAlarmId
+        )
         let engineAppearsHealthy = AlarmContinuousAudioEngine.shared.isEngineActive &&
             AlarmContinuousAudioEngine.shared.cachedIsHealthy
         let engineLiveHealthy = engineAppearsHealthy &&
@@ -1451,6 +1633,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             print("[AlarmKit] Engine cached healthy but not playing live — continuing with recovery start path")
         }
         if engineLiveHealthy {
+            logAlarmTrace(
+                event: "process-alerting-engine-live-healthy",
+                sourceAlarmId: sourceAlarmId,
+                surfaceAlarmId: surfaceAlarmId,
+                extra: "keeping-surface-alive=true"
+            )
             // Keep AlarmKit surface alive when engine is already healthy.
             // Aggressive stop/cancel here can cut audio ownership at the wrong time.
             AlarmBackgroundAudioBridge.shared.start(
@@ -1541,6 +1729,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             // system AlarmKit surface.
             let didStartCustomRing = startAlarmImmediatelyIfPossible(alarmId: sourceAlarmId)
             if didStartCustomRing {
+                logAlarmTrace(
+                    event: "process-alerting-foreground-custom-ring-started",
+                    sourceAlarmId: sourceAlarmId,
+                    surfaceAlarmId: surfaceAlarmId,
+                    extra: "alarmkit-surface-preserved=true"
+                )
                 scheduleAlarmKitUnlockPrompt(
                     sourceAlarmId: sourceAlarmId,
                     surfaceAlarmId: surfaceAlarmId
@@ -1560,6 +1754,11 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                 // forcing the user to fully unlock and dismiss in-app.
                 _ = surfaceAlarmId  // referenced only for log clarity
             } else {
+                logAlarmTrace(
+                    event: "process-alerting-foreground-custom-ring-failed",
+                    sourceAlarmId: sourceAlarmId,
+                    surfaceAlarmId: surfaceAlarmId
+                )
                 // Keep sound alive and retry through the standard handoff path.
                 if let sourceUUID = UUID(uuidString: sourceAlarmId) {
                     AlarmCustomUIHandoffStore.request(
@@ -1745,6 +1944,7 @@ enum AppNotificationCategory {
     static let alarmRing = "ALARM_RING"
     static let alarmKitUnlock = "ALARMKIT_UNLOCK"
     static let alarmAuthPrompt = "ALARM_AUTH_PROMPT"
+    static let alarmStopCard = "ALARM_STOP_CATEGORY"
     static let planReminder = "PLAN_REMINDER"
     static let focusSession = "FOCUS_SESSION"
     static let countdown = "COUNTDOWN"
@@ -1753,6 +1953,7 @@ enum AppNotificationCategory {
 enum AppNotificationAction {
     static let alarmSnooze = "ALARM_SNOOZE"
     static let alarmStop = "ALARM_STOP"
+    static let alarmStopCardAction = "ALARM_STOP_ACTION"
     static let alarmKitUnlockDismiss = "ALARMKIT_UNLOCK_DISMISS"
     static let alarmAuthPromptUnlock = "ALARM_AUTH_PROMPT_UNLOCK"
     static let planMarkDone = "PLAN_MARK_DONE"

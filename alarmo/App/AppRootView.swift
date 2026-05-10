@@ -197,6 +197,10 @@ struct AppRootView: View {
                     )
                     let phase = AlarmAudioStateController.shared.phase
                     if phase == .appEnginePrimary || phase == .alarmKitFallback {
+                        guard UIApplication.shared.applicationState != .active else {
+                            print("[AppRoot] enforceLockedRingingState suppressed — app is foreground")
+                            return
+                        }
                         notificationManager.enforceLockedRingingState(
                             sourceAlarmId: alarm.id.uuidString,
                             surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString
@@ -234,6 +238,10 @@ struct AppRootView: View {
                     )
                     let phase = AlarmAudioStateController.shared.phase
                     if phase == .appEnginePrimary || phase == .alarmKitFallback {
+                        guard UIApplication.shared.applicationState != .active else {
+                            print("[AppRoot] enforceLockedRingingState suppressed — app is foreground")
+                            return
+                        }
                         notificationManager.enforceLockedRingingState(
                             sourceAlarmId: sourceAlarmId,
                             surfaceAlarmId: surfaceAlarmId
@@ -381,6 +389,17 @@ struct AppRootView: View {
             ?? AlarmBackgroundAudioBridge.shared.currentAlarmID
             ?? sourceAlarmId
         guard let sourceAlarmId, let surfaceAlarmId else { return }
+        let controller = AlarmAudioStateController.shared
+        let appState = UIApplication.shared.applicationState
+        let engine = AlarmContinuousAudioEngine.shared
+        let bridge = AlarmBackgroundAudioBridge.shared
+        print(
+            "📲 [ALARMTRACE_ROOT] EVENT=HANDLE_HANDOFF_ENTRY TRIGGER=\(trigger.uppercased()) BYPASS_DEDUP=\(bypassDedup) " +
+            "APP_STATE=\(String(describing: appState).uppercased()) PHASE=\(controller.phase.rawValue.uppercased()) OWNER=\(controller.audibleOwner.rawValue.uppercased()) " +
+            "SOURCE=\(sourceAlarmId) SURFACE=\(surfaceAlarmId) " +
+            "ENGINE_ACTIVE=\(engine.isEngineActive) ENGINE_HEALTHY=\(engine.cachedIsHealthy) ENGINE_VOL=\(String(format: "%.2f", engine.currentPlayerVolume)) " +
+            "BRIDGE_PLAYING=\(bridge.isPlaying) BRIDGE_SURFACE=\(bridge.currentAlarmID ?? "nil")"
+        )
         let requestKey = "\(sourceAlarmId)|\(surfaceAlarmId)"
         let isNewRequest = customUIHandoffActiveRequestKey != requestKey
         if isNewRequest {
@@ -410,6 +429,7 @@ struct AppRootView: View {
         let didStartMapped = (!didStartPrimary && mappedSource != sourceAlarmId)
             ? ringCoordinator.startRinging(alarmId: mappedSource, source: .notification)
             : false
+        print("📲 [ALARMTRACE_ROOT] EVENT=HANDLE_HANDOFF_START_RESULT TRIGGER=\(trigger.uppercased()) DID_START_PRIMARY=\(didStartPrimary) DID_START_MAPPED=\(didStartMapped) MAPPED_SOURCE=\(mappedSource)")
 
         if didStartPrimary || didStartMapped {
             let resolvedSource = didStartPrimary ? sourceAlarmId : mappedSource
@@ -511,8 +531,10 @@ struct AppRootView: View {
     private func stopAlarmKitSurfaceAfterCustomAudioStarts(alarmId: String, sourceAlarmId: String) {
         stopAlarmKitSurfaceTask?.cancel()
         stopAlarmKitSurfaceTask = Task { @MainActor in
+            print("📲 [ALARMTRACE_ROOT] EVENT=DEFERRED_DISMISS_SURFACE_SCHEDULED SOURCE=\(sourceAlarmId) SURFACE=\(alarmId)")
             try? await Task.sleep(nanoseconds: 350_000_000)
             guard ringCoordinator.isRinging else { return }
+            print("📲 [ALARMTRACE_ROOT] EVENT=DEFERRED_DISMISS_SURFACE_EXECUTING SOURCE=\(sourceAlarmId) SURFACE=\(alarmId)")
             notificationManager.dismissLinkedAlarmKitSurfaces(sourceAlarmId: sourceAlarmId)
             _ = alarmId
         }

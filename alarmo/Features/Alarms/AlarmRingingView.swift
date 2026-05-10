@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import UIKit
+import MediaPlayer
 
 struct AlarmRingingView: View {
     @ObservedObject var ringCoordinator: AlarmRingCoordinator
@@ -128,6 +129,11 @@ struct AlarmRingingView: View {
                     .frame(height: 70)
                 }
             }
+
+            HiddenVolumeControlView()
+                .frame(width: 1, height: 1)
+                .opacity(0.001)
+                .allowsHitTesting(false)
         }
         .fullScreenCover(item: $currentMission) { mission in
             Group {
@@ -308,6 +314,13 @@ struct AlarmRingingView: View {
             }
             .interactiveDismissDisabled(true)
         }
+        .overlay {
+            if ringCoordinator.showingGreeting {
+                AlarmGreetingView(onDismiss: {
+                    ringCoordinator.completeGreeting()
+                })
+            }
+        }
         .overlay(alignment: .top) {
             if let toast = ringCoordinator.penaltyToastMessage {
                 Text(toast)
@@ -339,6 +352,8 @@ struct AlarmRingingView: View {
             }
         }
         .onAppear {
+            let appState = UIApplication.shared.applicationState
+            print("🧭 [ALARMTRACE_UI] EVENT=RINGING_VIEW_ON_APPEAR APP_STATE=\(String(describing: appState).uppercased()) PHASE=\(AlarmAudioStateController.shared.phase.rawValue.uppercased()) OWNER=\(AlarmAudioStateController.shared.audibleOwner.rawValue.uppercased()) ALARM_ID=\(ringCoordinator.activeAlarm?.id.uuidString ?? "nil")")
             ringCoordinator.reassertRingingAudio(reason: "ringing-view-onAppear")
             logActiveAlarmIfNeeded()
         }
@@ -348,6 +363,9 @@ struct AlarmRingingView: View {
         }
         .onDisappear {
             let phase = AlarmAudioStateController.shared.phase
+            let owner = AlarmAudioStateController.shared.audibleOwner.rawValue
+            let appState = UIApplication.shared.applicationState
+            print("🧭 [ALARMTRACE_UI] EVENT=RINGING_VIEW_ON_DISAPPEAR APP_STATE=\(String(describing: appState).uppercased()) PHASE=\(phase.rawValue.uppercased()) OWNER=\(owner.uppercased()) IS_RINGING=\(ringCoordinator.isRinging)")
             if ringCoordinator.isRinging {
                 if phase == .appEnginePrimary || phase == .alarmKitFallback {
                     print("[AlarmRingingView] onDisappear — engine primary, calling lock prompt loop")
@@ -524,4 +542,14 @@ struct AlarmRingingView: View {
         viewModel.newGame(size: size, difficulty: difficulty)
         return viewModel
     }
+}
+
+private struct HiddenVolumeControlView: UIViewRepresentable {
+    func makeUIView(context: Context) -> MPVolumeView {
+        let view = MPVolumeView(frame: .zero)
+        view.showsRouteButton = false
+        return view
+    }
+
+    func updateUIView(_ uiView: MPVolumeView, context: Context) {}
 }

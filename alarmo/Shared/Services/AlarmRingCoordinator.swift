@@ -12,6 +12,7 @@ final class AlarmRingCoordinator: ObservableObject {
     @Published var missionTimeoutTriggered: Bool = false
     @Published private(set) var activeSession: AlarmSession?
     @Published var penaltyToastMessage: String?
+    @Published var showingGreeting: Bool = false
 
     private let soundPlayer = SoundPlayer()
     private let hapticsPlayer = HapticsPlayer()
@@ -414,7 +415,12 @@ final class AlarmRingCoordinator: ObservableObject {
         }
 
         isRinging = false
-        isRingingUIVisible = false
+        if isPreviewMode {
+            isRingingUIVisible = false
+        } else {
+            showingGreeting = true
+            // isRingingUIVisible stays true; completeGreeting() will dismiss it
+        }
         endRingingBackgroundTask()
         UserDefaults.standard.removeObject(forKey: "last_ringing_alarm_id")
         tamperService.end()
@@ -437,6 +443,9 @@ final class AlarmRingCoordinator: ObservableObject {
     func ensureLockPromptLoopAfterUnexpectedViewDismiss() {
         guard isRinging, !isPreviewMode, let alarm = activeAlarm else { return }
         let phase = AlarmAudioStateController.shared.phase
+        let owner = AlarmAudioStateController.shared.audibleOwner.rawValue
+        let appState = UIApplication.shared.applicationState
+        print("🛟 [ALARMTRACE_COORD] EVENT=ENSURE_LOCK_PROMPT_LOOP APP_STATE=\(String(describing: appState).uppercased()) PHASE=\(phase.rawValue.uppercased()) OWNER=\(owner.uppercased()) ALARM_ID=\(alarm.id.uuidString)")
         guard phase == .appEnginePrimary || phase == .alarmKitFallback else {
             print("[Coordinator] Lock prompt loop suppressed — phase \(phase.rawValue) (settling, not unexpected disappearance)")
             return
@@ -480,6 +489,15 @@ final class AlarmRingCoordinator: ObservableObject {
         }
         
         stopRingingInternal(preserveSession: false, completed: true)
+    }
+
+    func completeGreeting() {
+        // Dismiss the cover first — greeting overlay stays visible on top during the
+        // slide-down animation, so the alarm buttons never flash through.
+        isRingingUIVisible = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.showingGreeting = false
+        }
     }
 
     func snooze() {
@@ -752,6 +770,10 @@ final class AlarmRingCoordinator: ObservableObject {
             let surfaceAlarmId = AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString
             let phase = AlarmAudioStateController.shared.phase
             if phase == .appEnginePrimary || phase == .alarmKitFallback {
+                guard UIApplication.shared.applicationState != .active else {
+                    print("[Coordinator] enforceLockedRingingState suppressed — app is foreground")
+                    return
+                }
                 NotificationManager.shared.enforceLockedRingingState(
                     sourceAlarmId: alarm.id.uuidString,
                     surfaceAlarmId: surfaceAlarmId

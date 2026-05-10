@@ -837,6 +837,13 @@ struct StopAlarmIntent: LiveActivityIntent {
                 let respawnDelays: [TimeInterval] = [4.0, 4.2, 4.4, 4.6]
                 let snoozeInterval = helper.resolvedSnoozeInterval(for: originalAlarm)
                 let snoozeEnabled = snoozeInterval != nil
+                let appIsActiveDuringZombieRespawn = await MainActor.run {
+                    UIApplication.shared.applicationState == .active
+                }
+                guard !appIsActiveDuringZombieRespawn else {
+                    swiftlog("[StopIntent] Zombie respawn suppressed — app is active")
+                    return .result()
+                }
 
                 var didSchedule = false
                 var lastError: Error?
@@ -911,6 +918,13 @@ struct StopAlarmIntent: LiveActivityIntent {
                 return candidate.isEmpty ? "Alarm" : candidate
             }()
             let respawnDelays: [TimeInterval] = [4.0, 4.2, 4.4, 4.6]
+            let appIsActiveDuringFallbackRespawn = await MainActor.run {
+                UIApplication.shared.applicationState == .active
+            }
+            guard !appIsActiveDuringFallbackRespawn else {
+                swiftlog("[StopIntent] Fallback respawn suppressed — app is active")
+                return .result()
+            }
             var didSchedule = false
             var newUUID = UUID()
             for (index, attemptDelay) in respawnDelays.enumerated() {
