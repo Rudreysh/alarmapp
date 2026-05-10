@@ -110,6 +110,16 @@ final class AlarmBackgroundAudioBridge {
         self.alarmStore = alarmStore
     }
 
+    /// Volume to pass when re-entering the engine. If the engine is already
+    /// active we preserve its current target so recovery/restart paths don't
+    /// silently bump volume back to 1.0 and create a perceptible loudness jump
+    /// after a side-button or interruption event. First-time starts use 1.0.
+    private func engineStartVolume() -> Float {
+        AlarmContinuousAudioEngine.shared.isEngineActive
+            ? AlarmContinuousAudioEngine.shared.targetVolume
+            : 1.0
+    }
+
     func start(surfaceAlarmId: String, sourceAlarmId: String? = nil) {
         let resolvedSourceAlarmId = sourceAlarmId
             ?? AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceAlarmId)
@@ -139,7 +149,7 @@ final class AlarmBackgroundAudioBridge {
             AlarmContinuousAudioEngine.shared.start(
                 soundName: alarm.soundName,
                 alarmId: resolvedSourceAlarmId,
-                volume: 1.0
+                volume: engineStartVolume()
             )
             if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
                 lastAudibleAt = Date()
@@ -159,7 +169,7 @@ final class AlarmBackgroundAudioBridge {
             AlarmContinuousAudioEngine.shared.start(
                 soundName: alarm.soundName,
                 alarmId: resolvedSourceAlarmId,
-                volume: 1.0
+                volume: engineStartVolume()
             )
             if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
                 lastAudibleAt = Date()
@@ -183,7 +193,7 @@ final class AlarmBackgroundAudioBridge {
         AlarmContinuousAudioEngine.shared.start(
             soundName: alarm.soundName,
             alarmId: resolvedSourceAlarmId,
-            volume: 1.0
+            volume: engineStartVolume()
         )
         if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
             lastAudibleAt = Date()
@@ -335,7 +345,7 @@ final class AlarmBackgroundAudioBridge {
             AlarmContinuousAudioEngine.shared.start(
                 soundName: sourceAlarm.soundName,
                 alarmId: sourceAlarmId,
-                volume: 1.0
+                volume: engineStartVolume()
             )
 
             // A side/volume button can create a very brief interruption. Avoid
@@ -417,7 +427,7 @@ final class AlarmBackgroundAudioBridge {
                 AlarmContinuousAudioEngine.shared.start(
                     soundName: alarm.soundName,
                     alarmId: resolvedSource,
-                    volume: 1.0
+                    volume: engineStartVolume()
                 )
                 if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
                     lastAudibleAt = Date()

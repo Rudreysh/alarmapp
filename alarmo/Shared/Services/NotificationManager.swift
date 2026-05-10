@@ -1469,12 +1469,18 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
         if let sourceAlarm {
             print("[NotificationManager] Engine start with real sound: \(sourceAlarm.soundName)")
+            // Preserve current targetVolume when engine is already active so
+            // re-entry from an alerting callback doesn't override a level the
+            // user (or a prior recovery path) has already set.
+            let startVolume: Float = AlarmContinuousAudioEngine.shared.isEngineActive
+                ? AlarmContinuousAudioEngine.shared.targetVolume
+                : 1.0
             AlarmContinuousAudioEngine.shared.start(
                 soundName: sourceAlarm.soundName,
                 alarmId: sourceAlarm.id.uuidString,
-                volume: 1.0
+                volume: startVolume
             )
-            print("[AlarmKit→Engine] Engine start triggered from alerting callback. alarmId: \(sourceAlarm.id.uuidString)")
+            print("[AlarmKit→Engine] Engine start triggered from alerting callback. alarmId: \(sourceAlarm.id.uuidString), volume: \(startVolume)")
         } else {
             print("[AlarmKit→Engine] Source alarm model missing for \(sourceAlarmId); engine start skipped")
         }

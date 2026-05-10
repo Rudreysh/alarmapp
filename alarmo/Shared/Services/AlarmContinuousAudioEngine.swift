@@ -13,6 +13,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
     private var currentSoundName: String?
     private var currentAlarmId: String?
     private var currentVolume: Float = 1.0
+    private(set) var targetVolume: Float = 1.0
     private(set) var isPlaying: Bool = false
     /// Cached health state updated by the engine's own watchdog.
     /// External high-frequency watchdogs should read this instead of calling
@@ -107,6 +108,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
                 newPlayer.delegate = self
                 newPlayer.numberOfLoops = -1
                 newPlayer.volume = volume
+                targetVolume = volume
                 newPlayer.prepareToPlay()
                 let playSucceeded = newPlayer.play()
                 let isPlayingAfterCall = newPlayer.isPlaying
@@ -127,6 +129,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
                 currentSoundName = soundName
                 currentAlarmId = alarmId
                 currentVolume = volume
+                targetVolume = volume
                 isPlaying = newPlayer.isPlaying
                 // Mark healthy immediately after play() attempt to avoid a
                 // startup window where external guards schedule conflicting
@@ -307,21 +310,44 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             swiftlog("[Engine] Interruption ended — attempting session recovery")
             interruptionGraceUntil = nil
 
-            do {
-                try AVAudioSession.sharedInstance().setActive(true, options: [])
-                _ = player?.play()
-                if player?.isPlaying == true {
+            if let existingPlayer = player, !existingPlayer.isPlaying {
+                // Re-assert media-domain session ownership before play() so iOS
+                // routes side-button volume changes back to media (not ringer)
+                // and player.volume = targetVolume reflects the same domain that
+                // was active before the interruption.
+                try? AVAudioSession.sharedInstance().setActive(true, options: [])
+                let directResult = existingPlayer.play()
+                if directResult && existingPlayer.isPlaying {
+                    existingPlayer.volume = targetVolume
                     isPlaying = true
                     cachedIsHealthy = true
                     lastConfirmedPlayingAt = Date()
-                    swiftlog("[Engine] Interruption ended — immediate resume succeeded at \(String(format: "%.2f", player?.currentTime ?? 0))s")
+                    log("[Engine] ✅ Interruption ended — direct play succeeded at \(String(format: "%.2f", existingPlayer.currentTime))s")
+                    log("[Engine] Volume reasserted to \(targetVolume) after interruption")
+                    return
+                }
+            }
+
+            do {
+                try AVAudioSession.sharedInstance().setActive(true, options: [])
+                let played = player?.play() ?? false
+                if played && player?.isPlaying == true {
+                    player?.volume = targetVolume
+                    isPlaying = true
+                    cachedIsHealthy = true
+                    lastConfirmedPlayingAt = Date()
+                    log("[Engine] ✅ Interruption ended — setActive+play succeeded at \(String(format: "%.2f", player?.currentTime ?? 0))s")
+                    log("[Engine] Volume reasserted to \(targetVolume) after interruption")
                     return
                 }
             } catch {
-                swiftlog("[Engine] Interruption ended — immediate resume failed: \(error.localizedDescription)")
+                log("[Engine] Interruption ended — setActive failed: \(error.localizedDescription)")
             }
 
-            let retryDelays: [TimeInterval] = [1.0, 2.0, 4.0, 8.0]
+            // Tight initial retries close the perceptible silence gap when iOS
+            // hasn't fully released the session by the time .ended fires.
+            // Longer tail kept as a safety net.
+            let retryDelays: [TimeInterval] = [0.1, 0.25, 0.5, 1.0, 2.0, 4.0]
             for (index, delay) in retryDelays.enumerated() {
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
                     guard let self,
@@ -331,10 +357,12 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
                         try AVAudioSession.sharedInstance().setActive(true, options: [])
                         _ = self.player?.play()
                         if self.player?.isPlaying == true {
+                            self.player?.volume = self.targetVolume
                             self.isPlaying = true
                             self.cachedIsHealthy = true
                             self.lastConfirmedPlayingAt = Date()
                             swiftlog("[Engine] Interruption recovery — retry \(index + 1) succeeded at +\(delay)s, currentTime=\(String(format: "%.2f", self.player?.currentTime ?? 0))s")
+                            self.log("[Engine] Volume reasserted to \(self.targetVolume) after interruption")
                         }
                     } catch {
                         swiftlog("[Engine] Interruption recovery — retry \(index + 1) failed at +\(delay)s: \(error.localizedDescription)")
@@ -458,7 +486,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
 
         newPlayer.delegate = self
         newPlayer.numberOfLoops = -1
-        newPlayer.volume = 1.0
+        newPlayer.volume = targetVolume
         newPlayer.prepareToPlay()
         _ = newPlayer.play()
         player = newPlayer
@@ -522,16 +550,16 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         do {
             let fallbackPlayer = try AVAudioPlayer(contentsOf: url)
             fallbackPlayer.numberOfLoops = -1
-            fallbackPlayer.volume = 1.0
+            fallbackPlayer.volume = targetVolume
             fallbackPlayer.delegate = self
             fallbackPlayer.prepareToPlay()
             let started = fallbackPlayer.play()
-            log("[Engine] Fallback play() returned: \(started)")
+            log("[Engine] Fallback play() returned: \(started), volume=\(targetVolume)")
             if started {
                 player = fallbackPlayer
                 currentAlarmId = alarmId
                 currentSoundName = url.deletingPathExtension().lastPathComponent
-                currentVolume = 1.0
+                currentVolume = targetVolume
                 isPlaying = true
                 cachedIsHealthy = true
                 lastConfirmedPlayingAt = Date()
@@ -715,7 +743,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
                 self.log("[Engine] audioPlayerDidFinishPlaying: successfully=true (unexpected — restarting)")
                 if let alarmId = self.currentAlarmId,
                    let soundName = self.currentSoundName {
-                    self.start(soundName: soundName, alarmId: alarmId, volume: 1.0)
+                    self.start(soundName: soundName, alarmId: alarmId, volume: self.targetVolume)
                 }
             }
         }
