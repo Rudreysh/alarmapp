@@ -8,23 +8,22 @@ final class AlarmAppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         _ = NotificationManager.shared
 
-        // Keep launch path non-blocking on physical devices.
-        // Full session activation is done by alarm engine right before playback.
-        DispatchQueue.global(qos: .utility).async {
-            do {
-                let session = AVAudioSession.sharedInstance()
-                try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
-                print("[AlarmAppDelegate] ✅ Audio session category pre-configured")
-            } catch {
-                print("[AlarmAppDelegate] ⚠️ Failed to pre-configure audio category: \(error)")
-            }
+        // Pre-configure audio session to .playback so alarm sounds override the silent switch.
+        // This must be done early so the session is ready before any notification triggers playback.
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            try session.setActive(true)
+            print("[AlarmAppDelegate] ✅ Audio session pre-configured for alarm playback")
+        } catch {
+            print("[AlarmAppDelegate] ⚠️ Failed to pre-configure audio session: \(error)")
+        }
 
 #if canImport(AlarmKit)
-            if #available(iOS 26.0, *) {
-                _ = AlarmSchedulerIOS26AlarmKit.ensureSilentAlertSoundStaged()
-            }
-#endif
+        if #available(iOS 26.0, *) {
+            _ = AlarmSchedulerIOS26AlarmKit.ensureSilentAlertSoundStaged()
         }
+#endif
 
         // AlarmKit authorization is requested from explicit UI flows (onboarding/settings)
         // and before scheduling. Avoid launch-time prompts that can trap onboarding.

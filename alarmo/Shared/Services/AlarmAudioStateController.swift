@@ -130,31 +130,6 @@ final class AlarmAudioStateController {
     func recordFadeInStarted() {
         appEngineFadeInStartedAt = Date()
         transitionAudioPhase(to: .appEngineFadingIn, reason: "fade-in-started")
-
-        guard let alarmId = currentAlarmId else { return }
-
-        log("[StateController] Fade-in started — dismissing AlarmKit surface to stop vibration")
-
-        dismissCurrentAlertingSurfaces()
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            guard let self = self,
-                  let soundName = self.selectedSoundName else { return }
-            NotificationManager.shared.scheduleAlarmAuthenticationPrompt(
-                sourceAlarmId: alarmId,
-                alarmName: soundName
-            )
-        }
-    }
-
-    private func dismissCurrentAlertingSurfaces() {
-        guard let alarmId = currentAlarmId else { return }
-
-        log("[StateController] dismissCurrentAlertingSurfaces: alarmId=\(alarmId)")
-
-        Task { @MainActor in
-            NotificationManager.shared.dismissLinkedAlarmKitSurfaces(sourceAlarmId: alarmId)
-        }
     }
 
     func recordEnginePrimary() {
