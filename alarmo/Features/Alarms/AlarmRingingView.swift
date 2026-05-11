@@ -8,6 +8,7 @@ struct AlarmRingingView: View {
     @State private var lastLoggedAlarmId: UUID?
     @State private var currentMission: AlarmMission?
     @State private var quoteIndex = 0
+    @State private var showingGreetingOverlay = true
     private let quoteTimer = Timer.publish(every: 10, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -358,6 +359,7 @@ struct AlarmRingingView: View {
             logActiveAlarmIfNeeded()
         }
         .onChange(of: ringCoordinator.activeAlarm?.id) { _, _ in
+            showingGreetingOverlay = true
             ringCoordinator.reassertRingingAudio(reason: "active-alarm-changed")
             logActiveAlarmIfNeeded()
         }

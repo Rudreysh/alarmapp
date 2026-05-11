@@ -119,10 +119,10 @@ struct AlarmGreetingView: View {
             (0.18, 0.85),
             (0.74, 0.86),
         ]
-        let sizes: [CGFloat]    = [48, 42, 36, 52, 44, 38, 46, 40]
+        let sizes: [CGFloat] = [48, 42, 36, 52, 44, 38, 46, 40]
         let amplitudes: [CGFloat] = [10, 13, 8, 12, 11, 14, 9, 11]
-        let durations: [Double]  = [2.8, 3.2, 2.6, 3.5, 2.9, 3.0, 2.7, 3.3]
-        let rotations: [Double]  = [10, 12, 8, 14, 10, 12, 9, 11]
+        let durations: [Double] = [2.8, 3.2, 2.6, 3.5, 2.9, 3.0, 2.7, 3.3]
+        let rotations: [Double] = [10, 12, 8, 14, 10, 12, 9, 11]
 
         return emojis.prefix(8).enumerated().map { i, emoji in
             let pos = positions[i % positions.count]
@@ -180,15 +180,15 @@ private struct FloatingEmojiView: View {
                 }
                 withAnimation(
                     .easeInOut(duration: floatDuration)
-                    .repeatForever(autoreverses: true)
-                    .delay(entranceDelay)
+                        .repeatForever(autoreverses: true)
+                        .delay(entranceDelay)
                 ) {
                     floatUp = true
                 }
                 withAnimation(
                     .easeInOut(duration: floatDuration * 1.5)
-                    .repeatForever(autoreverses: true)
-                    .delay(entranceDelay * 0.6)
+                        .repeatForever(autoreverses: true)
+                        .delay(entranceDelay * 0.6)
                 ) {
                     rotateCW = true
                 }
