@@ -49,6 +49,7 @@ class AudioRouteManager: ObservableObject {
         try session.setCategory(.playback, mode: .default, options: alarmOptions)
         do {
             try session.setActive(true, options: [])
+            logSessionSnapshot(prefix: "[AudioRouteManager] configureAlarmSession active")
         } catch {
             print("[AudioRouteManager] ⚠️ setActive(true) failed (\(error)) — attempting hard reset")
             guard !AlarmContinuousAudioEngine.shared.isEngineActive else {
@@ -59,6 +60,7 @@ class AudioRouteManager: ObservableObject {
             try? session.setActive(false, options: [])
             try session.setCategory(.playback, mode: .default, options: alarmOptions)
             try session.setActive(true, options: [])
+            logSessionSnapshot(prefix: "[AudioRouteManager] configureAlarmSession hard-reset active")
         }
     }
 
@@ -80,6 +82,7 @@ class AudioRouteManager: ObservableObject {
         try? session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
         try? session.setActive(true, options: [])
         print("[AudioRouteManager] 🔄 Force-reset alarm audio session")
+        Self.logSessionSnapshot(prefix: "[AudioRouteManager] forceResetAlarmSession complete")
     }
 
     private static func currentModeFromDefaults() -> SoundOutputMode {
@@ -140,5 +143,11 @@ class AudioRouteManager: ObservableObject {
     
     var isExternalOutputAvailable: Bool {
         return isExternalConnected
+    }
+
+    private static func logSessionSnapshot(prefix: String) {
+        let session = AVAudioSession.sharedInstance()
+        let route = session.currentRoute.outputs.map(\.portType.rawValue).joined(separator: ",")
+        print("\(prefix) category=\(session.category.rawValue) mode=\(session.mode.rawValue) outputVolume=\(String(format: "%.2f", session.outputVolume)) route=\(route)")
     }
 }

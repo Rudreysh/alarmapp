@@ -1391,14 +1391,13 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         }
         let phase = AlarmAudioStateController.shared.phase
         if phase == .appEnginePrimary || phase == .appEngineFadingIn {
-            let outputVolume = AVAudioSession.sharedInstance().outputVolume
-            let engineAudible = AlarmContinuousAudioEngine.shared.confirmStillPlaying() && outputVolume > 0.01
-            guard !engineAudible else {
-                print("[NotificationManager] Locked loop surface suppressed — phase=\(phase.rawValue)")
+            if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
+                let outputVolume = AVAudioSession.sharedInstance().outputVolume
+                print("[NotificationManager] Locked loop surface suppressed — phase=\(phase.rawValue), engine playing, outputVolume=\(String(format: "%.2f", outputVolume))")
                 return
             }
-            print("[NotificationManager] Locked loop surface recovery allowed — phase=\(phase.rawValue) outputVolume=\(String(format: "%.2f", outputVolume))")
-            AlarmAudioStateController.shared.recordFallback(reason: "locked-loop-muted-output-recovery")
+            print("[NotificationManager] Locked loop surface recovery allowed — phase=\(phase.rawValue) but engine not playing")
+            AlarmAudioStateController.shared.recordFallback(reason: "locked-loop-engine-not-playing-recovery")
         }
         logAlarmTrace(
             event: "ensure-locked-loop-surface-if-needed-entry",
@@ -1481,14 +1480,13 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         }
         let phase = AlarmAudioStateController.shared.phase
         if phase == .appEnginePrimary || phase == .appEngineFadingIn {
-            let outputVolume = AVAudioSession.sharedInstance().outputVolume
-            let engineAudible = AlarmContinuousAudioEngine.shared.confirmStillPlaying() && outputVolume > 0.01
-            guard !engineAudible else {
-                print("[NotificationManager] Side button respawn suppressed — phase=\(phase.rawValue)")
+            if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
+                let outputVolume = AVAudioSession.sharedInstance().outputVolume
+                print("[NotificationManager] Side button respawn suppressed — phase=\(phase.rawValue), engine playing, outputVolume=\(String(format: "%.2f", outputVolume))")
                 return
             }
-            print("[NotificationManager] Side button respawn recovery allowed — phase=\(phase.rawValue) outputVolume=\(String(format: "%.2f", outputVolume))")
-            AlarmAudioStateController.shared.recordFallback(reason: "hardware-button-muted-output-recovery")
+            print("[NotificationManager] Side button respawn recovery allowed — phase=\(phase.rawValue) but engine not playing")
+            AlarmAudioStateController.shared.recordFallback(reason: "hardware-button-engine-not-playing-recovery")
         }
         logAlarmTrace(
             event: "schedule-hardware-button-respawn-if-needed-entry",

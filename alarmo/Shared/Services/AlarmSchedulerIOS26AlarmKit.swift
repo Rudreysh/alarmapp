@@ -777,14 +777,11 @@ struct StopAlarmIntent: LiveActivityIntent {
             AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-locked-handling")
             let outputVolume = AVAudioSession.sharedInstance().outputVolume
             let enginePlaying = AlarmContinuousAudioEngine.shared.confirmStillPlaying()
-            let mutedOutputWhilePlaying = enginePlaying && outputVolume <= 0.01
-            if mutedOutputWhilePlaying {
-                swiftlog("[StopIntent] Engine playing but outputVolume=\(String(format: "%.2f", outputVolume)) — forcing AlarmKit fallback recovery")
-                AlarmAudioStateController.shared.recordFallback(reason: "stop-intent-muted-output-recovery")
+            if enginePlaying && outputVolume <= 0.01 {
+                swiftlog("[StopIntent] Engine playing with low outputVolume=\(String(format: "%.2f", outputVolume)) — preserving appEnginePrimary (no forced fallback)")
             }
             let engineHealthy = AlarmContinuousAudioEngine.shared.isEngineActive &&
-                enginePlaying &&
-                !mutedOutputWhilePlaying
+                enginePlaying
             swiftlog("[StopIntent] Engine health: active=\(AlarmContinuousAudioEngine.shared.isEngineActive) healthy=\(engineHealthy) outputVolume=\(String(format: "%.2f", outputVolume))")
             let respawnAppropriate = !engineHealthy &&
                 AlarmAudioStateController.shared.isEngineUnhealthinessAFailure()
@@ -799,11 +796,21 @@ struct StopAlarmIntent: LiveActivityIntent {
                 }
                 AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: uuid)
                 await MainActor.run {
-                    swiftlog("[StopIntent] Invoking post-stop gentle ramp for alarm \(lookupUUID.uuidString)")
-                    AlarmContinuousAudioEngine.shared.applyPostStopGentleRamp(
-                        reason: "stop-intent-engine-healthy"
+                    let session = AVAudioSession.sharedInstance()
+                    let route = session.currentRoute.outputs.map(\.portType.rawValue).joined(separator: ",")
+                    swiftlog("[StopIntent][Volume] before post-slide boost outputVolume=\(String(format: "%.2f", session.outputVolume)) playerVolume=\(String(format: "%.2f", AlarmContinuousAudioEngine.shared.currentPlayerVolume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) route=\(route) appState=\(UIApplication.shared.applicationState.rawValue)")
+                    SystemOutputVolumeFloorManager.shared.attemptRaiseOutputVolumeFloor(
+                        minimumVolume: AlarmAudioStateController.postSlideMinimumOutputVolume,
+                        reason: "post-slide-healthy"
                     )
-                    AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-after-post-stop-ramp-call")
+                    swiftlog("[StopIntent] Invoking post-slide volume boost for alarm \(lookupUUID.uuidString)")
+                    AlarmContinuousAudioEngine.shared.applyPostSlideVolumeBoost(
+                        reason: "stop-intent-healthy-slide",
+                        minimumStartVolume: AlarmAudioStateController.postSlideMinimumVolume,
+                        targetVolume: AlarmAudioStateController.postSlideTargetVolume,
+                        duration: AlarmAudioStateController.postSlideRampDuration
+                    )
+                    AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-after-post-slide-boost-call")
                 }
                 swiftlog("[StopIntent] Engine healthy — notification posted, AlarmKit respawn skipped")
                 AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-engine-healthy-return")

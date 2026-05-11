@@ -26,6 +26,13 @@ final class AlarmAudioStateController {
     static let appEngineInitialVolume: Float = 0.15
     static let appEngineFirstFadeTargetVolume: Float = 0.2
     static let appEngineFinalTargetVolume: Float = 1.0
+    static let postSlideMinimumVolume: Float = 0.30
+    static let postSlideRampDuration: TimeInterval = 2.5
+    static let postSlideTargetVolume: Float = 1.0
+    static let postSlideMinimumOutputVolume: Float = 0.25
+    static let preAlarmMinimumOutputVolume: Float = 0.25
+    static let mpVolumeFloorAttemptDelay: TimeInterval = 0.15
+    static let mpVolumeFloorVerificationDelay: TimeInterval = 0.35
 
     private(set) var phase: AlarmAudioPhase = .stopped
     private(set) var audibleOwner: AlarmAudibleOwner = .none

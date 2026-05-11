@@ -1,6 +1,5 @@
 import Foundation
 import AVFoundation
-import MediaPlayer
 import UIKit
 
 @inline(__always)
@@ -599,7 +598,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         do {
             try AVAudioSession.sharedInstance().setActive(true, options: [])
             log("[Engine] startFadeIn: session activated")
-            ensureMinimumSystemOutputVolumeIfNeeded(reason: "start-fadein")
+            log("[Volume] outputVolume=\(String(format: "%.2f", AVAudioSession.sharedInstance().outputVolume)) playerVolume=\(String(format: "%.2f", p.volume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) reason=start-fadein-activated")
         } catch {
             log("[Engine] startFadeIn: session activation failed: \(error.localizedDescription)")
             AlarmAudioStateController.shared.recordFallback(reason: "session-activation-failed-at-fadein")
@@ -620,6 +619,12 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         isProgressingNow = true
         startMeteringIfNeeded()
         AlarmAudioStateController.shared.recordFadeInStarted()
+        Task { @MainActor in
+            SystemOutputVolumeFloorManager.shared.attemptRaiseOutputVolumeFloor(
+                minimumVolume: AlarmAudioStateController.preAlarmMinimumOutputVolume,
+                reason: "app-engine-fade-in-start"
+            )
+        }
         let firstTarget = min(max(AlarmAudioStateController.appEngineFirstFadeTargetVolume, 0), targetVolume)
         let firstLeg = min(2.0, fadeInDuration)
         let secondLeg = max(0.0, fadeInDuration - firstLeg)
@@ -655,50 +660,106 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         }
     }
 
-    /// Re-applies a gentle ramp while already playing. Used after lock-screen
-    /// StopIntent flows where audio continues but should re-escalate.
-    func applyPostStopGentleRamp(
-        duration: TimeInterval = AlarmAudioStateController.appEngineFadeInDuration,
-        reason: String = "post-stop"
+    /// Boosts volume after AlarmKit slide-to-stop/side-button handling without
+    /// ever reducing current player volume.
+    func applyPostSlideVolumeBoost(
+        reason: String,
+        minimumStartVolume: Float = AlarmAudioStateController.postSlideMinimumVolume,
+        targetVolume requestedTargetVolume: Float = AlarmAudioStateController.postSlideTargetVolume,
+        duration: TimeInterval = AlarmAudioStateController.postSlideRampDuration
     ) {
-        guard let p = player, p.isPlaying else {
-            log("[Engine] postStopRamp: no playing player — reason=\(reason)")
+        guard let p = player else {
+            log("[Engine][PostSlideBoost] no player available — reason=\(reason)")
             return
         }
-        
-        let initialVolume = AlarmAudioStateController.appEngineInitialVolume
-        ensureMinimumSystemOutputVolumeIfNeeded(reason: "post-stop-ramp")
-        
-        log("[Engine] postStopRamp: dropping to \(String(format: "%.2f", initialVolume)) then ramping to \(String(format: "%.2f", targetVolume)) over \(String(format: "%.1f", duration))s — reason=\(reason)")
-        log("[Engine] postStopRamp: player currently at volume=\(String(format: "%.2f", p.volume)) isPlaying=\(p.isPlaying)")
-        
-        // Step 1: Drop volume synchronously so there is a real ramp range.
-        p.volume = initialVolume
-        
-        // Step 2: Manual stepped ramp for deterministic behavior on lock/intent paths.
+
+        if !p.isPlaying {
+            do {
+                try AVAudioSession.sharedInstance().setActive(true, options: [])
+            } catch {
+                log("[Engine][PostSlideBoost] session activation failed — reason=\(reason) error=\(error.localizedDescription)")
+            }
+            let resumed = p.play()
+            log("[Engine][PostSlideBoost] player was not playing; play()=\(resumed) currentTime=\(String(format: "%.2f", p.currentTime)) reason=\(reason)")
+            guard resumed, p.isPlaying else { return }
+        }
+
+        let currentVolume = p.volume
+        let startVolume = max(currentVolume, minimumStartVolume)
+        let finalTarget = max(startVolume, requestedTargetVolume)
+        let session = AVAudioSession.sharedInstance()
+        let outputVolume = session.outputVolume
+        let route = session.currentRoute.outputs.map(\.portType.rawValue).joined(separator: ",")
+        let appState = UIApplication.shared.applicationState.rawValue
+
+        log(
+            "[Engine][PostSlideBoost] reason=\(reason) " +
+            "currentVolume=\(String(format: "%.2f", currentVolume)) " +
+            "minStart=\(String(format: "%.2f", minimumStartVolume)) " +
+            "target=\(String(format: "%.2f", requestedTargetVolume)) " +
+            "duration=\(String(format: "%.2f", duration)) " +
+            "outputVolume=\(String(format: "%.2f", outputVolume)) " +
+            "route=\(route) appState=\(appState) " +
+            "phase=\(AlarmAudioStateController.shared.phase.rawValue)"
+        )
+
+        if outputVolume <= 0.10 {
+            log("[Engine][PostSlideBoost] system outputVolume is low; cannot raise system volume programmatically")
+        }
+        log("[Engine][PostSlideBoost] playerVolume=\(String(format: "%.2f", currentVolume)) outputVolume=\(String(format: "%.2f", outputVolume))")
+
+        if currentVolume >= finalTarget - 0.01 {
+            log("[Engine][PostSlideBoost] current volume already near target (\(String(format: "%.2f", currentVolume))) — no boost needed")
+            debugVolumeSnapshot(context: "post-slide-boost-noop-\(reason)")
+            schedulePostSlideDiagnostics(reason: "\(reason)-noop")
+            return
+        }
+
+        if currentVolume < startVolume {
+            p.volume = startVolume
+            log("[Engine][PostSlideBoost] raising start volume from \(String(format: "%.2f", currentVolume)) to \(String(format: "%.2f", startVolume))")
+        } else {
+            log("[Engine][PostSlideBoost] preserving current volume \(String(format: "%.2f", currentVolume)), no drop")
+        }
+
         postStopRampWorkItem?.cancel()
         let rampWorkItem = DispatchWorkItem { [weak self, weak p] in
             guard let self, let player = p else { return }
             let steps = max(1, Int(duration / 0.1))
             let stepDuration = duration / Double(steps)
-            let delta = (self.targetVolume - initialVolume) / Float(steps)
+            let delta = (finalTarget - startVolume) / Float(steps)
             for index in 1...steps {
                 DispatchQueue.main.asyncAfter(deadline: .now() + stepDuration * Double(index)) { [weak self, weak p] in
                     guard let self, let player = p, player.isPlaying else { return }
-                    let next = min(self.targetVolume, initialVolume + delta * Float(index))
+                    let next = min(finalTarget, startVolume + delta * Float(index))
                     player.volume = next
+                    if index == 1 || index == steps || index % max(1, steps / 5) == 0 {
+                        self.log("[Engine][PostSlideBoost] step volume=\(String(format: "%.2f", next))")
+                    }
                     if index == steps {
-                        self.log("[Engine] postStopRamp: ramp complete at volume \(String(format: "%.2f", player.volume))")
-                        self.debugVolumeSnapshot(context: "post-stop-ramp-complete-\(reason)")
+                        self.log("[Engine][PostSlideBoost] complete volume=\(String(format: "%.2f", player.volume)) outputVolume=\(String(format: "%.2f", AVAudioSession.sharedInstance().outputVolume))")
+                        self.debugVolumeSnapshot(context: "post-slide-boost-complete-\(reason)")
                     }
                 }
             }
         }
         postStopRampWorkItem = rampWorkItem
         DispatchQueue.main.async(execute: rampWorkItem)
-        
-        log("[Engine] postStopRamp: ramp started \(String(format: "%.2f", initialVolume)) → \(String(format: "%.2f", targetVolume)) over \(String(format: "%.1f", duration))s")
-        debugVolumeSnapshot(context: "post-stop-ramp-start-\(reason)")
+        debugVolumeSnapshot(context: "post-slide-boost-start-\(reason)")
+        schedulePostSlideDiagnostics(reason: reason)
+    }
+
+    // Backward-compatible shim for existing call sites.
+    func applyPostStopGentleRamp(
+        duration: TimeInterval = AlarmAudioStateController.postSlideRampDuration,
+        reason: String = "post-stop"
+    ) {
+        applyPostSlideVolumeBoost(
+            reason: reason,
+            minimumStartVolume: AlarmAudioStateController.postSlideMinimumVolume,
+            targetVolume: AlarmAudioStateController.postSlideTargetVolume,
+            duration: duration
+        )
     }
 
     private func verifyFadeInProgress(alarmRunId: UUID) {
@@ -714,29 +775,6 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             isProgressingNow = false
             log("[Engine] Fade-in verification: NOT progressing — fallback")
             AlarmAudioStateController.shared.recordFallback(reason: "fade-in-not-progressing")
-        }
-    }
-
-    private func ensureMinimumSystemOutputVolumeIfNeeded(reason: String) {
-        let session = AVAudioSession.sharedInstance()
-        let current = session.outputVolume
-        let minimum: Float = 0.20
-        guard current < minimum else { return }
-
-        let appState = UIApplication.shared.applicationState
-        guard appState != .active else { return }
-
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            let volumeView = MPVolumeView(frame: .zero)
-            guard let slider = volumeView.subviews.compactMap({ $0 as? UISlider }).first else {
-                self.log("[Engine] output-volume-floor: MPVolumeView slider unavailable (reason=\(reason))")
-                return
-            }
-            slider.setValue(minimum, animated: false)
-            slider.sendActions(for: .touchUpInside)
-            self.log("[Engine] output-volume-floor: raised system output volume \(String(format: "%.2f", current)) → \(String(format: "%.2f", minimum)) (reason=\(reason))")
-            self.debugVolumeSnapshot(context: "output-volume-floor-\(reason)")
         }
     }
 
@@ -919,6 +957,16 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         swiftlog("[Engine][Levels] context=\(context) phase=\(AlarmAudioStateController.shared.phase.rawValue) playerVolume=\(String(format: "%.2f", playerVol)) targetVolume=\(String(format: "%.2f", targetVolume)) outputVolume=\(String(format: "%.2f", output)) isPlaying=\(playing) currentTime=\(String(format: "%.2f", time)) category=\(category) mode=\(mode) route=\(route)")
     }
 
+    private func schedulePostSlideDiagnostics(reason: String) {
+        let checkpoints: [TimeInterval] = [0.5, 1.5, 2.5]
+        for delay in checkpoints {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self else { return }
+                self.debugVolumeSnapshot(context: "post-slide-diagnostic-\(reason)-t\(String(format: "%.1f", delay))")
+            }
+        }
+    }
+
 #if DEBUG
     func testSelectedSound(soundName: String) {
         log("[Engine] TEST: Testing sound file: \(soundName)")
@@ -1057,12 +1105,25 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         let bundleURL = Bundle.main.bundleURL
         let extensions = ["mp3", "wav", "m4a", "caf"]
         if let enumerator = fileManager.enumerator(at: bundleURL, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
+            var silentCandidate: URL?
             for case let fileURL as URL in enumerator {
                 if fileURL.isFileURL && extensions.contains(fileURL.pathExtension.lowercased()) {
+                    let key = normalizedSoundKey(fileURL.deletingPathExtension().lastPathComponent)
+                    let isSilentAsset = key.contains("alarmosilence") || key.contains("silencealarm")
+                    if isSilentAsset {
+                        if silentCandidate == nil { silentCandidate = fileURL }
+                        continue
+                    }
+                    log("[Engine] findFallbackSound: using audible fallback '\(fileURL.lastPathComponent)'")
                     return fileURL
                 }
             }
+            if let silentCandidate {
+                log("[Engine] findFallbackSound: only silent fallback available '\(silentCandidate.lastPathComponent)'")
+                return silentCandidate
+            }
         }
+        log("[Engine] findFallbackSound: no fallback sound found in bundle")
         return nil
     }
 

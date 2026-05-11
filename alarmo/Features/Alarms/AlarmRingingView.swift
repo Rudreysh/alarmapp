@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import UIKit
+import AVFoundation
 import MediaPlayer
 
 struct AlarmRingingView: View {
@@ -9,6 +10,8 @@ struct AlarmRingingView: View {
     @State private var currentMission: AlarmMission?
     @State private var quoteIndex = 0
     @State private var showingGreetingOverlay = true
+    @State private var lowVolumeHintMessage: String?
+    private let systemVolumeDidChange = Notification.Name("AVSystemController_SystemVolumeDidChangeNotification")
     private let quoteTimer = Timer.publish(every: 10, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -131,10 +134,14 @@ struct AlarmRingingView: View {
                 }
             }
 
-            HiddenVolumeControlView()
+            // Keep MPVolumeView mounted while alarm UI is visible so hardware
+            // volume buttons target media output. This does not auto-raise
+            // system volume; it only maps button presses to media domain.
+            HiddenMPVolumeView()
                 .frame(width: 1, height: 1)
                 .opacity(0.001)
                 .allowsHitTesting(false)
+                .accessibilityHidden(true)
         }
         .fullScreenCover(item: $currentMission) { mission in
             Group {
@@ -341,6 +348,19 @@ struct AlarmRingingView: View {
                     }
             }
         }
+        .overlay(alignment: .bottom) {
+            if let lowVolumeHintMessage {
+                Text(lowVolumeHintMessage)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color.orange.opacity(0.92))
+                    .clipShape(Capsule())
+                    .padding(.bottom, 26)
+                    .transition(.opacity)
+            }
+        }
         .onChange(of: ringCoordinator.missionTimeoutTriggered) { _, timedOut in
             if timedOut {
                 currentMission = nil
@@ -354,9 +374,37 @@ struct AlarmRingingView: View {
         }
         .onAppear {
             let appState = UIApplication.shared.applicationState
+            let output = AVAudioSession.sharedInstance().outputVolume
             print("🧭 [ALARMTRACE_UI] EVENT=RINGING_VIEW_ON_APPEAR APP_STATE=\(String(describing: appState).uppercased()) PHASE=\(AlarmAudioStateController.shared.phase.rawValue.uppercased()) OWNER=\(AlarmAudioStateController.shared.audibleOwner.rawValue.uppercased()) ALARM_ID=\(ringCoordinator.activeAlarm?.id.uuidString ?? "nil")")
+            print("[Volume] outputVolume=\(String(format: "%.2f", output)) playerVolume=\(String(format: "%.2f", AlarmContinuousAudioEngine.shared.currentPlayerVolume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) reason=ringing-view-onAppear")
+            logVolumeSnapshot(reason: "ringing-view-onAppear-route")
+            let phase = AlarmAudioStateController.shared.phase
+            if ringCoordinator.isRinging && (phase == .appEngineFadingIn || phase == .appEnginePrimary) {
+                Task { @MainActor in
+                    SystemOutputVolumeFloorManager.shared.attemptRaiseOutputVolumeFloor(
+                        minimumVolume: AlarmAudioStateController.preAlarmMinimumOutputVolume,
+                        reason: "ringing-view-onappear"
+                    )
+                }
+            }
             ringCoordinator.reassertRingingAudio(reason: "ringing-view-onAppear")
             logActiveAlarmIfNeeded()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: systemVolumeDidChange)) { _ in
+            logVolumeSnapshot(reason: "ringing-view-system-volume-change")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .alarmVolumeFloorHint)) { notification in
+            let message = (notification.userInfo?["message"] as? String) ?? "Increase iPhone volume for louder alarm."
+            withAnimation(.easeInOut(duration: 0.2)) {
+                lowVolumeHintMessage = message
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    if lowVolumeHintMessage == message {
+                        lowVolumeHintMessage = nil
+                    }
+                }
+            }
         }
         .onChange(of: ringCoordinator.activeAlarm?.id) { _, _ in
             showingGreetingOverlay = true
@@ -378,7 +426,16 @@ struct AlarmRingingView: View {
             } else {
                 print("[AlarmRingingView] onDisappear after Stop/Snooze — cleanup complete")
             }
+            logVolumeSnapshot(reason: "ringing-view-onDisappear")
         }
+    }
+
+    private func logVolumeSnapshot(reason: String) {
+        let session = AVAudioSession.sharedInstance()
+        let output = session.outputVolume
+        let route = session.currentRoute.outputs.map(\.portType.rawValue).joined(separator: ",")
+        let appState = UIApplication.shared.applicationState
+        print("[Volume] outputVolume=\(String(format: "%.2f", output)) playerVolume=\(String(format: "%.2f", AlarmContinuousAudioEngine.shared.currentPlayerVolume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) route=\(route) appState=\(appState.rawValue) reason=\(reason)")
     }
 
     private var wallpaperBackground: some View {
@@ -546,10 +603,15 @@ struct AlarmRingingView: View {
     }
 }
 
-private struct HiddenVolumeControlView: UIViewRepresentable {
+private struct HiddenMPVolumeView: UIViewRepresentable {
     func makeUIView(context: Context) -> MPVolumeView {
         let view = MPVolumeView(frame: .zero)
         view.showsRouteButton = false
+        view.showsVolumeSlider = true
+        view.alpha = 0.001
+        let session = AVAudioSession.sharedInstance()
+        let route = session.currentRoute.outputs.map(\.portType.rawValue).joined(separator: ",")
+        print("[Volume] MPVolumeView mounted outputVolume=\(String(format: "%.2f", session.outputVolume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) route=\(route)")
         return view
     }
 

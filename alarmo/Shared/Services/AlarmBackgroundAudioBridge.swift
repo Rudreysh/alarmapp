@@ -466,6 +466,8 @@ final class AlarmBackgroundAudioBridge {
 
     private func handleOutputVolumeDidChange() {
         guard activeAlarmID != nil else { return }
+        let output = AVAudioSession.sharedInstance().outputVolume
+        print("[Volume] outputVolume=\(String(format: "%.2f", output)) playerVolume=\(String(format: "%.2f", AlarmContinuousAudioEngine.shared.currentPlayerVolume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) reason=hardware-volume-change")
         let appState = UIApplication.shared.applicationState
         if appState == .active && NotificationManager.shared.isCustomAlarmUIVisibleInForeground() {
             return
