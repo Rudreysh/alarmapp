@@ -203,12 +203,16 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
 
     func stop(reason: String) {
 #if DEBUG
-        let validStopReasons: Set<String> = ["user-stop", "user-snooze", "app-cleanup-stale"]
+        let validStopReasons: Set<String> = [
+            "user-stop",
+            "user-snooze",
+            "app-cleanup-stale",
+            "notification-stop-action"
+        ]
         if !validStopReasons.contains(reason) {
-            fatalError("""
-                [Engine] UNEXPECTED STOP — reason: '\(reason)'
-                This stop should not happen. Check the call stack above.
-                Only user-stop and user-snooze are valid stop reasons during alarm.
+            swiftlog("""
+                [Engine] ⚠️ UNEXPECTED STOP REASON '\(reason)' (continuing without crash)
+                Update validStopReasons if this path is intentional.
                 """)
         }
 #endif

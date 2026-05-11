@@ -44,13 +44,10 @@ struct AppRootView: View {
     }
 
     var body: some View {
-        let _ = print("[AppRootView] body re-evaluating. onboardingCompleted: \(appPreferences.onboardingCompleted), showingMainTab: \(showingMainTab), appThemeStyle: \(appThemeStyleRaw)")
         return Group {
             if showingMainTab {
-                let _ = print("[AppRootView] Showing MainTabContainerView")
                 MainTabContainerView(preferences: appPreferences, alarmStore: alarmStore)
             } else {
-                let _ = print("[AppRootView] Showing OnboardingFlowView")
                 OnboardingFlowView(viewModel: onboardingViewModel, appPreferences: appPreferences, alarmStore: alarmStore)
             }
         }
