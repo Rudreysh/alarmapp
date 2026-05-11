@@ -7,6 +7,7 @@ struct AlarmRingingView: View {
     @State private var lastLoggedAlarmId: UUID?
     @State private var currentMission: AlarmMission?
     @State private var quoteIndex = 0
+    @State private var showingGreetingOverlay = true
     private let quoteTimer = Timer.publish(every: 10, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -308,6 +309,13 @@ struct AlarmRingingView: View {
             }
             .interactiveDismissDisabled(true)
         }
+        .overlay {
+            if showingGreetingOverlay {
+                AlarmGreetingView {
+                    showingGreetingOverlay = false
+                }
+            }
+        }
         .overlay(alignment: .top) {
             if let toast = ringCoordinator.penaltyToastMessage {
                 Text(toast)
@@ -339,10 +347,12 @@ struct AlarmRingingView: View {
             }
         }
         .onAppear {
+            showingGreetingOverlay = true
             ringCoordinator.reassertRingingAudio(reason: "ringing-view-onAppear")
             logActiveAlarmIfNeeded()
         }
         .onChange(of: ringCoordinator.activeAlarm?.id) { _, _ in
+            showingGreetingOverlay = true
             ringCoordinator.reassertRingingAudio(reason: "active-alarm-changed")
             logActiveAlarmIfNeeded()
         }
