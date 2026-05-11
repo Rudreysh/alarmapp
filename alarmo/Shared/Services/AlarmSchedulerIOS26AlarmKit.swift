@@ -775,9 +775,17 @@ struct StopAlarmIntent: LiveActivityIntent {
         
         if shouldUseLockedHandling {
             AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-locked-handling")
+            let outputVolume = AVAudioSession.sharedInstance().outputVolume
+            let enginePlaying = AlarmContinuousAudioEngine.shared.confirmStillPlaying()
+            let mutedOutputWhilePlaying = enginePlaying && outputVolume <= 0.01
+            if mutedOutputWhilePlaying {
+                swiftlog("[StopIntent] Engine playing but outputVolume=\(String(format: "%.2f", outputVolume)) — forcing AlarmKit fallback recovery")
+                AlarmAudioStateController.shared.recordFallback(reason: "stop-intent-muted-output-recovery")
+            }
             let engineHealthy = AlarmContinuousAudioEngine.shared.isEngineActive &&
-                AlarmContinuousAudioEngine.shared.confirmStillPlaying()
-            swiftlog("[StopIntent] Engine health: active=\(AlarmContinuousAudioEngine.shared.isEngineActive) healthy=\(engineHealthy)")
+                enginePlaying &&
+                !mutedOutputWhilePlaying
+            swiftlog("[StopIntent] Engine health: active=\(AlarmContinuousAudioEngine.shared.isEngineActive) healthy=\(engineHealthy) outputVolume=\(String(format: "%.2f", outputVolume))")
             let respawnAppropriate = !engineHealthy &&
                 AlarmAudioStateController.shared.isEngineUnhealthinessAFailure()
 

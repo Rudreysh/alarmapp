@@ -51,7 +51,7 @@ final class AlarmAudioStateController {
         .appEnginePreparing: [.appEngineFadingIn, .alarmKitFallback, .stopped],
         .appEngineFadingIn: [.appEnginePrimary, .alarmKitFallback, .stopped],
         .appEnginePrimary: [.alarmKitFallback, .stopped],
-        .alarmKitFallback: [.appEnginePreparing, .stopped],
+        .alarmKitFallback: [.appEnginePreparing, .appEngineFadingIn, .appEnginePrimary, .stopped],
         .stopped: [.waitingForAlarmKit, .alarmKitSettling]
     ]
 
@@ -174,7 +174,22 @@ final class AlarmAudioStateController {
         }
 
         if phase == .alarmKitSettling || phase == .appEnginePreparing {
-            log("[StateController] AlarmKit alerting — already in \(phase.rawValue), takeover scheduled at \(takeoverScheduledAt?.description ?? "unknown"), ignoring")
+            // Keep AlarmKit surface behavior unchanged, but ensure AppEngine
+            // audible takeover is actually armed. In some locked-screen paths
+            // we can re-enter here with no live takeover work item.
+            if let runId = currentAlarmRunId {
+                if !takeoverScheduled {
+                    log("[StateController] AlarmKit alerting — phase \(phase.rawValue) with no takeover scheduled, re-arming takeover")
+                    scheduleDelayedTakeover(
+                        alarmRunId: runId,
+                        delay: Self.alarmKitSettleDelay
+                    )
+                } else {
+                    log("[StateController] AlarmKit alerting — already in \(phase.rawValue), takeover scheduled at \(takeoverScheduledAt?.description ?? "unknown"), keeping existing takeover")
+                }
+            } else {
+                log("[StateController] AlarmKit alerting — phase \(phase.rawValue) but runId missing, ignoring")
+            }
             return
         }
 

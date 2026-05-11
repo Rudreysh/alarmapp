@@ -1390,9 +1390,15 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             return
         }
         let phase = AlarmAudioStateController.shared.phase
-        guard phase != .appEnginePrimary && phase != .appEngineFadingIn else {
-            print("[NotificationManager] Locked loop surface suppressed — phase=\(phase.rawValue)")
-            return
+        if phase == .appEnginePrimary || phase == .appEngineFadingIn {
+            let outputVolume = AVAudioSession.sharedInstance().outputVolume
+            let engineAudible = AlarmContinuousAudioEngine.shared.confirmStillPlaying() && outputVolume > 0.01
+            guard !engineAudible else {
+                print("[NotificationManager] Locked loop surface suppressed — phase=\(phase.rawValue)")
+                return
+            }
+            print("[NotificationManager] Locked loop surface recovery allowed — phase=\(phase.rawValue) outputVolume=\(String(format: "%.2f", outputVolume))")
+            AlarmAudioStateController.shared.recordFallback(reason: "locked-loop-muted-output-recovery")
         }
         logAlarmTrace(
             event: "ensure-locked-loop-surface-if-needed-entry",
@@ -1404,8 +1410,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         guard AlarmManagerFacade.shared.selectedPath == .alarmKit else { return }
         guard #available(iOS 26.0, *) else { return }
         guard !isAlarmFlowSuppressed(sourceAlarmId) else { return }
+        let lockedLoopOutputVolume = AVAudioSession.sharedInstance().outputVolume
         if AlarmContinuousAudioEngine.shared.isEngineActive &&
-            AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
+            AlarmContinuousAudioEngine.shared.confirmStillPlaying() &&
+            lockedLoopOutputVolume > 0.01 {
             print("[Respawn] Engine active and healthy — skipping AlarmKit respawn")
             scheduleAlarmAuthenticationPrompt(
                 sourceAlarmId: sourceAlarmId,
@@ -1413,6 +1421,8 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                 alarmName: (ringCoordinator?.activeAlarm?.name)
             )
             return
+        } else if lockedLoopOutputVolume <= 0.01 {
+            print("[Respawn] Engine playing but muted outputVolume=\(String(format: "%.2f", lockedLoopOutputVolume)) — continuing with AlarmKit respawn recovery")
         }
         // Strict 3-second throttle. The previous "force=true bypasses throttle"
         // was the source of the multiple-banner cascade — every scene
@@ -1470,9 +1480,15 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             return
         }
         let phase = AlarmAudioStateController.shared.phase
-        guard phase != .appEnginePrimary && phase != .appEngineFadingIn else {
-            print("[NotificationManager] Side button respawn suppressed — phase=\(phase.rawValue)")
-            return
+        if phase == .appEnginePrimary || phase == .appEngineFadingIn {
+            let outputVolume = AVAudioSession.sharedInstance().outputVolume
+            let engineAudible = AlarmContinuousAudioEngine.shared.confirmStillPlaying() && outputVolume > 0.01
+            guard !engineAudible else {
+                print("[NotificationManager] Side button respawn suppressed — phase=\(phase.rawValue)")
+                return
+            }
+            print("[NotificationManager] Side button respawn recovery allowed — phase=\(phase.rawValue) outputVolume=\(String(format: "%.2f", outputVolume))")
+            AlarmAudioStateController.shared.recordFallback(reason: "hardware-button-muted-output-recovery")
         }
         logAlarmTrace(
             event: "schedule-hardware-button-respawn-if-needed-entry",
@@ -1625,12 +1641,16 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             sourceAlarmId: sourceAlarmId,
             surfaceAlarmId: surfaceAlarmId
         )
+        let outputVolume = AVAudioSession.sharedInstance().outputVolume
         let engineAppearsHealthy = AlarmContinuousAudioEngine.shared.isEngineActive &&
-            AlarmContinuousAudioEngine.shared.cachedIsHealthy
+            AlarmContinuousAudioEngine.shared.cachedIsHealthy &&
+            outputVolume > 0.01
         let engineLiveHealthy = engineAppearsHealthy &&
             AlarmContinuousAudioEngine.shared.confirmStillPlaying()
         if engineAppearsHealthy && !engineLiveHealthy {
             print("[AlarmKit] Engine cached healthy but not playing live — continuing with recovery start path")
+        } else if outputVolume <= 0.01 {
+            print("[AlarmKit] Engine path muted (outputVolume=\(String(format: "%.2f", outputVolume))) — allowing AlarmKit recovery path")
         }
         if engineLiveHealthy {
             logAlarmTrace(

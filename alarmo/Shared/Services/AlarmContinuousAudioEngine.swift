@@ -1,5 +1,7 @@
 import Foundation
 import AVFoundation
+import MediaPlayer
+import UIKit
 
 @inline(__always)
 private func swiftlog(_ message: String) {
@@ -597,6 +599,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         do {
             try AVAudioSession.sharedInstance().setActive(true, options: [])
             log("[Engine] startFadeIn: session activated")
+            ensureMinimumSystemOutputVolumeIfNeeded(reason: "start-fadein")
         } catch {
             log("[Engine] startFadeIn: session activation failed: \(error.localizedDescription)")
             AlarmAudioStateController.shared.recordFallback(reason: "session-activation-failed-at-fadein")
@@ -664,6 +667,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         }
         
         let initialVolume = AlarmAudioStateController.appEngineInitialVolume
+        ensureMinimumSystemOutputVolumeIfNeeded(reason: "post-stop-ramp")
         
         log("[Engine] postStopRamp: dropping to \(String(format: "%.2f", initialVolume)) then ramping to \(String(format: "%.2f", targetVolume)) over \(String(format: "%.1f", duration))s — reason=\(reason)")
         log("[Engine] postStopRamp: player currently at volume=\(String(format: "%.2f", p.volume)) isPlaying=\(p.isPlaying)")
@@ -710,6 +714,29 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             isProgressingNow = false
             log("[Engine] Fade-in verification: NOT progressing — fallback")
             AlarmAudioStateController.shared.recordFallback(reason: "fade-in-not-progressing")
+        }
+    }
+
+    private func ensureMinimumSystemOutputVolumeIfNeeded(reason: String) {
+        let session = AVAudioSession.sharedInstance()
+        let current = session.outputVolume
+        let minimum: Float = 0.20
+        guard current < minimum else { return }
+
+        let appState = UIApplication.shared.applicationState
+        guard appState != .active else { return }
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let volumeView = MPVolumeView(frame: .zero)
+            guard let slider = volumeView.subviews.compactMap({ $0 as? UISlider }).first else {
+                self.log("[Engine] output-volume-floor: MPVolumeView slider unavailable (reason=\(reason))")
+                return
+            }
+            slider.setValue(minimum, animated: false)
+            slider.sendActions(for: .touchUpInside)
+            self.log("[Engine] output-volume-floor: raised system output volume \(String(format: "%.2f", current)) → \(String(format: "%.2f", minimum)) (reason=\(reason))")
+            self.debugVolumeSnapshot(context: "output-volume-floor-\(reason)")
         }
     }
 
