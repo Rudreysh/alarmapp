@@ -291,11 +291,35 @@ private struct AlarmoAlarmMetadata: AlarmMetadata {
 extension AlarmSchedulerIOS26AlarmKit {
     var fallbackAlarmSoundKey: String { "cockpitalert" }
     var maxAlarmKitSoundDuration: TimeInterval { 29.5 }
-    var alarmKitAlertTitle: String { "⏰ Wake up!" }
     var alarmKitStopButtonText: String { "Open to Stop" }
     var alarmKitStopButtonSymbol: String { "alarm.fill" }
     var alarmKitSecondaryButtonEnabled: Bool { false }
     var alarmKitTintColor: Color { Colors.accentBlue }
+
+    private func alarmKitAlertTitle(for schedule: AlarmKit.Alarm.Schedule) -> String {
+        let hour = resolvedAlarmHour(from: schedule) ?? Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12:
+            return "⏰ Good morning! 🌞 Rise and shine"
+        case 12..<17:
+            return "⏰ Good afternoon! 🌞 Hope your day is going well"
+        case 17..<21:
+            return "⏰ Good evening! 🌆 Hope you had a good day"
+        default:
+            return "⏰ Good night! 🌜 Time to rest and recharge"
+        }
+    }
+
+    private func resolvedAlarmHour(from schedule: AlarmKit.Alarm.Schedule) -> Int? {
+        switch schedule {
+        case .fixed(let date):
+            return Calendar.current.component(.hour, from: date)
+        case .relative(let relativeSchedule):
+            return Int(relativeSchedule.time.hour)
+        @unknown default:
+            return nil
+        }
+    }
 
     /// Stages a valid 1-second silent CAF file into Library/Sounds/ for use as
     /// AlarmKit sound. Returns the staged FILE NAME (with extension) to pass to
@@ -457,7 +481,7 @@ extension AlarmSchedulerIOS26AlarmKit {
     ) -> AlarmManager.AlarmConfiguration<AlarmoAlarmMetadata> {
         _ = useSystemDefaultSound
         _ = Self.ensureSilentAlertSoundStaged()
-        let alertTitle = alarmKitAlertTitle
+        let alertTitle = alarmKitAlertTitle(for: schedule)
         let alertPresentation = AlarmPresentation.Alert(
             title: LocalizedStringResource(stringLiteral: alertTitle),
             stopButton: AlarmButton(
