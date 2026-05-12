@@ -19,7 +19,7 @@ enum AlarmAudibleOwner: String {
 final class AlarmAudioStateController {
     static let shared = AlarmAudioStateController()
 
-    static let alarmKitSettleDelay: TimeInterval = 4.5
+    static let alarmKitSettleDelay: TimeInterval = 3.0
     static let postInterruptionGraceDelay: TimeInterval = 0.4
     static let appEngineProgressCheckDelay: TimeInterval = 0.5
     static let appEngineFadeInDuration: TimeInterval = 8.0

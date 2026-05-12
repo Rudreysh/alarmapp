@@ -38,7 +38,6 @@ struct SoundPickerView: View {
     
     // Add Logic
     @State private var showMusicPicker = false
-    @State private var showSpotifyPicker = false
     @State private var showAddSheet = false
     @State private var showRecorder = false
     @State private var showFileImporter = false
@@ -48,7 +47,8 @@ struct SoundPickerView: View {
     @State private var deleteTargetSound: SoundAsset?
     @State private var showDeleteConfirmation = false
     private let customSoundService = CustomSoundService()
-    private let spotifyService = SpotifyService()
+    // TODO: Re-enable Spotify import flow when this option is brought back.
+    // private let spotifyService = SpotifyService()
 
     private let repository = SoundCatalogRepository()
     @ObservedObject private var assetManager = AssetManager.shared
@@ -554,12 +554,6 @@ struct SoundPickerView: View {
                 onRecord: {
                     showAddSheet = false
                     showRecorder = true
-                },
-                onSpotify: {
-                    showAddSheet = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                        showSpotifyPicker = true
-                    }
                 }
             )
             .presentationDetents([.height(320)])
@@ -586,13 +580,14 @@ struct SoundPickerView: View {
                 }
             }
         }
-        .sheet(isPresented: $showSpotifyPicker) {
-            SpotifyPickerView(isPresented: $showSpotifyPicker) { track in
-                spotifyService.saveSpotifyTrackAsSound(track: track)
-                loadSounds()
-                selectedTab = .spotify
-            }
-        }
+        // TODO: Re-enable Spotify picker sheet when Spotify import is restored.
+        // .sheet(isPresented: $showSpotifyPicker) {
+        //     SpotifyPickerView(isPresented: $showSpotifyPicker) { track in
+        //         spotifyService.saveSpotifyTrackAsSound(track: track)
+        //         loadSounds()
+        //         selectedTab = .spotify
+        //     }
+        // }
         .fullScreenCover(isPresented: $showRecorder) {
             SoundRecorderView(isPresented: $showRecorder) {
                 loadSounds() // Reload 
@@ -968,7 +963,7 @@ struct SoundRow: View {
 struct AddSoundSheet: View {
     var onImport: () -> Void
     var onRecord: () -> Void
-    var onSpotify: () -> Void
+    // TODO: Re-add Spotify action when Spotify import is enabled again.
     
     var body: some View {
         ZStack {
@@ -998,23 +993,7 @@ struct AddSoundSheet: View {
                         .cornerRadius(12)
                     }
                     
-                    Button(action: onSpotify) {
-                        HStack(spacing: 16) {
-                            Image(systemName: "music.note.house.fill") // Placeholder for Spotify
-                                .font(.system(size: 20))
-                                .foregroundColor(Color(red: 29/255, green: 185/255, blue: 84/255))
-                            Text("Connect to Spotify")
-                                .font(.body.weight(.medium))
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption.bold())
-                                .foregroundColor(Colors.textTertiary)
-                        }
-                        .foregroundColor(Colors.textPrimary)
-                        .padding()
-                        .background(Colors.cardSurface)
-                        .cornerRadius(12)
-                    }
+                    // TODO: Re-enable this Spotify row when Spotify import returns.
                     
                     Button(action: onRecord) {
                         HStack(spacing: 16) {

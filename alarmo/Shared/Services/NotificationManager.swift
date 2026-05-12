@@ -359,14 +359,14 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
         let unlockDismiss = UNNotificationAction(
             identifier: AppNotificationAction.alarmKitUnlockDismiss,
-            title: "Dismiss",
-            options: [.authenticationRequired, .foreground]
+            title: "Stop Alarm",
+            options: [.authenticationRequired, .foreground, .destructive]
         )
         let alarmKitUnlockCategory = UNNotificationCategory(
             identifier: AppNotificationCategory.alarmKitUnlock,
             actions: [unlockDismiss],
             intentIdentifiers: [],
-            hiddenPreviewsBodyPlaceholder: "Alarm is ringing — unlock your phone to Stop or Snooze",
+            hiddenPreviewsBodyPlaceholder: "⏰ Alarm is ringing",
             categorySummaryFormat: "%u more alarm alerts",
             options: [.hiddenPreviewsShowTitle, .hiddenPreviewsShowSubtitle]
         )
@@ -555,6 +555,9 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         surfaceAlarmId: String? = nil,
         alarmName: String? = nil
     ) {
+        let appState = UIApplication.shared.applicationState
+        let phase = AlarmAudioStateController.shared.phase.rawValue
+        print("[PostSlideNotification] schedule-request source=\(sourceAlarmId) surface=\(surfaceAlarmId ?? "nil") appState=\(appState.rawValue) phase=\(phase)")
         guard UIApplication.shared.applicationState != .active else {
             print("[NotificationManager] Auth prompt suppressed — app is active, UI handles interaction")
             return
@@ -568,12 +571,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         let now = Date()
         if let last = lastPostSlideNotificationAt[sourceAlarmId],
            now.timeIntervalSince(last) < postSlideNotificationDuplicateWindow {
-            print("[PostSlideNotification] skipped duplicate for alarmId=\(sourceAlarmId)")
+            print("[PostSlideNotification] skipped duplicate for alarmId=\(sourceAlarmId) delta=\(String(format: "%.2f", now.timeIntervalSince(last))) window=\(String(format: "%.2f", postSlideNotificationDuplicateWindow))")
             return
         }
         lastPostSlideNotificationAt[sourceAlarmId] = now
         let center = UNUserNotificationCenter.current()
-        cancelAlarmAuthenticationPrompt(sourceAlarmId: sourceAlarmId)
+        cancelAlarmAuthenticationPrompt(sourceAlarmId: sourceAlarmId, reason: "pre-schedule-replace")
 
         let content = UNMutableNotificationContent()
         content.title = "⏰ Alarm is ringing"
@@ -616,9 +619,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         }
     }
 
-    func cancelAlarmAuthenticationPrompt(sourceAlarmId: String) {
+    func cancelAlarmAuthenticationPrompt(sourceAlarmId: String, reason: String = "unspecified") {
         let stableIdentifier = AlarmAuthenticationPrompt.identifier(for: sourceAlarmId)
         let center = UNUserNotificationCenter.current()
+        print("[PostSlideNotification] cancel-request source=\(sourceAlarmId) identifier=\(stableIdentifier) reason=\(reason) appState=\(UIApplication.shared.applicationState.rawValue) phase=\(AlarmAudioStateController.shared.phase.rawValue)")
         center.removePendingNotificationRequests(withIdentifiers: [stableIdentifier])
         center.removeDeliveredNotifications(withIdentifiers: [stableIdentifier])
         center.getPendingNotificationRequests { requests in
@@ -630,6 +634,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             if !ids.isEmpty {
                 center.removePendingNotificationRequests(withIdentifiers: ids)
             }
+            print("[PostSlideNotification] cancel-complete source=\(sourceAlarmId) reason=\(reason) legacyPendingRemoved=\(ids.count)")
         }
         center.getDeliveredNotifications { delivered in
             let ids = delivered
@@ -640,6 +645,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             if !ids.isEmpty {
                 center.removeDeliveredNotifications(withIdentifiers: ids)
             }
+            print("[PostSlideNotification] cancel-complete source=\(sourceAlarmId) reason=\(reason) legacyDeliveredRemoved=\(ids.count)")
         }
     }
 
@@ -920,7 +926,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         completedAlarmFlowAt[alarmId] = Date()
         issuedAlarmKitUnlockPromptSourceIds.remove(alarmId)
         alarmFlowPhaseBySource[alarmId] = .completed
-        cancelAlarmAuthenticationPrompt(sourceAlarmId: alarmId)
+        cancelAlarmAuthenticationPrompt(sourceAlarmId: alarmId, reason: "mark-flow-completed")
         cancelCustomUIHandoffFallbackNotification(sourceAlarmId: alarmId)
     }
 
@@ -1220,13 +1226,11 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     }
 
     private func alarmKitUnlockPromptCopy(isUnlockedState: Bool) -> (title: String, body: String) {
-        if isUnlockedState {
-            // iOS controls notification typography for standard banners; we
-            // cannot directly increase font size. We increase prominence by
-            // keeping the key message concise in the title with a leading emoji.
-            return ("⏰ Alarm is ringing", "Tap to stop alarm")
-        }
-        return ("Alarm is ringing — unlock your phone to Stop or Snooze", "")
+        _ = isUnlockedState
+        // iOS controls notification typography for standard banners; we
+        // cannot directly increase font size. We increase prominence by
+        // keeping the key message concise in the title with a leading emoji.
+        return ("⏰ Alarm is ringing", "Tap to stop alarm")
     }
 
     private func shouldContinueAlarmKitUnlockPromptLoop(for sourceAlarmId: String) -> Bool {
@@ -1555,10 +1559,14 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 #if canImport(AlarmKit)
         guard AlarmManagerFacade.shared.selectedPath == .alarmKit else { return }
         guard #available(iOS 26.0, *) else { return }
-        guard !isAlarmFlowSuppressed(sourceAlarmId) else { return }
+        guard !isAlarmFlowSuppressed(sourceAlarmId) else {
+            print("[PostSlideNotification] side-button schedule suppressed source=\(sourceAlarmId) reason=alarm-flow-suppressed")
+            return
+        }
         let now = Date()
         if let last = lastRespawnScheduledAt[sourceAlarmId],
            now.timeIntervalSince(last) < 3.0 {
+            print("[PostSlideNotification] side-button schedule throttled source=\(sourceAlarmId) delta=\(String(format: "%.2f", now.timeIntervalSince(last)))")
             return
         }
         lastRespawnScheduledAt[sourceAlarmId] = now

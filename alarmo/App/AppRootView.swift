@@ -290,6 +290,7 @@ struct AppRootView: View {
             handlePendingCustomAlarmUIHandoff(trigger: "didBecomeActive")
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
+            let appState = UIApplication.shared.applicationState
             // Earliest moment after FaceID/Touch ID auth. Force-reset the
             // audio session to clear AlarmKit's audio session interference,
             // then reassert audio. This minimizes the silence window the
@@ -306,8 +307,12 @@ struct AppRootView: View {
             } else if AlarmBackgroundAudioBridge.shared.isPlaying {
                 AlarmBackgroundAudioBridge.shared.reinforceLockedLoopNow(reason: "protectedDataAvailable")
             }
-            enforceAlarmCustomUIIfNeeded()
-            handlePendingCustomAlarmUIHandoff(trigger: "protectedDataAvailable")
+            if appState == .active {
+                enforceAlarmCustomUIIfNeeded()
+                handlePendingCustomAlarmUIHandoff(trigger: "protectedDataAvailable")
+            } else {
+                print("[AppRoot] protectedDataAvailable handoff deferred until app active (state=\(appState.rawValue))")
+            }
         }
         .onReceive(settingsStore.$notificationPrefs) { _ in
             NotificationOrchestrator.shared.reconcileAlarmLifecycleNotifications(alarms: alarmStore.alarms)
@@ -440,7 +445,10 @@ struct AppRootView: View {
             customUIHandoffActiveRequestKey = nil
             customUIHandoffStartedAt = nil
             customUIHandoffAttemptCount = 0
-            notificationManager.cancelAlarmAuthenticationPrompt(sourceAlarmId: resolvedSource)
+            notificationManager.cancelAlarmAuthenticationPrompt(
+                sourceAlarmId: resolvedSource,
+                reason: "custom-ui-handoff-success-\(trigger)"
+            )
             notificationManager.cancelCustomUIHandoffFallbackNotification(sourceAlarmId: resolvedSource)
             refreshAlarmUnlockPromptIfNeeded(
                 sourceAlarmId: resolvedSource,
