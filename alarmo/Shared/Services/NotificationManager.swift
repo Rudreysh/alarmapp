@@ -594,12 +594,24 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         let request = UNNotificationRequest(
             identifier: identifier,
             content: content,
-            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 0.1, repeats: false)
+            // A tiny delay (0.1s) can be swallowed during AlarmKit slide/side
+            // transition churn. Use a safer delay so the card is surfaced after
+            // the transition settles.
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 0.8, repeats: false)
         )
         print("[PostSlideNotification] scheduling Alarmy-style card alarmId=\(sourceAlarmId) title=\"\(content.title)\" body=\"\(content.body)\" action=\"Stop Alarm\"")
         center.add(request) { error in
             if let error {
                 print("[NotificationManager] Failed to schedule auth prompt for \(sourceAlarmId): \(error)")
+                return
+            }
+            center.getPendingNotificationRequests { requests in
+                let found = requests.contains { $0.identifier == identifier }
+                print("[PostSlideNotification] add-complete alarmId=\(sourceAlarmId) pendingFound=\(found) pendingCount=\(requests.count)")
+            }
+            center.getDeliveredNotifications { delivered in
+                let found = delivered.contains { $0.request.identifier == identifier }
+                print("[PostSlideNotification] add-complete alarmId=\(sourceAlarmId) deliveredFound=\(found) deliveredCount=\(delivered.count)")
             }
         }
     }

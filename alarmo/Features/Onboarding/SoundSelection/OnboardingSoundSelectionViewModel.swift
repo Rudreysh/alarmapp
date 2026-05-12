@@ -64,6 +64,7 @@ final class OnboardingSoundSelectionViewModel: ObservableObject {
 
     func soundsForSelectedCategory() -> [SoundAsset] {
         let allSounds = repository.loadAllSounds()
+        let downloadedCloudSounds = self.downloadedCloudSounds(from: allSounds)
         
         if selectedCategory == .cloud {
             let cat = selectedCloudCategory ?? downloadableSections.first?.category ?? ""
@@ -74,6 +75,10 @@ final class OnboardingSoundSelectionViewModel: ObservableObject {
                     return SoundAsset(id: remote.id, title: remote.title, fileURL: url, category: .cloud, isStarred: isStarred)
                 }
             }
+        }
+
+        if selectedCategory == .downloads {
+            return downloadedCloudSounds
         }
         
         if selectedCategory == .favorites {
@@ -91,6 +96,21 @@ final class OnboardingSoundSelectionViewModel: ObservableObject {
         }
         
         return soundsByCategory[selectedCategory] ?? []
+    }
+
+    private func downloadedCloudSounds(from allSounds: [SoundAsset]) -> [SoundAsset] {
+        let starredByID = Dictionary(uniqueKeysWithValues: allSounds.map { ($0.id, $0.isStarred) })
+        let downloaded = AssetManager.shared.remoteSounds.compactMap { remote -> SoundAsset? in
+            guard let localURL = AssetManager.shared.localURL(for: remote.filename) else { return nil }
+            return SoundAsset(
+                id: remote.id,
+                title: remote.title,
+                fileURL: localURL,
+                category: .downloads,
+                isStarred: starredByID[remote.id] ?? false
+            )
+        }
+        return downloaded.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
     // MARK: - Actions

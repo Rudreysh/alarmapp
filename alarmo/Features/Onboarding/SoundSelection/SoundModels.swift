@@ -21,7 +21,8 @@ struct SoundCategory: Identifiable, Hashable, Equatable {
     static let custom    = SoundCategory(id: "custom",     title: "My Sounds",  emoji: "🎙️")
     static let spotify   = SoundCategory(id: "spotify",    title: "Spotify",    emoji: "🎵")
     static let cloud     = SoundCategory(id: "cloud",      title: "Downloadable", emoji: "☁️")
+    static let downloads = SoundCategory(id: "downloads",  title: "Downloads",  emoji: "⬇️")
 
     /// Downloadable is intentionally 2nd (after Alarm tone).
-    static let order: [SoundCategory] = [.favorites, .alarmTone, .focus, .cloud, .loud, .classic, .custom, .spotify]
+    static let order: [SoundCategory] = [.favorites, .alarmTone, .focus, .cloud, .downloads, .loud, .classic, .custom, .spotify]
 }

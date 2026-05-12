@@ -46,6 +46,7 @@ struct OnboardingSoundSelectionView: View {
     private var topTabs: [TopTab] {
         var tabs: [TopTab] = [.category(.favorites), .category(.alarmTone), .category(.focus)]
         tabs += downloadableSections.map { .downloadable($0.category) }
+        tabs += [.category(.downloads)]
         return tabs
     }
 
@@ -94,6 +95,12 @@ struct OnboardingSoundSelectionView: View {
         switch tab {
         case .category(let category):
             let allSounds = SoundCatalogRepository().loadAllSounds()
+            if category == .downloads {
+                return AssetManager.shared.remoteSounds.contains { remote in
+                    AssetManager.shared.localURL(for: remote.filename) != nil &&
+                    normalizedTitle(remote.title) == normalizedTitle(playing)
+                }
+            }
             if category == .alarmTone {
                 if let playingAsset = allSounds.first(where: { normalizedTitle($0.title) == normalizedTitle(playing) }) {
                     return playingAsset.category == .alarmTone || playingAsset.category == .loud || playingAsset.category == .classic
@@ -263,6 +270,22 @@ struct OnboardingSoundSelectionView: View {
                                 let asset = SoundAsset(id: sound.id, title: sound.title, fileURL: url, category: sound.category)
                                 viewModel.tapSound(asset, volume: onboardingViewModel.state.selectedVolume)
                                 onboardingViewModel.setSelectedSound(asset)
+                            } else {
+                                Task {
+                                    do {
+                                        let localURL = try await AssetManager.shared.downloadAsset(
+                                            from: sound.fileURL,
+                                            filename: sound.fileURL.lastPathComponent
+                                        )
+                                        await MainActor.run {
+                                            let asset = SoundAsset(id: sound.id, title: sound.title, fileURL: localURL, category: .downloads)
+                                            viewModel.tapSound(asset, volume: onboardingViewModel.state.selectedVolume)
+                                            onboardingViewModel.setSelectedSound(asset)
+                                        }
+                                    } catch {
+                                        print("❌ Onboarding cloud sound download failed: \(error)")
+                                    }
+                                }
                             }
                         },
                         onPreview: {
@@ -353,6 +376,22 @@ struct OnboardingSoundSelectionView: View {
                     let asset = SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: url, category: .cloud)
                     viewModel.tapSound(asset, volume: onboardingViewModel.state.selectedVolume)
                     onboardingViewModel.setSelectedSound(asset)
+                } else {
+                    Task {
+                        do {
+                            let localURL = try await AssetManager.shared.downloadAsset(
+                                from: remoteSound.url,
+                                filename: remoteSound.filename
+                            )
+                            await MainActor.run {
+                                let asset = SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: localURL, category: .downloads)
+                                viewModel.tapSound(asset, volume: onboardingViewModel.state.selectedVolume)
+                                onboardingViewModel.setSelectedSound(asset)
+                            }
+                        } catch {
+                            print("❌ Onboarding cloud sound download failed: \(error)")
+                        }
+                    }
                 }
             },
             onPreview: {
