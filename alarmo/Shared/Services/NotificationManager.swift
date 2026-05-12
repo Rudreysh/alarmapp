@@ -864,7 +864,9 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         let center = UNUserNotificationCenter.current()
         center.removePendingNotificationRequests(withIdentifiers: [identifier, loopIdentifier, loopImmediateIdentifier, customUIFallbackIdentifier, AlarmKitUnlockPrompt.singleIdentifier])
         center.removeDeliveredNotifications(withIdentifiers: [identifier, loopIdentifier, loopImmediateIdentifier, customUIFallbackIdentifier, AlarmKitUnlockPrompt.singleIdentifier])
-        cancelAlarmAuthenticationPrompt(sourceAlarmId: alarmId)
+        // Intentionally do NOT cancel AlarmAuthenticationPrompt here.
+        // Post-slide control card is a distinct notification flow and should
+        // remain visible when unlock prompts are pruned.
     }
 
     func cancelAllAlarmKitUnlockPrompts() {
@@ -898,7 +900,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                 center.removeDeliveredNotifications(withIdentifiers: ids)
             }
         }
-        cancelAllAlarmAuthenticationPrompts()
+        // Keep post-slide control cards independent from unlock-prompt cleanup.
     }
 
     func markAlarmFlowCompleted(alarmId: String) {

@@ -253,6 +253,11 @@ struct AppRootView: View {
             handleAlarmHandoffURL(url)
         }
         .onReceive(NotificationCenter.default.publisher(for: .alarmKitCustomUIHandoffRequested)) { _ in
+            let appState = UIApplication.shared.applicationState
+            guard appState == .active else {
+                print("[AppRoot] Deferring custom UI handoff request until app active (state=\(appState.rawValue))")
+                return
+            }
             handlePendingCustomAlarmUIHandoff(trigger: "customUIHandoffRequested")
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
