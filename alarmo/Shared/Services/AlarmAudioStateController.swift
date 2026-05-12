@@ -289,22 +289,33 @@ final class AlarmAudioStateController {
     }
 
     private func scheduleDelayedTakeover(alarmRunId: UUID, delay: TimeInterval) {
-        guard !takeoverScheduled else {
-            log("[StateController] Takeover already scheduled at \(takeoverScheduledAt.map { String(describing: $0) } ?? "unknown") — not rescheduling")
-            return
+        if takeoverScheduled {
+            if takeoverWorkItem != nil {
+                log("[StateController] Takeover already scheduled at \(takeoverScheduledAt.map { String(describing: $0) } ?? "unknown") — not rescheduling")
+                return
+            }
+            // Stale marker recovery: scheduled flag remained true but no live work item exists.
+            log("[StateController] Takeover schedule marker was stale — re-arming delayed takeover")
+            takeoverScheduled = false
+            takeoverScheduledAt = nil
         }
 
         takeoverScheduled = true
         takeoverScheduledAt = Date()
 
         log("[StateController] Takeover scheduled in \(delay)s for runId: \(alarmRunId)")
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            self?.requestAppEngineTakeoverIfAllowed(
+        takeoverWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.takeoverWorkItem = nil
+            self.takeoverScheduled = false
+            self.requestAppEngineTakeoverIfAllowed(
                 alarmRunId: alarmRunId,
                 reason: "settle-delay-\(String(format: "%.2f", delay))s"
             )
         }
+        takeoverWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
     }
 
     /// Called when app becomes active. If takeover is pending and still in a
@@ -319,7 +330,11 @@ final class AlarmAudioStateController {
         log("[StateController] handleAppBecameActive: phase=\(phase.rawValue) elapsed=\(String(format: "%.2f", elapsed))s takeoverScheduled=\(takeoverScheduled)")
 
         guard takeoverScheduled else {
-            log("[StateController] handleAppBecameActive: no takeover scheduled — nothing to trigger")
+            log("[StateController] handleAppBecameActive: no takeover scheduled — attempting immediate re-arm")
+            requestAppEngineTakeoverIfAllowed(
+                alarmRunId: runId,
+                reason: "foreground-activation-no-schedule-rearm"
+            )
             return
         }
 

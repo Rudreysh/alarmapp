@@ -5,6 +5,7 @@ import Combine
 enum AssetError: Error {
     case networkError(Error)
     case invalidURL
+    case httpStatus(Int, URL)
     case diskWriteError(Error)
     case notFound
     case cancelled
@@ -20,6 +21,14 @@ final class AssetManager: ObservableObject {
         config.urlCache = nil
         return URLSession(configuration: config)
     }()
+    private let downloadSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.timeoutIntervalForRequest = 45
+        config.timeoutIntervalForResource = 90
+        config.waitsForConnectivity = true
+        return URLSession(configuration: config)
+    }()
 
     @Published var remoteSounds: [RemoteSound] = []
     @Published var remoteWallpapers: [RemoteWallpaperCategory] = []
@@ -28,6 +37,9 @@ final class AssetManager: ObservableObject {
     /// Active download tasks keyed by filename for cancellation
     @Published private(set) var activeDownloads: Set<String> = []
     private var downloadTasks: [String: Task<URL, Error>] = [:]
+    private let downloadTasksLock = NSLock()
+    private let prefetchLock = NSLock()
+    private var prefetchInProgress = false
 
     var remoteSoundsByCategory: [(category: String, sounds: [RemoteSound])] {
         let grouped = Dictionary(grouping: remoteSounds, by: { $0.category })
@@ -59,8 +71,22 @@ final class AssetManager: ObservableObject {
         let alarmSounds = remoteSounds.filter { $0.category.caseInsensitiveCompare("Alarm") == .orderedSame }
         guard !alarmSounds.isEmpty else { return }
 
+        prefetchLock.lock()
+        if prefetchInProgress {
+            prefetchLock.unlock()
+            print("🎵 AssetManager: Prefetch already in progress — skipping duplicate trigger.")
+            return
+        }
+        prefetchInProgress = true
+        prefetchLock.unlock()
+
         Task(priority: .utility) { [weak self] in
             guard let self else { return }
+            defer {
+                self.prefetchLock.lock()
+                self.prefetchInProgress = false
+                self.prefetchLock.unlock()
+            }
             let missing = alarmSounds.filter { !self.fileExists(filename: $0.filename) }
             guard !missing.isEmpty else {
                 print("🎵 AssetManager: All default alarm sounds already downloaded (\(alarmSounds.count)).")
@@ -114,8 +140,11 @@ final class AssetManager: ObservableObject {
     /// Cancel an in-progress download and remove any partial file
     @MainActor
     func cancelDownload(filename: String) {
-        downloadTasks[filename]?.cancel()
+        downloadTasksLock.lock()
+        let task = downloadTasks[filename]
         downloadTasks.removeValue(forKey: filename)
+        downloadTasksLock.unlock()
+        task?.cancel()
         activeDownloads.remove(filename)
         deleteLocalFile(filename: filename)
         print("🚫 AssetManager: Cancelled download and removed \(filename)")
@@ -163,7 +192,7 @@ final class AssetManager: ObservableObject {
         }
 
         // If there's already a task for this file, await it
-        if let existing = downloadTasks[filename] {
+        if let existing = existingDownloadTask(for: filename) {
             return try await existing.value
         }
 
@@ -173,43 +202,48 @@ final class AssetManager: ObservableObject {
             defer {
                 Task { @MainActor in
                     self.activeDownloads.remove(filename)
-                    self.downloadTasks.removeValue(forKey: filename)
                 }
+                self.removeDownloadTask(for: filename)
             }
 
             print("📥 AssetManager: Downloading \(filename)...")
+            let candidateURLs = self.downloadCandidateURLs(primary: url, filename: filename)
+            var lastError: Error?
 
-            let (bytes, response) = try await URLSession.shared.bytes(from: url)
-
-            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-                let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-                print("❌ AssetManager: Download failed for \(url.absoluteString) with status: \(status)")
-                throw AssetError.invalidURL
-            }
-
-            let totalSize = httpResponse.expectedContentLength
-            var data = Data()
-            if totalSize > 0 { data.reserveCapacity(Int(totalSize)) }
-            var downloadedBytes: Int64 = 0
-
-            for try await byte in bytes {
-                try Task.checkCancellation()
-                data.append(byte)
-                downloadedBytes += 1
-                if totalSize > 0 && (downloadedBytes % 8192 == 0 || downloadedBytes == totalSize) {
-                    let p = Double(downloadedBytes) / Double(totalSize)
-                    progress?(p)
+            for candidate in candidateURLs {
+                let maxAttempts = 3
+                for attempt in 1...maxAttempts {
+                    do {
+                        let localURL = try await self.streamDownload(
+                            from: candidate,
+                            destination: destination,
+                            progress: progress
+                        )
+                        self.saveCatalogCache()
+                        return localURL
+                    } catch let error as URLError where error.code == .timedOut {
+                        lastError = error
+                        if attempt < maxAttempts {
+                            let backoff = UInt64(attempt) * 1_000_000_000
+                            print("⚠️ AssetManager: Timeout for \(candidate.lastPathComponent) attempt \(attempt)/\(maxAttempts). Retrying...")
+                            try await Task.sleep(nanoseconds: backoff)
+                            continue
+                        }
+                    } catch AssetError.httpStatus(let status, let failedURL) where status == 404 && candidate != candidateURLs.last {
+                        lastError = AssetError.httpStatus(status, failedURL)
+                        print("⚠️ AssetManager: 404 for \(failedURL.lastPathComponent). Trying fallback URL variant...")
+                        break
+                    } catch {
+                        lastError = error
+                        break
+                    }
                 }
             }
 
-            try Task.checkCancellation()
-            try data.write(to: destination)
-            print("✅ AssetManager: Saved \(filename)")
-            self.saveCatalogCache()
-            return destination
+            throw lastError ?? AssetError.invalidURL
         }
 
-        downloadTasks[filename] = task
+        setDownloadTask(task, for: filename)
 
         do {
             return try await task.value
@@ -218,6 +252,80 @@ final class AssetManager: ObservableObject {
             try? fileManager.removeItem(at: destination)
             throw AssetError.cancelled
         }
+    }
+
+    private func streamDownload(
+        from remoteURL: URL,
+        destination: URL,
+        progress: ((Double) -> Void)? = nil
+    ) async throws -> URL {
+        var request = URLRequest(url: remoteURL)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.timeoutInterval = 45
+
+        let (bytes, response) = try await downloadSession.bytes(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            print("❌ AssetManager: Download failed for \(remoteURL.absoluteString) with status: \(status)")
+            throw AssetError.httpStatus(status, remoteURL)
+        }
+
+        let totalSize = httpResponse.expectedContentLength
+        var data = Data()
+        if totalSize > 0 { data.reserveCapacity(Int(totalSize)) }
+        var downloadedBytes: Int64 = 0
+
+        for try await byte in bytes {
+            try Task.checkCancellation()
+            data.append(byte)
+            downloadedBytes += 1
+            if totalSize > 0 && (downloadedBytes % 8192 == 0 || downloadedBytes == totalSize) {
+                let p = Double(downloadedBytes) / Double(totalSize)
+                progress?(p)
+            }
+        }
+
+        try Task.checkCancellation()
+        try data.write(to: destination)
+        print("✅ AssetManager: Saved \(destination.lastPathComponent)")
+        return destination
+    }
+
+    private func downloadCandidateURLs(primary: URL, filename: String) -> [URL] {
+        var candidates: [URL] = [primary]
+        guard filename.contains("_") else { return candidates }
+
+        let altName = filename.replacingOccurrences(of: "_", with: " ")
+        if altName == filename { return candidates }
+
+        if var components = URLComponents(url: primary, resolvingAgainstBaseURL: false) {
+            let encodedAlt = altName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? altName
+            let encodedCurrent = filename.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? filename
+            components.percentEncodedPath = components.percentEncodedPath.replacingOccurrences(of: encodedCurrent, with: encodedAlt)
+            if let altURL = components.url, altURL != primary {
+                candidates.append(altURL)
+            }
+        }
+        return candidates
+    }
+
+    private func existingDownloadTask(for filename: String) -> Task<URL, Error>? {
+        downloadTasksLock.lock()
+        defer { downloadTasksLock.unlock() }
+        return downloadTasks[filename]
+    }
+
+    private func setDownloadTask(_ task: Task<URL, Error>, for filename: String) {
+        downloadTasksLock.lock()
+        downloadTasks[filename] = task
+        downloadTasksLock.unlock()
+    }
+
+    private func removeDownloadTask(for filename: String) {
+        downloadTasksLock.lock()
+        downloadTasks.removeValue(forKey: filename)
+        downloadTasksLock.unlock()
     }
 
     // MARK: - Catalog Fetching

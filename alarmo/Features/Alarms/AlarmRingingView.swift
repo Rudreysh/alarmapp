@@ -133,6 +133,8 @@ struct AlarmRingingView: View {
                     .frame(height: 70)
                 }
             }
+            .opacity(ringCoordinator.showingGreeting ? 0 : 1)
+            .allowsHitTesting(!ringCoordinator.showingGreeting)
 
             // Keep MPVolumeView mounted while alarm UI is visible so hardware
             // volume buttons target media output. This does not auto-raise
@@ -327,8 +329,15 @@ struct AlarmRingingView: View {
                 AlarmGreetingView(onDismiss: {
                     ringCoordinator.completeGreeting()
                 })
+                .transition(
+                    .asymmetric(
+                        insertion: .opacity,
+                        removal: .opacity.combined(with: .scale(scale: 1.03))
+                    )
+                )
             }
         }
+        .animation(.easeInOut(duration: 0.34), value: ringCoordinator.showingGreeting)
         .overlay(alignment: .top) {
             if let toast = ringCoordinator.penaltyToastMessage {
                 Text(toast)
@@ -379,7 +388,8 @@ struct AlarmRingingView: View {
             print("[Volume] outputVolume=\(String(format: "%.2f", output)) playerVolume=\(String(format: "%.2f", AlarmContinuousAudioEngine.shared.currentPlayerVolume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) reason=ringing-view-onAppear")
             logVolumeSnapshot(reason: "ringing-view-onAppear-route")
             let phase = AlarmAudioStateController.shared.phase
-            if ringCoordinator.isRinging && (phase == .appEngineFadingIn || phase == .appEnginePrimary) {
+            if ringCoordinator.isRinging &&
+                (phase == .alarmKitSettling || phase == .appEnginePreparing || phase == .appEngineFadingIn || phase == .appEnginePrimary) {
                 Task { @MainActor in
                     SystemOutputVolumeFloorManager.shared.attemptRaiseOutputVolumeFloor(
                         minimumVolume: AlarmAudioStateController.preAlarmMinimumOutputVolume,

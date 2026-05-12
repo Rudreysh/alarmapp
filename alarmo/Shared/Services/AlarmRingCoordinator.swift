@@ -492,11 +492,14 @@ final class AlarmRingCoordinator: ObservableObject {
     }
 
     func completeGreeting() {
-        // Dismiss the cover first — greeting overlay stays visible on top during the
-        // slide-down animation, so the alarm buttons never flash through.
         isRingingUIVisible = false
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.showingGreeting = false
+        // Keep greeting overlay alive slightly longer than the custom exit
+        // animation so the alarm buttons never flash through during cover dismissal.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+            guard let self else { return }
+            if !self.isRingingUIVisible {
+                self.showingGreeting = false
+            }
         }
     }
 

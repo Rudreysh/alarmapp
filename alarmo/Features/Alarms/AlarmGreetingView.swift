@@ -6,8 +6,11 @@ struct AlarmGreetingView: View {
     @State private var textAppeared = false
     @State private var subtextAppeared = false
     @State private var dismissed = false
+    @State private var exiting = false
 
     private let content = AlarmGreetingContent.forCurrentTime()
+    private let displayDuration: TimeInterval = 1.0
+    private let exitDuration: TimeInterval = 0.34
 
     var body: some View {
         ZStack {
@@ -19,6 +22,9 @@ struct AlarmGreetingView: View {
             .allowsHitTesting(false)
             centerTextLayer
         }
+        .scaleEffect(exiting ? 1.03 : 1.0)
+        .opacity(exiting ? 0.0 : 1.0)
+        .animation(.easeInOut(duration: exitDuration), value: exiting)
         .onAppear {
             withAnimation(.spring(response: 0.65, dampingFraction: 0.72)) {
                 textAppeared = true
@@ -26,7 +32,7 @@ struct AlarmGreetingView: View {
             withAnimation(.easeOut(duration: 0.5).delay(0.18)) {
                 subtextAppeared = true
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + displayDuration) {
                 triggerDismiss()
             }
         }
@@ -101,7 +107,14 @@ struct AlarmGreetingView: View {
     private func triggerDismiss() {
         guard !dismissed else { return }
         dismissed = true
-        onDismiss()
+        withAnimation(.easeInOut(duration: exitDuration)) {
+            exiting = true
+            textAppeared = false
+            subtextAppeared = false
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + exitDuration) {
+            onDismiss()
+        }
     }
 
     private static func emojiConfigs(

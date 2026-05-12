@@ -16,6 +16,8 @@ struct QuickAlarmView: View {
     @State private var showPresetEditor = false
     @State private var showLabelEditor = false
     @State private var saveAsPresetFromTimePicker = false
+    @State private var saveAsPreset = false
+    @State private var showEmojiPicker = false
     @State private var isSaving = false
     
     @StateObject private var soundPlayer = SoundPreviewPlayer()
@@ -133,6 +135,62 @@ struct QuickAlarmView: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        .padding(.horizontal, 20)
+                        
+                        // Alarm Name & Save as Preset Row
+                        HStack(spacing: 12) {
+                            // Column 1: Emoji & Name
+                            HStack(spacing: 8) {
+                                Button(action: {
+                                    showEmojiPicker = true
+                                }) {
+                                    Text(viewModel.alarmEmoji.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "⚡️" : viewModel.alarmEmoji)
+                                        .font(.system(size: 18))
+                                        .frame(width: 32, height: 32)
+                                        .background(Color.gray.opacity(0.2))
+                                        .clipShape(Circle())
+                                }
+                                
+                                TextField("Quick Alarm", text: $viewModel.alarmName)
+                                    .textInputAutocapitalization(.words)
+                                    .autocorrectionDisabled()
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(Colors.textPrimary)
+                            }
+                            .padding(.horizontal, 12)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .fill(Colors.cardSurface)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(Colors.cardStroke, lineWidth: 1)
+                            )
+                            
+                            // Column 2: Save Preset
+                            VStack(spacing: 2) {
+                                Text("Save Preset")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(Colors.textSecondary)
+                                    .lineLimit(1)
+                                
+                                Toggle("", isOn: $saveAsPreset)
+                                    .labelsHidden()
+                                    .scaleEffect(0.75)
+                                    .frame(height: 24)
+                            }
+                            .frame(width: 90, height: 56)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .fill(Colors.cardSurface)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(Colors.cardStroke, lineWidth: 1)
+                            )
+                        }
                         .padding(.horizontal, 20)
                         
                         // Presets Section
@@ -349,6 +407,16 @@ struct QuickAlarmView: View {
                     Button(action: {
                         guard !isSaving else { return }
                         isSaving = true
+                        
+                        if saveAsPreset {
+                            viewModel.addCustomPreset(
+                                title: viewModel.alarmName,
+                                minutes: viewModel.minutes,
+                                seconds: viewModel.seconds,
+                                emoji: viewModel.alarmEmoji
+                            )
+                        }
+                        
                         viewModel.save(store: alarmStore, scheduler: scheduler)
                         onClose()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
@@ -404,6 +472,11 @@ struct QuickAlarmView: View {
                 name: $viewModel.alarmName,
                 emoji: $viewModel.alarmEmoji
             )
+        }
+        .sheet(isPresented: $showEmojiPicker) {
+            EmojiPickerView { selected in
+                viewModel.alarmEmoji = selected
+            }
         }
         .sheet(isPresented: $showAccountabilityInfo) {
             AccountabilityInfoView()

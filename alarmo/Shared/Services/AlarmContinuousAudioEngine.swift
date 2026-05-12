@@ -574,6 +574,12 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             log("[Engine] prepareSilently: player created, prepareToPlay() called, volume=0.0")
             log("[Engine] prepareSilently: duration=\(String(format: "%.2f", newPlayer.duration))s")
             AlarmAudioStateController.shared.recordAppEnginePrepared()
+            Task { @MainActor in
+                SystemOutputVolumeFloorManager.shared.attemptRaiseOutputVolumeFloor(
+                    minimumVolume: AlarmAudioStateController.preAlarmMinimumOutputVolume,
+                    reason: "prepare-silently-prewarm"
+                )
+            }
         } catch {
             log("[Engine] prepareSilently: player creation failed: \(error.localizedDescription)")
             AlarmAudioStateController.shared.recordFallback(reason: "player-creation-failed")

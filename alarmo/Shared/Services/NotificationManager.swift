@@ -1426,6 +1426,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             print("[NotificationManager] Locked loop surface suppressed — app is active")
             return
         }
+        guard AlarmAudioStateController.shared.shouldAllowAlarmKitRespawn() else {
+            print("[NotificationManager] Locked loop surface suppressed — phase \(AlarmAudioStateController.shared.phase.rawValue) not eligible for AlarmKit respawn")
+            return
+        }
         let phase = AlarmAudioStateController.shared.phase
         if phase == .appEnginePrimary || phase == .appEngineFadingIn {
             if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
@@ -1513,6 +1517,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     ) {
         guard UIApplication.shared.applicationState != .active else {
             print("[NotificationManager] Side button respawn suppressed — app is active, engine primary")
+            return
+        }
+        guard AlarmAudioStateController.shared.shouldAllowAlarmKitRespawn() else {
+            print("[NotificationManager] Side button respawn suppressed — phase \(AlarmAudioStateController.shared.phase.rawValue) not eligible for AlarmKit respawn")
             return
         }
         let phase = AlarmAudioStateController.shared.phase
