@@ -1519,19 +1519,18 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             print("[NotificationManager] Side button respawn suppressed — app is active, engine primary")
             return
         }
-        guard AlarmAudioStateController.shared.shouldAllowAlarmKitRespawn() else {
-            print("[NotificationManager] Side button respawn suppressed — phase \(AlarmAudioStateController.shared.phase.rawValue) not eligible for AlarmKit respawn")
-            return
-        }
         let phase = AlarmAudioStateController.shared.phase
         if phase == .appEnginePrimary || phase == .appEngineFadingIn {
-            if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
-                let outputVolume = AVAudioSession.sharedInstance().outputVolume
+            let outputVolume = AVAudioSession.sharedInstance().outputVolume
+            if AlarmContinuousAudioEngine.shared.confirmStillPlaying() && outputVolume > 0.01 {
                 print("[NotificationManager] Side button respawn suppressed — phase=\(phase.rawValue), engine playing, outputVolume=\(String(format: "%.2f", outputVolume))")
                 return
             }
-            print("[NotificationManager] Side button respawn recovery allowed — phase=\(phase.rawValue) but engine not playing")
+            print("[NotificationManager] Side button respawn recovery allowed — phase=\(phase.rawValue), enginePlaying=\(AlarmContinuousAudioEngine.shared.confirmStillPlaying()) outputVolume=\(String(format: "%.2f", outputVolume))")
             AlarmAudioStateController.shared.recordFallback(reason: "hardware-button-engine-not-playing-recovery")
+        } else if !AlarmAudioStateController.shared.shouldAllowAlarmKitRespawn() {
+            print("[NotificationManager] Side button respawn suppressed — phase \(phase.rawValue) not eligible for AlarmKit respawn")
+            return
         }
         logAlarmTrace(
             event: "schedule-hardware-button-respawn-if-needed-entry",

@@ -604,7 +604,14 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         do {
             try AVAudioSession.sharedInstance().setActive(true, options: [])
             log("[Engine] startFadeIn: session activated")
-            log("[Volume] outputVolume=\(String(format: "%.2f", AVAudioSession.sharedInstance().outputVolume)) playerVolume=\(String(format: "%.2f", p.volume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) reason=start-fadein-activated")
+            let activatedOutput = AVAudioSession.sharedInstance().outputVolume
+            let appState = UIApplication.shared.applicationState
+            log("[Volume] outputVolume=\(String(format: "%.2f", activatedOutput)) playerVolume=\(String(format: "%.2f", p.volume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) reason=start-fadein-activated")
+            if appState != .active && activatedOutput <= 0.01 {
+                log("[Engine] startFadeIn: locked/background with near-zero outputVolume (\(String(format: "%.2f", activatedOutput))) — switching to AlarmKit fallback")
+                AlarmAudioStateController.shared.recordFallback(reason: "locked-zero-output-at-fadein")
+                return
+            }
         } catch {
             log("[Engine] startFadeIn: session activation failed: \(error.localizedDescription)")
             AlarmAudioStateController.shared.recordFallback(reason: "session-activation-failed-at-fadein")
