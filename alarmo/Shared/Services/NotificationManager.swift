@@ -44,9 +44,14 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     }
 
     private enum AlarmAuthenticationPrompt {
-        static let identifierPrefix = "alarm-auth-prompt-"
+        static let identifierPrefix = "alarmo.post-slide-control."
+        static let legacyIdentifierPrefix = "alarm-auth-prompt-"
         static let userInfoSourceAlarmIDKey = "alarmAuthPromptSourceAlarmId"
         static let userInfoSurfaceAlarmIDKey = "alarmAuthPromptSurfaceAlarmId"
+
+        static func identifier(for sourceAlarmId: String) -> String {
+            "\(identifierPrefix)\(sourceAlarmId)"
+        }
     }
 
     private enum CustomUIHandoffFallback {
@@ -79,6 +84,8 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     private var alarmStartRetryStates: [String: AlarmStartRetryState] = [:]
     private var lastRespawnScheduledAt: [String: Date] = [:]
     private var pendingAlarmKitDismissalTasks: [String: Task<Void, Never>] = [:]
+    private var lastPostSlideNotificationAt: [String: Date] = [:]
+    private let postSlideNotificationDuplicateWindow: TimeInterval = 1.0
     /// For each source alarm ID, the UUID of the currently-scheduled backup
     /// AlarmKit alarm that will fire 30s after the original. Cleared when
     /// the backup fires (then a new one is scheduled) OR when the user
@@ -378,14 +385,16 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             options: [.hiddenPreviewsShowTitle, .hiddenPreviewsShowSubtitle]
         )
 
-        let alarmStopCardAction = UNNotificationAction(
-            identifier: AppNotificationAction.alarmStopCardAction,
-            title: "Stop",
-            options: [.destructive, .authenticationRequired]
+        let postSlideStopAlarmAction = UNNotificationAction(
+            identifier: AppNotificationAction.alarmPostSlideStopAlarm,
+            title: "Stop Alarm",
+            // Notification action color is system-controlled. `.destructive` is
+            // used only to request a red system action style.
+            options: [.authenticationRequired, .foreground, .destructive]
         )
-        let alarmStopCardCategory = UNNotificationCategory(
-            identifier: AppNotificationCategory.alarmStopCard,
-            actions: [alarmStopCardAction],
+        let postSlideControlCategory = UNNotificationCategory(
+            identifier: AppNotificationCategory.alarmPostSlideControl,
+            actions: [postSlideStopAlarmAction],
             intentIdentifiers: [],
             options: [.customDismissAction]
         )
@@ -445,11 +454,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             alarmCategory,
             alarmKitUnlockCategory,
             alarmAuthPromptCategory,
-            alarmStopCardCategory,
+            postSlideControlCategory,
             planCategory,
             focusCategory,
             countdownCategory
         ])
+        print("[PostSlideNotification] registered category \(AppNotificationCategory.alarmPostSlideControl)")
     }
 
     func scheduleAlarmKitUnlockPrompt(
@@ -477,9 +487,11 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         if issuedAlarmKitUnlockPromptSourceIds.contains(sourceAlarmId) { return }
         let center = UNUserNotificationCenter.current()
         let content = UNMutableNotificationContent()
-        content.title = "Alarm is ringing — unlock your phone to Stop or Snooze"
+        let isUnlockedState = UIApplication.shared.isProtectedDataAvailable
+        let copy = alarmKitUnlockPromptCopy(isUnlockedState: isUnlockedState)
+        content.title = copy.title
         content.subtitle = ""
-        content.body = ""
+        content.body = copy.body
         content.categoryIdentifier = AppNotificationCategory.alarmKitUnlock
         content.threadIdentifier = "alarmo.alarmkit.unlock"
         content.summaryArgument = "Unlock alarm alert"
@@ -491,6 +503,9 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         if #available(iOS 15.0, *) {
             content.interruptionLevel = .timeSensitive
             content.relevanceScore = 1
+        }
+        if isUnlockedState {
+            print("[UnlockedAlarmNotification] title=\"\(content.title)\" body=\"\(content.body)\"")
         }
 
         let identifier = AlarmKitUnlockPrompt.singleIdentifier
@@ -550,14 +565,21 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             surfaceAlarmId: surfaceAlarmId,
             extra: "alarmName=\(alarmName ?? "nil")"
         )
+        let now = Date()
+        if let last = lastPostSlideNotificationAt[sourceAlarmId],
+           now.timeIntervalSince(last) < postSlideNotificationDuplicateWindow {
+            print("[PostSlideNotification] skipped duplicate for alarmId=\(sourceAlarmId)")
+            return
+        }
+        lastPostSlideNotificationAt[sourceAlarmId] = now
         let center = UNUserNotificationCenter.current()
         cancelAlarmAuthenticationPrompt(sourceAlarmId: sourceAlarmId)
 
         let content = UNMutableNotificationContent()
-        content.title = timeAwareGreeting()
-        content.body = ""
-        content.categoryIdentifier = AppNotificationCategory.alarmStopCard
-        content.threadIdentifier = "alarmo.alarmkit.auth"
+        content.title = "⏰ Alarm is ringing"
+        content.body = "Tap to stop alarm"
+        content.categoryIdentifier = AppNotificationCategory.alarmPostSlideControl
+        content.threadIdentifier = "alarmo.post-slide-control"
         content.sound = nil
         content.userInfo = [
             AlarmAuthenticationPrompt.userInfoSourceAlarmIDKey: sourceAlarmId,
@@ -568,13 +590,13 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             content.relevanceScore = 1
         }
 
-        let millis = Int(Date().timeIntervalSince1970 * 1_000)
-        let identifier = "\(AlarmAuthenticationPrompt.identifierPrefix)\(sourceAlarmId)-\(millis)"
+        let identifier = AlarmAuthenticationPrompt.identifier(for: sourceAlarmId)
         let request = UNNotificationRequest(
             identifier: identifier,
             content: content,
             trigger: UNTimeIntervalNotificationTrigger(timeInterval: 0.1, repeats: false)
         )
+        print("[PostSlideNotification] scheduling Alarmy-style card alarmId=\(sourceAlarmId) title=\"\(content.title)\" body=\"\(content.body)\" action=\"Stop Alarm\"")
         center.add(request) { error in
             if let error {
                 print("[NotificationManager] Failed to schedule auth prompt for \(sourceAlarmId): \(error)")
@@ -582,27 +604,16 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         }
     }
 
-    private func timeAwareGreeting() -> String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 5..<12:
-            return "🌅 Good morning"
-        case 12..<17:
-            return "☀️ Good afternoon"
-        case 17..<21:
-            return "🌆 Good evening"
-        default:
-            return "🌙 Good night"
-        }
-    }
-
     func cancelAlarmAuthenticationPrompt(sourceAlarmId: String) {
+        let stableIdentifier = AlarmAuthenticationPrompt.identifier(for: sourceAlarmId)
         let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [stableIdentifier])
+        center.removeDeliveredNotifications(withIdentifiers: [stableIdentifier])
         center.getPendingNotificationRequests { requests in
             let ids = requests
                 .map(\.identifier)
                 .filter {
-                    $0.hasPrefix("\(AlarmAuthenticationPrompt.identifierPrefix)\(sourceAlarmId)-")
+                    $0.hasPrefix("\(AlarmAuthenticationPrompt.legacyIdentifierPrefix)\(sourceAlarmId)-")
                 }
             if !ids.isEmpty {
                 center.removePendingNotificationRequests(withIdentifiers: ids)
@@ -612,7 +623,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             let ids = delivered
                 .map(\.request.identifier)
                 .filter {
-                    $0.hasPrefix("\(AlarmAuthenticationPrompt.identifierPrefix)\(sourceAlarmId)-")
+                    $0.hasPrefix("\(AlarmAuthenticationPrompt.legacyIdentifierPrefix)\(sourceAlarmId)-")
                 }
             if !ids.isEmpty {
                 center.removeDeliveredNotifications(withIdentifiers: ids)
@@ -625,7 +636,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         center.getPendingNotificationRequests { requests in
             let ids = requests
                 .map(\.identifier)
-                .filter { $0.hasPrefix(AlarmAuthenticationPrompt.identifierPrefix) }
+                .filter {
+                    $0.hasPrefix(AlarmAuthenticationPrompt.identifierPrefix) ||
+                    $0.hasPrefix(AlarmAuthenticationPrompt.legacyIdentifierPrefix)
+                }
             if !ids.isEmpty {
                 center.removePendingNotificationRequests(withIdentifiers: ids)
             }
@@ -633,7 +647,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         center.getDeliveredNotifications { delivered in
             let ids = delivered
                 .map(\.request.identifier)
-                .filter { $0.hasPrefix(AlarmAuthenticationPrompt.identifierPrefix) }
+                .filter {
+                    $0.hasPrefix(AlarmAuthenticationPrompt.identifierPrefix) ||
+                    $0.hasPrefix(AlarmAuthenticationPrompt.legacyIdentifierPrefix)
+                }
             if !ids.isEmpty {
                 center.removeDeliveredNotifications(withIdentifiers: ids)
             }
@@ -1165,9 +1182,11 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         alarmName: String? = nil
     ) -> UNMutableNotificationContent {
         let content = UNMutableNotificationContent()
-        content.title = "Alarm is ringing — unlock your phone to Stop or Snooze"
+        let isUnlockedState = UIApplication.shared.isProtectedDataAvailable
+        let copy = alarmKitUnlockPromptCopy(isUnlockedState: isUnlockedState)
+        content.title = copy.title
         content.subtitle = ""
-        content.body = ""
+        content.body = copy.body
         content.categoryIdentifier = AppNotificationCategory.alarmKitUnlock
         content.threadIdentifier = "alarmo.alarmkit.unlock"
         content.summaryArgument = "Unlock alarm alert"
@@ -1180,7 +1199,20 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             content.interruptionLevel = .timeSensitive
             content.relevanceScore = 1
         }
+        if isUnlockedState {
+            print("[UnlockedAlarmNotification] title=\"\(content.title)\" body=\"\(content.body)\"")
+        }
         return content
+    }
+
+    private func alarmKitUnlockPromptCopy(isUnlockedState: Bool) -> (title: String, body: String) {
+        if isUnlockedState {
+            // iOS controls notification typography for standard banners; we
+            // cannot directly increase font size. We increase prominence by
+            // keeping the key message concise in the title with a leading emoji.
+            return ("⏰ Alarm is ringing", "Tap to stop alarm")
+        }
+        return ("Alarm is ringing — unlock your phone to Stop or Snooze", "")
     }
 
     private func shouldContinueAlarmKitUnlockPromptLoop(for sourceAlarmId: String) -> Bool {
@@ -1240,7 +1272,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             try? AudioRouteManager.configureAlarmSession()
         }
 
-        if action == AppNotificationAction.alarmStopCardAction ||
+        if action == AppNotificationAction.alarmPostSlideStopAlarm ||
+            response.notification.request.content.categoryIdentifier == AppNotificationCategory.alarmPostSlideControl {
+            print("[PostSlideNotification] action received \(AppNotificationAction.alarmPostSlideStopAlarm)")
+            print("[PostSlideNotification] routing to existing custom alarm UI handoff")
+            handleAlarmAuthenticationPromptAction(notification: response.notification)
+        } else if action == AppNotificationAction.alarmStopCardAction ||
             response.notification.request.content.categoryIdentifier == AppNotificationCategory.alarmStopCard {
             let userInfo = response.notification.request.content.userInfo
             let sourceAlarmId = (userInfo[AlarmAuthenticationPrompt.userInfoSourceAlarmIDKey] as? String)
@@ -1962,6 +1999,8 @@ enum AppNotificationCategory {
     static let alarmRing = "ALARM_RING"
     static let alarmKitUnlock = "ALARMKIT_UNLOCK"
     static let alarmAuthPrompt = "ALARM_AUTH_PROMPT"
+    static let alarmPostSlideControl = "ALARM_POST_SLIDE_CONTROL"
+    // Legacy category retained for backward compatibility with already-delivered notifications.
     static let alarmStopCard = "ALARM_STOP_CATEGORY"
     static let planReminder = "PLAN_REMINDER"
     static let focusSession = "FOCUS_SESSION"
@@ -1971,6 +2010,8 @@ enum AppNotificationCategory {
 enum AppNotificationAction {
     static let alarmSnooze = "ALARM_SNOOZE"
     static let alarmStop = "ALARM_STOP"
+    static let alarmPostSlideStopAlarm = "ALARM_POST_SLIDE_STOP_ALARM"
+    // Legacy action retained for backward compatibility with already-delivered notifications.
     static let alarmStopCardAction = "ALARM_STOP_ACTION"
     static let alarmKitUnlockDismiss = "ALARMKIT_UNLOCK_DISMISS"
     static let alarmAuthPromptUnlock = "ALARM_AUTH_PROMPT_UNLOCK"

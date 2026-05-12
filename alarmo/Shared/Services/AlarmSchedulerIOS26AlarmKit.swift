@@ -267,9 +267,23 @@ private actor AlarmKitStateStore {
 @available(iOS 26.0, *)
 private struct AlarmoAlarmMetadata: AlarmMetadata {
     let title: String
+    let alarmName: String
+    let soundName: String
+    let missionType: String?
+    let sourceAlarmId: String
 
-    init(title: String = "Alarm") {
+    init(
+        title: String = "Alarm",
+        alarmName: String = "Alarm",
+        soundName: String = "default",
+        missionType: String? = nil,
+        sourceAlarmId: String = ""
+    ) {
         self.title = title
+        self.alarmName = alarmName
+        self.soundName = soundName
+        self.missionType = missionType
+        self.sourceAlarmId = sourceAlarmId
     }
 }
 
@@ -277,6 +291,11 @@ private struct AlarmoAlarmMetadata: AlarmMetadata {
 extension AlarmSchedulerIOS26AlarmKit {
     var fallbackAlarmSoundKey: String { "cockpitalert" }
     var maxAlarmKitSoundDuration: TimeInterval { 29.5 }
+    var alarmKitAlertTitle: String { "⏰ Wake up!" }
+    var alarmKitStopButtonText: String { "Open to Stop" }
+    var alarmKitStopButtonSymbol: String { "alarm.fill" }
+    var alarmKitSecondaryButtonEnabled: Bool { false }
+    var alarmKitTintColor: Color { Colors.accentBlue }
 
     /// Stages a valid 1-second silent CAF file into Library/Sounds/ for use as
     /// AlarmKit sound. Returns the staged FILE NAME (with extension) to pass to
@@ -438,21 +457,18 @@ extension AlarmSchedulerIOS26AlarmKit {
     ) -> AlarmManager.AlarmConfiguration<AlarmoAlarmMetadata> {
         _ = useSystemDefaultSound
         _ = Self.ensureSilentAlertSoundStaged()
-        let alertPresentation: AlarmPresentation.Alert
-        if #available(iOS 26.1, *) {
-            alertPresentation = AlarmPresentation.Alert(
-                title: LocalizedStringResource(stringLiteral: title)
+        let alertTitle = alarmKitAlertTitle
+        let alertPresentation = AlarmPresentation.Alert(
+            title: LocalizedStringResource(stringLiteral: alertTitle),
+            stopButton: AlarmButton(
+                // "Open to Stop" is intentional: the AlarmKit stop gesture/button
+                // routes into app-controlled stop/snooze handling instead of
+                // being treated as an unconditional final stop in this architecture.
+                text: LocalizedStringResource(stringLiteral: alarmKitStopButtonText),
+                textColor: .white,
+                systemImageName: alarmKitStopButtonSymbol
             )
-        } else {
-            alertPresentation = AlarmPresentation.Alert(
-                title: LocalizedStringResource(stringLiteral: title),
-                stopButton: AlarmButton(
-                    text: "Stop",
-                    textColor: .white,
-                    systemImageName: "stop.fill"
-                )
-            )
-        }
+        )
 
         let countdownPresentation: AlarmPresentation.Countdown? = nil
         let pausedPresentation: AlarmPresentation.Paused? = nil
@@ -465,9 +481,17 @@ extension AlarmSchedulerIOS26AlarmKit {
 
         let attributes = AlarmAttributes(
             presentation: presentation,
-            metadata: AlarmoAlarmMetadata(title: title),
-            tintColor: .blue
+            metadata: AlarmoAlarmMetadata(
+                title: alertTitle,
+                alarmName: title,
+                soundName: soundName ?? "default",
+                missionType: nil,
+                sourceAlarmId: (originalAlarmID ?? alarmID).uuidString
+            ),
+            tintColor: alarmKitTintColor
         )
+        print("[AlarmKitUI] title=\"\(alertTitle)\" stopButton=\"\(alarmKitStopButtonText)\" symbol=\"\(alarmKitStopButtonSymbol)\" tintColor=accentBlue")
+        print("[AlarmKitUI] secondaryButton=\"Snooze\" enabled=\(alarmKitSecondaryButtonEnabled)")
 
         let shouldUseAudibleFallback = AlarmAudioStateController.shared.phase == .alarmKitFallback
 
@@ -496,6 +520,8 @@ extension AlarmSchedulerIOS26AlarmKit {
             // AlarmKit's secondaryIntent can add a second button, but it does not
             // replace lock-screen slide-to-stop handling or force immediate auth
             // for that swipe path. Auth prompting is handled via notification action.
+            // TODO: add a real secondary snooze intent only after validating that
+            // it preserves the existing app snooze flow without behavior regressions.
             secondaryIntent: nil,
             sound: alarmKitSound
         )
