@@ -5,6 +5,7 @@ import UIKit
 struct AlarmCapabilitiesView: View {
     @State private var diagnostics: AlarmSchedulerDiagnostics?
     @State private var scheduledAlarms: [ScheduledAlarmDescriptor] = []
+    @State private var computedAlarmChecks: [ComputedAlarmCheck] = []
     @State private var deliveryStatus: AlarmDeliveryStatus?
     @State private var isWorking = false
     @State private var statusMessage: String?
@@ -18,6 +19,7 @@ struct AlarmCapabilitiesView: View {
                     capabilityCard
                     controlsCard
                     pendingCard
+                    computedNextFireCard
                     developerDiagnosticsCard
                 }
                 .padding(.horizontal, 16)
@@ -201,6 +203,46 @@ struct AlarmCapabilitiesView: View {
         }
     }
 
+    private var computedNextFireCard: some View {
+        infoCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Enabled Alarms: Next Fire")
+                        .font(.system(size: 17, weight: .black, design: .rounded))
+                        .foregroundColor(.white)
+                    Spacer()
+                    Text("\(computedAlarmChecks.count)")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(Colors.textSecondary)
+                }
+
+                if computedAlarmChecks.isEmpty {
+                    Text("No enabled alarms found.")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Colors.textSecondary)
+                } else {
+                    ForEach(computedAlarmChecks) { entry in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(entry.title)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                            Text(entry.scheduleSummary)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(Colors.textSecondary)
+                            Text(entry.nextFireText)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(entry.hasNextFire ? Colors.accentTeal : .red)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 10)
+                        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
+                    }
+                }
+            }
+        }
+    }
+
     @ViewBuilder
     private var developerDiagnosticsCard: some View {
         #if DEBUG
@@ -242,7 +284,47 @@ struct AlarmCapabilitiesView: View {
         diagnostics = await AlarmManagerFacade.shared.diagnosticsSnapshot()
         scheduledAlarms = await AlarmManagerFacade.shared.listScheduledAlarms()
         deliveryStatus = await NotificationManager.shared.currentAlarmDeliveryStatus()
+        let currentAlarms = await MainActor.run { AlarmStore.shared.alarms }
+        let now = Date()
+        computedAlarmChecks = currentAlarms
+            .filter(\.enabled)
+            .map { alarm in
+                let title = alarm.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? "Alarm"
+                    : alarm.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                let next = AlarmStore.nextFireDate(for: alarm, from: now)
+                return ComputedAlarmCheck(
+                    id: alarm.id,
+                    title: "\(alarm.emoji) \(title)".trimmingCharacters(in: .whitespaces),
+                    scheduleSummary: scheduleSummary(for: alarm),
+                    nextFireText: next.map { "Next: \(Self.formatDateWithDay($0))" } ?? "Next: Not computable",
+                    hasNextFire: next != nil
+                )
+            }
+            .sorted { lhs, rhs in
+                lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
         isWorking = false
+    }
+
+    private func scheduleSummary(for alarm: Alarm) -> String {
+        let time = String(format: "%02d:%02d:%02d", alarm.hour, alarm.minute, alarm.second)
+        if alarm.isDaily {
+            return "Daily at \(time)"
+        }
+        let weekdays = RepeatMask.weekdays(from: alarm.repeatMask)
+        if weekdays.isEmpty {
+            return "One-shot at \(time)"
+        }
+        let names = weekdays.compactMap { dayName(for: $0) }.joined(separator: ", ")
+        return "\(names) at \(time)"
+    }
+
+    private func dayName(for weekday: Int) -> String? {
+        let symbols = Calendar.current.shortWeekdaySymbols
+        let index = weekday - 1
+        guard symbols.indices.contains(index) else { return nil }
+        return symbols[index]
     }
 
     private func scheduleTestAlarm(minutes: Int) async throws {
@@ -384,4 +466,19 @@ struct AlarmCapabilitiesView: View {
         formatter.timeStyle = .medium
         return formatter.string(from: date)
     }
+
+    nonisolated private static func formatDateWithDay(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .medium
+        return formatter.string(from: date)
+    }
+}
+
+private struct ComputedAlarmCheck: Identifiable {
+    let id: UUID
+    let title: String
+    let scheduleSummary: String
+    let nextFireText: String
+    let hasNextFire: Bool
 }
