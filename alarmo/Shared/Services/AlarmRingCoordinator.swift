@@ -189,6 +189,29 @@ final class AlarmRingCoordinator: ObservableObject {
 
             if AlarmContinuousAudioEngine.shared.isEngineActive {
                 print("[Coordinator] Engine already active — attaching UI without restarting sound")
+            } else if AlarmManagerFacade.shared.selectedPath == .legacyNotification {
+                // Legacy notification path has no AlarmKit alerting callback to drive
+                // the delayed takeover state machine. Trigger app audio takeover now
+                // so ringing UI never appears silently.
+                if let runId = AlarmAudioStateController.shared.currentAlarmRunId {
+                    AlarmContinuousAudioEngine.shared.prepareSilently(
+                        soundName: alarm.soundName,
+                        alarmId: alarm.id.uuidString,
+                        alarmRunId: runId
+                    )
+                    AlarmAudioStateController.shared.requestAppEngineTakeoverIfAllowed(
+                        alarmRunId: runId,
+                        reason: "legacy-notification-immediate-takeover"
+                    )
+                    print("[Coordinator] Legacy path immediate takeover requested")
+                } else {
+                    AlarmContinuousAudioEngine.shared.start(
+                        soundName: alarm.soundName,
+                        alarmId: alarm.id.uuidString,
+                        volume: 1.0
+                    )
+                    print("[Coordinator] Legacy path fallback direct start (missing runId)")
+                }
             } else if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-startRinging-primary") {
                 AlarmContinuousAudioEngine.shared.start(
                     soundName: alarm.soundName,
