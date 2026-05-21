@@ -29,8 +29,15 @@ struct DaySelectionRow: View {
                     // Custom Checkbox
                     ZStack {
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(isDaily ? Colors.accentTeal : Colors.bgSecondary)
+                            .fill(isDaily ? Colors.accentTeal : Colors.cardSurface)
                             .frame(width: 22, height: 22)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(
+                                        isDaily ? Colors.accentTeal.opacity(0.75) : Colors.textSecondary.opacity(0.55),
+                                        lineWidth: isDaily ? 1 : 1.4
+                                    )
+                            )
                         
                         if isDaily {
                             Image(systemName: "checkmark")
@@ -143,11 +150,13 @@ struct DayBubble: View {
             ZStack {
                 Circle()
                     .fill(isSelected ? alarmWeekdayBlue : Colors.bgSecondary)
-                    .frame(width: 38, height: 38)
+                    .frame(width: 36, height: 36)
                 
                 Text(label)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(isSelected ? .white : Colors.textSecondary)
+                    .minimumScaleFactor(0.8)
+                    .lineLimit(1)
             }
         }
         .buttonStyle(.plain)

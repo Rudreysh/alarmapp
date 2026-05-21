@@ -1,26 +1,12 @@
 import SwiftUI
 
 struct FloatingAddMenu: View {
-    let onSelectTimer: () -> Void
     let onSelectHabit: () -> Void
     let onSelectQuick: () -> Void
     let onSelectAlarm: () -> Void
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 10) {
-            VStack(spacing: 0) {
-                FloatingMenuRow(icon: "timer", title: "Pomodoro", tint: Color.orange) {
-                    onSelectTimer()
-                }
-            }
-            .background(Colors.cardSurface)
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(Colors.cardStroke, lineWidth: 1.2)
-            )
-            .shadow(color: Colors.shadow.opacity(0.35), radius: 12, x: 0, y: 6)
-
             VStack(spacing: 0) {
                 FloatingMenuRow(icon: "calendar", title: "Habit alarm", tint: Color.purple) {
                     onSelectHabit()

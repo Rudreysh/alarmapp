@@ -406,7 +406,7 @@ struct BlockListDetailView: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             if isEditing {
                 TextField("🛑 App Block List", text: $viewModel.name)
-                    .font(.system(size: 34, weight: .bold))
+                    .font(.system(size: 30, weight: .bold))
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
                     .foregroundColor(Colors.textPrimary)
@@ -414,7 +414,7 @@ struct BlockListDetailView: View {
                     .focused($isNameFieldFocused)
             } else {
                 Text(viewModel.name)
-                    .font(.system(size: 34, weight: .bold))
+                    .font(.system(size: 30, weight: .bold))
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
                     .foregroundColor(Colors.textPrimary)
@@ -435,7 +435,7 @@ struct BlockListDetailView: View {
                     isNameFieldFocused = true
                 }
             }
-            .font(.system(size: 18, weight: .semibold))
+            .font(.system(size: 16, weight: .semibold))
             .foregroundColor(isLockedActiveList ? Colors.textTertiary : Colors.accentBlue)
             .disabled(isLockedActiveList)
         }
@@ -444,7 +444,7 @@ struct BlockListDetailView: View {
     private var blockListDescription: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("🛡️ Block List: only selected apps and categories will be blocked during your session.")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(Colors.textSecondary)
                 .lineSpacing(3)
             if isLockedActiveList {
@@ -467,7 +467,7 @@ struct BlockListDetailView: View {
                             .tint(Colors.accentTeal)
                     }
                     Text("Enable Screen Time Access")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.system(size: 16, weight: .bold))
                         .foregroundColor(Colors.accentTeal)
                     Spacer()
                 }
@@ -493,7 +493,7 @@ struct BlockListDetailView: View {
         } label: {
             HStack(spacing: 10) {
                 Text("Select Apps")
-                    .font(.system(size: 30, weight: .heavy))
+                    .font(.system(size: 18, weight: .semibold))
                     .minimumScaleFactor(0.7)
                     .foregroundColor(Colors.textPrimary)
                 Spacer()
@@ -517,25 +517,25 @@ struct BlockListDetailView: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(Colors.textSecondary)
                 Text("Categories")
-                    .font(.system(size: 34, weight: .heavy))
+                    .font(.system(size: 20, weight: .bold))
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
                     .foregroundColor(Colors.textPrimary)
                 Text("\(selectedCategoriesCount)")
-                    .font(.system(size: 22, weight: .heavy))
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundColor(Colors.textSecondary)
                 Spacer()
                 Button("Add / Remove") {
                     openPickerWithAuthorizationCheck()
                 }
-                .font(.system(size: 16, weight: .bold))
+                .font(.system(size: 14, weight: .bold))
                 .foregroundColor((isEditing && !isLockedActiveList) ? Colors.accentBlue : Colors.textTertiary)
                 .disabled(!isEditing || isLockedActiveList)
             }
 
             if selectedCategoriesCount == 0 {
                 Text("No categories selected")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(Colors.textTertiary)
                     .padding(.top, 2)
             } else {
@@ -555,7 +555,7 @@ struct BlockListDetailView: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(Colors.textSecondary)
                 Text("Apps")
-                    .font(.system(size: 34, weight: .heavy))
+                    .font(.system(size: 20, weight: .bold))
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
                     .foregroundColor(Colors.textPrimary)
@@ -563,18 +563,18 @@ struct BlockListDetailView: View {
                 Button("Add / Remove") {
                     openPickerWithAuthorizationCheck()
                 }
-                .font(.system(size: 16, weight: .bold))
+                .font(.system(size: 14, weight: .bold))
                 .foregroundColor((isEditing && !isLockedActiveList) ? Colors.accentBlue : Colors.textTertiary)
                 .disabled(!isEditing || isLockedActiveList)
             }
 
             Text("\(selectedAppsCount) apps selected")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(Colors.textSecondary)
 
             if selectedAppsCount == 0 {
                 Text("No apps selected")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(Colors.textTertiary)
                     .padding(.top, 2)
             } else {
@@ -590,10 +590,10 @@ struct BlockListDetailView: View {
     private var adultBlockingSection: some View {
         HStack(spacing: 12) {
             Image(systemName: "18.circle")
-                .font(.system(size: 30, weight: .medium))
+                .font(.system(size: 24, weight: .medium))
                 .foregroundColor(Colors.textSecondary)
             Text("Adult Content Blocking")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(Colors.textPrimary)
             Spacer()
             Toggle("", isOn: $viewModel.adultBlockingEnabled)
@@ -613,7 +613,7 @@ struct BlockListDetailView: View {
             dismiss()
         } label: {
             Text("Save")
-                .font(.system(size: 22, weight: .bold))
+                .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.black)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
@@ -676,7 +676,7 @@ struct BlockListDetailView: View {
         ForEach(Array(viewModel.selection.categoryTokens), id: \.self) { token in
             tokenBadgeRow(symbol: "square.grid.2x2") {
                 Label(token)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(Colors.textPrimary)
             }
         }
@@ -699,7 +699,7 @@ struct BlockListDetailView: View {
         ForEach(Array(viewModel.selection.applicationTokens), id: \.self) { token in
             tokenBadgeRow(symbol: "app.fill") {
                 Label(token)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(Colors.textPrimary)
             }
         }
@@ -714,7 +714,7 @@ struct BlockListDetailView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(Colors.textSecondary)
             Text(title)
-                .font(.system(size: 17, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(Colors.textPrimary)
             Spacer()
         }

@@ -8,10 +8,42 @@ struct WallpaperPickerView: View {
     @State private var categories: [WallpaperCategory] = []
     @State private var items: [WallpaperItem] = []
     @State private var selectedCategory: String = "all" // "all", "my_photos", or category.id
+    @State private var activeAllSectionCategory: String = "my_photos"
+    @State private var suppressAutoSectionSync = false
+    @State private var lockAllTabHighlight = false
     
     @State private var selectedPhotoItem: PhotosPickerItem?
     private let loader = BundleWallpaperCatalogLoader()
     private let fileStorage = LocalFileStorageService()
+
+    private var categoryPills: [(id: String, title: String)] {
+        [("all", "All"), ("my_photos", "My Photos")] + categories.map { ($0.id, $0.title) }
+    }
+
+    private var allSections: [(id: String, title: String, items: [WallpaperItem])] {
+        var sections: [(id: String, title: String, items: [WallpaperItem])] = []
+        let photos = items.filter { $0.category == "my_photos" }
+        if !photos.isEmpty {
+            sections.append((id: "my_photos", title: "My Photos", items: photos))
+        }
+        for category in categories {
+            let sectionItems = items.filter { $0.category == category.id }
+            if !sectionItems.isEmpty {
+                sections.append((id: category.id, title: category.title, items: sectionItems))
+            }
+        }
+        return sections
+    }
+
+    private func isCategorySelected(_ categoryID: String) -> Bool {
+        if selectedCategory == "all" {
+            if lockAllTabHighlight {
+                return categoryID == "all"
+            }
+            return categoryID == activeAllSectionCategory
+        }
+        return selectedCategory == categoryID
+    }
 
     var body: some View {
         ZStack {
@@ -35,60 +67,93 @@ struct WallpaperPickerView: View {
                 .padding(.top, 20)
                 .padding(.bottom, 10)
 
-                // Category Pills
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        // "All" Pill
-                        WallpaperCategoryPill(title: "All", isSelected: selectedCategory == "all") {
-                            selectedCategory = "all"
-                        }
-                        
-                        // "My Photos" Pill
-                        WallpaperCategoryPill(title: "My Photos", isSelected: selectedCategory == "my_photos") {
-                            selectedCategory = "my_photos"
-                        }
-                        
-                        // Dynamic Categories
-                        ForEach(categories, id: \.id) { category in
-                            WallpaperCategoryPill(title: category.title, isSelected: selectedCategory == category.id) {
-                                selectedCategory = category.id
+                ScrollViewReader { sectionProxy in
+                    ScrollViewReader { tabsProxy in
+                        // Category Pills
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(categoryPills, id: \.id) { pill in
+                                    WallpaperCategoryPill(
+                                        title: pill.title,
+                                        isSelected: isCategorySelected(pill.id)
+                                    ) {
+                                        if selectedCategory == "all", pill.id != "all" {
+                                            lockAllTabHighlight = false
+                                            scrollToWallpaperSection(pill.id, proxy: sectionProxy)
+                                        } else {
+                                            selectedCategory = pill.id
+                                            if pill.id == "all" {
+                                                lockAllTabHighlight = true
+                                                activeAllSectionCategory = allSections.first?.id ?? "my_photos"
+                                            } else {
+                                                lockAllTabHighlight = false
+                                            }
+                                        }
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            tabsProxy.scrollTo(pill.id, anchor: .center)
+                                        }
+                                    }
+                                    .id(pill.id)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .onChange(of: activeAllSectionCategory) { _, newValue in
+                                guard selectedCategory == "all" else { return }
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    tabsProxy.scrollTo(newValue, anchor: .center)
+                                }
                             }
                         }
-                    }
-                    .padding(.horizontal, 20)
-                }
-                .padding(.bottom, 20)
+                        .padding(.bottom, 20)
 
-                // Grid
-                ScrollView {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
-                        ForEach(filteredItems) { item in
-                            Button(action: {
-                                selectedId = item.id
-                            }) {
-                                ZStack {
-                                    // Image Content
-                                    WallpaperItemView(item: item)
-                                    
-                                    // Selection Indicator
-                                    if selectedId == item.id {
-                                        RoundedRectangle(cornerRadius: 16)
-                                            .stroke(Colors.accentRed, lineWidth: 3)
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .font(.system(size: 20, weight: .bold))
-                                            .foregroundColor(Colors.textPrimary)
-                                            .background(Circle().fill(Colors.accentRed))
-                                            .padding(6)
-                                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        // Grid
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 16) {
+                                if selectedCategory == "all" {
+                                    ForEach(allSections, id: \.id) { section in
+                                        VStack(alignment: .leading, spacing: 10) {
+                                            Text(section.title)
+                                                .font(.system(size: 13, weight: .bold))
+                                                .foregroundColor(Colors.textSecondary)
+                                                .padding(.horizontal, 2)
+
+                                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
+                                                ForEach(section.items) { item in
+                                                    wallpaperGridItem(item)
+                                                }
+                                            }
+                                        }
+                                        .id("wallpaper-section-\(section.id)")
+                                        .background(
+                                            GeometryReader { geo in
+                                                Color.clear.preference(
+                                                    key: WallpaperSectionOffsetPreferenceKey.self,
+                                                    value: ["wallpaper-section-\(section.id)": geo.frame(in: .named("wallpaperScroll")).minY]
+                                                )
+                                            }
+                                        )
+                                    }
+                                } else {
+                                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
+                                        ForEach(filteredItems) { item in
+                                            wallpaperGridItem(item)
+                                        }
                                     }
                                 }
-                                .aspectRatio(0.6, contentMode: .fit)
-                                .clipShape(RoundedRectangle(cornerRadius: 16))
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 100) // Space for FAB
+                        }
+                        .coordinateSpace(name: "wallpaperScroll")
+                        .onPreferenceChange(WallpaperSectionOffsetPreferenceKey.self) { offsets in
+                            guard selectedCategory == "all", !suppressAutoSectionSync else { return }
+                            guard let next = currentlyVisibleWallpaperSection(offsets: offsets) else { return }
+                            lockAllTabHighlight = false
+                            if next != activeAllSectionCategory {
+                                activeAllSectionCategory = next
                             }
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 100) // Space for FAB
                 }
             }
             
@@ -114,6 +179,7 @@ struct WallpaperPickerView: View {
         }
         .onAppear {
             loadWallpaperData()
+            activeAllSectionCategory = allSections.first?.id ?? "my_photos"
         }
         .onChange(of: selectedPhotoItem) { _, newValue in
             guard let newValue else { return }
@@ -135,6 +201,30 @@ struct WallpaperPickerView: View {
             return items.filter { $0.category == "my_photos" }
         default:
             return items.filter { $0.category == selectedCategory }
+        }
+    }
+
+    @ViewBuilder
+    private func wallpaperGridItem(_ item: WallpaperItem) -> some View {
+        Button(action: {
+            selectedId = item.id
+        }) {
+            ZStack {
+                WallpaperItemView(item: item)
+
+                if selectedId == item.id {
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Colors.accentRed, lineWidth: 3)
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(Colors.textPrimary)
+                        .background(Circle().fill(Colors.accentRed))
+                        .padding(6)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                }
+            }
+            .aspectRatio(0.6, contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
         }
     }
 
@@ -195,6 +285,35 @@ struct WallpaperPickerView: View {
         selectedCategory = "my_photos"
     }
 
+    private func scrollToWallpaperSection(_ categoryID: String, proxy: ScrollViewProxy) {
+        suppressAutoSectionSync = true
+        activeAllSectionCategory = categoryID
+        withAnimation(.easeInOut(duration: 0.25)) {
+            proxy.scrollTo("wallpaper-section-\(categoryID)", anchor: .top)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            suppressAutoSectionSync = false
+        }
+    }
+
+    private func currentlyVisibleWallpaperSection(offsets: [String: CGFloat]) -> String? {
+        let sectionIDs = allSections.map { "wallpaper-section-\($0.id)" }
+        let candidates = sectionIDs.compactMap { id -> (id: String, y: CGFloat)? in
+            guard let y = offsets[id] else { return nil }
+            return (id, y)
+        }
+        guard !candidates.isEmpty else { return nil }
+
+        if let topVisible = candidates.filter({ $0.y >= 0 }).min(by: { $0.y < $1.y }) {
+            return topVisible.id.replacingOccurrences(of: "wallpaper-section-", with: "")
+        }
+        return candidates
+            .filter { $0.y < 0 }
+            .max(by: { $0.y < $1.y })?
+            .id
+            .replacingOccurrences(of: "wallpaper-section-", with: "")
+    }
+
     private func dedupeItems(_ items: [WallpaperItem]) -> [WallpaperItem] {
         var seen = Set<String>()
         var out: [WallpaperItem] = []
@@ -205,6 +324,14 @@ struct WallpaperPickerView: View {
             }
         }
         return out
+    }
+}
+
+private struct WallpaperSectionOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGFloat] = [:]
+
+    static func reduce(value: inout [String : CGFloat], nextValue: () -> [String : CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
 

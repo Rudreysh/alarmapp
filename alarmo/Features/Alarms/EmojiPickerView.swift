@@ -5,6 +5,8 @@ struct EmojiPickerView: View {
     let onSelect: (String) -> Void
 
     @State private var searchText: String = ""
+    @State private var customEmojiText: String = ""
+    @FocusState private var isEmojiFieldFocused: Bool
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 5)
 
@@ -16,6 +18,10 @@ struct EmojiPickerView: View {
         }
     }
 
+    private var typedEmoji: String? {
+        normalizedEmoji(from: customEmojiText)
+    }
+
     var body: some View {
         VStack(spacing: Spacing.m) {
             HStack {
@@ -23,6 +29,13 @@ struct EmojiPickerView: View {
                     .font(.system(size: 20, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
                 Spacer()
+                Button("Remove") {
+                    onSelect("")
+                    dismiss()
+                }
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Colors.accentRed)
+
                 Button {
                     dismiss()
                 } label: {
@@ -47,6 +60,41 @@ struct EmojiPickerView: View {
             .padding(.vertical, 10)
             .background(Colors.cardSurface)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            HStack(spacing: 8) {
+                Image(systemName: "face.smiling")
+                    .foregroundColor(Colors.textSecondary)
+
+                TextField("Type any emoji with keyboard", text: $customEmojiText)
+                    .foregroundColor(Colors.textPrimary)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+                    .focused($isEmojiFieldFocused)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Colors.cardSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            HStack(spacing: 10) {
+                Button("Clear typed") {
+                    customEmojiText = ""
+                }
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(Colors.textSecondary)
+                .disabled(customEmojiText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                Spacer()
+
+                Button("Use") {
+                    guard let emoji = typedEmoji else { return }
+                    onSelect(emoji)
+                    dismiss()
+                }
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(typedEmoji == nil ? Colors.textSecondary : Colors.accentTeal)
+                .disabled(typedEmoji == nil)
+            }
 
             if filteredOptions.isEmpty {
                 Spacer()
@@ -82,6 +130,17 @@ struct EmojiPickerView: View {
         }
         .padding(Spacing.l)
         .background(Colors.bgPrimary)
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                isEmojiFieldFocused = true
+            }
+        }
+    }
+
+    private func normalizedEmoji(from value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = trimmed.first else { return nil }
+        return String(first)
     }
 }
 

@@ -47,6 +47,7 @@ struct PlanView: View {
     @State private var editingItem: PlanItem? // For edit
     @State private var editingNote: PlanItem? // For note editing
     @State private var habitEditMode: EditMode = .inactive
+    @State private var selectedHabitIDsForDeletion: Set<UUID> = []
     
     // Timer State
     
@@ -205,9 +206,23 @@ struct PlanView: View {
                                     .buttonStyle(.plain)
 
                                     if viewModel.isHabitsExpanded {
+                                        if habitEditMode == .active {
+                                            Button("Delete Selected") {
+                                                deleteSelectedHabits()
+                                            }
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundColor(selectedHabitIDsForDeletion.isEmpty ? Colors.textSecondary : .red)
+                                            .disabled(selectedHabitIDsForDeletion.isEmpty)
+                                            .padding(.trailing, 4)
+                                        }
+
                                         Button(habitEditMode == .active ? "Done" : "Edit") {
                                             withAnimation(.easeInOut(duration: 0.2)) {
-                                                habitEditMode = habitEditMode == .active ? .inactive : .active
+                                                let becomingActive = habitEditMode != .active
+                                                habitEditMode = becomingActive ? .active : .inactive
+                                                if !becomingActive {
+                                                    selectedHabitIDsForDeletion.removeAll()
+                                                }
                                             }
                                         }
                                         .font(.system(size: 13, weight: .semibold))
@@ -218,53 +233,70 @@ struct PlanView: View {
                             ) {
                                 if viewModel.isHabitsExpanded {
                                     ForEach(habits, id: \.id) { item in
-                                        PlanItemRow(item: item, selectedDate: viewModel.selectedDate, isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
-                                            viewModel.toggleComplete(item, context: modelContext)
-                                        } onPlay: {
-                                            startTimer(for: item)
-                                        } onQuickAdd: { _, position in
-                                            if item.id == firstVisibleItemId && !preferences.hasSeenQuickLogTooltip {
-                                                preferences.hasSeenQuickLogTooltip = true
-                                                showQuickLogCoachMark = false
+                                        HStack(spacing: 10) {
+                                            if habitEditMode == .active {
+                                                Button {
+                                                    toggleHabitSelection(item.id)
+                                                } label: {
+                                                    Image(systemName: selectedHabitIDsForDeletion.contains(item.id) ? "checkmark.circle.fill" : "circle")
+                                                        .font(.system(size: 20, weight: .semibold))
+                                                        .foregroundColor(selectedHabitIDsForDeletion.contains(item.id) ? .red : Colors.textSecondary)
+                                                }
+                                                .buttonStyle(.plain)
                                             }
-                                            let amount = viewModel.incrementHabit(item, value: nil, context: modelContext)
-                                            addFloatingBubble(value: "+\(Int(amount))", at: position)
-                                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                        } onAdjust: { delta in
-                                            viewModel.updateHabitValue(item, delta: delta, context: modelContext)
+
+                                            PlanItemRow(item: item, selectedDate: viewModel.selectedDate, isCompleted: viewModel.isCompleted(item, on: viewModel.selectedDate)) {
+                                                viewModel.toggleComplete(item, context: modelContext)
+                                            } onPlay: {
+                                                startTimer(for: item)
+                                            } onQuickAdd: { _, position in
+                                                if item.id == firstVisibleItemId && !preferences.hasSeenQuickLogTooltip {
+                                                    preferences.hasSeenQuickLogTooltip = true
+                                                    showQuickLogCoachMark = false
+                                                }
+                                                let amount = viewModel.incrementHabit(item, value: nil, context: modelContext)
+                                                addFloatingBubble(value: "+\(Int(amount))", at: position)
+                                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                            } onAdjust: { delta in
+                                                viewModel.updateHabitValue(item, delta: delta, context: modelContext)
+                                            }
+                                            .coachMark(
+                                                title: "Manage",
+                                                subtitle: "Swipe to edit or delete.",
+                                                isVisible: Binding(get: { item.id == firstVisibleItemId ? showPlanSwipeCoachMark : false }, set: { showPlanSwipeCoachMark = $0 }),
+                                                alignment: .top,
+                                                pointDirection: .bottom,
+                                                arrowAlignment: .center,
+                                                arrowOffsetX: 0,
+                                                bubbleOffsetX: 0,
+                                                bubbleOffsetY: -60,
+                                                color: .red
+                                            )
+                                            .coachMark(
+                                                title: "Quick Log",
+                                                subtitle: "Tap + to log progress.",
+                                                isVisible: Binding(get: { item.id == firstVisibleItemId ? showQuickLogCoachMark : false }, set: { showQuickLogCoachMark = $0 }),
+                                                alignment: .bottomTrailing,
+                                                pointDirection: .top,
+                                                arrowAlignment: .trailing,
+                                                arrowOffsetX: -50,
+                                                bubbleOffsetX: -10,
+                                                bubbleOffsetY: 12
+                                            )
+                                            .contentShape(Rectangle())
+                                            .onTapGesture {
+                                                guard habitEditMode != .active else {
+                                                    toggleHabitSelection(item.id)
+                                                    return
+                                                }
+                                                // Tap on habit -> Open Detail View (Start Focus screen)
+                                                selectedItem = item
+                                            }
                                         }
-                                        .coachMark(
-                                            title: "Manage",
-                                            subtitle: "Swipe to edit or delete.",
-                                            isVisible: Binding(get: { item.id == firstVisibleItemId ? showPlanSwipeCoachMark : false }, set: { showPlanSwipeCoachMark = $0 }),
-                                            alignment: .top,
-                                            pointDirection: .bottom,
-                                            arrowAlignment: .center,
-                                            arrowOffsetX: 0,
-                                            bubbleOffsetX: 0,
-                                            bubbleOffsetY: -60,
-                                            color: .red
-                                        )
-                                        .coachMark(
-                                            title: "Quick Log",
-                                            subtitle: "Tap + to log progress.",
-                                            isVisible: Binding(get: { item.id == firstVisibleItemId ? showQuickLogCoachMark : false }, set: { showQuickLogCoachMark = $0 }),
-                                            alignment: .bottomTrailing,
-                                            pointDirection: .top,
-                                            arrowAlignment: .trailing,
-                                            arrowOffsetX: -50,
-                                            bubbleOffsetX: -10,
-                                            bubbleOffsetY: 12
-                                        )
+                                        .id(item.updatedAt) // Force Refresh
                                         .listRowBackground(Color.clear)
                                         .listRowSeparator(.hidden)
                                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                                        .contentShape(Rectangle())
-                                        .onTapGesture {
-                                            guard habitEditMode != .active else { return }
-                                            // Tap on habit -> Open Detail View (Start Focus screen)
-                                            selectedItem = item
-                                        }
                                         .id(item.updatedAt) // Force Refresh
                                         .contextMenu {
                                             Button {
@@ -598,6 +630,28 @@ struct PlanView: View {
         item.isArchived = true
         item.archivedAt = Date()
         item.updatedAt = Date()
+        try? modelContext.save()
+    }
+
+    private func toggleHabitSelection(_ id: UUID) {
+        if selectedHabitIDsForDeletion.contains(id) {
+            selectedHabitIDsForDeletion.remove(id)
+        } else {
+            selectedHabitIDsForDeletion.insert(id)
+        }
+    }
+
+    private func deleteSelectedHabits() {
+        guard !selectedHabitIDsForDeletion.isEmpty else { return }
+        let now = Date()
+        let targets = allItems.filter { selectedHabitIDsForDeletion.contains($0.id) && !$0.isArchived && $0.type == .habit }
+        for item in targets {
+            item.isArchived = true
+            item.archivedAt = now
+            item.updatedAt = now
+        }
+        selectedHabitIDsForDeletion.removeAll()
+        habitEditMode = .inactive
         try? modelContext.save()
     }
     

@@ -233,7 +233,7 @@ struct PomoTimerView: View {
                         }
                         .frame(maxWidth: .infinity)
                     }
-                    .padding(.top, 4)
+                    .padding(.top, 12)
                     .padding(.horizontal, 2)
                     
                     Spacer(minLength: topSectionSpacer)
@@ -390,13 +390,13 @@ struct PomoTimerView: View {
                                 label: {
                                     HStack(spacing: 10) {
                                         Text("Start")
-                                            .font(.system(size: 18, weight: .black))
+                                            .font(.system(size: 14, weight: .black))
                                         Image(systemName: "play.fill")
-                                            .font(.system(size: 16, weight: .bold))
+                                            .font(.system(size: 12, weight: .bold))
                                     }
                                     .foregroundColor(.black)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 16)
+                                    .frame(width: 160)
+                                    .padding(.vertical, 8)
                                     .background(
                                         Capsule()
                                             .fill(TimerPalette.accent)

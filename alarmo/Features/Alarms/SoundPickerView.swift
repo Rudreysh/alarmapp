@@ -4,11 +4,13 @@ import MediaPlayer
 
 struct SoundPickerView: View {
     private enum TopTab: Hashable, Identifiable {
+        case all
         case category(SoundCategory)
         case downloadable(String)
 
         var id: String {
             switch self {
+            case .all: return "all"
             case .category(let category): return "cat:\(category.id)"
             case .downloadable(let name): return "cloud:\(name.lowercased())"
             }
@@ -16,6 +18,7 @@ struct SoundPickerView: View {
 
         var title: String {
             switch self {
+            case .all: return "All Sounds"
             case .category(let category): return category.title
             case .downloadable(let name): return name
             }
@@ -23,6 +26,7 @@ struct SoundPickerView: View {
 
         var emoji: String? {
             switch self {
+            case .all: return "🎵"
             case .category(let category): return category.emoji
             case .downloadable: return nil
             }
@@ -35,6 +39,10 @@ struct SoundPickerView: View {
     @State private var sounds: [SoundAsset] = []
     @State private var selectedTab: SoundCategory = .alarmTone
     @State private var selectedCloudCategory: String? = nil
+    @State private var showAllSounds = true
+    @State private var activeAllSectionTab: TopTab = .category(.alarmTone)
+    @State private var suppressAutoSectionSync = false
+    @State private var lockAllTabHighlight = false
     
     // Add Logic
     @State private var showMusicPicker = false
@@ -63,10 +71,37 @@ struct SoundPickerView: View {
     }
 
     private var topTabs: [TopTab] {
-        var tabs: [TopTab] = [.category(.favorites), .category(.alarmTone), .category(.focus)]
+        var tabs: [TopTab] = [.all, .category(.favorites), .category(.alarmTone), .category(.focus)]
         tabs += downloadableSections.map { .downloadable($0.category) }
         tabs += [.category(.downloads), .category(.custom), .category(.spotify)]
         return tabs
+    }
+
+    private var allSoundSectionsWithTabs: [(tab: TopTab, title: String, sounds: [SoundAsset])] {
+        let localSections: [(TopTab, String, [SoundAsset])] = [
+            (.category(.alarmTone), "Alarm Tone", sounds.filter { $0.category == .alarmTone || $0.category == .loud || $0.category == .classic }),
+            (.category(.focus), "Focus", sounds.filter { $0.category == .focus }),
+            (.category(.downloads), "Downloads", downloadedSounds),
+            (.category(.custom), "Custom", sounds.filter { $0.category == .custom }),
+            (.category(.spotify), "Spotify", sounds.filter { $0.category == .spotify })
+        ]
+
+        let cloudSections: [(TopTab, String, [SoundAsset])] = downloadableSections.map { section in
+            let mapped = section.sounds.map { remote in
+                SoundAsset(
+                    id: remote.id,
+                    title: remote.title,
+                    fileURL: remote.url,
+                    category: .cloud,
+                    isStarred: sounds.first(where: { $0.id == remote.id })?.isStarred ?? false
+                )
+            }
+            return (.downloadable(section.category), section.category, mapped)
+        }
+
+        return (localSections + cloudSections)
+            .map { (tab: $0.0, title: $0.1, sounds: $0.2) }
+            .filter { !$0.sounds.isEmpty }
     }
 
     private var currentCloudCategory: String {
@@ -78,21 +113,46 @@ struct SoundPickerView: View {
     }
 
     private func isTopTabSelected(_ tab: TopTab) -> Bool {
+        if showAllSounds {
+            if lockAllTabHighlight {
+                if case .all = tab { return true }
+                return false
+            }
+            return tab == activeAllSectionTab
+        }
         switch tab {
+        case .all:
+            return false
         case .category(let category):
-            return selectedTab == category
+            return !showAllSounds && selectedTab == category
         case .downloadable(let name):
-            return selectedTab == .cloud && currentCloudCategory == name
+            return !showAllSounds && selectedTab == .cloud && currentCloudCategory == name
         }
     }
 
-    private func selectTopTab(_ tab: TopTab) {
+    private func selectTopTab(_ tab: TopTab, proxy: ScrollViewProxy? = nil) {
         switch tab {
+        case .all:
+            showAllSounds = true
+            lockAllTabHighlight = true
+            activeAllSectionTab = allSoundSectionsWithTabs.first?.tab ?? .category(.alarmTone)
         case .category(let category):
-            selectedTab = category
+            lockAllTabHighlight = false
+            if showAllSounds, let proxy {
+                scrollToAllSection(for: tab, proxy: proxy)
+            } else {
+                showAllSounds = false
+                selectedTab = category
+            }
         case .downloadable(let name):
-            selectedTab = .cloud
-            selectedCloudCategory = name
+            lockAllTabHighlight = false
+            if showAllSounds, let proxy {
+                scrollToAllSection(for: tab, proxy: proxy)
+            } else {
+                showAllSounds = false
+                selectedTab = .cloud
+                selectedCloudCategory = name
+            }
         }
     }
     
@@ -132,30 +192,106 @@ struct SoundPickerView: View {
                 .padding()
                 
                 
-                // Categories (Tabs)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(topTabs) { tab in
-                            TopTabPill(
-                                title: tab.title,
-                                emoji: tab.emoji,
-                                isSelected: isTopTabSelected(tab),
-                                isPlaying: isPlayingInCategory(tab)
-                            ) {
-                                selectTopTab(tab)
+                ScrollViewReader { listProxy in
+                    ScrollViewReader { tabsProxy in
+                        // Categories (Tabs)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(topTabs) { tab in
+                                    TopTabPill(
+                                        title: tab.title,
+                                        emoji: tab.emoji,
+                                        isSelected: isTopTabSelected(tab),
+                                        isPlaying: isPlayingInCategory(tab)
+                                    ) {
+                                        selectTopTab(tab, proxy: listProxy)
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            tabsProxy.scrollTo(tab.id, anchor: .center)
+                                        }
+                                    }
+                                    .id(tab.id)
+                                }
+                            }
+                            .padding(.horizontal)
+                            .onChange(of: activeAllSectionTab) { _, newValue in
+                                guard showAllSounds else { return }
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    tabsProxy.scrollTo(newValue.id, anchor: .center)
+                                }
                             }
                         }
-                    }
-                    .padding(.horizontal)
-                }
-                .padding(.bottom, 20)
+                        .padding(.bottom, 20)
                 
-                // List
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
+                        // List
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 24) {
 
-                        VStack(spacing: 0) {
-                            if selectedTab == .cloud {
+                            VStack(spacing: 0) {
+                                if showAllSounds {
+                                    VStack(alignment: .leading, spacing: 22) {
+                                        ForEach(Array(allSoundSectionsWithTabs.enumerated()), id: \.offset) { _, section in
+                                            VStack(alignment: .leading, spacing: 10) {
+                                                Text(section.title)
+                                                    .font(.system(size: 13, weight: .bold))
+                                                    .foregroundColor(Colors.textSecondary)
+                                                    .padding(.horizontal)
+
+                                                VStack(spacing: 0) {
+                                                    ForEach(Array(section.sounds.enumerated()), id: \.element.id) { index, sound in
+                                                        SoundRow(
+                                                            sound: sound,
+                                                            isSelected: selectedSound == sound.title,
+                                                            isPlaying: isSoundPlaying(named: sound.title),
+                                                            isBuffering: isSoundBuffering(named: sound.title)
+                                                        ) { action in
+                                                            switch action {
+                                                            case .select, .play:
+                                                                selectedSound = sound.title
+                                                                if sound.category == .cloud && !sound.fileURL.isFileURL {
+                                                                    let remote = RemoteSound(
+                                                                        id: sound.id,
+                                                                        filename: sound.fileURL.lastPathComponent,
+                                                                        title: sound.title,
+                                                                        category: section.title,
+                                                                        url: sound.fileURL,
+                                                                        isPremium: false
+                                                                    )
+                                                                    if let url = assetManager.localURL(for: remote.filename) {
+                                                                        togglePlay(sound: SoundAsset(id: sound.id, title: sound.title, fileURL: url, category: .cloud, isStarred: sound.isStarred))
+                                                                    } else {
+                                                                        downloadAndPlay(remoteSound: remote)
+                                                                    }
+                                                                } else {
+                                                                    togglePlay(sound: sound)
+                                                                }
+                                                            case .toggleStar:
+                                                                toggleStar(sound: sound)
+                                                            }
+                                                        }
+
+                                                        if index < section.sounds.count - 1 {
+                                                            Divider()
+                                                                .background(Colors.cardStroke)
+                                                                .padding(.leading, 56)
+                                                        }
+                                                    }
+                                                }
+                                                .background(Colors.cardSurface.opacity(0.3))
+                                                .cornerRadius(16)
+                                                .padding(.horizontal)
+                                            }
+                                            .id("all-section-\(section.tab.id)")
+                                            .background(
+                                                GeometryReader { geo in
+                                                    Color.clear.preference(
+                                                        key: AllSoundsSectionOffsetPreferenceKey.self,
+                                                        value: ["all-section-\(section.tab.id)": geo.frame(in: .named("allSoundsScroll")).minY]
+                                                    )
+                                                }
+                                            )
+                                        }
+                                    }
+                                } else if selectedTab == .cloud {
                                 // REMOTE SOUNDS LIST (category selected from top tabs)
                                 if assetManager.isLoadingCatalog {
                                     ProgressView("Loading valid sounds...")
@@ -257,7 +393,7 @@ struct SoundPickerView: View {
                                         }
                                     }
                                 }
-                            } else {
+                                } else {
                                 // LOCAL & FAVORITES SOUNDS
                                 if selectedTab == .favorites && filteredSounds.isEmpty {
                                     VStack(spacing: 16) {
@@ -444,9 +580,20 @@ struct SoundPickerView: View {
                                         }
                                     }
                                 }
+                                }
+                            }
+                            .padding(.bottom, 100) // Space for FAB
                             }
                         }
-                        .padding(.bottom, 100) // Space for FAB
+                        .coordinateSpace(name: "allSoundsScroll")
+                        .onPreferenceChange(AllSoundsSectionOffsetPreferenceKey.self) { offsets in
+                            guard showAllSounds, !suppressAutoSectionSync else { return }
+                            guard let next = currentlyVisibleAllSectionTab(offsets: offsets) else { return }
+                            lockAllTabHighlight = false
+                            if next != activeAllSectionTab {
+                                activeAllSectionTab = next
+                            }
+                        }
                     }
                 }
             }
@@ -514,6 +661,7 @@ struct SoundPickerView: View {
         }
         .onAppear {
             loadSounds()
+            activeAllSectionTab = allSoundSectionsWithTabs.first?.tab ?? .category(.alarmTone)
             // Stop any preview that might be playing from the previous screen
             soundPlayer.stop()
             Task { await assetManager.fetchCatalog() }
@@ -621,6 +769,9 @@ struct SoundPickerView: View {
     }
     
     private var filteredSounds: [SoundAsset] {
+        if showAllSounds {
+            return sounds
+        }
         if selectedTab == .favorites {
             return sounds.filter { $0.isStarred }
         }
@@ -674,6 +825,9 @@ struct SoundPickerView: View {
         guard let playing = soundPlayer.playingResourceName else { return false }
         
         switch tab {
+        case .all:
+            return sounds.contains(where: { normalizedTitle($0.title) == normalizedTitle(playing) }) ||
+                assetManager.remoteSounds.contains(where: { normalizedTitle($0.title) == normalizedTitle(playing) })
         case .category(let category):
             if category == .downloads {
                 return downloadedSounds.contains(where: { normalizedTitle($0.title) == normalizedTitle(playing) })
@@ -791,6 +945,42 @@ struct SoundPickerView: View {
         } catch {
             print("Failed to delete sound: \(error)")
         }
+    }
+
+    private func scrollToAllSection(for tab: TopTab, proxy: ScrollViewProxy) {
+        suppressAutoSectionSync = true
+        activeAllSectionTab = tab
+        withAnimation(.easeInOut(duration: 0.25)) {
+            proxy.scrollTo("all-section-\(tab.id)", anchor: .top)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            suppressAutoSectionSync = false
+        }
+    }
+
+    private func currentlyVisibleAllSectionTab(offsets: [String: CGFloat]) -> TopTab? {
+        let sections = allSoundSectionsWithTabs.map { ($0.tab, "all-section-\($0.tab.id)") }
+        let candidates = sections.compactMap { tab, id -> (tab: TopTab, y: CGFloat)? in
+            guard let y = offsets[id] else { return nil }
+            return (tab, y)
+        }
+        guard !candidates.isEmpty else { return nil }
+
+        if let topVisible = candidates.filter({ $0.y >= 0 }).min(by: { $0.y < $1.y }) {
+            return topVisible.tab
+        }
+        return candidates
+            .filter { $0.y < 0 }
+            .max(by: { $0.y < $1.y })?
+            .tab
+    }
+}
+
+private struct AllSoundsSectionOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGFloat] = [:]
+
+    static func reduce(value: inout [String : CGFloat], nextValue: () -> [String : CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
 

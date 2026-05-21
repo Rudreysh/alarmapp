@@ -329,17 +329,18 @@ private struct ReligiousTheme {
     let accent: Color
 
     static func forType(_ type: WakeUpMissionType) -> ReligiousTheme {
+        let religionBlue = Color(red: 0.44, green: 0.80, blue: 0.98)
         switch type {
         case .bibleVerse:
-            return .init(shortTitle: "Bible", symbol: "book.closed.fill", accent: Colors.accentBlue)
+            return .init(shortTitle: "Bible", symbol: "book.closed.fill", accent: religionBlue)
         case .quranVerse:
-            return .init(shortTitle: "Quran", symbol: "moon.stars.fill", accent: Colors.accentBlue)
+            return .init(shortTitle: "Quran", symbol: "moon.stars.fill", accent: religionBlue)
         case .bhagavadGitaVerse:
-            return .init(shortTitle: "Bhagavad Gita", symbol: "sun.max.fill", accent: Colors.accentBlue)
+            return .init(shortTitle: "Bhagavad Gita", symbol: "sun.max.fill", accent: religionBlue)
         case .affirmation:
-            return .init(shortTitle: "Affirmations", symbol: "sparkles", accent: Colors.accentBlue)
+            return .init(shortTitle: "Affirmations", symbol: "sparkles", accent: religionBlue)
         default:
-            return .init(shortTitle: "Recitation", symbol: "quote.bubble.fill", accent: Colors.accentBlue)
+            return .init(shortTitle: "Recitation", symbol: "quote.bubble.fill", accent: religionBlue)
         }
     }
 }

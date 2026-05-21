@@ -190,22 +190,11 @@ private struct FocusDialAlarmTimePickerView: View {
     }
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                formatButton(title: "12H", isSelected: is12HourFormat) {
-                    is12HourFormat = true
-                }
-
-                Text(timeLabel)
-                    .font(.system(size: 16, weight: .heavy, design: .monospaced))
-                    .foregroundColor(Colors.accentTeal.opacity(0.92))
-                    .frame(maxWidth: .infinity)
-
-                formatButton(title: "24H", isSelected: !is12HourFormat) {
-                    is12HourFormat = false
-                }
-            }
-            .padding(.horizontal, 18)
+        VStack(spacing: 36) {
+            Text(timeLabel)
+                .font(.system(size: 16, weight: .heavy, design: .monospaced))
+                .foregroundColor(Colors.accentTeal.opacity(0.92))
+                .frame(maxWidth: .infinity)
 
             ZStack {
                 Circle()
@@ -268,6 +257,19 @@ private struct FocusDialAlarmTimePickerView: View {
                     }
 
                 knobView
+
+                HStack {
+                    formatButton(title: "12H", isSelected: is12HourFormat) {
+                        is12HourFormat = true
+                    }
+
+                    Spacer()
+
+                    formatButton(title: "24H", isSelected: !is12HourFormat) {
+                        is12HourFormat = false
+                    }
+                }
+                .frame(width: ringSize + 160)
             }
             .frame(width: ringSize + 20, height: ringSize + 20)
             .contentShape(Circle())
@@ -319,6 +321,7 @@ private struct FocusDialAlarmTimePickerView: View {
 
     private var dialReferenceLabels: some View {
         let axisOffset = ringSize * 0.30
+        let sideLabelExtraOffset = ringSize * 0.045
 
         return ZStack {
             VStack(spacing: 2) {
@@ -332,14 +335,14 @@ private struct FocusDialAlarmTimePickerView: View {
             .offset(y: -axisOffset)
 
             Text(leftReferenceLabel)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .font(.system(size: 9.5, weight: .bold, design: .rounded))
                 .foregroundColor(Colors.textPrimary.opacity(0.92))
-                .offset(x: -axisOffset, y: 0)
+                .offset(x: -(axisOffset + sideLabelExtraOffset), y: 0)
 
             Text(rightReferenceLabel)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .font(.system(size: 9.5, weight: .bold, design: .rounded))
                 .foregroundColor(Colors.textPrimary.opacity(0.92))
-                .offset(x: axisOffset, y: 0)
+                .offset(x: axisOffset + sideLabelExtraOffset, y: 0)
 
             VStack(spacing: 2) {
                 Image(systemName: "sun.max.fill")
@@ -606,6 +609,12 @@ struct LabelSettingsView: View {
                                 .font(.system(size: 26))
                             }
                         }
+
+                        Button("Remove Emoji") {
+                            emoji = ""
+                        }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.red)
                     }
                     .padding(.horizontal)
                     

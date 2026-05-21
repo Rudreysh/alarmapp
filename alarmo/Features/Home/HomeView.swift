@@ -599,9 +599,6 @@ struct HomeView: View {
                     HStack {
                         Spacer()
                         FloatingAddMenu( // Replaced with FloatingAddMenu
-                            onSelectTimer: {
-                                openTimer()
-                            },
                             onSelectHabit: {
                                 openCreateHabit()
                             },
@@ -639,13 +636,6 @@ struct HomeView: View {
         showAddMenu = false
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             showCreateHabit = true
-        }
-    }
-
-    private func openTimer() {
-        showAddMenu = false
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            showTimer = true
         }
     }
 
@@ -781,8 +771,11 @@ private struct AlarmCardView: View {
                         ForEach(0..<weekdays.count, id: \.self) { index in
                             let isEnabled = isDayEnabled(index: index)
                             Text(weekdays[index])
-                                .font(.system(size: 11, weight: .heavy))
+                                .font(.system(size: 10, weight: .bold, design: .rounded))
                                 .foregroundColor(isEnabled ? Colors.accentTeal : Colors.textTertiary.opacity(0.3))
+                                .frame(width: 12, alignment: .center)
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
                         }
                     }
                 }

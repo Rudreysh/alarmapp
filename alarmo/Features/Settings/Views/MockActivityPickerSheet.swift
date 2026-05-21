@@ -46,7 +46,7 @@ struct MockActivityPickerSheet: View {
         .init(id: "com.apple.Bridge", name: "Bridge", categoryID: "education", emoji: "⌚️"),
         .init(id: "com.instagram", name: "Instagram", categoryID: "social", emoji: "📸"),
         .init(id: "com.tiktok", name: "TikTok", categoryID: "social", emoji: "🎵"),
-        .init(id: "com.x.twitter", name: "X", categoryID: "social", emoji: "🐦"),
+        .init(id: "com.x.twitter", name: "X", categoryID: "social", emoji: "✕"),
         .init(id: "com.whatsapp", name: "WhatsApp", categoryID: "social", emoji: "💬"),
         .init(id: "com.spotify", name: "Spotify", categoryID: "music", emoji: "🎧"),
         .init(id: "com.youtube", name: "YouTube", categoryID: "entertainment", emoji: "📺"),
@@ -126,7 +126,7 @@ struct MockActivityPickerSheet: View {
 
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Choose Activities")
-                        .font(.system(size: 26, weight: .bold))
+                        .font(.system(size: 22, weight: .bold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 16)
                         .padding(.top, 16)
@@ -177,7 +177,7 @@ struct MockActivityPickerSheet: View {
                             dismiss()
                         } label: {
                             Text("Save")
-                                .font(.system(size: 18, weight: .semibold))
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(Color.black)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
@@ -189,7 +189,7 @@ struct MockActivityPickerSheet: View {
                             dismiss()
                         } label: {
                             Text("Cancel")
-                                .font(.system(size: 18, weight: .semibold))
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
@@ -216,7 +216,7 @@ struct MockActivityPickerSheet: View {
                     toggleCategory(category.id)
                 } label: {
                     Image(systemName: localCategories.contains(category.id) ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 24, weight: .medium))
+                        .font(.system(size: 20, weight: .medium))
                         .foregroundColor(localCategories.contains(category.id) ? SettingsPalette.accent : Colors.textSecondary)
                         .padding(.leading, 12)
                 }
@@ -236,10 +236,10 @@ struct MockActivityPickerSheet: View {
                 } label: {
                     HStack(spacing: 12) {
                         Text(category.emoji)
-                            .font(.system(size: 24))
+                            .font(.system(size: 20))
 
                         Text(category.title)
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(.white)
 
                         Spacer()
@@ -247,7 +247,7 @@ struct MockActivityPickerSheet: View {
                         if hasApps {
                             if selectedAppCount > 0 && !localCategories.contains(category.id) {
                                 Text("\(selectedAppCount)")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.system(size: 13, weight: .semibold))
                                     .foregroundColor(Colors.textSecondary)
                             }
                             Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
@@ -284,14 +284,14 @@ struct MockActivityPickerSheet: View {
                 Spacer().frame(width: 44) // Indentation for the circle
                 
                 Image(systemName: localApps.contains(app.id) ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 24, weight: .medium))
+                    .font(.system(size: 20, weight: .medium))
                     .foregroundColor(localApps.contains(app.id) ? SettingsPalette.accent : Colors.textSecondary)
 
                 Text(app.emoji)
-                    .font(.system(size: 24))
+                    .font(.system(size: 20))
 
                 Text(app.name)
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundColor(.white)
 
                 Spacer()

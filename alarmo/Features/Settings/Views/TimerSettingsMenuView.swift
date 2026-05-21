@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TimerSettingsMenuView: View {
     @ObservedObject var preferences: AppPreferences
+    @State private var showTimerRoot = false
 
     var body: some View {
         ZStack {
@@ -16,7 +17,9 @@ struct TimerSettingsMenuView: View {
                         .padding(.top, Spacing.s)
 
                     VStack(spacing: 0) {
-                        NavigationLink(destination: PomoSettingsView(preferences: preferences)) {
+                        Button {
+                            showTimerRoot = true
+                        } label: {
                             timerRow(title: "Pomodoro Settings", icon: "timer")
                         }
                         .buttonStyle(.plain)
@@ -42,6 +45,11 @@ struct TimerSettingsMenuView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
+        .fullScreenCover(isPresented: $showTimerRoot) {
+            TimerRootView(preferences: preferences, onClose: {
+                showTimerRoot = false
+            })
+        }
     }
 
     private func timerRow(title: String, icon: String) -> some View {

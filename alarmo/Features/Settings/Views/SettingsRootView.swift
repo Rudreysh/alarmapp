@@ -1,16 +1,21 @@
 import SwiftUI
+import SwiftData
 
 struct SettingsRootView: View {
     @ObservedObject var preferences: AppPreferences
     @ObservedObject private var store = SettingsStore.shared
+    @ObservedObject private var pointsService = PointsService.shared
+    @ObservedObject private var rankService = RankProgressService.shared
     @StateObject private var subManager = SubscriptionManager.shared
     @StateObject private var coordinator = SettingsCoordinator()
 
     @Environment(\.openURL) private var openURL
+    @Environment(\.modelContext) private var modelContext
 
     @State private var showSignIn = false
     @State private var showDeleteAccountDialog = false
     @State private var infoAlertMessage: String?
+    @State private var completedTaskCount: Int = 0
 
     @AppStorage("settings.localAccountId") private var localAccountId: String = UUID().uuidString
 
@@ -26,11 +31,32 @@ struct SettingsRootView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: Spacing.l) {
-                        Text("Settings")
-                            .font(.system(size: 32, weight: .black, design: .rounded))
-                            .foregroundColor(Colors.textPrimary)
-                            .padding(.horizontal, Spacing.l)
-                            .padding(.top, Spacing.s)
+                        HStack(alignment: .center) {
+                            Text("Settings")
+                                .font(.system(size: 32, weight: .black, design: .rounded))
+                                .foregroundColor(Colors.textPrimary)
+                            Spacer()
+                            Button {
+                                coordinator.navigate(to: .pro)
+                            } label: {
+                                Text(subManager.isPro ? "PRO" : "FREE")
+                                    .font(.system(size: 12, weight: .black, design: .rounded))
+                                    .foregroundColor(Colors.textPrimary)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        Capsule()
+                                            .fill(Colors.cardSurface)
+                                    )
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(Colors.cardStroke, lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(PressedScaleButtonStyle())
+                        }
+                        .padding(.horizontal, Spacing.l)
+                        .padding(.top, Spacing.s)
 
                         profileSection
 
@@ -158,6 +184,12 @@ struct SettingsRootView: View {
                 switch route {
                 case .points:
                     MyPointsView()
+                case .rank:
+                    RankProgressPreviewView(
+                        currentXP: rankService.totalXP,
+                        completedTasks: completedTaskCount,
+                        streakDays: currentDisplayStreak
+                    )
                 case .pro:
                     ProView()
                 case .penalty:
@@ -223,6 +255,7 @@ struct SettingsRootView: View {
         }
         .onAppear {
             store.validateAppleCredentialStateIfNeeded()
+            refreshCompletedTaskCount()
         }
     }
 
@@ -305,7 +338,7 @@ struct SettingsRootView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, 12)
                     .padding(.top, 10)
-                    .padding(.bottom, 12)
+                    .padding(.bottom, 8)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(PressedScaleButtonStyle())
@@ -315,50 +348,18 @@ struct SettingsRootView: View {
                     .padding(.horizontal, 14)
 
                 HStack(spacing: 0) {
-                    Button {
-                        coordinator.navigate(to: .points)
-                    } label: {
-                        VStack(spacing: 6) {
-                            HStack(spacing: 4) {
-                                Text("\(store.points)")
-                                    .font(.system(size: 28, weight: .black, design: .rounded))
-                                    .foregroundColor(Colors.textPrimary)
-                                Text("🔥")
-                                    .font(.system(size: 14))
-                            }
-                            Text("my points")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(Colors.textPrimary)
-                        }
+                    streakStatCard
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(PressedScaleButtonStyle())
 
                     Divider()
                         .background(Colors.cardStroke)
-                        .frame(height: 54)
+                        .frame(height: 120)
 
-                    Button {
-                        coordinator.navigate(to: .pro)
-                    } label: {
-                        VStack(spacing: 6) {
-                            Text(subManager.isPro ? "PRO" : "FREE")
-                                .font(.system(size: 24, weight: .black, design: .rounded))
-                                .foregroundColor(Colors.textPrimary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                            Text("subscription")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(Colors.textPrimary)
-                        }
+                    rankStatCard
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(PressedScaleButtonStyle())
                 }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 8)
             }
             .background(Colors.cardSurface)
             .cornerRadius(22)
@@ -368,6 +369,98 @@ struct SettingsRootView: View {
             )
             .padding(.horizontal, Spacing.l)
         }
+    }
+
+    private var streakProgress: Double {
+        let target = 3.0
+        return min(1.0, Double(currentDisplayStreak) / target)
+    }
+
+    private var completedProgress: Double {
+        let target = 60.0
+        return min(1.0, Double(completedTaskCount) / target)
+    }
+
+    private var currentDisplayStreak: Int {
+        max(pointsService.wakeUpStreak, pointsService.focusStreak, pointsService.habitStreak, pointsService.taskStreak)
+    }
+
+    private var streakStatCard: some View {
+        VStack(spacing: 0) {
+            Text("🔥 \(currentDisplayStreak)")
+                .font(.system(size: 34, weight: .black, design: .rounded))
+                .foregroundColor(Colors.textPrimary)
+            Text("DAY STREAK")
+                .font(.system(size: 12, weight: .heavy, design: .rounded))
+                .foregroundColor(Colors.textPrimary)
+                .padding(.top, 8)
+            Spacer(minLength: 0)
+                .frame(height: 26)
+            progressBar(progress: streakProgress, tint: Color.purple)
+            Text("\(currentDisplayStreak)/3 days")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundColor(Colors.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .padding(.top, 12)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .padding(.vertical, 10)
+    }
+
+    private var rankStatCard: some View {
+        Button {
+            coordinator.navigate(to: .rank)
+        } label: {
+            VStack(spacing: 0) {
+                Image(rankService.currentRank.assetName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 44, height: 44)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                Text("\(rankService.totalXP)")
+                    .font(.system(size: 30, weight: .black, design: .rounded))
+                    .foregroundColor(Colors.textPrimary)
+                    .padding(.top, 8)
+            Spacer(minLength: 0)
+                .frame(height: 26)
+                progressBar(progress: rankService.rankProgress, tint: rankService.currentRank.tier.accentColor)
+                Text("RANK XP")
+                    .font(.system(size: 12, weight: .heavy, design: .rounded))
+                    .foregroundColor(Colors.textPrimary)
+                    .padding(.top, 12)
+                Text(rankService.nextRank.map { "\(rankService.xpToNextRank) XP to \($0.displayName)" } ?? "Mastery")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundColor(Colors.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+                    .padding(.top, 6)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressedScaleButtonStyle())
+    }
+
+    private func progressBar(progress: Double, tint: Color) -> some View {
+        ZStack(alignment: .leading) {
+            Capsule()
+                .fill(Colors.cardStroke.opacity(0.65))
+                .frame(height: 10)
+            Capsule()
+                .fill(tint)
+                .frame(width: max(12, 120 * progress), height: 10)
+        }
+        .frame(width: 120, height: 10)
+    }
+
+    private func refreshCompletedTaskCount() {
+        let descriptor = FetchDescriptor<ActivityEvent>()
+        let events = (try? modelContext.fetch(descriptor)) ?? []
+        completedTaskCount = events.filter { event in
+            event.status == .completed && (event.domain == .task || event.domain == .habit)
+        }.count
     }
 
     @ViewBuilder

@@ -1,17 +1,94 @@
 import SwiftUI
 
 struct MissionSelectionView: View {
+    private struct MissionCategory: Identifiable, Hashable {
+        let id: String
+        let title: String
+    }
+
+    private struct MissionItem: Identifiable, Hashable {
+        let id: String
+        let title: String
+        let subtitle: String?
+        let icon: String
+        let iconBg: Color
+        let type: WakeUpMissionType
+    }
+
     @Environment(\.dismiss) var dismiss
     @StateObject private var subManager = SubscriptionManager.shared
     @State private var showUpsell = false
+    @State private var selectedCategoryId: String = "all"
+    @State private var activeAllSectionCategoryId: String = "brain"
+    @State private var suppressAutoSectionSync = false
+    @State private var lockAllTabHighlight = false
     let onSelect: (AlarmMission) -> Void
-    
+
+    private var categories: [MissionCategory] {
+        [
+            .init(id: "brain", title: "Wake your brain"),
+            .init(id: "body", title: "Wake your body"),
+            .init(id: "religion", title: "Religion")
+        ]
+    }
+
+    private var categoryPills: [(id: String, title: String)] {
+        [("all", "All")] + categories.map { ($0.id, $0.title) }
+    }
+
+    private var missionsByCategory: [(id: String, title: String, items: [MissionItem])] {
+        [
+            (
+                id: "brain",
+                title: "Wake your brain",
+                items: [
+                    .init(id: "findColorTiles", title: "Find Color Tiles", subtitle: nil, icon: "square.grid.2x2.fill", iconBg: Color.cyan.opacity(0.3), type: .findColorTiles),
+                    .init(id: "memoryMatch", title: "Memory Match", subtitle: nil, icon: "brain.head.profile", iconBg: Color.cyan.opacity(0.3), type: .memoryMatch),
+                    .init(id: "ticTacToe", title: "Tic Tac Toe", subtitle: nil, icon: "xmark.square.fill", iconBg: Color.cyan.opacity(0.3), type: .ticTacToe),
+                    .init(id: "typing", title: "Typing", subtitle: nil, icon: "keyboard.fill", iconBg: Color.cyan.opacity(0.3), type: .typing),
+                    .init(id: "math", title: "Math", subtitle: nil, icon: "plus.forwardslash.minus", iconBg: Color.cyan.opacity(0.3), type: .math)
+                ]
+            ),
+            (
+                id: "body",
+                title: "Wake your body",
+                items: [
+                    .init(id: "householdItemHunt", title: "Household Item Hunt", subtitle: "AI", icon: "magnifyingglass", iconBg: Color.green.opacity(0.3), type: .householdItemHunt),
+                    .init(id: "step", title: "Step", subtitle: nil, icon: "figure.walk", iconBg: Color.green.opacity(0.3), type: .step),
+                    .init(id: "qrBarcode", title: "QR/Barcode", subtitle: nil, icon: "barcode.viewfinder", iconBg: Color.green.opacity(0.3), type: .qrBarcode),
+                    .init(id: "shake", title: "Shake", subtitle: nil, icon: "iphone.radiowaves.left.and.right", iconBg: Color.green.opacity(0.3), type: .shake),
+                    .init(id: "squat", title: "Squat", subtitle: nil, icon: "figure.strengthtraining.traditional", iconBg: Color.green.opacity(0.3), type: .squat),
+                    .init(id: "pushups", title: "Push-ups", subtitle: nil, icon: "figure.strengthtraining.functional", iconBg: Color.green.opacity(0.3), type: .pushups)
+                ]
+            ),
+            (
+                id: "religion",
+                title: "Religion",
+                items: [
+                    .init(id: "bibleVerse", title: "Bible Verse", subtitle: nil, icon: "book.closed", iconBg: Color.orange.opacity(0.25), type: .bibleVerse),
+                    .init(id: "quranVerse", title: "Quran Verse", subtitle: nil, icon: "moon.stars", iconBg: Color.green.opacity(0.25), type: .quranVerse),
+                    .init(id: "bhagavadGitaVerse", title: "Bhagavad Gita Verse", subtitle: nil, icon: "book.pages", iconBg: Color.indigo.opacity(0.25), type: .bhagavadGitaVerse),
+                    .init(id: "affirmation", title: "Affirmation", subtitle: nil, icon: "quote.bubble", iconBg: Color.pink.opacity(0.25), type: .affirmation)
+                ]
+            )
+        ]
+    }
+
+    private func isCategorySelected(_ categoryID: String) -> Bool {
+        if selectedCategoryId == "all" {
+            if lockAllTabHighlight {
+                return categoryID == "all"
+            }
+            return categoryID == activeAllSectionCategoryId
+        }
+        return selectedCategoryId == categoryID
+    }
+
     var body: some View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
-            
+
             VStack(spacing: 0) {
-                // Header
                 HStack {
                     Spacer()
                     Text("Mission")
@@ -27,56 +104,122 @@ struct MissionSelectionView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
                 .padding(.bottom, 10)
-                
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 30) {
-                        missionSection(title: "Wake your brain") {
-                            missionRow(title: "Find Color Tiles", icon: "square.grid.2x2.fill", iconBg: Color.cyan.opacity(0.3), type: .findColorTiles)
-                            missionRow(title: "Memory Match", icon: "brain.head.profile", iconBg: Color.cyan.opacity(0.3), type: .memoryMatch)
-                            missionRow(title: "Tic Tac Toe", icon: "xmark.square.fill", iconBg: Color.cyan.opacity(0.3), type: .ticTacToe)
-                            missionRow(title: "Typing", icon: "keyboard.fill", iconBg: Color.cyan.opacity(0.3), type: .typing)
-                            missionRow(title: "Math", icon: "plus.forwardslash.minus", iconBg: Color.cyan.opacity(0.3), type: .math)
-                        }
-                        
-                        missionSection(title: "Wake your body") {
-                            missionRow(title: "Household Item Hunt", subtitle: "AI", icon: "magnifyingglass", iconBg: Color.green.opacity(0.3), type: .householdItemHunt)
-                            missionRow(title: "Step", icon: "figure.walk", iconBg: Color.green.opacity(0.3), type: .step)
-                            missionRow(title: "QR/Barcode", icon: "barcode.viewfinder", iconBg: Color.green.opacity(0.3), type: .qrBarcode)
-                            missionRow(title: "Shake", icon: "iphone.radiowaves.left.and.right", iconBg: Color.green.opacity(0.3), type: .shake)
-                            missionRow(title: "Squat", icon: "figure.strengthtraining.traditional", iconBg: Color.green.opacity(0.3), type: .squat)
-                            missionRow(title: "Push-ups", icon: "figure.strengthtraining.functional", iconBg: Color.green.opacity(0.3), type: .pushups)
-                        }
 
-                        missionSection(title: "Religion") {
-                            missionRow(title: "Bible Verse", icon: "book.closed", iconBg: Color.orange.opacity(0.25), type: .bibleVerse)
-                            missionRow(title: "Quran Verse", icon: "moon.stars", iconBg: Color.green.opacity(0.25), type: .quranVerse)
-                            missionRow(title: "Bhagavad Gita Verse", icon: "book.pages", iconBg: Color.indigo.opacity(0.25), type: .bhagavadGitaVerse)
-                            missionRow(title: "Affirmation", icon: "quote.bubble", iconBg: Color.pink.opacity(0.25), type: .affirmation)
+                ScrollViewReader { sectionProxy in
+                    ScrollViewReader { tabsProxy in
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(categoryPills, id: \.id) { pill in
+                                    missionCategoryPill(
+                                        title: pill.title,
+                                        isSelected: isCategorySelected(pill.id)
+                                    ) {
+                                        if selectedCategoryId == "all", pill.id != "all" {
+                                            lockAllTabHighlight = false
+                                            scrollToMissionSection(pill.id, proxy: sectionProxy)
+                                        } else {
+                                            selectedCategoryId = pill.id
+                                            if pill.id == "all" {
+                                                lockAllTabHighlight = true
+                                                activeAllSectionCategoryId = missionsByCategory.first?.id ?? "brain"
+                                            } else {
+                                                lockAllTabHighlight = false
+                                            }
+                                        }
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            tabsProxy.scrollTo(pill.id, anchor: .center)
+                                        }
+                                    }
+                                    .id(pill.id)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .onChange(of: activeAllSectionCategoryId) { _, newValue in
+                                guard selectedCategoryId == "all" else { return }
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    tabsProxy.scrollTo(newValue, anchor: .center)
+                                }
+                            }
+                        }
+                        .scrollIndicators(.hidden, axes: .horizontal)
+                        .padding(.bottom, 12)
+
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 30) {
+                                if selectedCategoryId == "all" {
+                                    ForEach(missionsByCategory, id: \.id) { section in
+                                        missionSection(title: section.title) {
+                                            ForEach(section.items, id: \.id) { item in
+                                                missionRow(
+                                                    title: item.title,
+                                                    subtitle: item.subtitle,
+                                                    icon: item.icon,
+                                                    iconBg: item.iconBg,
+                                                    type: item.type
+                                                )
+                                            }
+                                        }
+                                        .id("mission-section-\(section.id)")
+                                        .background(
+                                            GeometryReader { geo in
+                                                Color.clear.preference(
+                                                    key: MissionSectionOffsetPreferenceKey.self,
+                                                    value: ["mission-section-\(section.id)": geo.frame(in: .named("missionScroll")).minY]
+                                                )
+                                            }
+                                        )
+                                    }
+                                } else if let selectedSection = missionsByCategory.first(where: { $0.id == selectedCategoryId }) {
+                                    missionSection(title: selectedSection.title) {
+                                        ForEach(selectedSection.items, id: \.id) { item in
+                                            missionRow(
+                                                title: item.title,
+                                                subtitle: item.subtitle,
+                                                icon: item.icon,
+                                                iconBg: item.iconBg,
+                                                type: item.type
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.bottom, 100)
+                        }
+                        .coordinateSpace(name: "missionScroll")
+                        .onPreferenceChange(MissionSectionOffsetPreferenceKey.self) { offsets in
+                            guard selectedCategoryId == "all", !suppressAutoSectionSync else { return }
+                            guard let next = currentlyVisibleMissionSection(offsets: offsets) else { return }
+                            lockAllTabHighlight = false
+                            if next != activeAllSectionCategoryId {
+                                activeAllSectionCategoryId = next
+                            }
                         }
                     }
-                    .padding(.bottom, 100) // Increased padding to ensure bottom items are easily accessible
                 }
-                .scrollIndicators(.visible) // Force scroll indicators to be visible
+                .scrollIndicators(.hidden, axes: .horizontal)
             }
+        }
+        .onAppear {
+            activeAllSectionCategoryId = missionsByCategory.first?.id ?? "brain"
         }
         .fullScreenCover(isPresented: $showUpsell) {
             ProUpsellFlowView()
         }
     }
-    
+
     private func missionSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(title)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(Colors.textSecondary)
                 .padding(.horizontal, 20)
-            
+
             VStack(spacing: 20) {
                 content()
             }
         }
     }
-    
+
     private func missionRow(title: String, subtitle: String? = nil, icon: String, iconBg: Color, type: WakeUpMissionType) -> some View {
         Button(action: {
             if type != .off {
@@ -95,13 +238,13 @@ struct MissionSelectionView: View {
                         .frame(width: 44, height: 44)
                     Image(systemName: icon)
                         .font(.system(size: 20))
-                        .foregroundColor(title == "Household Item Hunt" ? .white : iconBg.opacity(1)) // Adjustment for contrast
+                        .foregroundColor(title == "Household Item Hunt" ? .white : iconBg.opacity(1))
                 }
-                
+
                 Text(title)
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(Colors.textPrimary)
-                
+
                 if let subtitle {
                     Text(subtitle)
                         .font(.system(size: 10, weight: .bold))
@@ -119,10 +262,66 @@ struct MissionSelectionView: View {
                         .foregroundColor(Colors.accentTeal)
                         .cornerRadius(4)
                 }
-                
+
                 Spacer()
             }
             .padding(.horizontal, 20)
         }
+    }
+
+    private func scrollToMissionSection(_ categoryID: String, proxy: ScrollViewProxy) {
+        suppressAutoSectionSync = true
+        activeAllSectionCategoryId = categoryID
+        withAnimation(.easeInOut(duration: 0.25)) {
+            proxy.scrollTo("mission-section-\(categoryID)", anchor: .top)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            suppressAutoSectionSync = false
+        }
+    }
+
+    private func currentlyVisibleMissionSection(offsets: [String: CGFloat]) -> String? {
+        let sectionIDs = missionsByCategory.map { "mission-section-\($0.id)" }
+        let candidates = sectionIDs.compactMap { id -> (id: String, y: CGFloat)? in
+            guard let y = offsets[id] else { return nil }
+            return (id, y)
+        }
+        guard !candidates.isEmpty else { return nil }
+
+        if let topVisible = candidates.filter({ $0.y >= 0 }).min(by: { $0.y < $1.y }) {
+            return topVisible.id.replacingOccurrences(of: "mission-section-", with: "")
+        }
+        return candidates
+            .filter { $0.y < 0 }
+            .max(by: { $0.y < $1.y })?
+            .id
+            .replacingOccurrences(of: "mission-section-", with: "")
+    }
+
+    private func missionCategoryPill(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(isSelected ? .black : Colors.textPrimary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? Colors.accentTeal : Colors.cardSurface.opacity(0.45))
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(isSelected ? Colors.accentTeal : Colors.cardStroke, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct MissionSectionOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGFloat] = [:]
+
+    static func reduce(value: inout [String : CGFloat], nextValue: () -> [String : CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }

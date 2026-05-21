@@ -171,11 +171,26 @@ struct CreateWakeUpAlarmView: View {
                         .padding(.bottom, locationBadgeBottomPadding)
 
                         // 2. Name & Emoji (Moved Below Time)
-                         HStack(spacing: Spacing.m) {
-                            Button(action: { showEmojiPicker = true }) {
-                                Text(viewModel.draft.emoji)
-                                    .font(.system(size: 30))
+                        HStack(spacing: Spacing.m) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(Colors.cardSurface.opacity(0.45))
                                     .frame(width: 44, height: 44)
+
+                                TextField("🙂", text: $viewModel.draft.emoji)
+                                    .font(.system(size: 30))
+                                    .multilineTextAlignment(.center)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled(true)
+                                    .frame(width: 40, height: 40)
+                                    .onChange(of: viewModel.draft.emoji) { _, newValue in
+                                        viewModel.draft.emoji = normalizedEmojiInput(newValue)
+                                    }
+                            }
+
+                            Button(action: { showEmojiPicker = true }) {
+                                Image(systemName: "face.smiling")
+                                    .foregroundColor(Colors.textSecondary)
                             }
 
                             TextField("Please fill in the alarm name", text: $viewModel.draft.name)
@@ -861,6 +876,12 @@ struct CreateWakeUpAlarmView: View {
 
     private var alarmNameTopPadding: CGFloat {
         isClassicSunrayStyle ? -8 : -28
+    }
+
+    private func normalizedEmojiInput(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = trimmed.first else { return "" }
+        return String(first)
     }
 
     private var repeatText: String {

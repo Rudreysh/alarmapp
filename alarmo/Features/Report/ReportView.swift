@@ -14,6 +14,8 @@ struct ReportView: View {
     @State private var isPickerExpanded = false
     @State private var selectedReportDate: Date? = Date()
     @State private var selectedTrendPoint: TrendPoint?
+    @State private var showMoodLoggings = false
+    @AppStorage("plan_mood_records_v1") private var moodRecordsData = "{}"
 
     private struct HabitWeekSnapshot: Identifiable {
         let date: Date
@@ -112,6 +114,7 @@ struct ReportView: View {
     private var overallReportSection: some View {
         VStack(spacing: 24) {
             calendarSection
+            moodLoggingsSection
             if viewModel.selectedDomain == .habits {
                 allHabitsOverviewSection
                 habitSignalSection
@@ -123,6 +126,48 @@ struct ReportView: View {
             selectedDayMetricsCard
             rateRingSection
             overallKPIs
+        }
+    }
+
+    private var moodLoggingsSection: some View {
+        Button {
+            showMoodLoggings = true
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(ReportPalette.accent.opacity(0.15))
+                        .frame(width: 42, height: 42)
+                    Text("🙂")
+                        .font(.system(size: 18))
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Mood Loggings")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(Colors.textPrimary)
+                    Text("View mood logs and stats")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Colors.textSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(Colors.textSecondary)
+            }
+            .padding(16)
+            .background(Colors.cardSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Colors.cardStroke, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .fullScreenCover(isPresented: $showMoodLoggings) {
+            ReportMoodLoggingsView(recordsData: moodRecordsData, referenceDate: viewModel.referenceDate)
         }
     }
 
@@ -1737,6 +1782,193 @@ struct ReportView: View {
                     label: "Success Rate"
                 )
             }
+        }
+    }
+}
+
+private struct ReportMoodLoggingsView: View {
+    let recordsData: String
+    let referenceDate: Date
+    @Environment(\.dismiss) private var dismiss
+
+    private var entries: [ReportMoodEntry] {
+        let records = decodeStringMap(recordsData)
+        return records.compactMap { key, rawMood in
+            let parts = key.split(separator: "|")
+            guard parts.count == 2,
+                  let date = parseDate(String(parts[0])),
+                  let mood = MoodType(rawValue: rawMood) else {
+                return nil
+            }
+            return ReportMoodEntry(key: key, date: date, segment: String(parts[1]), mood: mood)
+        }
+        .sorted { lhs, rhs in
+            if lhs.date != rhs.date { return lhs.date > rhs.date }
+            return lhs.segment < rhs.segment
+        }
+    }
+
+    private var stats: ReportMoodStats {
+        ReportMoodStats(entries: entries, referenceDate: referenceDate)
+    }
+
+    var body: some View {
+        ZStack {
+            TimerGlassBackground()
+
+            VStack(spacing: 14) {
+                HStack {
+                    Text("Mood Loggings")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(Colors.textPrimary)
+                    Spacer()
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(Colors.textSecondary)
+                    }
+                }
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    ReportMoodStatCard(title: "Total Entries", value: "\(stats.totalEntries)")
+                    ReportMoodStatCard(title: "Days Logged", value: "\(stats.daysLogged)")
+                    ReportMoodStatCard(title: "Avg Mood", value: String(format: "%.1f / 5", stats.averageMood))
+                    ReportMoodStatCard(title: "Current Streak", value: "\(stats.currentStreak) days")
+                }
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 10) {
+                        if entries.isEmpty {
+                            Text("No mood logs found yet.")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Colors.textSecondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(14)
+                                .background(Colors.cardSurface)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        } else {
+                            ForEach(entries.prefix(100)) { entry in
+                                HStack(spacing: 10) {
+                                    Text(entry.mood.emoji)
+                                        .font(.system(size: 18))
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(entry.mood.title)
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundColor(Colors.textPrimary)
+                                        Text("\(entry.segment.capitalized) • \(entry.date.formatted(date: .abbreviated, time: .omitted))")
+                                            .font(.system(size: 12, weight: .medium))
+                                            .foregroundColor(Colors.textSecondary)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(12)
+                                .background(Colors.cardSurface)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .stroke(Colors.cardStroke, lineWidth: 1)
+                                )
+                            }
+                        }
+                    }
+                    .padding(.bottom, 16)
+                }
+            }
+            .padding(20)
+            .padding(.top, 8)
+        }
+    }
+
+    private func decodeStringMap(_ value: String) -> [String: String] {
+        guard let data = value.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode([String: String].self, from: data) else {
+            return [:]
+        }
+        return decoded
+    }
+
+    private func parseDate(_ value: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: value)
+    }
+}
+
+private struct ReportMoodEntry: Identifiable {
+    let key: String
+    let date: Date
+    let segment: String
+    let mood: MoodType
+    var id: String { key }
+}
+
+private struct ReportMoodStatCard: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(Colors.textSecondary)
+            Text(value)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(Colors.textPrimary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Colors.cardSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Colors.cardStroke, lineWidth: 1)
+        )
+    }
+}
+
+private struct ReportMoodStats {
+    let totalEntries: Int
+    let daysLogged: Int
+    let averageMood: Double
+    let currentStreak: Int
+
+    init(entries: [ReportMoodEntry], referenceDate: Date) {
+        totalEntries = entries.count
+        let calendar = Calendar.current
+        let uniqueDays = Set(entries.map { calendar.startOfDay(for: $0.date) })
+        daysLogged = uniqueDays.count
+
+        let scores = entries.map { Self.moodScore(for: $0.mood) }
+        averageMood = scores.isEmpty ? 0 : (scores.reduce(0, +) / Double(scores.count))
+
+        var streak = 0
+        let dayMap = Dictionary(grouping: entries) { calendar.startOfDay(for: $0.date) }
+        let today = calendar.startOfDay(for: referenceDate)
+        for offset in 0..<365 {
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else { break }
+            guard let dayEntries = dayMap[day], !dayEntries.isEmpty else {
+                if offset == 0 { continue }
+                break
+            }
+            let dayAvg = dayEntries.map { Self.moodScore(for: $0.mood) }.reduce(0, +) / Double(dayEntries.count)
+            if dayAvg >= 0.5 {
+                streak += 1
+            } else {
+                break
+            }
+        }
+        currentStreak = streak
+    }
+
+    private static func moodScore(for mood: MoodType) -> Double {
+        switch mood {
+        case .bad: return 1
+        case .notGreat: return 2
+        case .okay: return 3
+        case .good: return 4
+        case .great: return 5
         }
     }
 }

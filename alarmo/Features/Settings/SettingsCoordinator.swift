@@ -3,6 +3,7 @@ import Combine
 
 enum SettingsRoute: Hashable {
     case points
+    case rank
     case pro
     case penalty
     case preventAppUninstall

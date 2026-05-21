@@ -26,8 +26,7 @@ struct CreateHabitAlarmView: View {
     
     // Reminder Pickers
     @State private var showFrequencyPicker = false
-    @State private var showStartTimePicker = false
-    @State private var showEndTimePicker = false
+    @State private var showActiveWindowPicker = false
     
     // Services
     @StateObject private var soundPlayer = SoundPreviewPlayer()
@@ -137,10 +136,25 @@ struct CreateHabitAlarmView: View {
 
                         // 2. Name & Emoji
                         HStack(spacing: Spacing.m) {
-                            Button(action: { showEmojiPicker = true }) {
-                                Text(viewModel.emoji)
-                                    .font(.system(size: 30))
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(Colors.cardSurface.opacity(0.45))
                                     .frame(width: 44, height: 44)
+
+                                TextField("🙂", text: $viewModel.emoji)
+                                    .font(.system(size: 30))
+                                    .multilineTextAlignment(.center)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled(true)
+                                    .frame(width: 40, height: 40)
+                                    .onChange(of: viewModel.emoji) { _, newValue in
+                                        viewModel.emoji = normalizedEmojiInput(newValue)
+                                    }
+                            }
+
+                            Button(action: { showEmojiPicker = true }) {
+                                Image(systemName: "face.smiling")
+                                    .foregroundColor(Colors.textSecondary)
                             }
 
                             TextField("Please fill in the alarm name", text: $viewModel.name)
@@ -205,7 +219,7 @@ struct CreateHabitAlarmView: View {
                                     title: "Active Window",
                                     value: "\(TimeFormatters.shortTime(viewModel.reminderStartTime)) - \(TimeFormatters.shortTime(viewModel.reminderEndTime))"
                                 ) {
-                                    showStartTimePicker = true 
+                                    showActiveWindowPicker = true
                                 }
                                 
                                 Text(viewModel.reminderSummary)
@@ -569,11 +583,11 @@ struct CreateHabitAlarmView: View {
         .sheet(isPresented: $showFrequencyPicker) {
             NumberPickerSheet(title: "How often", unit: "minutes", value: $viewModel.reminderIntervalMinutes, range: 1...360)
         }
-        .sheet(isPresented: $showStartTimePicker) {
-            TimePickerSheet(title: "Start from", date: $viewModel.reminderStartTime)
-        }
-        .sheet(isPresented: $showEndTimePicker) {
-            TimePickerSheet(title: "End until", date: $viewModel.reminderEndTime)
+        .sheet(isPresented: $showActiveWindowPicker) {
+            TimeRangePickerSheet(
+                startDate: $viewModel.reminderStartTime,
+                endDate: $viewModel.reminderEndTime
+            )
         }
         .onDisappear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
@@ -844,6 +858,12 @@ struct CreateHabitAlarmView: View {
         let labels = ["S", "M", "T", "W", "T", "F", "S"]
         return labels[day - 1]
     }
+
+    private func normalizedEmojiInput(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = trimmed.first else { return "" }
+        return String(first)
+    }
     
     // Helpers for display
     var timeZoneText: String {
@@ -1055,12 +1075,6 @@ struct NumberPickerSheet: View {
                     .frame(height: 200)
                     
                     Spacer()
-                    
-                    PrimaryButton(title: "Done") {
-                        dismiss()
-                    }
-                    .padding(.horizontal, Spacing.l)
-                    .padding(.bottom, Spacing.l)
                 }
                 .padding(.top, Spacing.xl)
             }
@@ -1103,6 +1117,55 @@ struct TimePickerSheet: View {
                 .padding(.top, Spacing.xl)
             }
             .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(Colors.accentTeal)
+                }
+            }
+        }
+    }
+}
+
+struct TimeRangePickerSheet: View {
+    @Binding var startDate: Date
+    @Binding var endDate: Date
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Colors.bgPrimary.ignoresSafeArea()
+
+                VStack(spacing: Spacing.xl) {
+                    VStack(alignment: .leading, spacing: Spacing.m) {
+                        Text("Start from")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Colors.textSecondary)
+                            .padding(.horizontal, Spacing.l)
+
+                        DatePicker("", selection: $startDate, displayedComponents: .hourAndMinute)
+                            .datePickerStyle(.wheel)
+                            .labelsHidden()
+                            .frame(height: 150)
+                    }
+
+                    VStack(alignment: .leading, spacing: Spacing.m) {
+                        Text("End until")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Colors.textSecondary)
+                            .padding(.horizontal, Spacing.l)
+
+                        DatePicker("", selection: $endDate, displayedComponents: .hourAndMinute)
+                            .datePickerStyle(.wheel)
+                            .labelsHidden()
+                            .frame(height: 150)
+                    }
+                }
+                .padding(.top, Spacing.l)
+            }
+            .navigationTitle("Active Window")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {

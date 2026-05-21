@@ -14,6 +14,7 @@ struct MainTabContainerView: View {
     @EnvironmentObject var navStore: NavigationStore
     @ObservedObject var preferences: AppPreferences
     @ObservedObject var alarmStore: AlarmStore
+    @ObservedObject private var rewardFeedback = RewardFeedbackService.shared
     
     @Environment(\.modelContext) var modelContext
     @EnvironmentObject var pomodoroEngine: PomodoroEngine
@@ -48,6 +49,9 @@ struct MainTabContainerView: View {
                 ],
                 selected: $navStore.selectedTab
             )
+
+            RewardFeedbackOverlay()
+                .allowsHitTesting(rewardFeedback.rankUp != nil)
         }
         .ignoresSafeArea(edges: .bottom)
         .onAppear {

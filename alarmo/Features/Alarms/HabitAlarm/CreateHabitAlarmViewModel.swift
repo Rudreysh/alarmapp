@@ -272,29 +272,25 @@ class CreateHabitAlarmViewModel: ObservableObject {
     }
     
     var reminderSummary: AttributedString {
-        let habitName = name.isEmpty ? "your habit" : name
-        
-        var string = AttributedString("I want to ")
-        
-        var habitAttr = AttributedString(habitName)
-        habitAttr.foregroundColor = Colors.accentTeal
-        habitAttr.underlineStyle = .single
-        string.append(habitAttr)
-        
-        string.append(AttributedString(" every "))
-        
-        var intervalAttr = AttributedString("\(reminderIntervalMinutes) minutes")
+        var summary = AttributedString("Reminder schedule: every ")
+
+        var intervalAttr = AttributedString("\(reminderIntervalMinutes) min")
         intervalAttr.foregroundColor = Colors.accentTeal
-        string.append(intervalAttr)
-        
-        string.append(AttributedString(" for "))
-        
-        var durationAttr = AttributedString("\(reminderDurationSeconds) seconds")
+        summary.append(intervalAttr)
+
+        summary.append(AttributedString(", duration "))
+
+        var durationAttr = AttributedString("\(reminderDurationSeconds) sec")
         durationAttr.foregroundColor = Colors.accentTeal
-        string.append(durationAttr)
-        
-        string.append(AttributedString("."))
-        
-        return string
+        summary.append(durationAttr)
+
+        summary.append(AttributedString(", active window "))
+
+        let windowText = "\(TimeFormatters.shortTime(reminderStartTime)) - \(TimeFormatters.shortTime(reminderEndTime))"
+        var windowAttr = AttributedString(windowText)
+        windowAttr.foregroundColor = Colors.accentTeal
+        summary.append(windowAttr)
+
+        return summary
     }
 }

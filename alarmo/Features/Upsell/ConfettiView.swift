@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ConfettiView: View {
-    @State private var animate = false
+    @State private var phase: CGFloat = -0.35
     private let pieces: [ConfettiPiece] = (0..<96).map { _ in ConfettiPiece.random() }
 
     var body: some View {
@@ -19,13 +19,20 @@ struct ConfettiView: View {
                                 .font(.system(size: max(piece.size.width, piece.size.height) * 1.8))
                         }
                     }
-                    .rotationEffect(piece.rotation)
-                    .position(x: piece.x * geo.size.width, y: piece.y * geo.size.height)
-                    .offset(y: animate ? geo.size.height + 100 : -60)
-                    .animation(.easeOut(duration: piece.duration).delay(piece.delay), value: animate)
+                    .rotationEffect(piece.rotation + .degrees(Double(phase) * piece.spinDegrees))
+                    .position(
+                        x: (piece.startX + piece.driftX * phase) * geo.size.width,
+                        y: (piece.startY + piece.fallDistance * phase) * geo.size.height
+                    )
+                    .opacity(piece.opacity)
                 }
             }
-            .onAppear { animate = true }
+            .onAppear {
+                phase = -0.35
+                withAnimation(.linear(duration: 5.8).repeatForever(autoreverses: false)) {
+                    phase = 1.15
+                }
+            }
         }
         .allowsHitTesting(false)
     }
@@ -33,12 +40,14 @@ struct ConfettiView: View {
 
 private struct ConfettiPiece: Identifiable {
     let id = UUID()
-    let x: CGFloat
-    let y: CGFloat
+    let startX: CGFloat
+    let startY: CGFloat
+    let driftX: CGFloat
+    let fallDistance: CGFloat
     let size: CGSize
     let rotation: Angle
-    let delay: Double
-    let duration: Double
+    let spinDegrees: Double
+    let opacity: Double
     let type: PieceType
     
     enum PieceType {
@@ -55,12 +64,14 @@ private struct ConfettiPiece: Identifiable {
         let type: PieceType = isEmoji ? .emoji(emojis.randomElement()!) : .rectangle(colors.randomElement() ?? .white)
         
         return ConfettiPiece(
-            x: CGFloat.random(in: -0.1...1.1),
-            y: CGFloat.random(in: -0.1...0.3),
+            startX: CGFloat.random(in: -0.08...1.08),
+            startY: CGFloat.random(in: -0.55...0.08),
+            driftX: CGFloat.random(in: -0.08...0.08),
+            fallDistance: CGFloat.random(in: 1.55...2.3),
             size: CGSize(width: CGFloat.random(in: 6...14), height: CGFloat.random(in: 6...14)),
             rotation: .degrees(Double.random(in: 0...360)),
-            delay: Double.random(in: 0.0...0.8),
-            duration: Double.random(in: 1.6...2.8),
+            spinDegrees: Double.random(in: 90...420),
+            opacity: Double.random(in: 0.78...1.0),
             type: type
         )
     }

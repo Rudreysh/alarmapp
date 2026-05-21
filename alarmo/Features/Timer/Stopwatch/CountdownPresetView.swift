@@ -8,6 +8,7 @@ struct CountdownPresetView: View {
     @State private var showAddPreset = false
     @State private var showActiveTimer = false
     @State private var selectedAudience: CountdownAudience? = nil
+    @State private var showPresetInfoSheet = false
 
     private var filteredPresets: [CountdownPreset] {
         store.filtered(by: selectedAudience)
@@ -116,10 +117,24 @@ struct CountdownPresetView: View {
                 Text("This Week")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(Colors.textTertiary)
+
+                Button {
+                    showPresetInfoSheet = true
+                } label: {
+                    Image(systemName: "info.circle.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Colors.textSecondary)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
             }
         }
         .padding(16)
         .timerGlassCard(cornerRadius: 18)
+        .sheet(isPresented: $showPresetInfoSheet) {
+            CountdownPresetInfoSheet()
+                .presentationDetents([.height(240)])
+        }
     }
 
     private var audienceFilterRow: some View {
@@ -223,6 +238,36 @@ struct CountdownPresetView: View {
         }
 
         return "\(s)s"
+    }
+}
+
+private struct CountdownPresetInfoSheet: View {
+    private let lines = ["sports", "gym", "study", "focus presets"]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Countdown Presets")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(Colors.textPrimary)
+
+            ForEach(lines, id: \.self) { line in
+                Text(line)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Colors.textSecondary)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(
+            LinearGradient(
+                colors: [Colors.sheetGradientTop, Colors.sheetGradientBottom],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+        )
     }
 }
 

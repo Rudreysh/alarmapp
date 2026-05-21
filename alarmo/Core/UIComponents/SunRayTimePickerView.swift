@@ -168,12 +168,16 @@ struct SunRayTimePickerView: View {
                                 let label = is12HourFormat
                                     ? (i == 0 ? "12" : "\(i)")
                                     : String(format: "%02d", i)
+                                let isCompactLabel = isCompactHourLabel(i)
+                                let labelSize: CGFloat = is12HourFormat ? 14 : (isCompactLabel ? 8.5 : 10)
+                                let labelLift: CGFloat = is12HourFormat ? 25 : (isCompactLabel ? 24 : 22)
 
                                 Text(label)
-                                    .font(.system(size: is12HourFormat ? 14 : 10, weight: .heavy, design: .monospaced))
+                                    .font(.system(size: labelSize, weight: .heavy, design: .monospaced))
                                     .foregroundColor(isHourMatch(i) ? Colors.accentTeal : Colors.textSecondary)
                                     .shadow(color: isHourMatch(i) ? Colors.accentTeal.opacity(0.5) : .clear, radius: 4)
-                                    .offset(y: -(size / 2 - (is12HourFormat ? 25 : 22)))
+                                    .scaleEffect(isCompactLabel ? 0.92 : 1.0)
+                                    .offset(y: -(size / 2 - labelLift))
                                     .rotationEffect(.degrees(Double(i) * angleStep))
                             }
                         }
@@ -580,7 +584,12 @@ struct SunRayTimePickerView: View {
             return hour == i
         }
     }
-    
+
+    private func isCompactHourLabel(_ index: Int) -> Bool {
+        guard !is12HourFormat else { return false }
+        return index == 5 || index == 18
+    }
+
     private func updateTimeFromDrag(_ value: DragGesture.Value) {
         let center = CGPoint(x: (size + 30) / 2, y: (size + 30) / 2)
         

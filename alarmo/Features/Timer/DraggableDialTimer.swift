@@ -55,6 +55,22 @@ struct DraggableDialTimer: View {
         Color.white.opacity(0.18)
     }
 
+    private var alarmTrackGradient: [Color] {
+        [
+            Color(red: 0.14, green: 0.15, blue: 0.18).opacity(0.88),
+            Color(red: 0.11, green: 0.12, blue: 0.15).opacity(0.96),
+            Color(red: 0.15, green: 0.16, blue: 0.19).opacity(0.90)
+        ]
+    }
+
+    private var alarmActiveGradient: [Color] {
+        [
+            Color(red: 0.19, green: 0.76, blue: 0.90).opacity(0.96),
+            Colors.accentTeal.opacity(0.98),
+            Color(red: 0.17, green: 0.71, blue: 0.85).opacity(0.94)
+        ]
+    }
+
     var body: some View {
         GeometryReader { geo in
             let size = min(geo.size.width, geo.size.height)
@@ -67,7 +83,17 @@ struct DraggableDialTimer: View {
 
             ZStack {
                 Circle()
-                    .stroke(isLightMode ? lightTrackColor : darkTrackColor, style: StrokeStyle(lineWidth: trackWidth, lineCap: .round))
+                    .stroke(
+                        isLightMode
+                            ? AnyShapeStyle(lightTrackColor)
+                            : AnyShapeStyle(
+                                AngularGradient(
+                                    colors: alarmTrackGradient,
+                                    center: .center
+                                )
+                            ),
+                        style: StrokeStyle(lineWidth: trackWidth, lineCap: .round)
+                    )
                     .frame(width: size, height: size)
 
                 Circle()
@@ -80,12 +106,7 @@ struct DraggableDialTimer: View {
                                     color.opacity(0.92),
                                     color.opacity(0.82)
                                 ]
-                                : [
-                                    color.opacity(0.60),
-                                    color,
-                                    accentSunYellow.opacity(0.72),
-                                    color.opacity(0.70)
-                                ],
+                                : alarmActiveGradient,
                             center: .center,
                             startAngle: .degrees(0),
                             endAngle: .degrees(360 * ringFraction)
@@ -94,7 +115,7 @@ struct DraggableDialTimer: View {
                     )
                     .frame(width: size, height: size)
                     .rotationEffect(.degrees(-90))
-                    .shadow(color: color.opacity(isLightMode ? 0.25 : 0.45), radius: 10, x: 0, y: 4)
+                    .shadow(color: Colors.accentTeal.opacity(isLightMode ? 0.25 : 0.48), radius: 12, x: 0, y: 4)
                     .animation(.interactiveSpring(response: 0.20, dampingFraction: 0.84), value: ringFraction)
 
                 if isLightMode {

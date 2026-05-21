@@ -3,6 +3,7 @@ import SwiftUI
 struct OnboardingSetTimeView: View {
     @ObservedObject var viewModel: OnboardingViewModel
     let onNext: () -> Void
+    @AppStorage("is12HourFormat") private var is12HourFormat: Bool = true
 
     var body: some View {
         ZStack {
@@ -55,6 +56,12 @@ struct OnboardingSetTimeView: View {
                 PrimaryButton(title: "Next", style: .blueGlass, action: onNext)
                     .padding(.horizontal, Spacing.l)
                     .padding(.bottom, Spacing.m)
+            }
+        }
+        .onAppear {
+            // Default first-time onboarding to 24H, then keep whatever user selects.
+            if UserDefaults.standard.object(forKey: "is12HourFormat") == nil {
+                is12HourFormat = false
             }
         }
     }

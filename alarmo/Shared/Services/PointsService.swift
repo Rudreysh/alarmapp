@@ -221,6 +221,8 @@ final class PointsService: ObservableObject {
     static let shared = PointsService()
 
     private let settings = SettingsStore.shared
+    private let rankService = RankProgressService.shared
+    private let rewardFeedback = RewardFeedbackService.shared
     private let transactionsKey = "points.transactions"
     private let lastLoginDateKey = "points.lastLoginDate"
     private let streaksKey = "discipline.streaks"
@@ -336,6 +338,7 @@ final class PointsService: ObservableObject {
         }
 
         saveTransactions()
+        routeToXP(reason: reason, amount: amount, entityId: entityId, entityName: entityName, note: note, transactionId: tx.id)
 
         let newLevel = currentLevel
         if newLevel > oldLevel {
@@ -346,6 +349,123 @@ final class PointsService: ObservableObject {
         }
 
         return tx
+    }
+
+    private func routeToXP(
+        reason: PointsReason,
+        amount: Int,
+        entityId: UUID?,
+        entityName: String?,
+        note: String?,
+        transactionId: UUID
+    ) {
+        guard amount > 0 else { return }
+
+        let id = entityId?.uuidString ?? transactionId.uuidString
+        var title = reason.displayTitle
+        let displayName: String? = {
+            guard let name = entityName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
+                return nil
+            }
+            return name
+        }()
+        let grant: XPGrantResult?
+
+        switch reason {
+        case .alarmDismissedClean:
+            grant = rankService.addXP(
+                source: XPSource(type: .alarmStop, sourceId: id, alarmId: id, metadata: ["name": entityName ?? "Alarm"]),
+                amount: 12,
+                category: .wake
+            )
+            let bonus = rankService.addXP(
+                source: XPSource(type: .noSnooze, sourceId: id, alarmId: id),
+                amount: 5,
+                category: .noSnoozeBonus
+            )
+            rewardFeedback.handle(bonus, title: "No snooze")
+        case .alarmDismissedWithMission:
+            grant = rankService.addXP(
+                source: XPSource(type: .alarmStop, sourceId: id, alarmId: id, metadata: ["name": entityName ?? "Alarm"]),
+                amount: 12,
+                category: .wake
+            )
+            let mission = rankService.addXP(
+                source: XPSource(type: .alarmMission, sourceId: id, alarmId: id),
+                amount: 6,
+                category: .missionBonus
+            )
+            rewardFeedback.handle(mission, title: "Mission")
+        case .alarmDismissedAfterSnooze:
+            grant = rankService.addXP(
+                source: XPSource(type: .alarmStop, sourceId: id, alarmId: id),
+                amount: 6,
+                category: .wake
+            )
+        case .habitCompleted:
+            title = displayName ?? "Habit complete"
+            grant = rankService.addXP(
+                source: XPSource(type: .habitCompletion, sourceId: id, habitId: id, metadata: ["name": entityName ?? "Habit"]),
+                amount: 4,
+                category: .habit
+            )
+        case .taskCompleted:
+            title = displayName ?? "Task complete"
+            grant = rankService.addXP(
+                source: XPSource(type: .taskCompletion, sourceId: id, habitId: id, metadata: ["name": entityName ?? "Task"]),
+                amount: 4,
+                category: .habit
+            )
+        case .taskCompletedEarly:
+            title = displayName ?? "Task complete"
+            grant = rankService.addXP(
+                source: XPSource(type: .taskCompletion, sourceId: id, habitId: id, metadata: ["name": entityName ?? "Task", "timing": "early"]),
+                amount: 5,
+                category: .habit
+            )
+        case .focusSessionComplete:
+            grant = rankService.addXP(
+                source: XPSource(type: .pomodoroComplete, sourceId: transactionId.uuidString, sessionId: id, metadata: ["name": entityName ?? "Focus"]),
+                amount: 7,
+                category: .focus
+            )
+        case .focusFourSessionBonus:
+            grant = rankService.addXP(
+                source: XPSource(type: .streakMilestone, sourceId: "focus_4_\(rankService.localDay(for: Date()))", sessionId: id),
+                amount: 12,
+                category: .streakBonus
+            )
+        case .habitStreakMilestone:
+            grant = rankService.addXP(
+                source: XPSource(type: .streakMilestone, sourceId: "habit_\(id)_\(note ?? "milestone")", habitId: id),
+                amount: 20,
+                category: .streakBonus
+            )
+        case .stopwatchSession20:
+            grant = rankService.addXP(
+                source: XPSource(type: .stopwatchComplete, sourceId: transactionId.uuidString, sessionId: id),
+                amount: 4,
+                category: .focus
+            )
+        case .stopwatchSession60:
+            grant = rankService.addXP(
+                source: XPSource(type: .stopwatchComplete, sourceId: transactionId.uuidString, sessionId: id),
+                amount: 10,
+                category: .focus
+            )
+        case .dailyLogin:
+            grant = rankService.addXP(
+                source: XPSource(type: .dailyCheckIn, sourceId: "daily_login"),
+                amount: 1,
+                category: .daily
+            )
+        case .alarmSnoozed, .alarmMissed, .habitSkipped, .taskMissed, .focusInterrupted, .manual:
+            grant = nil
+        }
+
+        if let grant {
+            rewardFeedback.handle(grant, title: title)
+        }
     }
 
     // MARK: - Event router
@@ -582,7 +702,6 @@ final class PointsService: ObservableObject {
         let last = UserDefaults.standard.string(forKey: lastLoginDateKey) ?? ""
         if last != today {
             UserDefaults.standard.set(today, forKey: lastLoginDateKey)
-            award(reason: .dailyLogin, amount: PointsConfig.dailyLogin, note: "Daily check-in")
         }
     }
 
