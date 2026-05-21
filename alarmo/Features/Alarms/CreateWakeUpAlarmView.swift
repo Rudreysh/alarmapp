@@ -188,11 +188,6 @@ struct CreateWakeUpAlarmView: View {
                                     }
                             }
 
-                            Button(action: { showEmojiPicker = true }) {
-                                Image(systemName: "face.smiling")
-                                    .foregroundColor(Colors.textSecondary)
-                            }
-
                             TextField("Please fill in the alarm name", text: $viewModel.draft.name)
                                 .font(.system(size: 20, weight: .semibold))
                                 .foregroundColor(Colors.textPrimary)
