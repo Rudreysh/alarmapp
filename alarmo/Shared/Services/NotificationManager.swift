@@ -178,12 +178,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     /// **Sound continuity strategy:**
     /// When an alarm enters `.alerting`, we ALWAYS start the app-owned
     /// background audio bridge immediately – regardless of app state.
-    /// This means Alarmo's own AVAudioPlayer is looping the alarm sound
+    /// This means Awayk's own AVAudioPlayer is looping the alarm sound
     /// *in parallel* with the system AlarmKit alert sound.
     ///
     /// When the user swipes "Stop" on the lock-screen AlarmKit UI:
     /// - AlarmKit stops its own system-managed sound
-    /// - Alarmo's background audio bridge **continues** because it is
+    /// - Awayk's background audio bridge **continues** because it is
     ///   an independent AVAudioPlayer in `.playback` mode with the
     ///   `audio` background capability
     /// - The sound therefore never stops from the user's perspective

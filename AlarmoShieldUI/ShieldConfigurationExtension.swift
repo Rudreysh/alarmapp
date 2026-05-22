@@ -9,7 +9,7 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             backgroundColor: UIColor(red: 0.05, green: 0.05, blue: 0.1, alpha: 1.0),
             icon: UIImage(systemName: "lock.shield.fill"),
             title: ShieldConfiguration.Label(text: "App Locked", color: .white),
-            subtitle: ShieldConfiguration.Label(text: "Alarmo is keeping you focused.", color: .lightGray),
+            subtitle: ShieldConfiguration.Label(text: "Awayk is keeping you focused.", color: .lightGray),
             primaryButtonLabel: ShieldConfiguration.Label(text: "Breathe", color: .black),
             primaryButtonBackgroundColor: .white,
             secondaryButtonLabel: ShieldConfiguration.Label(text: "Ignore Limit", color: .systemBlue)
@@ -26,7 +26,7 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             backgroundColor: UIColor(red: 0.05, green: 0.05, blue: 0.1, alpha: 1.0),
             icon: UIImage(systemName: "lock.shield.fill"),
             title: ShieldConfiguration.Label(text: "Website Locked", color: .white),
-            subtitle: ShieldConfiguration.Label(text: "Alarmo is keeping you focused.", color: .lightGray),
+            subtitle: ShieldConfiguration.Label(text: "Awayk is keeping you focused.", color: .lightGray),
             primaryButtonLabel: ShieldConfiguration.Label(text: "Breathe", color: .black),
             primaryButtonBackgroundColor: .white,
             secondaryButtonLabel: nil

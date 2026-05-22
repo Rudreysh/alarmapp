@@ -11,12 +11,12 @@ enum NotificationTemplateBuilder {
         switch scenario {
         case .alarmRing:
             let name = normalizedAlarmName(context.alarmName)
-            content.title = "Alarmo"
+            content.title = "Awayk"
             content.subtitle = name
             content.body = condensed(DailyInsightsStore.shared.motivationLine(for: .alarmRing), maxCharacters: 150)
 
         case .alarmSnooze:
-            content.title = "Alarmo"
+            content.title = "Awayk"
             content.subtitle = normalizedAlarmName(context.alarmName)
             content.body = condensed(DailyInsightsStore.shared.motivationLine(for: .alarmSnooze), maxCharacters: 150)
 
@@ -34,7 +34,7 @@ enum NotificationTemplateBuilder {
             }
 
         case .missedAlarmFollowUp:
-            content.title = "Alarmo"
+            content.title = "Awayk"
             content.subtitle = "You may have missed your alarm"
             content.body = condensed(DailyInsightsStore.shared.motivationLine(for: .missedAlarmFollowUp), maxCharacters: 150)
         case .taskReminder:

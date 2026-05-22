@@ -529,10 +529,11 @@ struct HomeView: View {
                         showAddAlarmCoachMark = false // Changed from showCoachMark
                     }
                 }) {
+                    let isTiimo = SettingsStore.shared.alarmThemeStyle == .tiimo
                     Image(systemName: showAddMenu ? "xmark" : "plus")
-                        .font(.system(size: 26, weight: .bold))
-                        .foregroundColor(Colors.textPrimary)
-                        .frame(width: 62, height: 62)
+                        .font(.system(size: isTiimo ? 22 : 26, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: isTiimo ? 56 : 62, height: isTiimo ? 56 : 62)
                         .background(Colors.accentTeal)
                         .clipShape(Circle())
                         .appShadow(Shadows.card)

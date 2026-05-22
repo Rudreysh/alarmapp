@@ -671,7 +671,7 @@ struct QuickSettingsPanel: View {
                             Text("DND / Focus Setup")
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundColor(Colors.textPrimary)
-                            Text("Silence others, keep Alarmo loud.")
+                            Text("Silence others, keep Awayk loud.")
                                 .font(.system(size: 12))
                                 .foregroundColor(Colors.textTertiary)
                         }
@@ -702,7 +702,7 @@ struct QuickSettingsPanel: View {
                         
                         setupStep(icon: "1.circle.fill", text: "Tap **Setup** to open iOS Focus settings.")
                         setupStep(icon: "2.circle.fill", text: "Select **Do Not Disturb** or a custom Focus.")
-                        setupStep(icon: "3.circle.fill", text: "Under **Apps**, add **Alarmo** to Allowed.")
+                        setupStep(icon: "3.circle.fill", text: "Under **Apps**, add **Awayk** to Allowed.")
                         setupStep(icon: "4.circle.fill", text: "Ensure **Time Sensitive** togggle is ON.")
                     }
                     
@@ -710,7 +710,7 @@ struct QuickSettingsPanel: View {
                         Image(systemName: "checkmark.shield.fill")
                             .font(.system(size: 14))
                             .foregroundColor(.green)
-                        Text("Alarmo uses **Time Sensitive** alerts to break through DND automatically.")
+                        Text("Awayk uses **Time Sensitive** alerts to break through DND automatically.")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(Colors.textTertiary)
                             .lineLimit(2)

@@ -265,7 +265,7 @@ private actor AlarmKitStateStore {
 
 #if canImport(AlarmKit)
 @available(iOS 26.0, *)
-private struct AlarmoAlarmMetadata: AlarmMetadata {
+private struct AwaykAlarmMetadata: AlarmMetadata {
     let title: String
     let alarmName: String
     let soundName: String
@@ -478,7 +478,7 @@ extension AlarmSchedulerIOS26AlarmKit {
         snoozeInterval: TimeInterval?,
         soundName: String? = nil,
         useSystemDefaultSound: Bool = false
-    ) -> AlarmManager.AlarmConfiguration<AlarmoAlarmMetadata> {
+    ) -> AlarmManager.AlarmConfiguration<AwaykAlarmMetadata> {
         _ = useSystemDefaultSound
         _ = Self.ensureSilentAlertSoundStaged()
         let alertTitle = alarmKitAlertTitle(for: schedule)
@@ -505,7 +505,7 @@ extension AlarmSchedulerIOS26AlarmKit {
 
         let attributes = AlarmAttributes(
             presentation: presentation,
-            metadata: AlarmoAlarmMetadata(
+            metadata: AwaykAlarmMetadata(
                 title: alertTitle,
                 alarmName: title,
                 soundName: soundName ?? "default",

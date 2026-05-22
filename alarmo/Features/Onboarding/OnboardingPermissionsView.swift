@@ -54,7 +54,7 @@ struct OnboardingPermissionsView: View {
 
     private let motionManager = CMMotionActivityManager()
     private let healthStore = HKHealthStore()
-    private let appName = "Alarmo"
+    private let appName = "Awayk"
 
     var body: some View {
         ZStack {

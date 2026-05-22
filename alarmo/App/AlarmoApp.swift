@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 @main
-struct AlarmoApp: App {
+struct AwaykApp: App {
     @UIApplicationDelegateAdaptor(AlarmAppDelegate.self) private var appDelegate
     
     private var sharedModelContainer: ModelContainer = Self.buildModelContainer()

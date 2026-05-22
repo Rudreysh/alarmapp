@@ -9,7 +9,7 @@ class ReportViewModel: ObservableObject {
     private let service: ReportService
     private var alarmStore: AlarmStore?
     
-    @Published var selectedDomain: ReportDomain = .habits
+    @Published var selectedDomain: ReportDomain = .alarms
     @Published var selectedPeriod: ReportPeriod = .week
     @Published var trendGrouping: ReportTrendGrouping = .day
     @Published var referenceDate: Date = Date()

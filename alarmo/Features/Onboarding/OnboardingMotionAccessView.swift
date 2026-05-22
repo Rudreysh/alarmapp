@@ -113,7 +113,7 @@ struct OnboardingMotionAccessView: View {
             Color.black.opacity(0.52).ignoresSafeArea()
             
             VStack(alignment: .leading, spacing: 14) {
-                Text("\"Alarmo\" would like to access your Motion & Fitness activity.")
+                Text("\"Awayk\" would like to access your Motion & Fitness activity.")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(Colors.textPrimary)
                     .lineSpacing(2)

@@ -48,7 +48,7 @@ struct OnboardingReportsInsightsView: View {
                         .frame(maxWidth: .infinity)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Text("Enable notifications so Alarmo can alert you for reports, reminders, and alarm events.")
+                    Text("Enable notifications so Awayk can alert you for reports, reminders, and alarm events.")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
                         .lineSpacing(2)
@@ -113,7 +113,7 @@ struct OnboardingReportsInsightsView: View {
                 openAppSettings()
             }
         } message: {
-            Text("Notifications are currently disabled for Alarmo. Enable notifications in Settings for reliable alarm and report alerts.")
+            Text("Notifications are currently disabled for Awayk. Enable notifications in Settings for reliable alarm and report alerts.")
         }
     }
 
@@ -122,7 +122,7 @@ struct OnboardingReportsInsightsView: View {
             Color.black.opacity(0.52).ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 16) {
-                Text("\"Alarmo\" would like to send you notifications")
+                Text("\"Awayk\" would like to send you notifications")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(Colors.textPrimary)
                     .lineSpacing(3)

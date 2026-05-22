@@ -123,12 +123,12 @@ struct OnboardingCameraAccessView: View {
             Color.black.opacity(0.52).ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 14) {
-                Text("\"Alarmo\" would like to access your Camera.")
+                Text("\"Awayk\" would like to access your Camera.")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(Colors.textPrimary)
                     .lineSpacing(2)
 
-                Text("Camera access helps Alarmo run QR/barcode and object-hunt missions reliably when alarms ring.")
+                Text("Camera access helps Awayk run QR/barcode and object-hunt missions reliably when alarms ring.")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundColor(Color.white.opacity(0.7))
                     .lineSpacing(3)

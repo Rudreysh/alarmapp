@@ -37,7 +37,7 @@ struct OnboardingScreenTimeAccessView: View {
                         .frame(maxWidth: .infinity)
                         .fixedSize(horizontal: false, vertical: true)
                     
-                    Text("Screen Time permissions are required for the Accountability features, allowing Alarmo to block distracting apps while you focus.")
+                    Text("Screen Time permissions are required for the Accountability features, allowing Awayk to block distracting apps while you focus.")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
                         .lineSpacing(2)
@@ -94,7 +94,7 @@ struct OnboardingScreenTimeAccessView: View {
                 }
             }
         } message: {
-            Text("Screen Time access is disabled. Please enable it in iOS Settings to use Alarmo's focus and accountability features.")
+            Text("Screen Time access is disabled. Please enable it in iOS Settings to use Awayk's focus and accountability features.")
         }
     }
     

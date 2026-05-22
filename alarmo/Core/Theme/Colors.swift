@@ -1,6 +1,7 @@
 import SwiftUI
 import Foundation
 import UIKit
+import Combine
 
 enum Colors {
     private static let themeStyleKey = "settings.alarmThemeStyleRaw"
@@ -102,10 +103,37 @@ enum Colors {
         accentBlue: Color(red: 0.279, green: 0.489, blue: 0.906)
     )
 
+    private static let tiimoPalette = Palette(
+        bgPrimary: Color(hex: "#F9F8F6"),
+        bgSecondary: Color(hex: "#F0EFFE"),
+        cardSurface: Color(hex: "#FFFFFF"),
+        cardStroke: Color(hex: "#F0EFFE"),
+        textPrimary: Color(hex: "#1A1A1A"),
+        textSecondary: Color(hex: "#6B6B6B"),
+        textTertiary: Color(hex: "#9490A6"),
+        accentRed: Color(red: 1.0, green: 0.23, blue: 0.36),
+        accentGreen: Color(red: 0.20, green: 0.78, blue: 0.35),
+        accentTeal: Color(hex: "#7F77DD"),
+        shadow: Color.black.opacity(0.02),
+        tabBarBackground: Color(hex: "#FFFFFF"),
+        tabBarInactive: Color(hex: "#B0AABF"),
+        promoCardBackground: Color(hex: "#F0EFFE"),
+        pillGreen: Color(hex: "#E8E4F5"),
+        sheetGradientTop: Color(hex: "#F1EEF8"),
+        sheetGradientBottom: Color(hex: "#E8E4F5"),
+        saleBadgeStart: Color(hex: "#C4BCFF"),
+        saleBadgeEnd: Color(hex: "#7F77DD"),
+        accentOrange: Color(hex: "#7F77DD"),
+        accentBlue: Color(hex: "#7F77DD")
+    )
+
     private static var activePalette: Palette {
         let styleRaw = UserDefaults.standard.string(forKey: themeStyleKey) ?? "default"
         if styleRaw == "lilac_calm" {
             return lilacCalmPalette
+        }
+        if styleRaw == "tiimo" {
+            return tiimoPalette
         }
 
         let modeRaw = UserDefaults.standard.string(forKey: themeModeKey) ?? "Dark"
@@ -141,4 +169,146 @@ enum Colors {
     static var saleBadgeEnd: Color { activePalette.saleBadgeEnd }
     static var accentOrange: Color { activePalette.accentOrange }
     static var accentBlue: Color { activePalette.accentBlue }
+}
+
+protocol AppTheme {
+    var backgroundPrimary: Color { get }
+    var backgroundSurface: Color { get }
+    var backgroundCard: Color { get }
+    var accentPrimary: Color { get }
+    var accentSecondary: Color { get }
+    var textPrimary: Color { get }
+    var textSecondary: Color { get }
+    var textCaption: Color { get }
+    var buttonPrimaryBg: Color { get }
+    var buttonPrimaryLabel: Color { get }
+    var selectionFill: Color { get }
+    var selectionBorder: Color { get }
+    var progressTrack: Color { get }
+    var progressFill: Color { get }
+    var cornerRadiusCard: CGFloat { get }
+    var cornerRadiusButton: CGFloat { get }
+    var cornerRadiusPill: CGFloat { get }
+    var switchTintOn: Color { get }
+}
+
+struct DefaultDarkTheme: AppTheme {
+    let backgroundPrimary = Color(red: 0.05, green: 0.06, blue: 0.07)
+    let backgroundSurface = Color(red: 0.08, green: 0.09, blue: 0.13)
+    let backgroundCard = Color(red: 0.10, green: 0.11, blue: 0.17)
+    let accentPrimary = Color(red: 0.0, green: 0.70, blue: 0.78)
+    let accentSecondary = Color.white.opacity(0.08)
+    let textPrimary = Color.white
+    let textSecondary = Color.white.opacity(0.7)
+    let textCaption = Color.white.opacity(0.4)
+    let buttonPrimaryBg = Color(red: 0.0, green: 0.70, blue: 0.78)
+    let buttonPrimaryLabel = Color.white
+    let selectionFill = Color(red: 0.0, green: 0.70, blue: 0.78)
+    let selectionBorder = Color.white.opacity(0.08)
+    let progressTrack = Color.white.opacity(0.08)
+    let progressFill = Color(red: 0.0, green: 0.70, blue: 0.78)
+    let cornerRadiusCard: CGFloat = 16
+    let cornerRadiusButton: CGFloat = 16
+    let cornerRadiusPill: CGFloat = 8
+    let switchTintOn = Color(red: 0.0, green: 0.70, blue: 0.78)
+}
+
+struct DefaultLightTheme: AppTheme {
+    let backgroundPrimary = Color(red: 0.975, green: 0.978, blue: 0.982)
+    let backgroundSurface = Color(red: 0.942, green: 0.951, blue: 0.965)
+    let backgroundCard = Color.white
+    let accentPrimary = Color(red: 0.112, green: 0.612, blue: 0.698)
+    let accentSecondary = Color.black.opacity(0.08)
+    let textPrimary = Color(red: 0.078, green: 0.094, blue: 0.125)
+    let textSecondary = Color(red: 0.288, green: 0.338, blue: 0.425)
+    let textCaption = Color(red: 0.482, green: 0.537, blue: 0.631)
+    let buttonPrimaryBg = Color(red: 0.112, green: 0.612, blue: 0.698)
+    let buttonPrimaryLabel = Color.white
+    let selectionFill = Color(red: 0.112, green: 0.612, blue: 0.698)
+    let selectionBorder = Color.black.opacity(0.08)
+    let progressTrack = Color.black.opacity(0.08)
+    let progressFill = Color(red: 0.112, green: 0.612, blue: 0.698)
+    let cornerRadiusCard: CGFloat = 16
+    let cornerRadiusButton: CGFloat = 16
+    let cornerRadiusPill: CGFloat = 8
+    let switchTintOn = Color(red: 0.112, green: 0.612, blue: 0.698)
+}
+
+struct LilacCalmTheme: AppTheme {
+    let backgroundPrimary = Color(red: 0.980, green: 0.984, blue: 0.984)
+    let backgroundSurface = Color(red: 0.953, green: 0.937, blue: 0.973)
+    let backgroundCard = Color.white
+    let accentPrimary = Color(red: 0.498, green: 0.682, blue: 0.694)
+    let accentSecondary = Color(red: 0.063, green: 0.055, blue: 0.063).opacity(0.08)
+    let textPrimary = Color(red: 0.063, green: 0.055, blue: 0.063)
+    let textSecondary = Color(red: 0.431, green: 0.412, blue: 0.459)
+    let textCaption = Color(red: 0.604, green: 0.584, blue: 0.639)
+    let buttonPrimaryBg = Color(red: 0.498, green: 0.682, blue: 0.694)
+    let buttonPrimaryLabel = Color.white
+    let selectionFill = Color(red: 0.498, green: 0.682, blue: 0.694)
+    let selectionBorder = Color(red: 0.063, green: 0.055, blue: 0.063).opacity(0.08)
+    let progressTrack = Color(red: 0.063, green: 0.055, blue: 0.063).opacity(0.08)
+    let progressFill = Color(red: 0.498, green: 0.682, blue: 0.694)
+    let cornerRadiusCard: CGFloat = 16
+    let cornerRadiusButton: CGFloat = 16
+    let cornerRadiusPill: CGFloat = 8
+    let switchTintOn = Color(red: 0.498, green: 0.682, blue: 0.694)
+}
+
+struct TiimoLightTheme: AppTheme {
+    let backgroundPrimary = Color(hex: "#F9F8F6")
+    let backgroundSurface = Color(hex: "#FFFFFF")
+    let backgroundCard = Color(hex: "#FFFFFF")
+    let accentPrimary = Color(hex: "#7F77DD")
+    let accentSecondary = Color(hex: "#F0EFFE")
+    let textPrimary = Color(hex: "#1A1A1A")
+    let textSecondary = Color(hex: "#6B6B6B")
+    let textCaption = Color(hex: "#9490A6")
+    let buttonPrimaryBg = Color(hex: "#111111")
+    let buttonPrimaryLabel = Color.white
+    let selectionFill = Color(hex: "#F0EFFE")
+    let selectionBorder = Color(hex: "#7F77DD")
+    let progressTrack = Color(hex: "#E8E4F5")
+    let progressFill = Color(hex: "#7F77DD")
+    let cornerRadiusCard: CGFloat = 20
+    let cornerRadiusButton: CGFloat = 100
+    let cornerRadiusPill: CGFloat = 48
+    let switchTintOn = Color(hex: "#7F77DD")
+}
+
+class ThemeManager: ObservableObject {
+    static let shared = ThemeManager()
+    
+    @Published var activeTheme: AppTheme = TiimoLightTheme()
+    
+    private init() {
+        updateTheme()
+    }
+    
+    func updateTheme() {
+        let themeStyleKey = "settings.alarmThemeStyleRaw"
+        let themeModeKey = "settings.themeMode"
+        
+        let styleRaw = UserDefaults.standard.string(forKey: themeStyleKey) ?? "default"
+        
+        if styleRaw == "lilac_calm" {
+            activeTheme = LilacCalmTheme()
+            return
+        }
+        if styleRaw == "tiimo" {
+            activeTheme = TiimoLightTheme()
+            return
+        }
+        
+        let modeRaw = UserDefaults.standard.string(forKey: themeModeKey) ?? "Dark"
+        switch modeRaw {
+        case "Light":
+            activeTheme = DefaultLightTheme()
+        case "Follow system setting":
+            let isSystemLight = UIScreen.main.traitCollection.userInterfaceStyle == .light
+            activeTheme = isSystemLight ? DefaultLightTheme() : DefaultDarkTheme()
+        default:
+            activeTheme = DefaultDarkTheme()
+        }
+    }
 }

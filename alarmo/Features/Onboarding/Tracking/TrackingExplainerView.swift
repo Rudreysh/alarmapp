@@ -36,7 +36,7 @@ struct TrackingExplainerView: View {
                         .font(.system(size: 27, weight: .bold))
                         .foregroundColor(Colors.textPrimary)
 
-                    Text("Alarmo can securely tailor ads to your interests.")
+                    Text("Awayk can securely tailor ads to your interests.")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
                         .lineSpacing(2)
@@ -68,7 +68,7 @@ struct TrackingExplainerView: View {
                         TrackingFeatureCard(
                             icon: "checkmark.shield.fill",
                             color: Colors.accentBlue,
-                            title: "Improve Alarmo",
+                            title: "Improve Awayk",
                             subtitle: "Help us understand usage to build better features."
                         )
                         .opacity(animateItems ? 1 : 0)

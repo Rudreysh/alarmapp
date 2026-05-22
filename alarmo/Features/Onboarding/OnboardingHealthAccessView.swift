@@ -45,7 +45,7 @@ struct OnboardingHealthAccessView: View {
                         .frame(maxWidth: .infinity)
                         .fixedSize(horizontal: false, vertical: true)
                     
-                    Text("Alarmo can read Apple Health data used by your habits: steps, walking/running distance, cycling distance, sleep, hydration, standing time, and mindfulness.")
+                    Text("Awayk can read Apple Health data used by your habits: steps, walking/running distance, cycling distance, sleep, hydration, standing time, and mindfulness.")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
                         .lineSpacing(2)
@@ -133,7 +133,7 @@ struct OnboardingHealthAccessView: View {
                                 .font(.system(size: 28, weight: .bold))
                                 .foregroundColor(.white)
                             
-                            Text("\"Alarmo\" would like to read your Health data.")
+                            Text("\"Awayk\" would like to read your Health data.")
                                 .font(.system(size: 17, weight: .regular))
                                 .foregroundColor(Color.white.opacity(0.7))
                         }
@@ -160,49 +160,49 @@ struct OnboardingHealthAccessView: View {
                         healthPermissionToggleSection(
                             icon: "figure.walk",
                             title: "Steps",
-                            explanation: "App Explanation: Alarmo reads your daily step count to keep step-based habits in sync.",
+                            explanation: "App Explanation: Awayk reads your daily step count to keep step-based habits in sync.",
                             isOn: $readSteps
                         )
 
                         healthPermissionToggleSection(
                             icon: "figure.walk.motion",
                             title: "Walking + Running Distance",
-                            explanation: "App Explanation: Alarmo reads walking/running distance for movement-based habits.",
+                            explanation: "App Explanation: Awayk reads walking/running distance for movement-based habits.",
                             isOn: $readDistance
                         )
 
                         healthPermissionToggleSection(
                             icon: "bicycle",
                             title: "Cycling Distance",
-                            explanation: "App Explanation: Alarmo reads cycling distance for bike and ride habits.",
+                            explanation: "App Explanation: Awayk reads cycling distance for bike and ride habits.",
                             isOn: $readCycling
                         )
 
                         healthPermissionToggleSection(
                             icon: "bed.double.fill",
                             title: "Sleep Analysis",
-                            explanation: "App Explanation: Alarmo reads sleep duration for sleep and recovery habits.",
+                            explanation: "App Explanation: Awayk reads sleep duration for sleep and recovery habits.",
                             isOn: $readSleep
                         )
 
                         healthPermissionToggleSection(
                             icon: "drop.fill",
                             title: "Water Intake",
-                            explanation: "App Explanation: Alarmo reads hydration intake to update drink-water habits.",
+                            explanation: "App Explanation: Awayk reads hydration intake to update drink-water habits.",
                             isOn: $readWater
                         )
 
                         healthPermissionToggleSection(
                             icon: "figure.stand",
                             title: "Standing Time",
-                            explanation: "App Explanation: Alarmo reads stand time for standing and posture habits.",
+                            explanation: "App Explanation: Awayk reads stand time for standing and posture habits.",
                             isOn: $readStanding
                         )
 
                         healthPermissionToggleSection(
                             icon: "brain.head.profile",
                             title: "Mindfulness",
-                            explanation: "App Explanation: Alarmo reads mindful-session minutes for meditation habits.",
+                            explanation: "App Explanation: Awayk reads mindful-session minutes for meditation habits.",
                             isOn: $readMindfulness
                         )
                     }
@@ -284,7 +284,7 @@ struct OnboardingHealthAccessView: View {
         isOn: Binding<Bool>
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Allow \"Alarmo\" to read")
+            Text("Allow \"Awayk\" to read")
                 .font(.system(size: 14, weight: .bold))
                 .foregroundColor(Color.white.opacity(0.7))
                 .padding(.horizontal, 4)

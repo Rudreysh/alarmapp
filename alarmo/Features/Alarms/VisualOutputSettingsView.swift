@@ -91,7 +91,7 @@ struct VisualOutputSettingsView: View {
                             }
                         }
 
-                        Text("iOS does not allow any app to set wallpaper automatically. Alarmo requests Photos access, saves the prepared image, and you can set it from Photos.")
+                        Text("iOS does not allow any app to set wallpaper automatically. Awayk requests Photos access, saves the prepared image, and you can set it from Photos.")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(Colors.textSecondary)
                             .padding(.horizontal, 6)

@@ -82,6 +82,10 @@ struct SunRayTimePickerView: View {
         }
     }
     
+    private var isTiimo: Bool {
+        settingsStore.alarmThemeStyle == .tiimo
+    }
+    
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
             
@@ -93,14 +97,14 @@ struct SunRayTimePickerView: View {
                 Text("12H")
                     .font(.system(size: 16, weight: .bold))
                     .fixedSize()
-                    .foregroundColor(is12HourFormat ? Colors.accentTeal : Colors.textSecondary.opacity(0.3))
+                    .foregroundColor(is12HourFormat ? (isTiimo ? Color(hex: "#7F77DD") : Colors.accentTeal) : Colors.textSecondary.opacity(0.3))
                     .padding(.vertical, 8)
                     .padding(.horizontal, 8)
                     .background(
                         Capsule()
-                            .fill(is12HourFormat ? Colors.accentTeal.opacity(0.15) : Color.clear)
+                            .fill(is12HourFormat ? (isTiimo ? Color(hex: "#F0EFFE") : Colors.accentTeal.opacity(0.15)) : Color.clear)
                             .overlay(
-                                Capsule().stroke(is12HourFormat ? Colors.accentTeal.opacity(0.5) : Colors.cardStroke, lineWidth: 1)
+                                Capsule().stroke(is12HourFormat ? (isTiimo ? Color(hex: "#7F77DD").opacity(0.5) : Colors.accentTeal.opacity(0.5)) : (isTiimo ? Color(hex: "#E0DCFF") : Colors.cardStroke), lineWidth: 1)
                             )
                     )
             }
@@ -117,31 +121,33 @@ struct SunRayTimePickerView: View {
                 
                 Text("\(hStr):\(mStr)\(sStr)\(amPm)")
                     .font(.system(size: second != nil ? 14 : 18, weight: .heavy, design: .monospaced))
-                    .foregroundColor(Colors.accentTeal.opacity(0.8))
+                    .foregroundColor((isTiimo ? Color(hex: "#7F77DD") : Colors.accentTeal).opacity(0.8))
                     .offset(y: -4) // Slight adjustment to sit just above the ticks
 
                 ZStack {
                     // Background Ticks (Static & Dynamic Color)
                     ZStack {
                         // Outer ambient glow circle (subtle)
-                        Circle()
-                            .stroke(
-                                AngularGradient(
-                                    colors: [
-                                        Colors.accentBlue.opacity(0.10 + ringGlowPulse * 0.05),
-                                        Colors.accentTeal.opacity(0.12 + ringGlowPulse * 0.06),
-                                        accentSunYellow.opacity(0.09 + ringGlowPulse * 0.04),
-                                        Colors.accentBlue.opacity(0.10 + ringGlowPulse * 0.05)
-                                    ],
-                                    center: .center
-                                ),
-                                lineWidth: 8
-                            )
-                            .blur(radius: 6)
-                            .frame(width: size + 14, height: size + 14)
+                        if !isTiimo {
+                            Circle()
+                                .stroke(
+                                    AngularGradient(
+                                        colors: [
+                                            Colors.accentBlue.opacity(0.10 + ringGlowPulse * 0.05),
+                                            Colors.accentTeal.opacity(0.12 + ringGlowPulse * 0.06),
+                                            accentSunYellow.opacity(0.09 + ringGlowPulse * 0.04),
+                                            Colors.accentBlue.opacity(0.10 + ringGlowPulse * 0.05)
+                                        ],
+                                        center: .center
+                                    ),
+                                    lineWidth: 8
+                                )
+                                .blur(radius: 6)
+                                .frame(width: size + 14, height: size + 14)
+                        }
                         
                         Circle()
-                            .stroke(Colors.cardStroke, lineWidth: 1)
+                            .stroke(isTiimo ? Color(hex: "#C4BCFF") : Colors.cardStroke, lineWidth: 1)
                             .frame(width: size, height: size)
                         
                         ForEach(0..<60) { i in
@@ -151,13 +157,13 @@ struct SunRayTimePickerView: View {
                             Capsule()
                                 .fill(
                                     isActiveTick
-                                    ? Colors.accentTeal
-                                    : (isLightMode ? Colors.textSecondary.opacity(i % 5 == 0 ? 0.28 : 0.14) : Color.white.opacity(i % 5 == 0 ? 0.3 : 0.1))
+                                    ? (isTiimo ? Color(hex: "#7F77DD") : Colors.accentTeal)
+                                    : (isTiimo ? Color(hex: "#D0CCED") : (isLightMode ? Colors.textSecondary.opacity(i % 5 == 0 ? 0.28 : 0.14) : Color.white.opacity(i % 5 == 0 ? 0.3 : 0.1)))
                                 )
                                 .frame(width: i % 5 == 0 ? 2 : 1, height: i % 5 == 0 ? 10 : 6)
                                 .offset(y: -(size/2))
                                 .rotationEffect(.degrees(Double(i) * 6))
-                                .shadow(color: isActiveTick ? Colors.accentTeal.opacity(0.6) : .clear, radius: 4)
+                                .shadow(color: (isActiveTick && !isTiimo) ? Colors.accentTeal.opacity(0.6) : .clear, radius: 4)
                                 .animation(.easeInOut(duration: 0.2), value: activeComponent) // Smooth transition
                         }
                         
@@ -174,8 +180,8 @@ struct SunRayTimePickerView: View {
 
                                 Text(label)
                                     .font(.system(size: labelSize, weight: .heavy, design: .monospaced))
-                                    .foregroundColor(isHourMatch(i) ? Colors.accentTeal : Colors.textSecondary)
-                                    .shadow(color: isHourMatch(i) ? Colors.accentTeal.opacity(0.5) : .clear, radius: 4)
+                                    .foregroundColor(isHourMatch(i) ? (isTiimo ? Color(hex: "#7F77DD") : Colors.accentTeal) : Colors.textSecondary)
+                                    .shadow(color: (isHourMatch(i) && !isTiimo) ? Colors.accentTeal.opacity(0.5) : .clear, radius: 4)
                                     .scaleEffect(isCompactLabel ? 0.92 : 1.0)
                                     .offset(y: -(size / 2 - labelLift))
                                     .rotationEffect(.degrees(Double(i) * angleStep))
@@ -185,26 +191,38 @@ struct SunRayTimePickerView: View {
                     .frame(width: size, height: size)
                     
                     // Active Ring Segment — gradient stroke with glow
-                    Circle()
-                        .trim(from: 0.0, to: activeProgress())
-                        .stroke(
-                            AngularGradient(
-                                colors: [
-                                    Colors.accentBlue.opacity(0.62),
-                                    Colors.accentTeal.opacity(0.96),
-                                    accentSunYellow.opacity(0.10),
-                                    Colors.accentBlue.opacity(0.80)
-                                ],
-                                center: .center,
-                                startAngle: .degrees(0),
-                                endAngle: .degrees(360 * activeProgress())
-                            ),
-                            style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
-                        )
-                        .frame(width: size + 10, height: size + 10)
-                        .rotationEffect(.degrees(-90))
-                        .shadow(color: Colors.accentTeal.opacity(isInteracting ? 0.6 : Double(0.25 + ringGlowPulse * 0.15)), radius: isInteracting ? 10 : 5)
-                        .animation(isInteracting ? .none : .interactiveSpring(response: 0.22, dampingFraction: 0.88), value: activeProgress())
+                    if isTiimo {
+                        Circle()
+                            .trim(from: 0.0, to: activeProgress())
+                            .stroke(
+                                Color(hex: "#7F77DD"),
+                                style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
+                            )
+                            .frame(width: size + 10, height: size + 10)
+                            .rotationEffect(.degrees(-90))
+                            .animation(isInteracting ? .none : .interactiveSpring(response: 0.22, dampingFraction: 0.88), value: activeProgress())
+                    } else {
+                        Circle()
+                            .trim(from: 0.0, to: activeProgress())
+                            .stroke(
+                                AngularGradient(
+                                    colors: [
+                                        Colors.accentBlue.opacity(0.62),
+                                        Colors.accentTeal.opacity(0.96),
+                                        accentSunYellow.opacity(0.10),
+                                        Colors.accentBlue.opacity(0.80)
+                                    ],
+                                    center: .center,
+                                    startAngle: .degrees(0),
+                                    endAngle: .degrees(360 * activeProgress())
+                                ),
+                                style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
+                            )
+                            .frame(width: size + 10, height: size + 10)
+                            .rotationEffect(.degrees(-90))
+                            .shadow(color: Colors.accentTeal.opacity(isInteracting ? 0.6 : Double(0.25 + ringGlowPulse * 0.15)), radius: isInteracting ? 10 : 5)
+                            .animation(isInteracting ? .none : .interactiveSpring(response: 0.22, dampingFraction: 0.88), value: activeProgress())
+                    }
                     
                     // User Interaction Layer (Transparent)
                     ZStack {
@@ -236,7 +254,9 @@ struct SunRayTimePickerView: View {
                     ZStack {
                         Rectangle()
                             .fill(
-                                LinearGradient(
+                                isTiimo
+                                ? LinearGradient(colors: [Color(hex: "#7F77DD"), Color(hex: "#7F77DD")], startPoint: .bottom, endPoint: .top)
+                                : LinearGradient(
                                     colors: [
                                         Color.white.opacity(0.92),
                                         Colors.accentTeal.opacity(0.9),
@@ -248,12 +268,12 @@ struct SunRayTimePickerView: View {
                             )
                             .frame(width: 3, height: size * 0.35)
                             .offset(y: -(size * 0.175))
-                            .shadow(color: Colors.accentTeal.opacity(0.45), radius: 5)
+                            .shadow(color: isTiimo ? .clear : Colors.accentTeal.opacity(0.45), radius: 5)
 
                         Circle()
-                            .fill(Color.white)
+                            .fill(isTiimo ? Color(hex: "#7F77DD") : Color.white)
                             .frame(width: 12, height: 12)
-                            .shadow(color: Color.white.opacity(0.8), radius: 4)
+                            .shadow(color: isTiimo ? .clear : Color.white.opacity(0.8), radius: 4)
                     }
                     .rotationEffect(.degrees(lineRotationDegrees))
                     .animation(isInteracting ? .none : .interactiveSpring(response: 0.22, dampingFraction: 0.88), value: lineRotationDegrees)
@@ -272,7 +292,7 @@ struct SunRayTimePickerView: View {
                             fontSize: second != nil ? 32 : 46,
                             unitSize: second != nil ? 14 : 16,
                             isActive: activeComponent == .hour,
-                            highlightColor: Colors.accentTeal,
+                            highlightColor: isTiimo ? Color(hex: "#7F77DD") : Colors.accentTeal,
                             onTap: {
                                 activeComponent = .hour
                                 showWheelPicker = true
@@ -304,7 +324,7 @@ struct SunRayTimePickerView: View {
                             fontSize: second != nil ? 32 : 46,
                             unitSize: second != nil ? 14 : 16,
                             isActive: activeComponent == .minute,
-                            highlightColor: Colors.accentTeal,
+                            highlightColor: isTiimo ? Color(hex: "#7F77DD") : Colors.accentTeal,
                             onTap: {
                                 activeComponent = .minute
                                 showWheelPicker = true
@@ -331,7 +351,7 @@ struct SunRayTimePickerView: View {
                                 fontSize: 32,
                                 unitSize: 14,
                                 isActive: activeComponent == .second,
-                                highlightColor: Colors.accentTeal,
+                                highlightColor: isTiimo ? Color(hex: "#7F77DD") : Colors.accentTeal,
                                 onTap: {
                                     activeComponent = .second
                                     showWheelPicker = true
@@ -354,14 +374,14 @@ struct SunRayTimePickerView: View {
                 Text("24H")
                     .font(.system(size: 16, weight: .bold))
                     .fixedSize()
-                    .foregroundColor(!is12HourFormat ? Colors.accentTeal : Colors.textSecondary.opacity(0.3))
+                    .foregroundColor(!is12HourFormat ? (isTiimo ? Color(hex: "#7F77DD") : Colors.accentTeal) : Colors.textSecondary.opacity(0.3))
                     .padding(.vertical, 8)
                     .padding(.horizontal, 8)
                     .background(
                         Capsule()
-                            .fill(!is12HourFormat ? Colors.accentTeal.opacity(0.15) : Color.clear)
+                            .fill(!is12HourFormat ? (isTiimo ? Color(hex: "#F0EFFE") : Colors.accentTeal.opacity(0.15)) : Color.clear)
                             .overlay(
-                                Capsule().stroke(!is12HourFormat ? Colors.accentTeal.opacity(0.5) : Colors.cardStroke, lineWidth: 1)
+                                Capsule().stroke(!is12HourFormat ? (isTiimo ? Color(hex: "#7F77DD").opacity(0.5) : Colors.accentTeal.opacity(0.5)) : (isTiimo ? Color(hex: "#E0DCFF") : Colors.cardStroke), lineWidth: 1)
                             )
                     )
             }

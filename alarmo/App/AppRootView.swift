@@ -16,6 +16,7 @@ struct AppRootView: View {
     @StateObject private var pomodoroEngine = PomodoroEngine()
     @StateObject private var navigationStore = NavigationStore()
     @ObservedObject private var settingsStore = SettingsStore.shared
+    @StateObject private var themeManager = ThemeManager.shared
     @Environment(\.modelContext) var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @State private var foregroundScheduler: AlarmForegroundScheduler?
@@ -51,6 +52,7 @@ struct AppRootView: View {
                 OnboardingFlowView(viewModel: onboardingViewModel, appPreferences: appPreferences, alarmStore: alarmStore)
             }
         }
+        .environmentObject(themeManager)
         .preferredColorScheme(resolvedColorScheme)
         .onAppear {
             // Configure remote assets from GitHub
@@ -584,7 +586,7 @@ struct AppRootView: View {
     }
 
     private var resolvedColorScheme: ColorScheme? {
-        appThemeStyleRaw == AlarmThemeStyle.lilacCalm.rawValue ? .light : settingsStore.themeMode.colorScheme
+        (appThemeStyleRaw == AlarmThemeStyle.lilacCalm.rawValue || appThemeStyleRaw == AlarmThemeStyle.tiimo.rawValue) ? .light : settingsStore.themeMode.colorScheme
     }
 
     private func handlePlanNotificationMarkDone(userInfo: [AnyHashable: Any]?) {
