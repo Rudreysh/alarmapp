@@ -1,0 +1,1263 @@
+import SwiftUI
+import SwiftData
+
+struct PomoTimerView: View {
+    @ObservedObject var viewModel: TimerViewModel
+    @ObservedObject var engine: PomodoroEngine
+    @EnvironmentObject var taskStore: TaskStore
+    @Environment(\.modelContext) var modelContext
+    @Environment(\.colorScheme) private var colorScheme
+    
+    @Query(filter: #Predicate<PlanItem> { !$0.isArchived })
+    var planItems: [PlanItem]
+    
+    @State private var showTaskSelection = false
+    @State private var showIntervalSettings = false
+    @State private var showTimerEditSheet = false
+    @State private var editingSeconds: Int = 0
+    @State private var showAppLists = false
+    @State private var showDeepFocusConfirm = false
+    
+    // Timer Onboarding Sequence
+    @State private var showTimerTimeIntegerCoachMark = false
+    @State private var showTimerCircleCoachMark = false
+    @State private var showTimerIntervalCoachMark = false
+    @State private var showTimerMusicCoachMark = false
+    @State private var showTimerBlockListCoachMark = false
+    @State private var showTimerStartCoachMark = false
+    
+    @Query(sort: \AppList.updatedAt, order: .reverse)
+    private var allAppLists: [AppList]
+    private let settingsStore = SettingsStore.shared
+
+    private enum Layout {
+        static let selectorItemSpacing: CGFloat = 7
+        static let selectorHorizontalPadding: CGFloat = 12
+        static let selectorVerticalPadding: CGFloat = 7
+
+        static let timerReadoutScale: CGFloat = 0.60
+        static let timerReadoutBaseFactor: CGFloat = 0.22
+        static let timerReadoutMinimumSize: CGFloat = 28
+
+        static let resetScale: CGFloat = 0.78
+        static let resetBaseSize: CGFloat = 26
+        static let resetButtonFrame: CGFloat = 31.2
+        static let timerResetSpacing: CGFloat = 10
+
+        static let emojiChipSpacing: CGFloat = 10
+        static let emojiChipItemSpacing: CGFloat = 5
+        static let emojiChipHorizontalPadding: CGFloat = 10
+        static let emojiChipVerticalPadding: CGFloat = 6
+        static let emojiGroupHorizontalPadding: CGFloat = 10
+        static let emojiGroupVerticalPadding: CGFloat = 6
+
+        static let appBlockListIconSize: CGFloat = 11
+        static let appBlockListLabelSize: CGFloat = 13
+        static let idleControlsLift: CGFloat = -50
+    }
+
+    private var activeParallelSession: ParallelFocusSession? {
+        guard let activeId = engine.state.activeParallelSessionId else { return nil }
+        return engine.state.parallelSessions.first(where: { $0.id == activeId })
+    }
+
+    private var activeTaskId: UUID? {
+        activeParallelSession?.taskId ?? engine.state.selectedTaskId
+    }
+
+    private var isLightMode: Bool {
+        colorScheme == .light
+    }
+
+    private var primaryChipFill: Color {
+        isLightMode ? Color.white.opacity(0.90) : Color.white.opacity(0.10)
+    }
+
+    private var primaryChipStrokeGradient: [Color] {
+        isLightMode
+            ? [Color.white.opacity(0.98), Color.white.opacity(0.75)]
+            : [Color.white.opacity(0.34), Color.white.opacity(0.10)]
+    }
+
+    private var circularControlFill: Color {
+        isLightMode ? Color.white.opacity(0.96) : Color(red: 0.13, green: 0.15, blue: 0.20)
+    }
+
+    private var circularControlStroke: Color {
+        isLightMode ? Colors.cardStroke : Color.white.opacity(0.10)
+    }
+
+    private var circularControlShadow: Color {
+        isLightMode ? Color.black.opacity(0.08) : Color.black.opacity(0.25)
+    }
+    
+    var body: some View {
+        GeometryReader { geo in
+            let availableWidth = geo.size.width
+            let availableHeight = geo.size.height
+            let isDenseLayout = availableHeight < 760 || engine.parallelSessions.count > 1
+            let topInset = isDenseLayout ? Spacing.s : Spacing.m
+            let topSectionSpacer = isDenseLayout ? CGFloat(6) : CGFloat(16)
+            let controlsTopSpacer = isDenseLayout ? CGFloat(2) : CGFloat(8)
+            let diameter = min(availableWidth * 0.75, availableHeight * 0.45)
+            let middleDialDiameter = diameter * 0.60 // 20% smaller than previous center dial size
+            let ringSectionSpacing = isDenseLayout ? CGFloat(18) : CGFloat(24)
+            let timerReadoutSize = max(Layout.timerReadoutMinimumSize, diameter * Layout.timerReadoutBaseFactor * Layout.timerReadoutScale)
+            let resetIconSize = Layout.resetBaseSize * Layout.resetScale
+            
+            ZStack(alignment: .top) {
+                // Main Timer UI
+                VStack(spacing: 0) {
+                    // Task Selection Header
+                    HStack(spacing: 10) {
+                        Button(action: { showTaskSelection = true }) {
+                            HStack(spacing: Layout.selectorItemSpacing) {
+                                Text(activeTaskDisplayName())
+                                    .font(.system(size: 20, weight: .semibold))
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .minimumScaleFactor(0.85)
+                                
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(TimerPalette.accent)
+                                
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(Colors.textSecondary)
+                            }
+                            .foregroundColor(Colors.textPrimary)
+                            .padding(.horizontal, Layout.selectorHorizontalPadding)
+                            .padding(.vertical, Layout.selectorVerticalPadding)
+                            .background(
+                                Capsule()
+                                    .fill(primaryChipFill)
+                                    .background(.ultraThinMaterial, in: Capsule())
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: primaryChipStrokeGradient,
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 1
+                                    )
+                            )
+                            .shadow(color: isLightMode ? Color.black.opacity(0.08) : Color.black.opacity(0.28), radius: 10, x: 0, y: 5)
+                        }
+                        .buttonStyle(.plain)
+                        .fixedSize(horizontal: true, vertical: false)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, topInset)
+                    
+                    HStack(spacing: 16) {
+                        // Interval Settings Shortcut
+                        Button(action: { 
+                            showIntervalSettings = true 
+                            if showTimerIntervalCoachMark {
+                                showTimerIntervalCoachMark = false
+                                viewModel.preferences.hasSeenTimerIntervalTooltip = true
+                                triggerNextTimerStep()
+                            }
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "timer")
+                                    .font(.system(size: 13, weight: .bold))
+                                Text(engine.config.isEnabled ? "Interval: On" : "Interval: Off")
+                                    .font(.system(size: 13, weight: .bold))
+                            }
+                            .foregroundColor(isLightMode ? Colors.textPrimary : TimerPalette.accent)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 16)
+                            .background(isLightMode ? Color.white.opacity(0.88) : TimerPalette.accent.opacity(0.22))
+                            .clipShape(Capsule())
+                            .coachMark(
+                                title: "Interval",
+                                subtitle: "Control focus breaks.",
+                                isVisible: $showTimerIntervalCoachMark,
+                                alignment: .bottom,
+                                pointDirection: .top,
+                                arrowAlignment: .center,
+                                arrowOffsetX: 0,
+                                bubbleOffsetX: 0,
+                                bubbleOffsetY: 76,
+                                color: .red
+                            )
+                        }
+                        .frame(maxWidth: .infinity)
+                        
+                        // Ambient Sound Selection Shortcut
+                        Button(action: { 
+                            viewModel.showSoundSelection = true 
+                            if showTimerMusicCoachMark {
+                                showTimerMusicCoachMark = false
+                                viewModel.preferences.hasSeenTimerMusicTooltip = true
+                                triggerNextTimerStep()
+                            }
+                        }) {
+                            HStack(spacing: 6) {
+                                if viewModel.ambientSoundName.isEmpty {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.system(size: 13, weight: .bold))
+                                    Text("Add Music")
+                                        .font(.system(size: 13, weight: .bold))
+                                } else {
+                                    Image(systemName: "music.note")
+                                        .font(.system(size: 13, weight: .bold))
+                                    Text(viewModel.ambientSoundName)
+                                        .font(.system(size: 13, weight: .bold))
+                                        .lineLimit(1)
+                                        .truncationMode(.tail)
+                                }
+                            }
+                            .foregroundColor(isLightMode ? Colors.textPrimary : TimerPalette.accent)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 16)
+                            .background(isLightMode ? Color.white.opacity(0.88) : TimerPalette.accent.opacity(0.22))
+                            .clipShape(Capsule())
+                            .coachMark(
+                                title: "Music",
+                                subtitle: "Pick ambient sounds.",
+                                isVisible: $showTimerMusicCoachMark,
+                                alignment: .bottom,
+                                pointDirection: .top,
+                                arrowAlignment: .center,
+                                arrowOffsetX: 0,
+                                bubbleOffsetX: 0,
+                                bubbleOffsetY: 76,
+                                color: .red
+                            )
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .padding(.top, 12)
+                    .padding(.horizontal, 2)
+                    
+                    Spacer(minLength: topSectionSpacer)
+                    
+                    // Timer Circle
+                    VStack(spacing: ringSectionSpacing) {
+                        DraggableDialTimer(
+                            totalSeconds: Binding(
+                                get: { engine.state.remainingSeconds },
+                                set: { 
+                                    applySelectedSeconds($0) 
+                                    if showTimerCircleCoachMark {
+                                        showTimerCircleCoachMark = false
+                                        viewModel.preferences.hasSeenTimerCircleTooltip = true
+                                        triggerNextTimerStep()
+                                    }
+                                }
+                            ),
+                            isRunning: engine.isRunning,
+                            progress: engine.currentProgress,
+                            color: middleRingColor,
+                            centerSymbol: middleRingSymbol,
+                            particleSeed: engine.state.overriddenTaskName ?? taskStore.selectedTask?.name ?? "focus",
+                            onCenterTap: {
+                                showTaskSelection = true
+                            }
+                        )
+                        .frame(width: middleDialDiameter, height: middleDialDiameter)
+                        .coachMark(
+                            title: "Dial",
+                            subtitle: "Rotate to set time.",
+                            isVisible: $showTimerCircleCoachMark,
+                            alignment: .top,
+                            pointDirection: .bottom,
+                            arrowAlignment: .center,
+                            arrowOffsetX: 0,
+                            bubbleOffsetX: 0,
+                            bubbleOffsetY: -120,
+                            color: .red
+                        )
+                        
+                        VStack(spacing: 8) {
+                            HStack(spacing: Layout.timerResetSpacing) {
+                                timerReadout(size: timerReadoutSize, totalSeconds: engine.state.remainingSeconds)
+                                    .onTapGesture {
+                                        if showTimerTimeIntegerCoachMark {
+                                            showTimerTimeIntegerCoachMark = false
+                                            viewModel.preferences.hasSeenTimerTimeIntegerTooltip = true
+                                            triggerNextTimerStep()
+                                        }
+                                        // only allow edit if running or paused
+                                        editingSeconds = engine.state.remainingSeconds
+                                        showTimerEditSheet = true
+                                    }
+                                    .coachMark(
+                                        title: "Keypad",
+                                        subtitle: "Tap to set precisely.",
+                                        isVisible: $showTimerTimeIntegerCoachMark,
+                                        alignment: .top,
+                                        pointDirection: .bottom,
+                                        arrowAlignment: .center,
+                                        arrowOffsetX: 0,
+                                        bubbleOffsetX: 0,
+                                        bubbleOffsetY: -120,
+                                        color: .red
+                                    )
+
+                                Button(action: resetTimerDisplay) {
+                                    Image(systemName: "arrow.counterclockwise.circle.fill")
+                                        .font(.system(size: resetIconSize, weight: .semibold))
+                                        .foregroundColor(TimerPalette.accent.opacity(engine.isRunning ? 0.45 : 0.95))
+                                        .frame(width: Layout.resetButtonFrame, height: Layout.resetButtonFrame)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(engine.isRunning)
+                                .accessibilityLabel("Reset timer")
+                            }
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.horizontal, Spacing.l)
+                            
+                            // Expected End Time / Schedule
+                            let endTime = Date().addingTimeInterval(TimeInterval(engine.state.remainingSeconds))
+                            Text("\(formattedTime(Date())) - \(formattedTime(endTime))")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(TimerPalette.accent)
+                            
+                            if engine.config.isEnabled {
+                                Text(currentSegmentLabel)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(currentSegmentColor)
+                                
+                                if case .running(.focus) = engine.state.phase {
+                                    Text("Cycle \(engine.state.cycleIndex + 1) • Session \(engine.state.completedFocusInCycle + 1)/\(engine.config.sessionsPerCycle)")
+                                        .font(.caption)
+                                        .foregroundColor(Colors.textTertiary)
+                                }
+                            }
+
+                            if shouldShowBlockingStatusPill {
+                                if engine.parallelSessions.count > 1 {
+                                    parallelSessionSwitcher
+                                        .padding(.top, 4)
+                                }
+
+                                blockingStatusPill
+                                    .padding(.top, 8)
+                                    .coachMark(
+                                        title: "Deep Focus",
+                                        subtitle: "Block distractions by blocking apps.",
+                                        isVisible: $showTimerBlockListCoachMark,
+                                        alignment: .top,
+                                        pointDirection: .bottom,
+                                        arrowAlignment: .center,
+                                        arrowOffsetX: 0,
+                                        bubbleOffsetX: 0,
+                                        bubbleOffsetY: -80,
+                                        color: .red
+                                    )
+                                    .onTapGesture {
+                                        if showTimerBlockListCoachMark {
+                                            showTimerBlockListCoachMark = false
+                                            viewModel.preferences.hasSeenTimerBlockListTooltip = true
+                                            triggerNextTimerStep()
+                                        }
+                                    }
+                            }
+                        }
+                    }
+                    .onTapGesture {
+                        if !engine.isRunning {
+                            viewModel.showFrequentlyUsedPomo = true
+                        }
+                    }
+                    
+                    Spacer(minLength: controlsTopSpacer)
+                    
+                    // Controls
+                    VStack(spacing: Spacing.m) {
+                        if case .idle = engine.state.phase {
+                            VStack(spacing: Spacing.m) {
+                                idleControlRow
+                                    .padding(.horizontal, Spacing.l)
+                                
+                                Button {
+                                    // Ensure selected block list + snapshot are synced before starting.
+                                    // This avoids needing a no-op "Save" after app relaunch.
+                                    syncBlockListToEngine()
+                                    engine.start(taskId: activeTaskId)
+                                    if showTimerStartCoachMark {
+                                        showTimerStartCoachMark = false
+                                        viewModel.preferences.hasSeenTimerStartTooltip = true
+                                    }
+                                }
+                                label: {
+                                    HStack(spacing: 10) {
+                                        Text("Start")
+                                            .font(.system(size: 14, weight: .black))
+                                        Image(systemName: "play.fill")
+                                            .font(.system(size: 12, weight: .bold))
+                                    }
+                                    .foregroundColor(.black)
+                                    .frame(width: 160)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        Capsule()
+                                            .fill(TimerPalette.accent)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.horizontal, Spacing.l)
+                                .coachMark(
+                                    title: "Start",
+                                    subtitle: "Begin session.",
+                                    isVisible: $showTimerStartCoachMark,
+                                    alignment: .top,
+                                    pointDirection: .bottom,
+                                    arrowAlignment: .center,
+                                    arrowOffsetX: 0,
+                                    bubbleOffsetX: 0,
+                                    bubbleOffsetY: -80,
+                                    color: .red
+                                )
+                            }
+                            .offset(y: Layout.idleControlsLift)
+                        } else {
+                            // Running / Paused Controls
+                            // We use a ZStack/Overlay approach to keep the main buttons (Music, Play, Stop)
+                            // perfectly stable and centered. The Break button appears to the left without
+                            // shifting the others.
+                            let runningControlSpacing: CGFloat = 24
+                            let manualBreakLeadingOffset: CGFloat = -(56 + runningControlSpacing)
+
+                            HStack(spacing: runningControlSpacing) {
+                                // Ambient Sound Toggle/Select
+                                Button(action: {
+                                    if viewModel.ambientSoundName.isEmpty {
+                                        viewModel.showSoundSelection = true
+                                    } else {
+                                        viewModel.toggleAmbientSound()
+                                    }
+                                }) {
+                                    ZStack(alignment: .bottomTrailing) {
+                                        Image(systemName: "music.note")
+                                            .font(.system(size: 20, weight: .semibold))
+                                        
+                                        if !viewModel.ambientSoundName.isEmpty {
+                                            Image(systemName: viewModel.isAmbientPlaying ? "pause.fill" : "play.fill")
+                                                .font(.system(size: 10, weight: .bold))
+                                                .foregroundColor(.white)
+                                                .background(Circle().fill(Color.red).frame(width: 14, height: 14))
+                                                .offset(x: 2, y: 2)
+                                        }
+                                    }
+                                    .foregroundColor(Colors.textSecondary)
+                                    .frame(width: 56, height: 56)
+                                    .background(Circle().fill(circularControlFill))
+                                    .overlay(Circle().stroke(circularControlStroke, lineWidth: 1))
+                                    .shadow(color: circularControlShadow, radius: 6, x: 0, y: 3)
+                                }
+                                .onLongPressGesture {
+                                    viewModel.showSoundSelection = true
+                                }
+                                
+                                // Play/Pause
+                                Button(action: {
+                                    if engine.isRunning {
+                                        engine.pause()
+                                    } else {
+                                        engine.resume()
+                                    }
+                                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                }) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(currentSegmentColor)
+                                            .frame(width: 72, height: 72)
+                                        Image(systemName: engine.isRunning ? "pause.fill" : "play.fill")
+                                            .font(.system(size: 26, weight: .bold))
+                                            .foregroundColor(isLightMode ? Colors.textPrimary : .black)
+                                    }
+                                    .shadow(color: currentSegmentColor.opacity(0.5), radius: 16, y: 6)
+                                }
+                                
+                                // Stop — hidden in Deep Focus during active focus run
+                                if engine.canStopSession {
+                                    Button(action: {
+                                        engine.requestStop()
+                                        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+                                    }) {
+                                        Image(systemName: "stop.fill")
+                                            .font(.system(size: 20, weight: .semibold))
+                                            .foregroundColor(Color(red: 0.9, green: 0.25, blue: 0.25))
+                                            .frame(width: 56, height: 56)
+                                            .background(Circle().fill(circularControlFill))
+                                            .overlay(Circle().stroke(circularControlStroke, lineWidth: 1))
+                                            .shadow(color: circularControlShadow, radius: 6, x: 0, y: 3)
+                                    }
+                                } else {
+                                    // Placeholder to keep layout stable
+                                    Image(systemName: "lock.fill")
+                                        .font(.system(size: 20, weight: .semibold))
+                                        .foregroundColor(Color.red.opacity(0.7))
+                                        .frame(width: 56, height: 56)
+                                        .background(Circle().fill(circularControlFill))
+                                        .overlay(Circle().stroke(circularControlStroke, lineWidth: 1))
+                                        .shadow(color: circularControlShadow, radius: 6, x: 0, y: 3)
+                                }
+                            }
+                            .overlay(alignment: .leading) {
+                                // Manual Break (Coffee) - Appears to the left
+                                Button(action: { engine.requestBreak() }) {
+                                    Image(systemName: "cup.and.saucer.fill")
+                                        .font(.system(size: 20, weight: .semibold))
+                                        .foregroundColor(Colors.textSecondary)
+                                        .frame(width: 56, height: 56)
+                                        .background(Circle().fill(circularControlFill))
+                                        .overlay(Circle().stroke(circularControlStroke, lineWidth: 1))
+                                        .shadow(color: circularControlShadow, radius: 6, x: 0, y: 3)
+                                }
+                                .padding(.leading, manualBreakLeadingOffset) // 56 (button) + runningControlSpacing
+                                .opacity(engine.isRunning ? 0 : 1)
+                                .disabled(engine.isRunning)
+                                .animation(.easeInOut(duration: 0.2), value: engine.isRunning)
+                            }
+                            
+                            // ---- Deep Focus Lock Banner ----
+                            if engine.isDeepFocusActive, case .running(.focus) = engine.state.phase {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "lock.fill")
+                                        .font(.system(size: 12))
+                                    Text("Deep Focus — session locked until complete")
+                                        .font(.system(size: 12, weight: .semibold))
+                                }
+                                .foregroundColor(isLightMode ? Colors.textPrimary.opacity(0.75) : .white.opacity(0.7))
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(Color.red.opacity(0.15))
+                                .clipShape(Capsule())
+                                .padding(.top, 4)
+                            }
+                            
+                            // Skip Button
+                            if engine.isRunning {
+                                Button(action: { engine.skipSegment() }) {
+                                    Text("Take a short break")
+                                        .font(.caption)
+                                        .foregroundColor(Colors.textSecondary)
+                                }
+                                .padding(.top, 8)
+                            }
+
+                        }
+                    }
+                    .padding(.bottom, controlsBottomInset)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .opacity(isOverlayVisible ? 0.3 : 1.0) // Dim if overlay
+                .blur(radius: isOverlayVisible ? 5 : 0)
+                
+                // Finished Segment Overlay
+                if case .finishedSegment(let segment) = engine.state.phase {
+                    finishedSegmentOverlay(segment: segment)
+                }
+                
+                // Finished Cycle Overlay
+                if case .finishedCycle = engine.state.phase {
+                    finishedCycleOverlay
+                }
+            }
+            .frame(width: availableWidth, height: availableHeight, alignment: .top)
+        }
+        .sheet(isPresented: $showTaskSelection) {
+            TaskSelectionSheet(viewModel: viewModel)
+                .environmentObject(taskStore)
+                .environmentObject(engine)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $viewModel.showFrequentlyUsedPomo) {
+            FrequentlyUsedPomoSheet(viewModel: viewModel, engine: engine)
+        }
+        .sheet(isPresented: $showIntervalSettings) {
+            IntervalTimerSettingsView(engine: engine)
+        }
+        .sheet(isPresented: $viewModel.showSoundSelection) {
+            SoundPickerView(selectedSound: Binding(
+                get: { viewModel.ambientSoundName },
+                set: { val in 
+                    viewModel.setAmbientSound(val)
+                }
+            ))
+        }
+        .sheet(isPresented: $showTimerEditSheet) {
+            TimerDurationPickerView(
+                initialTotalSeconds: editingSeconds,
+                segmentTitle: engine.state.currentSegment?.title ?? "Timer",
+                onSave: { seconds in
+                    applySelectedSeconds(seconds)
+                    showTimerEditSheet = false
+                }
+            )
+            .presentationDetents([.fraction(0.4)])
+        }
+        .sheet(isPresented: $showAppLists) {
+            AppListsView(engine: engine)
+                .onDisappear {
+                    // Pull the latest selected list from shared settings after the sheet closes.
+                    syncBlockListToEngine()
+                }
+        }
+        // MARK: - Intervention Sheet
+        .fullScreenCover(isPresented: $engine.showingIntervention) {
+            SessionInterventionView(
+                breakMode: engine.config.breakMode,
+                enabledChallenges: engine.config.enabledChallenges,
+                onStopConfirmed: {
+                    engine.forceStop()
+                },
+                onTakeBreak: {
+                    engine.takeBreakAfterChallenge()
+                },
+                onDismiss: {
+                    engine.showingIntervention = false
+                }
+            )
+            .ignoresSafeArea()
+        }
+        .onAppear {
+            // Check background foreground refresh
+            engine.refreshTimer()
+            // Restore the saved block list reference into the engine on first launch
+            syncBlockListToEngine()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            engine.refreshTimer()
+            // Keep block-list selection coherent after background/foreground transitions.
+            syncBlockListToEngine()
+        }
+        .onChange(of: allAppLists.map(\.id)) { _, _ in
+            syncBlockListToEngine()
+        }
+        .onChange(of: engine.isRunning) { _, running in
+            if !running && viewModel.isAmbientPlaying {
+                // Stop ambient music if the timer is paused or stopped
+                viewModel.toggleAmbientSound()
+            }
+        }
+        .onChange(of: engine.state.currentSegment) { _, newSegment in
+            // Stop music immediately if transitioning to a break
+            if newSegment == .shortBreak || newSegment == .longBreak {
+                if viewModel.isAmbientPlaying {
+                    viewModel.toggleAmbientSound()
+                }
+            }
+        }
+        .onAppear {
+            onTimerAppear()
+        }
+        .onChange(of: showTimerTimeIntegerCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerTimeIntegerTooltip {
+                viewModel.preferences.hasSeenTimerTimeIntegerTooltip = true
+                triggerNextTimerStep()
+            }
+        }
+        .onChange(of: showTimerCircleCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerCircleTooltip {
+                viewModel.preferences.hasSeenTimerCircleTooltip = true
+                triggerNextTimerStep()
+            }
+        }
+        .onChange(of: showTimerIntervalCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerIntervalTooltip {
+                viewModel.preferences.hasSeenTimerIntervalTooltip = true
+                triggerNextTimerStep()
+            }
+        }
+        .onChange(of: showTimerMusicCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerMusicTooltip {
+                viewModel.preferences.hasSeenTimerMusicTooltip = true
+                triggerNextTimerStep()
+            }
+        }
+        .onChange(of: showTimerBlockListCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerBlockListTooltip {
+                viewModel.preferences.hasSeenTimerBlockListTooltip = true
+                triggerNextTimerStep()
+            }
+        }
+        .onChange(of: showTimerStartCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerStartTooltip {
+                viewModel.preferences.hasSeenTimerStartTooltip = true
+            }
+        }
+    }
+    
+    // MARK: - Helpers
+
+    private var shouldShowBlockingStatusPill: Bool {
+        // Keep App Block UI visible while running/paused.
+        if case .idle = engine.state.phase { return false }
+        return true
+    }
+
+    private var controlsBottomInset: CGFloat {
+        if case .idle = engine.state.phase {
+            return Spacing.xl
+        }
+        // Keep running/paused actions (Take a short break + App Block List) clearly above tab bar.
+        if engine.parallelSessions.count > 1 {
+            return Spacing.xl
+        }
+        return Spacing.xxl
+    }
+    
+    /// Restore the persisted block list reference back into the engine (e.g. after cold start).
+    private func syncBlockListToEngine() {
+        let selectedId = settingsStore.selectedBlockListId
+        guard !selectedId.isEmpty else {
+            if engine.activeBlockList != nil || !engine.config.selectedBlockListId.isEmpty {
+                engine.setActiveBlockList(nil)
+            }
+            return
+        }
+
+        guard let saved = allAppLists.first(where: {
+            $0.type == .block && $0.id.uuidString == selectedId
+        }) else {
+            // SwiftData query can still be loading when this sync runs.
+            // Avoid clearing persisted timer block config in that transient state.
+            guard !allAppLists.isEmpty else { return }
+            settingsStore.selectedBlockListId = ""
+            engine.setActiveBlockList(nil)
+            return
+        }
+
+        if engine.activeBlockList?.id != saved.id || engine.config.selectedBlockListId != selectedId {
+            engine.setActiveBlockList(saved)
+            print("🔗 [PomoTimerView] syncBlockListToEngine → '\(saved.name)'")
+        }
+        syncSettingsSnapshot(from: saved)
+    }
+
+    private func syncSettingsSnapshot(from list: AppList) {
+        settingsStore.selectedBlockListId = list.id.uuidString
+        settingsStore.blockedAppsSelectionData = list.selectionData
+        settingsStore.blockedMockApps = list.mockAppIDs
+        settingsStore.blockedMockCategories = list.mockCategoryIDs
+        settingsStore.blockedAdultContentEnabled = list.adultBlockingEnabled
+    }
+    
+    private var idleControlRow: some View {
+        HStack(spacing: 10) {
+            Spacer()
+            
+            Button {
+                showAppLists = true
+            } label: {
+                let listName = timerBlockListDisplayName(selectedBlockList?.name)
+                let blockEnabled = engine.config.blockAppsEnabled && listName != nil
+                
+                HStack(spacing: 6) {
+                    Image(systemName: blockEnabled ? "lock.fill" : "lock.open.fill")
+                        .font(.system(size: Layout.appBlockListIconSize, weight: .semibold))
+                        .foregroundColor(blockEnabled ? .red : .green)
+                    Text(listName ?? "App Block List")
+                        .font(.system(size: Layout.appBlockListLabelSize, weight: .medium))
+                        .foregroundColor(blockEnabled ? Colors.textPrimary : Colors.textSecondary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(
+                            blockEnabled
+                                ? Color.red.opacity(isLightMode ? 0.10 : 0.12)
+                                : (isLightMode ? Color.white.opacity(0.92) : Color.white.opacity(0.12))
+                        )
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(blockEnabled ? Color.red.opacity(0.3) : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.22)), lineWidth: 1)
+                )
+                .shadow(color: isLightMode ? Color.black.opacity(0.08) : Color.black.opacity(0.25), radius: 10, x: 0, y: 5)
+            }
+            .buttonStyle(.plain)
+            .coachMark(
+                title: "Deep Focus",
+                subtitle: "Block distractions by blocking apps.",
+                isVisible: $showTimerBlockListCoachMark,
+                alignment: .top,
+                pointDirection: .bottom,
+                arrowAlignment: .center,
+                arrowOffsetX: 0,
+                bubbleOffsetX: 0,
+                bubbleOffsetY: -80,
+                color: .red
+            )
+            .onTapGesture {
+                if showTimerBlockListCoachMark {
+                    showTimerBlockListCoachMark = false
+                    viewModel.preferences.hasSeenTimerBlockListTooltip = true
+                    triggerNextTimerStep()
+                }
+            }
+            .buttonStyle(.plain)
+            
+            Spacer()
+        }
+    }
+
+    private var parallelSessionSwitcher: some View {
+        Group {
+            if engine.parallelSessions.count <= 4 {
+                parallelSessionChipRow
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    parallelSessionChipRow
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .accessibilityLabel("Running timers switcher")
+    }
+
+    private var parallelSessionChipRow: some View {
+        HStack(spacing: Layout.emojiChipSpacing) {
+            ForEach(engine.parallelSessions) { session in
+                let isActive = engine.state.activeParallelSessionId == session.id
+                Button {
+                    engine.switchToParallelSession(session.id)
+                } label: {
+                    HStack(spacing: Layout.emojiChipItemSpacing) {
+                        Text(sessionEmoji(for: session))
+                            .font(.system(size: 15))
+
+                        Text(sessionLabel(for: session))
+                            .font(.system(size: 13, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
+                    }
+                    .foregroundColor(isActive ? Colors.textPrimary : Colors.textSecondary)
+                    .padding(.horizontal, Layout.emojiChipHorizontalPadding)
+                    .padding(.vertical, Layout.emojiChipVerticalPadding)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(
+                                isActive
+                                    ? (isLightMode ? Color.white.opacity(0.95) : Color.white.opacity(0.18))
+                                    : (isLightMode ? Color.white.opacity(0.85) : Color.white.opacity(0.10))
+                            )
+                            .background(.ultraThinMaterial, in: Capsule(style: .continuous))
+                    )
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(
+                                isActive ? TimerPalette.accent.opacity(0.8) : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.18)),
+                                lineWidth: isActive ? 1.6 : 1
+                            )
+                    )
+                    .shadow(color: isLightMode ? Color.black.opacity(0.06) : Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
+                    .contentShape(Capsule(style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .fixedSize(horizontal: true, vertical: false)
+            }
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        .padding(.horizontal, Layout.emojiGroupHorizontalPadding)
+        .padding(.vertical, Layout.emojiGroupVerticalPadding)
+    }
+
+    private func sessionLabel(for session: ParallelFocusSession) -> String {
+        let item = planItems.first(where: { $0.id == session.taskId })
+        return compactTaskLabel(item?.title ?? session.focusName)
+    }
+
+    private func compactTaskLabel(_ raw: String) -> String {
+        let separators = ["\n", "•", "|", "—", " - "]
+        for separator in separators {
+            if let range = raw.range(of: separator) {
+                let trimmed = String(raw[..<range.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    return trimmed
+                }
+            }
+        }
+        return raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func activeTaskDisplayName() -> String {
+        let raw = engine.state.overriddenTaskName ?? taskStore.selectedTask?.name ?? "Select a Task"
+        return compactTaskLabel(raw)
+    }
+
+    private func sessionEmoji(for session: ParallelFocusSession) -> String {
+        let item = planItems.first(where: { $0.id == session.taskId })
+        return focusEmoji(for: item, fallbackName: session.focusName)
+    }
+
+    private func applySelectedSeconds(_ seconds: Int) {
+        let clampedSeconds = max(1, seconds)
+
+        if case .idle = engine.state.phase {
+            // Idle selection is a base duration change
+            var updated = engine.config
+            updated.focusSeconds = clampedSeconds
+            engine.updateConfig(updated)
+        } else {
+            // During active/paused sessions, user is editing only the current segment remaining time.
+            engine.adjustRemainingTime(to: clampedSeconds)
+        }
+    }
+
+    private func resetTimerDisplay() {
+        guard !engine.isRunning else { return }
+        if case .idle = engine.state.phase {
+            var updated = engine.config
+            updated.focusSeconds = 0
+            engine.updateConfig(updated)
+        } else {
+            engine.adjustRemainingTime(to: 0)
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    var isOverlayVisible: Bool {
+        if case .finishedSegment = engine.state.phase { return true }
+        if case .finishedCycle = engine.state.phase { return true }
+        return false
+    }
+    
+    var currentSegmentColor: Color {
+        guard let segment = engine.state.currentSegment else { return TimerPalette.accent }
+        switch segment {
+        case .focus:
+            if let item = selectedPlanItem {
+                return tintColor(for: item.tintKey)
+            }
+            return TimerPalette.accent
+        case .shortBreak: return TimerPalette.accent
+        case .longBreak: return TimerPalette.accent
+        }
+    }
+
+    private var currentSegmentHeading: String {
+        guard let segment = engine.state.currentSegment else { return "Focus" }
+        switch segment {
+        case .focus: return "Focus"
+        case .shortBreak: return "Short Break"
+        case .longBreak: return "Long Break"
+        }
+    }
+
+    private var selectedPlanItem: PlanItem? {
+        guard let taskId = activeTaskId else { return nil }
+        return planItems.first(where: { $0.id == taskId })
+    }
+
+    private var middleRingColor: Color {
+        guard let segment = engine.state.currentSegment else { return TimerPalette.accent }
+        guard segment == .focus else { return TimerPalette.accent.opacity(0.85) }
+        guard let item = selectedPlanItem else { return TimerPalette.accent }
+        return tintColor(for: item.tintKey)
+    }
+
+    private var middleRingSymbol: String {
+        let fallbackName = activeParallelSession?.focusName ?? engine.state.overriddenTaskName ?? taskStore.selectedTask?.name ?? ""
+        return focusEmoji(for: selectedPlanItem, fallbackName: fallbackName)
+    }
+
+    private func focusEmoji(for item: PlanItem?, fallbackName: String) -> String {
+        if let icon = item?.iconName, icon.allSatisfy({ !$0.isASCII }) {
+            return icon
+        }
+
+        let source = [
+            item?.title ?? "",
+            item?.subtitle ?? "",
+            item?.iconName ?? "",
+            fallbackName
+        ].joined(separator: " ").lowercased()
+
+        if source.contains("yoga") || source.contains("meditat") || source.contains("breathe") || source.contains("figure.yoga") {
+            return "🧘‍♀️"
+        }
+        if source.contains("water") || source.contains("drink") || source.contains("drop") {
+            return "💧"
+        }
+        if source.contains("run") || source.contains("walk") || source.contains("gym") || source.contains("figure.run") || source.contains("figure.walk") {
+            return "🏃"
+        }
+        if source.contains("read") || source.contains("book") || source.contains("study") || source.contains("learn") || source.contains("graduationcap") {
+            return "📚"
+        }
+        if source.contains("code") || source.contains("work") || source.contains("laptopcomputer") || source.contains("desktopcomputer") {
+            return "💻"
+        }
+        if source.contains("sleep") || source.contains("bed") || source.contains("moon") {
+            return "😴"
+        }
+        if source.contains("dumbbell") || source.contains("strength") || source.contains("fitness") || source.contains("exercise") {
+            return "🏋️"
+        }
+        if source.contains("cycle") || source.contains("bicycle") {
+            return "🚴"
+        }
+        if source.contains("swim") || source.contains("pool") {
+            return "🏊"
+        }
+        if source.contains("stretch") || source.contains("mobility") {
+            return "🤸"
+        }
+        if source.contains("focus") || source.contains("brain") {
+            return "🧠"
+        }
+        return "⏱️"
+    }
+
+    private func tintColor(for key: String) -> Color {
+        switch key {
+        case "red": return .red
+        case "blue": return .blue
+        case "green": return .green
+        case "orange": return .orange
+        case "purple": return .purple
+        case "pink": return .pink
+        case "yellow": return .yellow
+        case "teal": return .teal
+        case "indigo": return .indigo
+        case "mint": return .mint
+        case "cyan": return .cyan
+        case "brown": return .brown
+        case "gray": return .gray
+        default: return TimerPalette.accent
+        }
+    }
+    
+    // MARK: - Blocking Status Pill
+    
+    private var blockingStatusPill: some View {
+        let fallbackListName: String? = {
+            if let selectedBlockList,
+               let name = timerBlockListDisplayName(selectedBlockList.name) {
+                return name
+            }
+            let hasSelection = !engine.config.selectedBlockListId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                !settingsStore.selectedBlockListId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            return hasSelection ? "App Block List" : nil
+        }()
+        let listName = fallbackListName ?? "App Block List"
+        let appCount = selectedBlockListAppCount
+
+        let isRunningFocus = engine.isBlockingActive
+        let hasConfiguredList = fallbackListName != nil
+
+        return Button(action: { showAppLists = true }) {
+            HStack(spacing: 11) {
+                Image(systemName: (isRunningFocus && hasConfiguredList) ? "lock.fill" : "lock.open.fill")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundColor((isRunningFocus && hasConfiguredList) ? .red : .green)
+                
+                Text(listName)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor((isRunningFocus && hasConfiguredList) ? Colors.textPrimary : Colors.textSecondary)
+                
+                if appCount > 0 {
+                    Text("\(appCount) apps")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(Colors.textTertiary)
+                }
+                
+                if engine.config.difficultyMode == .deepFocus {
+                    Text("DEEP")
+                        .font(.system(size: 14, weight: .black))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.red)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 11)
+            .background(
+                Capsule()
+                    .fill(
+                        (isRunningFocus && hasConfiguredList)
+                            ? Color.red.opacity(0.15)
+                            : (isLightMode ? Color.white.opacity(0.92) : Color.white.opacity(0.08))
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func timerBlockListDisplayName(_ rawName: String?) -> String? {
+        guard let rawName else { return nil }
+        let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if trimmed.hasPrefix("App Block List") { return trimmed }
+        if trimmed.hasPrefix("Block List") {
+            return trimmed.replacingOccurrences(of: "Block List", with: "App Block List", options: [.anchored])
+        }
+        return trimmed
+    }
+    
+    // MARK: - Onboarding Logic
+    
+    private func onTimerAppear() {
+        if !viewModel.preferences.hasSeenTimerTimeIntegerTooltip {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                showTimerTimeIntegerCoachMark = true
+            }
+        } else if !viewModel.preferences.hasSeenTimerCircleTooltip {
+            showTimerCircleCoachMark = true
+        }
+    }
+    
+    private func triggerNextTimerStep() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            withAnimation {
+                if !viewModel.preferences.hasSeenTimerCircleTooltip {
+                    showTimerCircleCoachMark = true
+                } else if !viewModel.preferences.hasSeenTimerIntervalTooltip {
+                    showTimerIntervalCoachMark = true
+                } else if !viewModel.preferences.hasSeenTimerMusicTooltip {
+                    showTimerMusicCoachMark = true
+                } else if !viewModel.preferences.hasSeenTimerBlockListTooltip {
+                    showTimerBlockListCoachMark = true
+                } else if !viewModel.preferences.hasSeenTimerStartTooltip {
+                    showTimerStartCoachMark = true
+                }
+            }
+        }
+    }
+    
+    
+    var currentSegmentLabel: String {
+        engine.state.currentSegment?.title.uppercased() ?? "FOCUS"
+    }
+
+    private var selectedBlockList: AppList? {
+        allAppLists.first(where: {
+            $0.type == .block && $0.id.uuidString == engine.config.selectedBlockListId
+        })
+    }
+
+    private var selectedBlockListAppCount: Int {
+        guard let list = selectedBlockList else { return 0 }
+        #if canImport(FamilyControls)
+        return list.selectedApplicationsCount
+        #else
+        return list.mockAppIDs.count
+        #endif
+    }
+    
+    func timeString(from totalSeconds: Int) -> String {
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+    }
+
+    @ViewBuilder
+    private func timerReadout(size: CGFloat, totalSeconds: Int) -> some View {
+        let (hours, minutes, seconds) = timeComponents(from: totalSeconds)
+        let primarySize = max(Layout.timerReadoutMinimumSize, size * 0.80)
+        let secondsSize = max(Layout.timerReadoutMinimumSize * 0.70, primarySize * 0.80)
+
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            Text("\(hours):\(minutes)")
+                .font(.system(size: primarySize, weight: .heavy, design: .monospaced))
+                .kerning(2)
+            Text(":\(seconds)")
+                .font(.system(size: secondsSize, weight: .heavy, design: .monospaced))
+                .kerning(1.5)
+        }
+        .foregroundColor(Colors.textPrimary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.5)
+    }
+
+    private func timeComponents(from totalSeconds: Int) -> (String, String, String) {
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+        return (
+            String(format: "%02d", hours),
+            String(format: "%02d", minutes),
+            String(format: "%02d", seconds)
+        )
+    }
+    
+    private func formattedTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
+    }
+    
+    // MARK: - Overlays
+    
+    func finishedSegmentOverlay(segment: SegmentKind) -> some View {
+        let nextKind = engine.getNextSegmentKind()
+        let nextTitle = nextKind.title
+        
+        return VStack(spacing: Spacing.l) {
+            Text("\(segment.title) Complete")
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(Colors.textPrimary)
+            
+            PrimaryButton(title: "Start \(nextTitle)", style: .blueGlass) {
+                engine.continueAfterFinishedScreen()
+            }
+            
+            Button(action: {
+                engine.stop(userInitiated: true)
+            }) {
+                Text("Done")
+                    .font(.subheadline)
+                    .foregroundColor(Colors.textSecondary)
+            }
+        }
+        .padding(Spacing.xl)
+        .background(Colors.cardSurface)
+        .cornerRadius(20)
+        .shadow(color: Colors.shadow, radius: 20)
+        .padding(.horizontal, 40)
+    }
+    
+    var finishedCycleOverlay: some View {
+        VStack(spacing: Spacing.l) {
+            Image(systemName: "flag.checkered")
+                .font(.system(size: 40))
+                .foregroundColor(TimerPalette.accent)
+            
+            Text("Cycle Complete!")
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(Colors.textPrimary)
+            
+            Text("You've completed a full interval cycle.")
+                .font(.body)
+                .foregroundColor(Colors.textSecondary)
+                .multilineTextAlignment(.center)
+            
+            PrimaryButton(title: "Start Next Cycle", style: .blueGlass) {
+                engine.startNextCycle()
+            }
+            
+            Button(action: {
+                engine.stop(userInitiated: true)
+            }) {
+                Text("Finish")
+                    .font(.subheadline)
+                    .foregroundColor(Colors.textSecondary)
+            }
+        }
+        .padding(Spacing.xl)
+        .background(Colors.cardSurface)
+        .cornerRadius(20)
+        .shadow(color: Colors.shadow, radius: 20)
+        .padding(.horizontal, 40)
+    }
+}

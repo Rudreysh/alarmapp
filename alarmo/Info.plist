@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>ht.alarmo.alarm-handoff</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>alarmo</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>We need alarm access to ring your alarms when the phone is locked and in silent mode.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
+</dict>
+</plist>

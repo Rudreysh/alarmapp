@@ -1,0 +1,542 @@
+{
+  "version": 1,
+  "wallpapers": [
+    {
+      "id": "abstract",
+      "title": "Abstract",
+      "items": [
+        {
+          "id": "7c8434d7-e778-5a1e-b016-7ef5d4160004",
+          "filename": "Mountain Sky.jpg",
+          "title": "Mountain Sky",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Abstract/Mountain%20Sky.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "3c38219d-b749-584e-972c-941f9a4cbcfb",
+          "filename": "Galaxy.jpg",
+          "title": "Galaxy",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Abstract/Galaxy.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "e7224fff-8ef8-5318-9c5a-8281adc5a089",
+          "filename": "Starry Sky.jpg",
+          "title": "Starry Sky",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Abstract/Starry%20Sky.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "f1529768-37a5-524a-8122-e0bca71bd65c",
+          "filename": "Jp.jpg",
+          "title": "Jp",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Abstract/Jp.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "c9f98f87-30d6-5314-9f8c-d3c9aaae0361",
+          "filename": "Starry Silhouette.jpg",
+          "title": "Starry Silhouette",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Abstract/Starry%20Silhouette.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "99c23697-82b8-5ddc-b626-f32c7b631d99",
+          "filename": "Stars.jpg",
+          "title": "Stars",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Abstract/Stars.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "23a0a283-2507-5234-995b-3793d2b918bb",
+          "filename": "Night Sky.jpg",
+          "title": "Night Sky",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Abstract/Night%20Sky.jpg",
+          "thumbnail": null
+        }
+      ]
+    },
+    {
+      "id": "photography",
+      "title": "Photography",
+      "items": [
+        {
+          "id": "c4c8635a-08ed-5f45-a7a1-310dfc3cb2e9",
+          "filename": "Njeromin.jpg",
+          "title": "Njeromin",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Photography/Njeromin.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "7b39ecc5-434c-5608-88ed-70a9c875d3c2",
+          "filename": "Diego Caumont.jpg",
+          "title": "Diego Caumont",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Photography/Diego%20Caumont.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "12b952bb-84b2-5334-8572-2d0e15ab6e57",
+          "filename": "Park.jpg",
+          "title": "Park",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Photography/Park.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "cf323355-bd99-54a9-8b48-86604b92b794",
+          "filename": "Island.jpg",
+          "title": "Island",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Photography/Island.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "8301afe9-dc04-590b-a7d9-b40bf3a8bba8",
+          "filename": "Bird.jpg",
+          "title": "Bird",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Photography/Bird.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "833dc7d9-0a5e-5c46-8071-e3a7bcc683cd",
+          "filename": "Mount Fuji.jpg",
+          "title": "Mount Fuji",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Photography/Mount%20Fuji.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "bc383d66-939b-56b1-97c8-fc701998d7b4",
+          "filename": "David Vives.jpg",
+          "title": "David Vives",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Photography/David%20Vives.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "ec725498-0e0a-5ce3-a6c3-352ce12a267b",
+          "filename": "Magda Ehlers.jpg",
+          "title": "Magda Ehlers",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Photography/Magda%20Ehlers.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "c07aa184-7779-5d1f-ab06-2480486a345e",
+          "filename": "Giancarlo Principe Outdoor Adventures.jpg",
+          "title": "Giancarlo Principe Outdoor Adventures",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Photography/Giancarlo%20Principe%20Outdoor%20Adventures.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "d924b9c7-038e-562e-997c-b64e2a704435",
+          "filename": "Njeromin 1.jpg",
+          "title": "Njeromin 1",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Photography/Njeromin%201.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "e688448d-1c18-568b-9277-3fd13ea4ca51",
+          "filename": "Architecture.jpg",
+          "title": "Architecture",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Photography/Architecture.jpg",
+          "thumbnail": null
+        }
+      ]
+    },
+    {
+      "id": "nature",
+      "title": "Nature",
+      "items": [
+        {
+          "id": "7bfa8d50-3e78-5b7e-8983-5bafe117535e",
+          "filename": "Sand Dune Silhouette.jpg",
+          "title": "Sand Dune Silhouette",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Nature/Sand%20Dune%20Silhouette.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "3eb565b5-c113-5d5a-9154-24119a10c88a",
+          "filename": "Beach Reeds.jpg",
+          "title": "Beach Reeds",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Nature/Beach%20Reeds.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "790d1ce3-f83f-5d2d-8598-f379c17b1b4f",
+          "filename": "Spolyakov.jpg",
+          "title": "Spolyakov",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Nature/Spolyakov.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "abc4d06a-242c-57ac-b6ca-8fa96dd13d47",
+          "filename": "Tall Pine Forest.jpg",
+          "title": "Tall Pine Forest",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Nature/Tall%20Pine%20Forest.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "528eccca-3e92-56d7-b84f-f03e16955abf",
+          "filename": "Dolomities.jpg",
+          "title": "Dolomities",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Nature/Dolomities.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "e50c71c8-e80f-568a-ab48-c2e4862a93d9",
+          "filename": "Half Dome.jpg",
+          "title": "Half Dome",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Nature/Half%20Dome.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "5dfc2778-5875-5e3e-aa44-18019989744f",
+          "filename": "Sunlit Red Flowers.jpg",
+          "title": "Sunlit Red Flowers",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Nature/Sunlit%20Red%20Flowers.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "4f7ababe-38fb-5208-8662-dcb42931d6f2",
+          "filename": "Alpenglow Peak.jpg",
+          "title": "Alpenglow Peak",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Nature/Alpenglow%20Peak.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "565250e9-39f2-5c91-8454-804d7ad22164",
+          "filename": "Seagull Lake.jpg",
+          "title": "Seagull Lake",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Nature/Seagull%20Lake.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "a1693227-bdbb-5c75-9055-66a91420456d",
+          "filename": "Alpine Lake.jpg",
+          "title": "Alpine Lake",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Nature/Alpine%20Lake.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "422f4970-d9e3-5eeb-9bd1-e4a341d8e0d6",
+          "filename": "Starry Mountains.jpg",
+          "title": "Starry Mountains",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Nature/Starry%20Mountains.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "2a3d29a7-200a-54bf-b778-9a79a7e671b8",
+          "filename": "Mountain Cloudscape.jpg",
+          "title": "Mountain Cloudscape",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Nature/Mountain%20Cloudscape.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "81ac9b99-c7e0-5316-b391-9f06d027fd3e",
+          "filename": "Mountain Stream.jpg",
+          "title": "Mountain Stream",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Nature/Mountain%20Stream.jpg",
+          "thumbnail": null
+        }
+      ]
+    },
+    {
+      "id": "travel",
+      "title": "Travel",
+      "items": [
+        {
+          "id": "054c1dcf-353c-5699-8692-b8dd92f5c7ec",
+          "filename": "Mjlo.jpg",
+          "title": "Mjlo",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Travel/Mjlo.jpg",
+          "thumbnail": null
+        },
+        {
+          "id": "85faf591-5df6-505c-9d9c-6b66db728d39",
+          "filename": "Landscape.jpg",
+          "title": "Landscape",
+          "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/wallpapers/Travel/Landscape.jpg",
+          "thumbnail": null
+        }
+      ]
+    }
+  ],
+  "sounds": [
+    {
+      "id": "818f7779-b7ea-5570-b5cc-fa49d457fa35",
+      "filename": "Autumn Smile Medium.caf",
+      "title": "Autumn Smile Medium",
+      "category": "Uplifting",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Uplifting/Autumn%20Smile%20Medium.caf",
+      "isPremium": false
+    },
+    {
+      "id": "6feaa068-ff26-50c5-85a7-9cac29748b3e",
+      "filename": "Calm Music.caf",
+      "title": "Calm Music",
+      "category": "Uplifting",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Uplifting/Calm%20Music.caf",
+      "isPremium": false
+    },
+    {
+      "id": "b2335635-c855-58ed-8045-2c1f54c9fed3",
+      "filename": "Autumn Smile.caf",
+      "title": "Autumn Smile",
+      "category": "Uplifting",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Uplifting/Autumn%20Smile.caf",
+      "isPremium": false
+    },
+    {
+      "id": "c67e59ec-af36-5937-bbc3-abb34b271ad1",
+      "filename": "Gayatri Mantra.caf",
+      "title": "Gayatri Mantra",
+      "category": "Sleep",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Gayatri%20Mantra.caf",
+      "isPremium": false
+    },
+    {
+      "id": "8e4424c5-8e81-58d2-aa2c-b11b18674cad",
+      "filename": "Big Bellburmese.caf",
+      "title": "Big Bellburmese",
+      "category": "Sleep",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Big%20Bellburmese.caf",
+      "isPremium": false
+    },
+    {
+      "id": "437f7060-3535-5d05-9d0c-5dc553852af4",
+      "filename": "Soft Piano Bpm.caf",
+      "title": "Soft Piano Bpm",
+      "category": "Sleep",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Soft%20Piano%20Bpm.caf",
+      "isPremium": false
+    },
+    {
+      "id": "bb6c6901-35d0-57f9-b342-01823e7d63af",
+      "filename": "Indian Tanpura.caf",
+      "title": "Indian Tanpura",
+      "category": "Sleep",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Indian%20Tanpura.caf",
+      "isPremium": false
+    },
+    {
+      "id": "98bf0f53-6a20-5c9d-99b4-fde58b3fe368",
+      "filename": "Arabic Intro.caf",
+      "title": "Arabic Intro",
+      "category": "Sleep",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Arabic%20Intro.caf",
+      "isPremium": false
+    },
+    {
+      "id": "52207aec-8394-5ae6-8315-ea81ca0f9ebb",
+      "filename": "Tears Of Joy.caf",
+      "title": "Tears Of Joy",
+      "category": "Sleep",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Tears%20Of%20Joy.caf",
+      "isPremium": false
+    },
+    {
+      "id": "164bc277-d575-5b6e-8a09-d396d3826789",
+      "filename": "Indian Scale Tanpura And Guitar.caf",
+      "title": "Indian Scale Tanpura And Guitar",
+      "category": "Sleep",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Indian%20Scale%20Tanpura%20And%20Guitar.caf",
+      "isPremium": false
+    },
+    {
+      "id": "b2c7d342-e746-55d1-8fe4-d202df2d5f52",
+      "filename": "Tibetan Buddhist Drum.caf",
+      "title": "Tibetan Buddhist Drum",
+      "category": "Sleep",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Tibetan%20Buddhist%20Drum.caf",
+      "isPremium": false
+    },
+    {
+      "id": "5e00324e-1e20-5361-8d87-e3c4bec41998",
+      "filename": "Maadal And Manjeera 85Bpm.caf",
+      "title": "Maadal And Manjeera 85Bpm",
+      "category": "Sleep",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Sleep/Maadal%20And%20Manjeera%2085Bpm.caf",
+      "isPremium": false
+    },
+    {
+      "id": "e9e9cdec-a974-5ac3-88e6-5a75f569cad0",
+      "filename": "Classical Vibes.caf",
+      "title": "Classical Vibes",
+      "category": "Relaxing",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Classical%20Vibes.caf",
+      "isPremium": false
+    },
+    {
+      "id": "0cdcacae-1db5-5c3c-aabd-57b162a50d4d",
+      "filename": "Soft Piano Music.caf",
+      "title": "Soft Piano Music",
+      "category": "Relaxing",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Soft%20Piano%20Music.caf",
+      "isPremium": false
+    },
+    {
+      "id": "02a6eaa9-a9f7-512d-9001-50bb27489a37",
+      "filename": "Morning In The Forest 1.caf",
+      "title": "Morning In The Forest 1",
+      "category": "Relaxing",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Morning%20In%20The%20Forest%201.caf",
+      "isPremium": false
+    },
+    {
+      "id": "2604ab0e-21f4-565f-8372-0ae0c1ee3578",
+      "filename": "Sleep Meditation Background Music.caf",
+      "title": "Sleep Meditation Background Music",
+      "category": "Relaxing",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Sleep%20Meditation%20Background%20Music.caf",
+      "isPremium": false
+    },
+    {
+      "id": "205cb25e-7f13-5150-9fad-a820738b613c",
+      "filename": "Silent Evening Calm Piano.caf",
+      "title": "Silent Evening Calm Piano",
+      "category": "Relaxing",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Silent%20Evening%20Calm%20Piano.caf",
+      "isPremium": false
+    },
+    {
+      "id": "8bb85bda-63e6-56ad-9629-4f05540ca7b1",
+      "filename": "Harp Relax.caf",
+      "title": "Harp Relax",
+      "category": "Relaxing",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Harp%20Relax.caf",
+      "isPremium": false
+    },
+    {
+      "id": "e3446c3a-0556-57d5-85b0-259bf62c8fc1",
+      "filename": "Meditative Meditation.caf",
+      "title": "Meditative Meditation",
+      "category": "Relaxing",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Meditative%20Meditation.caf",
+      "isPremium": false
+    },
+    {
+      "id": "1e638805-c937-5b57-9a0e-dd191840c728",
+      "filename": "Morning In The Forest.caf",
+      "title": "Morning In The Forest",
+      "category": "Relaxing",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Morning%20In%20The%20Forest.caf",
+      "isPremium": false
+    },
+    {
+      "id": "cd333429-bb27-5b8d-89ac-9d6d52df5443",
+      "filename": "Ambient Piano Music Inspirational Loop.caf",
+      "title": "Ambient Piano Music Inspirational Loop",
+      "category": "Relaxing",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Relaxing/Ambient%20Piano%20Music%20Inspirational%20Loop.caf",
+      "isPremium": false
+    },
+    {
+      "id": "1c3b06e5-586b-51c3-bdee-2f776e7ee0e6",
+      "filename": "Forest Ambience.caf",
+      "title": "Forest Ambience",
+      "category": "Nature",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Nature/Forest%20Ambience.caf",
+      "isPremium": false
+    },
+    {
+      "id": "5a26310f-4a6c-5d40-9036-f1b27511c23f",
+      "filename": "Birds Chirping.caf",
+      "title": "Birds Chirping",
+      "category": "Nature",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Nature/Birds%20Chirping.caf",
+      "isPremium": false
+    },
+    {
+      "id": "09953306-00c6-508d-adb0-a1d0887105d0",
+      "filename": "Birds Sound Dawn Time.caf",
+      "title": "Birds Sound Dawn Time",
+      "category": "Nature",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Nature/Birds%20Sound%20Dawn%20Time.caf",
+      "isPremium": false
+    },
+    {
+      "id": "0685f160-89df-5505-b9d9-8129519a6a07",
+      "filename": "Rain Sound.caf",
+      "title": "Rain Sound",
+      "category": "Nature",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Nature/Rain%20Sound.caf",
+      "isPremium": false
+    },
+    {
+      "id": "9246b303-26ab-53cf-8938-6df0ddd153c4",
+      "filename": "432HZ Liborio Conti.caf",
+      "title": "432Hz Liborio Conti",
+      "category": "Focus",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Focus/432HZ%20Liborio%20Conti.caf",
+      "isPremium": false
+    },
+    {
+      "id": "1acff303-df14-5be9-ad2a-7108920f7e49",
+      "filename": "Tibetan Singing Bowl.wav",
+      "title": "Tibetan Singing Bowl",
+      "category": "Alarm",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/Tibetan%20Singing%20Bowl.wav",
+      "isPremium": false
+    },
+    {
+      "id": "c0a9315e-53de-5f09-b337-f16894d7f302",
+      "filename": "Cockpit Alert.wav",
+      "title": "Cockpit Alert",
+      "category": "Alarm",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/Cockpit%20Alert.wav",
+      "isPremium": false
+    },
+    {
+      "id": "180d461a-f85c-5a5a-9701-7f842aa0837b",
+      "filename": "Retro Game Emergency Alarm.wav",
+      "title": "Retro Game Emergency Alarm",
+      "category": "Alarm",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/Retro%20Game%20Emergency%20Alarm.wav",
+      "isPremium": false
+    },
+    {
+      "id": "39533e8a-8b56-501b-9741-753696671ab7",
+      "filename": "Alarm.caf",
+      "title": "Alarm",
+      "category": "Alarm",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/Alarm.caf",
+      "isPremium": false
+    },
+    {
+      "id": "9b40da06-0a65-53f5-9f6b-d919d999eef8",
+      "filename": "bbc_electronic.caf",
+      "title": "Bbc_Electronic",
+      "category": "Alarm",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/bbc_electronic.caf",
+      "isPremium": false
+    },
+    {
+      "id": "4bed7d13-06d0-51e9-921c-bd8b1a844caa",
+      "filename": "Clock Alarm.caf",
+      "title": "Clock Alarm",
+      "category": "Alarm",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/Clock%20Alarm.caf",
+      "isPremium": false
+    },
+    {
+      "id": "807248e2-3f60-5108-88da-11c752d97f09",
+      "filename": "Dial-tone.caf",
+      "title": "Dial Tone",
+      "category": "Alarm",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/Dial-tone.caf",
+      "isPremium": false
+    },
+    {
+      "id": "cfbb7f65-c905-53f7-9385-53dc88d2b05b",
+      "filename": "Church Bell Loop.wav",
+      "title": "Church Bell Loop",
+      "category": "Alarm",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/Church%20Bell%20Loop.wav",
+      "isPremium": false
+    },
+    {
+      "id": "1eaf168a-425f-521b-bd4c-3a5d0d1dae08",
+      "filename": "bang.caf",
+      "title": "Bang",
+      "category": "Alarm",
+      "url": "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/sounds/Alarm/bang.caf",
+      "isPremium": false
+    }
+  ]
+}

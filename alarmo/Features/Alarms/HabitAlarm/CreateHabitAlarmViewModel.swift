@@ -1,0 +1,296 @@
+import SwiftUI
+import Combine
+
+class CreateHabitAlarmViewModel: ObservableObject {
+    @Published var name: String = ""
+    @Published var emoji: String = "🍗" // Default from screenshot
+    @Published var hour: Int
+    @Published var minute: Int
+    @Published var second: Int = 0
+    @Published var isDaily: Bool = true
+    @Published var selectedWeekdays: Set<Int> = [1, 2, 3, 4, 5, 6, 7]
+    
+    @Published var soundName: String = "Cockpit Alert"
+    @Published var soundVolume: Float = 1.0
+    @Published var vibrateEnabled: Bool = true
+    @Published var gentleWakeUpSeconds: Int = 30
+    @Published var bypassSilentMode: Bool = true
+    @Published var timeZoneMode: AlarmTimeZoneMode = .local
+    @Published var timeZoneIdentifier: String?
+    @Published var timeZoneCity: String?
+    
+    @Published var timeReminderEnabled: Bool = false
+    @Published var weatherReminderEnabled: Bool = false
+    @Published var labelReminderEnabled: Bool = false
+    @Published var extraLoudEnabled: Bool = false
+    
+    @Published var snoozeMinutes: Int = 5
+    @Published var snoozeSeconds: Int = 0
+    @Published var snoozeCount: Int = 3
+    @Published var wallpaperId: String
+    @Published var dailyMotivationEnabled: Bool = false
+    @Published var visualOutputSettings: AlarmVisualOutputSettings
+    @Published var wakeUpCheckEnabled: Bool = false
+    @Published var missions: [AlarmMission] = []
+    
+    // Accountability Penalty
+    @Published var accountabilityEnabled: Bool = false
+    @Published var blockAppsEnabled: Bool = true
+    @Published var penaltyEnabled: Bool = false
+    @Published var penaltyAmountEuro: Int = 1
+    @Published var shutdownProtectionEnabled: Bool = false
+    
+    // Reminder Feature
+    @Published var reminderEnabled: Bool = false
+    @Published var reminderIntervalMinutes: Int = 20
+    @Published var reminderDurationSeconds: Int = 20
+    @Published var reminderStartTime: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
+    @Published var reminderEndTime: Date = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: Date()) ?? Date()
+    @Published var notes: String = ""
+    
+    @Published var ringInText: String = ""
+    @Published var cycleToLocal: Bool = false
+    private var cycleTimer: AnyCancellable?
+    
+    let defaultSoundName: String
+    
+    init(defaultHour: Int, defaultMinute: Int, defaultSecond: Int = 0, defaultSoundName: String, defaultSoundVolume: Float, defaultWallpaperId: String) {
+        self.hour = defaultHour
+        self.minute = defaultMinute
+        self.second = defaultSecond
+        self.soundName = defaultSoundName
+        self.soundVolume = defaultSoundVolume
+        self.defaultSoundName = defaultSoundName
+        let resolvedWallpaperId = AlarmDraft(
+            defaultHour: defaultHour,
+            defaultMinute: defaultMinute,
+            defaultRepeatMask: RepeatMask.allDays,
+            defaultSoundName: defaultSoundName,
+            defaultSoundVolume: defaultSoundVolume,
+            defaultWallpaperId: defaultWallpaperId
+        ).wallpaperId
+        self.wallpaperId = resolvedWallpaperId
+        self.visualOutputSettings = AlarmVisualOutputSettings.migratedFromLegacy(
+            wallpaperId: resolvedWallpaperId,
+            dailyMotivationEnabled: false
+        )
+        let settings = SettingsStore.shared
+        self.dailyMotivationEnabled = settings.alarmDailyMotivationEnabled
+        self.visualOutputSettings = settings.alarmVisualOutputSettings
+        if !settings.alarmWallpaperId.isEmpty {
+            self.wallpaperId = settings.alarmWallpaperId
+        }
+        self.accountabilityEnabled = settings.accountabilityEnabled
+        self.blockAppsEnabled = false
+        self.penaltyEnabled = settings.penaltyEnabled
+        self.penaltyAmountEuro = settings.penaltyAmountEuro
+        self.bypassSilentMode = settings.alarmRingInSilentModeEnabled
+        
+        updateRingInText()
+        if timeZoneMode == .custom {
+            startCycling()
+        }
+    }
+
+    func startCycling() {
+        cycleTimer?.cancel()
+        cycleTimer = Timer.publish(every: 3, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                withAnimation(.easeInOut(duration: 0.8)) {
+                    self?.cycleToLocal.toggle()
+                }
+            }
+    }
+    
+    func stopCycling() {
+        cycleTimer?.cancel()
+        cycleTimer = nil
+        cycleToLocal = false
+    }
+
+    convenience init(alarm: Alarm) {
+        self.init(
+            defaultHour: alarm.hour,
+            defaultMinute: alarm.minute,
+            defaultSecond: alarm.second,
+            defaultSoundName: alarm.soundName,
+            defaultSoundVolume: alarm.soundVolume,
+            defaultWallpaperId: alarm.wallpaperId
+        )
+
+        name = alarm.name
+        emoji = alarm.emoji
+        hour = alarm.hour
+        minute = alarm.minute
+        second = alarm.second
+        isDaily = alarm.isDaily
+        selectedWeekdays = Set(RepeatMask.weekdays(from: alarm.repeatMask))
+
+        soundName = alarm.soundName
+        soundVolume = alarm.soundVolume
+        vibrateEnabled = alarm.vibrateEnabled
+        gentleWakeUpSeconds = alarm.gentleWakeUpSeconds
+        bypassSilentMode = alarm.bypassSilentMode
+        timeZoneMode = alarm.timeZoneMode
+        timeZoneIdentifier = alarm.timeZoneIdentifier
+        timeZoneCity = alarm.timeZoneCity
+
+        timeReminderEnabled = alarm.timeReminderEnabled
+        weatherReminderEnabled = alarm.weatherReminderEnabled
+        labelReminderEnabled = alarm.labelReminderEnabled
+        extraLoudEnabled = alarm.extraLoudEnabled
+
+        snoozeMinutes = alarm.snoozeMinutes
+        snoozeSeconds = alarm.snoozeSeconds
+        snoozeCount = alarm.snoozeCount
+        wallpaperId = alarm.wallpaperId
+        dailyMotivationEnabled = alarm.dailyMotivationEnabled
+        visualOutputSettings = alarm.visualOutputSettings
+        wakeUpCheckEnabled = alarm.wakeUpCheckEnabled
+        missions = alarm.missions
+
+        accountabilityEnabled = alarm.enforcementMode != .none
+        blockAppsEnabled = alarm.blockAppsEnabled
+        penaltyEnabled = alarm.penaltyEnabled
+        penaltyAmountEuro = alarm.penaltyAmountEuro
+        shutdownProtectionEnabled = alarm.shutdownProtectionEnabled
+
+        reminderEnabled = alarm.habitReminderEnabled
+        reminderIntervalMinutes = alarm.habitReminderInterval
+        reminderDurationSeconds = alarm.habitReminderDuration
+        if let start = alarm.habitReminderStartTime {
+            reminderStartTime = start
+        }
+        if let end = alarm.habitReminderEndTime {
+            reminderEndTime = end
+        }
+        notes = alarm.habitNotes
+
+        updateRingInText()
+    }
+    
+    func toggleDaily() {
+        isDaily.toggle()
+        if isDaily {
+            selectedWeekdays = [1, 2, 3, 4, 5, 6, 7]
+        }
+        updateRingInText()
+    }
+    
+    func toggleWeekday(_ day: Int) {
+        if isDaily {
+            isDaily = false
+            // Keep all selected when moving from Daily to Custom, then toggle the clicked day
+            selectedWeekdays = [1, 2, 3, 4, 5, 6, 7]
+        }
+        
+        if selectedWeekdays.contains(day) {
+            selectedWeekdays.remove(day)
+        } else {
+            selectedWeekdays.insert(day)
+        }
+        
+        // Auto-check Daily if all 7 selected
+        isDaily = selectedWeekdays.count == 7
+        
+        updateRingInText()
+    }
+    
+    func updateRingInText() {
+        let alarm = Alarm(
+            id: UUID(),
+            type: .habit,
+            name: name,
+            emoji: emoji,
+            hour: hour,
+            minute: minute,
+            second: second,
+            isDaily: isDaily,
+            repeatMask: repeatMask(),
+            enabled: true,
+            wakeUpCheckEnabled: wakeUpCheckEnabled,
+            soundName: soundName,
+            soundVolume: soundVolume,
+            vibrateEnabled: vibrateEnabled,
+            gentleWakeUpSeconds: gentleWakeUpSeconds,
+            timeReminderEnabled: timeReminderEnabled,
+            weatherReminderEnabled: weatherReminderEnabled,
+            labelReminderEnabled: labelReminderEnabled,
+            extraLoudEnabled: extraLoudEnabled,
+            bypassSilentMode: bypassSilentMode,
+            timeZoneMode: timeZoneMode,
+            timeZoneIdentifier: timeZoneIdentifier,
+            timeZoneCity: timeZoneCity,
+            snoozeMinutes: snoozeMinutes,
+            snoozeSeconds: snoozeSeconds,
+            snoozeCount: snoozeCount,
+            wallpaperId: wallpaperId,
+            dailyMotivationEnabled: dailyMotivationEnabled,
+            visualOutputSettings: visualOutputSettings,
+            createdAt: Date(),
+            missions: missions
+        )
+        
+        let now = Date()
+        guard let target = AlarmStore.nextFireDate(for: alarm, from: now) else {
+            ringInText = "Not scheduled"
+            return
+        }
+        
+        let diff = Int(target.timeIntervalSince(now))
+        if diff < 60 {
+            ringInText = "Ring in less than a minute"
+        } else {
+            let days = diff / 86400
+            let hours = (diff % 86400) / 3600
+            let minutes = (diff % 3600) / 60
+            
+            if days > 0 {
+                ringInText = "Ring in \(days)d \(hours)h \(minutes)m"
+            } else if hours > 0 {
+                ringInText = "Ring in \(hours)h \(minutes)m"
+            } else {
+                ringInText = "Ring in \(minutes)m"
+            }
+        }
+    }
+    
+    func repeatMask() -> Int {
+        if isDaily { return RepeatMask.allDays }
+        return RepeatMask.mask(from: Array(selectedWeekdays))
+    }
+    
+    func addMission(_ mission: AlarmMission) {
+        if missions.count < 4 {
+            missions.append(mission)
+        }
+    }
+    
+    func removeMission(at index: Int) {
+        missions.remove(at: index)
+    }
+    
+    var reminderSummary: AttributedString {
+        var summary = AttributedString("Reminder schedule: every ")
+
+        var intervalAttr = AttributedString("\(reminderIntervalMinutes) min")
+        intervalAttr.foregroundColor = Colors.accentTeal
+        summary.append(intervalAttr)
+
+        summary.append(AttributedString(", duration "))
+
+        var durationAttr = AttributedString("\(reminderDurationSeconds) sec")
+        durationAttr.foregroundColor = Colors.accentTeal
+        summary.append(durationAttr)
+
+        summary.append(AttributedString(", active window "))
+
+        let windowText = "\(TimeFormatters.shortTime(reminderStartTime)) - \(TimeFormatters.shortTime(reminderEndTime))"
+        var windowAttr = AttributedString(windowText)
+        windowAttr.foregroundColor = Colors.accentTeal
+        summary.append(windowAttr)
+
+        return summary
+    }
+}

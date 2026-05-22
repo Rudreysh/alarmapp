@@ -1,0 +1,914 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		00564E61F0D872D3B256CEFD /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC3816525A8E7A5D79B9A590 /* Foundation.framework */; };
+		0B7D96725198ABF6F85FD391 /* sounds in Resources */ = {isa = PBXBuildFile; fileRef = B8F140C13423E07460FCC520 /* sounds */; };
+		38C9AC17CCB2AFFBD44A3779 /* AlarmoShieldUI.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = F429D3386DE9EDF132D8D7B5 /* AlarmoShieldUI.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		3CAA514B0FB5A1941DB5E63E /* AlarmoWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 28604BEF8FDC258EC7E2805A /* AlarmoWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		49C37E1D5D272F4157523E49 /* ShieldConfigurationExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C33C98169BCAA6D6D23BFA4 /* ShieldConfigurationExtension.swift */; };
+		65688BABA8EF6968EA120BED /* LiveActivityIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2574930397040EFE81A15AF /* LiveActivityIntents.swift */; };
+		90BA836B4931DCA0525EA2A7 /* LiveActivityIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2574930397040EFE81A15AF /* LiveActivityIntents.swift */; };
+		967B0EA12FA12AF200C682B1 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 967B0EA02FA12AF200C682B1 /* StoreKit.framework */; };
+		D22C279B3AC38EDDB1D7C641 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC3816525A8E7A5D79B9A590 /* Foundation.framework */; };
+		DDD28E6EC3BB9A5C4BBC7366 /* AlarmoWidgetLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98FAC3161F4D4BBD3ADE9242 /* AlarmoWidgetLiveActivity.swift */; };
+		E09D536D3C7483B7CA601A5D /* PomoAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EBEB69AEACD5DE69BB5C300 /* PomoAttributes.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		3405DB09086FBDBDBD04084C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 967E8BE22F13F4990060F3D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2D097775E788D5A2ED1EB16E;
+			remoteInfo = AlarmoWidget;
+		};
+		967E8BFA2F13F49A0060F3D8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 967E8BE22F13F4990060F3D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 967E8BE92F13F4990060F3D8;
+			remoteInfo = alarmo;
+		};
+		967E8C042F13F49A0060F3D8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 967E8BE22F13F4990060F3D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 967E8BE92F13F4990060F3D8;
+			remoteInfo = alarmo;
+		};
+		D117BB131B6986B7963DA426 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 967E8BE22F13F4990060F3D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1FE27BDCA532A2322505F502;
+			remoteInfo = AlarmoShieldUI;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		6B6D55465578A987F5ABFF30 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				38C9AC17CCB2AFFBD44A3779 /* AlarmoShieldUI.appex in Embed App Extensions */,
+				3CAA514B0FB5A1941DB5E63E /* AlarmoWidget.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		20D7177C4FC827DAC89EE2FD /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		28604BEF8FDC258EC7E2805A /* AlarmoWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AlarmoWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		5059170D9E621FEA6171BC41 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		5C33C98169BCAA6D6D23BFA4 /* ShieldConfigurationExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShieldConfigurationExtension.swift; sourceTree = "<group>"; };
+		8EBEB69AEACD5DE69BB5C300 /* PomoAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PomoAttributes.swift; sourceTree = "<group>"; };
+		967B0EA02FA12AF200C682B1 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		967E8BEA2F13F4990060F3D8 /* alarmo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = alarmo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		967E8BF92F13F49A0060F3D8 /* alarmoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = alarmoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		967E8C032F13F49A0060F3D8 /* alarmoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = alarmoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		98FAC3161F4D4BBD3ADE9242 /* AlarmoWidgetLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AlarmoWidgetLiveActivity.swift; sourceTree = "<group>"; };
+		B8F140C13423E07460FCC520 /* sounds */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder; name = sounds; path = HostedAssets/sounds; sourceTree = "<group>"; };
+		F2574930397040EFE81A15AF /* LiveActivityIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveActivityIntents.swift; sourceTree = "<group>"; };
+		F429D3386DE9EDF132D8D7B5 /* AlarmoShieldUI.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AlarmoShieldUI.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		FC3816525A8E7A5D79B9A590 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		96C8C57C2F9A7DAB00037B14 /* Exceptions for "alarmo" folder in "alarmo" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 967E8BE92F13F4990060F3D8 /* alarmo */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		967E8BEC2F13F4990060F3D8 /* alarmo */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				96C8C57C2F9A7DAB00037B14 /* Exceptions for "alarmo" folder in "alarmo" target */,
+			);
+			path = alarmo;
+			sourceTree = "<group>";
+		};
+		967E8BFC2F13F49A0060F3D8 /* alarmoTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = alarmoTests;
+			sourceTree = "<group>";
+		};
+		967E8C062F13F49A0060F3D8 /* alarmoUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = alarmoUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1B3929FE5965E5A220BD9122 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D22C279B3AC38EDDB1D7C641 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3A6FEBEA79D6B8015117D7A4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				00564E61F0D872D3B256CEFD /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		967E8BE72F13F4990060F3D8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				967B0EA12FA12AF200C682B1 /* StoreKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		967E8BF62F13F49A0060F3D8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		967E8C002F13F49A0060F3D8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		31325FC52FFF076DEBDBB4F8 /* AlarmoShieldUI */ = {
+			isa = PBXGroup;
+			children = (
+				5C33C98169BCAA6D6D23BFA4 /* ShieldConfigurationExtension.swift */,
+				20D7177C4FC827DAC89EE2FD /* Info.plist */,
+			);
+			path = AlarmoShieldUI;
+			sourceTree = "<group>";
+		};
+		86BFB2D0AAD35343D5F6D35D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				967B0EA02FA12AF200C682B1 /* StoreKit.framework */,
+				DE156FC38D0441084DC7187A /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		967E8BE12F13F4990060F3D8 = {
+			isa = PBXGroup;
+			children = (
+				967E8BEC2F13F4990060F3D8 /* alarmo */,
+				967E8BFC2F13F49A0060F3D8 /* alarmoTests */,
+				967E8C062F13F49A0060F3D8 /* alarmoUITests */,
+				967E8BEB2F13F4990060F3D8 /* Products */,
+				B8F140C13423E07460FCC520 /* sounds */,
+				86BFB2D0AAD35343D5F6D35D /* Frameworks */,
+				31325FC52FFF076DEBDBB4F8 /* AlarmoShieldUI */,
+				F55C3AE3D87DE3C5599884C9 /* AlarmoWidget */,
+			);
+			sourceTree = "<group>";
+		};
+		967E8BEB2F13F4990060F3D8 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				967E8BEA2F13F4990060F3D8 /* alarmo.app */,
+				967E8BF92F13F49A0060F3D8 /* alarmoTests.xctest */,
+				967E8C032F13F49A0060F3D8 /* alarmoUITests.xctest */,
+				F429D3386DE9EDF132D8D7B5 /* AlarmoShieldUI.appex */,
+				28604BEF8FDC258EC7E2805A /* AlarmoWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		DE156FC38D0441084DC7187A /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				FC3816525A8E7A5D79B9A590 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		F55C3AE3D87DE3C5599884C9 /* AlarmoWidget */ = {
+			isa = PBXGroup;
+			children = (
+				98FAC3161F4D4BBD3ADE9242 /* AlarmoWidgetLiveActivity.swift */,
+				5059170D9E621FEA6171BC41 /* Info.plist */,
+				8EBEB69AEACD5DE69BB5C300 /* PomoAttributes.swift */,
+				F2574930397040EFE81A15AF /* LiveActivityIntents.swift */,
+			);
+			path = AlarmoWidget;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		1FE27BDCA532A2322505F502 /* AlarmoShieldUI */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AD0A3E3686FEB60A22E7E2D8 /* Build configuration list for PBXNativeTarget "AlarmoShieldUI" */;
+			buildPhases = (
+				CEA5F62DCAA24920D881FE74 /* Sources */,
+				1B3929FE5965E5A220BD9122 /* Frameworks */,
+				E14D6FB3D45C71D600ABE28F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AlarmoShieldUI;
+			productName = AlarmoShieldUI;
+			productReference = F429D3386DE9EDF132D8D7B5 /* AlarmoShieldUI.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		2D097775E788D5A2ED1EB16E /* AlarmoWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C78BF3DBCFAA0DF48D21594B /* Build configuration list for PBXNativeTarget "AlarmoWidget" */;
+			buildPhases = (
+				C00A2DB4D4FA542D2AC558ED /* Sources */,
+				3A6FEBEA79D6B8015117D7A4 /* Frameworks */,
+				5965D42525C4B4DD2C1307B6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AlarmoWidget;
+			productName = AlarmoWidget;
+			productReference = 28604BEF8FDC258EC7E2805A /* AlarmoWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		967E8BE92F13F4990060F3D8 /* alarmo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 967E8C0D2F13F49A0060F3D8 /* Build configuration list for PBXNativeTarget "alarmo" */;
+			buildPhases = (
+				967E8BE62F13F4990060F3D8 /* Sources */,
+				967E8BE72F13F4990060F3D8 /* Frameworks */,
+				967E8BE82F13F4990060F3D8 /* Resources */,
+				6B6D55465578A987F5ABFF30 /* Embed App Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				975EB6B7B82FD47ABE215207 /* PBXTargetDependency */,
+				69BBA7843C580B57F37A1A8F /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				967E8BEC2F13F4990060F3D8 /* alarmo */,
+			);
+			name = alarmo;
+			productName = alarmo;
+			productReference = 967E8BEA2F13F4990060F3D8 /* alarmo.app */;
+			productType = "com.apple.product-type.application";
+		};
+		967E8BF82F13F49A0060F3D8 /* alarmoTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 967E8C102F13F49A0060F3D8 /* Build configuration list for PBXNativeTarget "alarmoTests" */;
+			buildPhases = (
+				967E8BF52F13F49A0060F3D8 /* Sources */,
+				967E8BF62F13F49A0060F3D8 /* Frameworks */,
+				967E8BF72F13F49A0060F3D8 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				967E8BFB2F13F49A0060F3D8 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				967E8BFC2F13F49A0060F3D8 /* alarmoTests */,
+			);
+			name = alarmoTests;
+			productName = alarmoTests;
+			productReference = 967E8BF92F13F49A0060F3D8 /* alarmoTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		967E8C022F13F49A0060F3D8 /* alarmoUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 967E8C132F13F49A0060F3D8 /* Build configuration list for PBXNativeTarget "alarmoUITests" */;
+			buildPhases = (
+				967E8BFF2F13F49A0060F3D8 /* Sources */,
+				967E8C002F13F49A0060F3D8 /* Frameworks */,
+				967E8C012F13F49A0060F3D8 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				967E8C052F13F49A0060F3D8 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				967E8C062F13F49A0060F3D8 /* alarmoUITests */,
+			);
+			name = alarmoUITests;
+			productName = alarmoUITests;
+			productReference = 967E8C032F13F49A0060F3D8 /* alarmoUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		967E8BE22F13F4990060F3D8 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2620;
+				LastUpgradeCheck = 2620;
+				TargetAttributes = {
+					967E8BE92F13F4990060F3D8 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					967E8BF82F13F49A0060F3D8 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = 967E8BE92F13F4990060F3D8;
+					};
+					967E8C022F13F49A0060F3D8 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = 967E8BE92F13F4990060F3D8;
+					};
+				};
+			};
+			buildConfigurationList = 967E8BE52F13F4990060F3D8 /* Build configuration list for PBXProject "alarmo" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 967E8BE12F13F4990060F3D8;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 967E8BEB2F13F4990060F3D8 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				967E8BE92F13F4990060F3D8 /* alarmo */,
+				967E8BF82F13F49A0060F3D8 /* alarmoTests */,
+				967E8C022F13F49A0060F3D8 /* alarmoUITests */,
+				1FE27BDCA532A2322505F502 /* AlarmoShieldUI */,
+				2D097775E788D5A2ED1EB16E /* AlarmoWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		5965D42525C4B4DD2C1307B6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		967E8BE82F13F4990060F3D8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0B7D96725198ABF6F85FD391 /* sounds in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		967E8BF72F13F49A0060F3D8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		967E8C012F13F49A0060F3D8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E14D6FB3D45C71D600ABE28F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		967E8BE62F13F4990060F3D8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				90BA836B4931DCA0525EA2A7 /* LiveActivityIntents.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		967E8BF52F13F49A0060F3D8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		967E8BFF2F13F49A0060F3D8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C00A2DB4D4FA542D2AC558ED /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DDD28E6EC3BB9A5C4BBC7366 /* AlarmoWidgetLiveActivity.swift in Sources */,
+				E09D536D3C7483B7CA601A5D /* PomoAttributes.swift in Sources */,
+				65688BABA8EF6968EA120BED /* LiveActivityIntents.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CEA5F62DCAA24920D881FE74 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				49C37E1D5D272F4157523E49 /* ShieldConfigurationExtension.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		69BBA7843C580B57F37A1A8F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = AlarmoWidget;
+			target = 2D097775E788D5A2ED1EB16E /* AlarmoWidget */;
+			targetProxy = 3405DB09086FBDBDBD04084C /* PBXContainerItemProxy */;
+		};
+		967E8BFB2F13F49A0060F3D8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 967E8BE92F13F4990060F3D8 /* alarmo */;
+			targetProxy = 967E8BFA2F13F49A0060F3D8 /* PBXContainerItemProxy */;
+		};
+		967E8C052F13F49A0060F3D8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 967E8BE92F13F4990060F3D8 /* alarmo */;
+			targetProxy = 967E8C042F13F49A0060F3D8 /* PBXContainerItemProxy */;
+		};
+		975EB6B7B82FD47ABE215207 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = AlarmoShieldUI;
+			target = 1FE27BDCA532A2322505F502 /* AlarmoShieldUI */;
+			targetProxy = D117BB131B6986B7963DA426 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		5D53C1A22D55C5E94C4032F3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S8C43TQHMP;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = /Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmo.AlarmoWidget;
+				PRODUCT_NAME = AlarmoWidget;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		62104E18ADCB900C2325F18F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S8C43TQHMP;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = /Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoShieldUI/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmo.AlarmoShieldUI;
+				PRODUCT_NAME = AlarmoShieldUI;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		65AE8D77BF10EE831AE3349D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S8C43TQHMP;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = /Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmo.AlarmoWidget;
+				PRODUCT_NAME = AlarmoWidget;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		743CCAA10CDA52EBDE0885F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S8C43TQHMP;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = /Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoShieldUI/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmo.AlarmoShieldUI;
+				PRODUCT_NAME = AlarmoShieldUI;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		967E8C0B2F13F49A0060F3D8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		967E8C0C2F13F49A0060F3D8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		967E8C0E2F13F49A0060F3D8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
+				CODE_SIGN_ENTITLEMENTS = alarmo/alarmoDebug.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S8C43TQHMP;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = alarmo/Info.plist;
+				INFOPLIST_KEY_NSAlarmKitUsageDescription = "Alarmo uses AlarmKit to schedule system-level alarms on supported iOS versions.";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Alarmo needs access to your media library to import custom alarm sounds.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Alarmo needs camera access to scan QR/Barcodes for missions.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Alarmo reads your Apple Health data, including steps, walking/running distance, cycling distance, sleep, hydration, standing time, and mindfulness minutes to keep health habits in sync.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Alarmo may update selected health records when you explicitly use health-write features.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Alarmo needs microphone access to record custom alarm sounds.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Alarmo mission needs your motion data.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Allow Alarmo to save prepared wallpapers to your Photos.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Allow access to select alarm wallpapers.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Alarmo needs speech recognition access to verify spoken wake-up missions.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSUserTrackingUsageDescription = "Allow tracking to improve ads and personalization.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "(audio,fetch,remote-notification)";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmo;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		967E8C0F2F13F49A0060F3D8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = alarmo/alarmo.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S8C43TQHMP;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = alarmo/Info.plist;
+				INFOPLIST_KEY_NSAlarmKitUsageDescription = "Alarmo uses AlarmKit to schedule system-level alarms on supported iOS versions.";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Alarmo needs access to your media library to import custom alarm sounds.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Alarmo needs camera access to scan QR/Barcodes for missions.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Alarmo reads your Apple Health data, including steps, walking/running distance, cycling distance, sleep, hydration, standing time, and mindfulness minutes to keep health habits in sync.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Alarmo may update selected health records when you explicitly use health-write features.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Alarmo needs microphone access to record custom alarm sounds.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Alarmo mission needs your motion data.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Allow Alarmo to save prepared wallpapers to your Photos.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Allow access to select alarm wallpapers.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Alarmo needs speech recognition access to verify spoken wake-up missions.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSUserTrackingUsageDescription = "Allow tracking to improve ads and personalization.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "(audio,fetch,remote-notification)";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmo;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		967E8C112F13F49A0060F3D8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S8C43TQHMP;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmoTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/alarmo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/alarmo";
+			};
+			name = Debug;
+		};
+		967E8C122F13F49A0060F3D8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmoTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/alarmo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/alarmo";
+			};
+			name = Release;
+		};
+		967E8C142F13F49A0060F3D8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S8C43TQHMP;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmoUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = alarmo;
+			};
+			name = Debug;
+		};
+		967E8C152F13F49A0060F3D8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmoUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = alarmo;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		967E8BE52F13F4990060F3D8 /* Build configuration list for PBXProject "alarmo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				967E8C0B2F13F49A0060F3D8 /* Debug */,
+				967E8C0C2F13F49A0060F3D8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		967E8C0D2F13F49A0060F3D8 /* Build configuration list for PBXNativeTarget "alarmo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				967E8C0E2F13F49A0060F3D8 /* Debug */,
+				967E8C0F2F13F49A0060F3D8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		967E8C102F13F49A0060F3D8 /* Build configuration list for PBXNativeTarget "alarmoTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				967E8C112F13F49A0060F3D8 /* Debug */,
+				967E8C122F13F49A0060F3D8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		967E8C132F13F49A0060F3D8 /* Build configuration list for PBXNativeTarget "alarmoUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				967E8C142F13F49A0060F3D8 /* Debug */,
+				967E8C152F13F49A0060F3D8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AD0A3E3686FEB60A22E7E2D8 /* Build configuration list for PBXNativeTarget "AlarmoShieldUI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				743CCAA10CDA52EBDE0885F5 /* Release */,
+				62104E18ADCB900C2325F18F /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C78BF3DBCFAA0DF48D21594B /* Build configuration list for PBXNativeTarget "AlarmoWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65AE8D77BF10EE831AE3349D /* Release */,
+				5D53C1A22D55C5E94C4032F3 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 967E8BE22F13F4990060F3D8 /* Project object */;
+}
