@@ -36,6 +36,7 @@ struct SunRayTimePickerView: View {
     @State private var ringGlowPulse: CGFloat = 0.0
     @State private var lastTickSoundAt: CFAbsoluteTime = 0
     var sizeMultiplier: CGFloat = 1.0
+    private let tiimoWeekdayPurple = Color(hex: "#7F77DD")
     
     // Base Sunray size. Final size can be increased by `sizeMultiplier`.
     private let baseSize: CGFloat = 214
@@ -97,14 +98,14 @@ struct SunRayTimePickerView: View {
                 Text("12H")
                     .font(.system(size: 16, weight: .bold))
                     .fixedSize()
-                    .foregroundColor(is12HourFormat ? (isTiimo ? Color(hex: "#7F77DD") : Colors.accentTeal) : Colors.textSecondary.opacity(0.3))
+                    .foregroundColor(is12HourFormat ? (isTiimo ? tiimoWeekdayPurple : Colors.accentTeal) : Colors.textSecondary.opacity(0.3))
                     .padding(.vertical, 8)
                     .padding(.horizontal, 8)
                     .background(
                         Capsule()
                             .fill(is12HourFormat ? (isTiimo ? Color(hex: "#F0EFFE") : Colors.accentTeal.opacity(0.15)) : Color.clear)
                             .overlay(
-                                Capsule().stroke(is12HourFormat ? (isTiimo ? Color(hex: "#7F77DD").opacity(0.5) : Colors.accentTeal.opacity(0.5)) : (isTiimo ? Color(hex: "#E0DCFF") : Colors.cardStroke), lineWidth: 1)
+                                Capsule().stroke(is12HourFormat ? (isTiimo ? tiimoWeekdayPurple.opacity(0.5) : Colors.accentTeal.opacity(0.5)) : (isTiimo ? Color(hex: "#E0DCFF") : Colors.cardStroke), lineWidth: 1)
                             )
                     )
             }
@@ -121,7 +122,7 @@ struct SunRayTimePickerView: View {
                 
                 Text("\(hStr):\(mStr)\(sStr)\(amPm)")
                     .font(.system(size: second != nil ? 14 : 18, weight: .heavy, design: .monospaced))
-                    .foregroundColor((isTiimo ? Color(hex: "#7F77DD") : Colors.accentTeal).opacity(0.8))
+                    .foregroundColor((isTiimo ? tiimoWeekdayPurple : Colors.accentTeal).opacity(0.8))
                     .offset(y: -4) // Slight adjustment to sit just above the ticks
 
                 ZStack {
@@ -157,7 +158,7 @@ struct SunRayTimePickerView: View {
                             Capsule()
                                 .fill(
                                     isActiveTick
-                                    ? (isTiimo ? Color(hex: "#7F77DD") : Colors.accentTeal)
+                                    ? (isTiimo ? tiimoWeekdayPurple : Colors.accentTeal)
                                     : (isTiimo ? Color(hex: "#D0CCED") : (isLightMode ? Colors.textSecondary.opacity(i % 5 == 0 ? 0.28 : 0.14) : Color.white.opacity(i % 5 == 0 ? 0.3 : 0.1)))
                                 )
                                 .frame(width: i % 5 == 0 ? 2 : 1, height: i % 5 == 0 ? 10 : 6)
@@ -180,7 +181,7 @@ struct SunRayTimePickerView: View {
 
                                 Text(label)
                                     .font(.system(size: labelSize, weight: .heavy, design: .monospaced))
-                                    .foregroundColor(isHourMatch(i) ? (isTiimo ? Color(hex: "#7F77DD") : Colors.accentTeal) : Colors.textSecondary)
+                                    .foregroundColor(isHourMatch(i) ? (isTiimo ? tiimoWeekdayPurple : Colors.accentTeal) : Colors.textSecondary)
                                     .shadow(color: (isHourMatch(i) && !isTiimo) ? Colors.accentTeal.opacity(0.5) : .clear, radius: 4)
                                     .scaleEffect(isCompactLabel ? 0.92 : 1.0)
                                     .offset(y: -(size / 2 - labelLift))
@@ -195,7 +196,7 @@ struct SunRayTimePickerView: View {
                         Circle()
                             .trim(from: 0.0, to: activeProgress())
                             .stroke(
-                                Color(hex: "#7F77DD"),
+                                tiimoWeekdayPurple,
                                 style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
                             )
                             .frame(width: size + 10, height: size + 10)
@@ -255,7 +256,7 @@ struct SunRayTimePickerView: View {
                         Rectangle()
                             .fill(
                                 isTiimo
-                                ? LinearGradient(colors: [Color(hex: "#7F77DD"), Color(hex: "#7F77DD")], startPoint: .bottom, endPoint: .top)
+                                ? LinearGradient(colors: [Color(hex: "#9D92F2"), tiimoWeekdayPurple], startPoint: .bottom, endPoint: .top)
                                 : LinearGradient(
                                     colors: [
                                         Color.white.opacity(0.92),
@@ -271,8 +272,20 @@ struct SunRayTimePickerView: View {
                             .shadow(color: isTiimo ? .clear : Colors.accentTeal.opacity(0.45), radius: 5)
 
                         Circle()
-                            .fill(isTiimo ? Color(hex: "#7F77DD") : Color.white)
+                            .fill(
+                                isTiimo
+                                ? LinearGradient(
+                                    colors: [Color(hex: "#B8AEFF"), Color(hex: "#8E82EF"), Color(hex: "#6F62E6")],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                                : LinearGradient(colors: [Color.white, Color.white], startPoint: .top, endPoint: .bottom)
+                            )
                             .frame(width: 12, height: 12)
+                            .overlay(
+                                Circle()
+                                    .stroke(isTiimo ? Color(hex: "#CFC8FF").opacity(0.95) : Color.clear, lineWidth: isTiimo ? 1 : 0)
+                            )
                             .shadow(color: isTiimo ? .clear : Color.white.opacity(0.8), radius: 4)
                     }
                     .rotationEffect(.degrees(lineRotationDegrees))
@@ -292,7 +305,7 @@ struct SunRayTimePickerView: View {
                             fontSize: second != nil ? 32 : 46,
                             unitSize: second != nil ? 14 : 16,
                             isActive: activeComponent == .hour,
-                            highlightColor: isTiimo ? Color(hex: "#7F77DD") : Colors.accentTeal,
+                            highlightColor: isTiimo ? tiimoWeekdayPurple : Colors.accentTeal,
                             onTap: {
                                 activeComponent = .hour
                                 showWheelPicker = true
@@ -324,7 +337,7 @@ struct SunRayTimePickerView: View {
                             fontSize: second != nil ? 32 : 46,
                             unitSize: second != nil ? 14 : 16,
                             isActive: activeComponent == .minute,
-                            highlightColor: isTiimo ? Color(hex: "#7F77DD") : Colors.accentTeal,
+                            highlightColor: isTiimo ? tiimoWeekdayPurple : Colors.accentTeal,
                             onTap: {
                                 activeComponent = .minute
                                 showWheelPicker = true
@@ -351,7 +364,7 @@ struct SunRayTimePickerView: View {
                                 fontSize: 32,
                                 unitSize: 14,
                                 isActive: activeComponent == .second,
-                                highlightColor: isTiimo ? Color(hex: "#7F77DD") : Colors.accentTeal,
+                                highlightColor: isTiimo ? tiimoWeekdayPurple : Colors.accentTeal,
                                 onTap: {
                                     activeComponent = .second
                                     showWheelPicker = true
@@ -374,14 +387,14 @@ struct SunRayTimePickerView: View {
                 Text("24H")
                     .font(.system(size: 16, weight: .bold))
                     .fixedSize()
-                    .foregroundColor(!is12HourFormat ? (isTiimo ? Color(hex: "#7F77DD") : Colors.accentTeal) : Colors.textSecondary.opacity(0.3))
+                    .foregroundColor(!is12HourFormat ? (isTiimo ? tiimoWeekdayPurple : Colors.accentTeal) : Colors.textSecondary.opacity(0.3))
                     .padding(.vertical, 8)
                     .padding(.horizontal, 8)
                     .background(
                         Capsule()
                             .fill(!is12HourFormat ? (isTiimo ? Color(hex: "#F0EFFE") : Colors.accentTeal.opacity(0.15)) : Color.clear)
                             .overlay(
-                                Capsule().stroke(!is12HourFormat ? (isTiimo ? Color(hex: "#7F77DD").opacity(0.5) : Colors.accentTeal.opacity(0.5)) : (isTiimo ? Color(hex: "#E0DCFF") : Colors.cardStroke), lineWidth: 1)
+                                Capsule().stroke(!is12HourFormat ? (isTiimo ? tiimoWeekdayPurple.opacity(0.5) : Colors.accentTeal.opacity(0.5)) : (isTiimo ? Color(hex: "#E0DCFF") : Colors.cardStroke), lineWidth: 1)
                             )
                     )
             }

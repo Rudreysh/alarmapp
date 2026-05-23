@@ -92,11 +92,7 @@ struct OnboardingIntroView: View {
                 VStack(spacing: Spacing.m) {
                     bentoCard(icon: "alarm.fill", color: Colors.accentTeal, title: "Smart Alarms", subtitle: "Wake up reliably with alarm missions and louder fallback options.", height: 138)
 
-                    HStack(spacing: Spacing.m) {
-                        bentoCard(icon: "timer", color: Color.orange, title: "Pomodoro", subtitle: "Stay in deep focus.", height: 124)
-
-                        bentoCard(icon: "checklist.checked", color: Color.green, title: "Habits", subtitle: "Build consistent streaks.", height: 124)
-                    }
+                    bentoCard(icon: "timer", color: Color.orange, title: "Pomodoro", subtitle: "Stay in deep focus.", height: 124)
 
                     bentoCard(icon: "chart.xyaxis.line", color: Colors.accentBlue, title: "Progress Reports", subtitle: "Track your daily and weekly consistency at a glance.", height: 116)
                 }
@@ -114,8 +110,6 @@ struct OnboardingIntroView: View {
 
                 VStack(spacing: Spacing.m) {
                     bentoCard(icon: "shield.lefthalf.filled", color: Color.orange, title: "App Blocking", subtitle: "Block distracting apps during focus sessions and alarm missions.", height: 138)
-
-                    bentoCard(icon: "globe.americas.fill", color: Colors.accentBlue, title: "Time Overlap", subtitle: "Find shared windows across time zones for meetings and collaboration.", height: 138)
                 }
                 .padding(.horizontal, Spacing.l)
                 .padding(.top, Spacing.xl)
