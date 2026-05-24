@@ -27,7 +27,11 @@ struct OnboardingAlarmPermissionView: View {
     @State private var showNotificationsDeniedAlert = false
     @State private var animateIn = false
 
-    var body: some View {
+    
+    private var isTiimoTheme: Bool {
+        UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw") == AlarmThemeStyle.tiimo.rawValue
+    }
+var body: some View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
 
@@ -49,7 +53,7 @@ struct OnboardingAlarmPermissionView: View {
 
                     Text("Allow Alarms to Ring on Lock Screen")
                         .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(Colors.textPrimary)
+                        .foregroundColor(isTiimoTheme ? .black : .white)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
                         .multilineTextAlignment(.center)
@@ -58,7 +62,7 @@ struct OnboardingAlarmPermissionView: View {
 
                     Text("On iOS 26+, Alarm permission enables true system alarm behavior so alarms can ring while the phone is locked and in Silent mode.")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Colors.textSecondary)
+                        .foregroundColor(isTiimoTheme ? .black.opacity(0.72) : Color.white.opacity(0.82))
                         .lineSpacing(2)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
@@ -75,7 +79,7 @@ struct OnboardingAlarmPermissionView: View {
                     Button(action: onNext) {
                         Text("Skip")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(isTiimoTheme ? .black : .white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(Color.white.opacity(0.15))
@@ -152,7 +156,7 @@ struct OnboardingAlarmPermissionView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Allow \"Awayk\" to schedule alarms and timers?")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(Colors.textPrimary)
+                    .foregroundColor(.white)
                     .lineSpacing(3)
 
                 Text("This lets Awayk ring on Lock Screen and in Silent mode using iOS system alarm behavior.")

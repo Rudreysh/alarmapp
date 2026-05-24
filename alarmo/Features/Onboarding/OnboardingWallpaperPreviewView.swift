@@ -15,7 +15,7 @@ struct OnboardingQuoteCategorySelectionView: View {
             VStack(spacing: 0) {
                 Text("Choose\nmotivation quote")
                     .font(.system(size: 26, weight: .bold))
-                    .foregroundColor(Colors.textPrimary)
+                     .foregroundColor(.black)
                     .multilineTextAlignment(.center)
                     .padding(.top, Spacing.xs)
                     .padding(.bottom, Spacing.xs)
@@ -30,7 +30,7 @@ struct OnboardingQuoteCategorySelectionView: View {
                 )) {
                     Text("Motivation Quotes")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Colors.textPrimary)
+                         .foregroundColor(.black)
                 }
                 .toggleStyle(SwitchToggleStyle(tint: Colors.accentTeal))
                 .padding(.horizontal, Spacing.l)
@@ -51,13 +51,13 @@ struct OnboardingQuoteCategorySelectionView: View {
                             VStack(spacing: 8) {
                                 Text(quote.text)
                                     .font(.system(size: 24, weight: .semibold, design: .serif))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.black)
                                     .multilineTextAlignment(.center)
                                     .lineLimit(4)
                                     .minimumScaleFactor(0.75)
                                 Text("- \(quote.author)")
                                     .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(.white.opacity(0.9))
+                                    .foregroundColor(.black.opacity(0.85))
                                     .lineLimit(1)
                             }
                             .padding(.horizontal, Spacing.l)
@@ -122,7 +122,7 @@ struct OnboardingWallpaperPreviewView: View {
                     Button(action: onBack) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(Colors.textPrimary)
+                             .foregroundColor(.white)
                             .padding(Spacing.s)
                             .background(Colors.bgSecondary.opacity(0.6))
                             .clipShape(Circle())
@@ -134,12 +134,12 @@ struct OnboardingWallpaperPreviewView: View {
 
                 Text(currentDateString)
                     .bodyText()
-                    .foregroundColor(Colors.textPrimary)
+                     .foregroundColor(.white)
                     .padding(.top, Spacing.s)
 
                 Text(viewModel.selectedTimeString)
                     .font(.system(size: 64, weight: .bold))
-                    .foregroundColor(Colors.textPrimary)
+                     .foregroundColor(.white)
                     .padding(.top, Spacing.m)
                 
                 if viewModel.state.dailyMotivationEnabled {

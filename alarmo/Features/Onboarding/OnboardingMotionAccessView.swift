@@ -12,7 +12,11 @@ struct OnboardingMotionAccessView: View {
     
     private let motionManager = CMMotionActivityManager()
 
-    var body: some View {
+    
+    private var isTiimoTheme: Bool {
+        UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw") == AlarmThemeStyle.tiimo.rawValue
+    }
+var body: some View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
             
@@ -33,7 +37,7 @@ struct OnboardingMotionAccessView: View {
                     
                     Text("Permission to Access Motion Data")
                         .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(Colors.textPrimary)
+                        .foregroundColor(isTiimoTheme ? .black : .white)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
                         .multilineTextAlignment(.center)
@@ -42,7 +46,7 @@ struct OnboardingMotionAccessView: View {
                     
                     Text("Motion data powers live movement tracking for activity-based habits. If disabled, live tracking features will be limited.")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Colors.textSecondary)
+                        .foregroundColor(isTiimoTheme ? .black.opacity(0.72) : Color.white.opacity(0.82))
                         .lineSpacing(2)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
@@ -59,7 +63,7 @@ struct OnboardingMotionAccessView: View {
                     Button(action: onNext) {
                         Text("Skip")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(isTiimoTheme ? .black : .white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(Color.white.opacity(0.15))
@@ -115,7 +119,7 @@ struct OnboardingMotionAccessView: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("\"Awayk\" would like to access your Motion & Fitness activity.")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(Colors.textPrimary)
+                    .foregroundColor(.white)
                     .lineSpacing(2)
                 
                 Text("Motion data helps detect movement-based activity sessions and improves live habit tracking.")

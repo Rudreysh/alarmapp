@@ -111,6 +111,7 @@ private struct FocusDialAlarmTimePickerView: View {
     private let ringSize: CGFloat = 186
     private let ringWidth: CGFloat = 36
     private let alarmRingBlue = Color(red: 0.08, green: 0.78, blue: 0.92)
+    private let tiimoWeekdayPurple = Color(hex: "#7F77DD")
 
     private var progress: Double {
         min(max(currentMinutesInCycle / totalMinutesInCycle, 0), 1)
@@ -164,12 +165,20 @@ private struct FocusDialAlarmTimePickerView: View {
         }
     }
 
+    private var isTiimo: Bool {
+        settingsStore.alarmThemeStyle == .tiimo
+    }
+
+    private var ringAccentColor: Color {
+        isTiimo ? tiimoWeekdayPurple : alarmRingBlue
+    }
+
     private var ringGradientColors: [Color] {
         [
-            alarmRingBlue.opacity(0.62),
-            alarmRingBlue.opacity(0.96),
-            alarmRingBlue.opacity(0.78),
-            alarmRingBlue.opacity(0.80)
+            ringAccentColor.opacity(0.62),
+            ringAccentColor.opacity(0.96),
+            ringAccentColor.opacity(0.78),
+            ringAccentColor.opacity(0.80)
         ]
     }
 

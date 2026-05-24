@@ -19,7 +19,11 @@ struct OnboardingReportsInsightsView: View {
     @State private var showNotificationPrompt = false
     @State private var animateIn = false
 
-    var body: some View {
+    
+    private var isTiimoTheme: Bool {
+        UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw") == AlarmThemeStyle.tiimo.rawValue
+    }
+var body: some View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
 
@@ -67,7 +71,7 @@ struct OnboardingReportsInsightsView: View {
                     Button(action: onNext) {
                         Text("Skip")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(isTiimoTheme ? .black : .white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(Color.white.opacity(0.15))

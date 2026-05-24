@@ -7,7 +7,11 @@ struct OnboardingLiveActivitiesView: View {
     @State private var isRequesting = false
     @State private var animateIn = false
 
-    var body: some View {
+    
+    private var isTiimoTheme: Bool {
+        UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw") == AlarmThemeStyle.tiimo.rawValue
+    }
+var body: some View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
             
@@ -28,7 +32,7 @@ struct OnboardingLiveActivitiesView: View {
                     
                     Text("Live Habit Tracking")
                         .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(Colors.textPrimary)
+                        .foregroundColor(isTiimoTheme ? .black : .white)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
                         .multilineTextAlignment(.center)
@@ -37,7 +41,7 @@ struct OnboardingLiveActivitiesView: View {
                     
                     Text("Track your active focus timers, alarms, and accountability missions directly from your Lock Screen in real-time without opening the app.")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Colors.textSecondary)
+                        .foregroundColor(isTiimoTheme ? .black.opacity(0.72) : Color.white.opacity(0.82))
                         .lineSpacing(2)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
@@ -54,7 +58,7 @@ struct OnboardingLiveActivitiesView: View {
                     Button(action: onNext) {
                         Text("Skip")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(isTiimoTheme ? .black : .white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(Color.white.opacity(0.15))

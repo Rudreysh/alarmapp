@@ -9,7 +9,11 @@ struct OnboardingIntroView: View {
     @State private var currentPage = 0
     private let totalPages = 3
 
-    var body: some View {
+    
+    private var isTiimoTheme: Bool {
+        UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw") == AlarmThemeStyle.tiimo.rawValue
+    }
+var body: some View {
         ZStack {
             if currentPage == 0 {
                 firstPageBackground
@@ -47,7 +51,7 @@ struct OnboardingIntroView: View {
                             onSkip()
                         }
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Colors.textSecondary)
+                        .foregroundColor(isTiimoTheme ? .black : Colors.textSecondary)
                         .padding()
                     }
                 }
@@ -259,7 +263,7 @@ private struct AnimatedGIFView: UIViewRepresentable {
         imageView.contentMode = .scaleAspectFit
         imageView.clipsToBounds = true
         imageView.backgroundColor = .clear
-        imageView.image = loadAnimatedImage()
+        configureAnimation(on: imageView)
         imageView.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(imageView)
         NSLayoutConstraint.activate([
@@ -274,12 +278,25 @@ private struct AnimatedGIFView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: ContainerView, context: Context) {
-        if uiView.imageView.image == nil {
-            uiView.imageView.image = loadAnimatedImage()
+        let imageView = uiView.imageView
+        if imageView.animationImages == nil || imageView.animationImages?.isEmpty == true {
+            configureAnimation(on: imageView)
+        } else if !imageView.isAnimating {
+            imageView.startAnimating()
         }
     }
 
-    private func loadAnimatedImage() -> UIImage? {
+    private func configureAnimation(on imageView: UIImageView) {
+        guard let (frames, duration) = loadFramesAndDuration() else { return }
+        imageView.stopAnimating()
+        imageView.animationImages = frames
+        imageView.animationDuration = max(duration, 0.1)
+        imageView.animationRepeatCount = 0 // infinite loop
+        imageView.image = frames.first
+        imageView.startAnimating()
+    }
+
+    private func loadFramesAndDuration() -> ([UIImage], Double)? {
         guard let url = Bundle.main.url(forResource: resourceName, withExtension: resourceExtension),
               let data = try? Data(contentsOf: url),
               let source = CGImageSourceCreateWithData(data as CFData, nil) else {
@@ -300,7 +317,7 @@ private struct AnimatedGIFView: UIViewRepresentable {
         }
 
         guard !frames.isEmpty else { return nil }
-        return UIImage.animatedImage(with: frames, duration: max(totalDuration, 0.1))
+        return (frames, totalDuration)
     }
 
     private func frameDuration(from source: CGImageSource, at index: Int) -> Double {

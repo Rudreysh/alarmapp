@@ -9,7 +9,11 @@ struct OnboardingScreenTimeAccessView: View {
     @StateObject private var screenTimeManager = ScreenTimeAuthorizationManager.shared
     @State private var animateIn = false
 
-    var body: some View {
+    
+    private var isTiimoTheme: Bool {
+        UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw") == AlarmThemeStyle.tiimo.rawValue
+    }
+var body: some View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
             
@@ -30,7 +34,7 @@ struct OnboardingScreenTimeAccessView: View {
                     
                     Text("Permission for Screen Time")
                         .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(Colors.textPrimary)
+                        .foregroundColor(isTiimoTheme ? .black : .white)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
                         .multilineTextAlignment(.center)
@@ -39,7 +43,7 @@ struct OnboardingScreenTimeAccessView: View {
                     
                     Text("Screen Time permissions are required for the Accountability features, allowing Awayk to block distracting apps while you focus.")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Colors.textSecondary)
+                        .foregroundColor(isTiimoTheme ? .black.opacity(0.72) : Color.white.opacity(0.82))
                         .lineSpacing(2)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
@@ -56,7 +60,7 @@ struct OnboardingScreenTimeAccessView: View {
                     Button(action: onNext) {
                         Text("Skip")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(isTiimoTheme ? .black : .white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(Color.white.opacity(0.15))

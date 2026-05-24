@@ -238,7 +238,7 @@ private struct WallpaperCard: View {
 
             Text(item.title)
                 .bodyText()
-                .foregroundColor(Colors.textPrimary)
+                .foregroundColor(.white)
                 .padding(Spacing.s)
                 .background(
                     LinearGradient(colors: [.black.opacity(0.6), .clear], startPoint: .bottom, endPoint: .top)

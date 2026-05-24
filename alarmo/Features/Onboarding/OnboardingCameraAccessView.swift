@@ -20,7 +20,11 @@ struct OnboardingCameraAccessView: View {
     @State private var permissionState: CameraPermissionStepState = .notDetermined
     @State private var animateIn = false
 
-    var body: some View {
+    
+    private var isTiimoTheme: Bool {
+        UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw") == AlarmThemeStyle.tiimo.rawValue
+    }
+var body: some View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
 
@@ -41,7 +45,7 @@ struct OnboardingCameraAccessView: View {
 
                     Text("Permission to Access Camera")
                         .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(Colors.textPrimary)
+                        .foregroundColor(isTiimoTheme ? .black : .white)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
                         .multilineTextAlignment(.center)
@@ -50,7 +54,7 @@ struct OnboardingCameraAccessView: View {
 
                     Text("Camera access is needed for QR, barcode, and object-based wake-up missions. You can still continue without it and enable later in Settings.")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Colors.textSecondary)
+                        .foregroundColor(isTiimoTheme ? .black.opacity(0.72) : Color.white.opacity(0.82))
                         .lineSpacing(2)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
@@ -66,7 +70,7 @@ struct OnboardingCameraAccessView: View {
                     Button(action: onNext) {
                         Text("Skip")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(isTiimoTheme ? .black : .white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(Color.white.opacity(0.15))
@@ -125,7 +129,7 @@ struct OnboardingCameraAccessView: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("\"Awayk\" would like to access your Camera.")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(Colors.textPrimary)
+                    .foregroundColor(.white)
                     .lineSpacing(2)
 
                 Text("Camera access helps Awayk run QR/barcode and object-hunt missions reliably when alarms ring.")

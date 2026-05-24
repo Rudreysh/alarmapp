@@ -225,7 +225,7 @@ struct HomeView: View {
     // MARK: - Subviews
     
     private var homeBackground: some View {
-        LinearGradient(colors: [Colors.bgSecondary, Colors.bgPrimary], startPoint: .top, endPoint: .bottom)
+        Colors.bgPrimary
             .ignoresSafeArea()
     }
     
