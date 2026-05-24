@@ -54,6 +54,7 @@ enum AlarmThemeStyle: String, Codable, CaseIterable, Identifiable {
     case `default` = "default"
     case lilacCalm = "lilac_calm"
     case tiimo = "tiimo"
+    case green = "green"
 
     var id: String { rawValue }
 
@@ -62,6 +63,7 @@ enum AlarmThemeStyle: String, Codable, CaseIterable, Identifiable {
         case .default: return "Default"
         case .lilacCalm: return "Lilac Calm"
         case .tiimo: return "Tiimo"
+        case .green: return "Green"
         }
     }
 
@@ -70,6 +72,7 @@ enum AlarmThemeStyle: String, Codable, CaseIterable, Identifiable {
         case .default: return "circle.lefthalf.filled"
         case .lilacCalm: return "sparkles"
         case .tiimo: return "square.on.square"
+        case .green: return "leaf.fill"
         }
     }
 }

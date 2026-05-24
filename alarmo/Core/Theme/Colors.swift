@@ -127,6 +127,30 @@ enum Colors {
         accentBlue: Color(hex: "#7F77DD")
     )
 
+    private static let greenPalette = Palette(
+        bgPrimary: Color(hex: "#0D1A14"),
+        bgSecondary: Color(hex: "#12231B"),
+        cardSurface: Color(hex: "#173126"),
+        cardStroke: Color(hex: "#2C5947"),
+        textPrimary: Color(hex: "#E9FFF4"),
+        textSecondary: Color(hex: "#B9E3CF"),
+        textTertiary: Color(hex: "#7FB49B"),
+        accentRed: Color(red: 1.0, green: 0.23, blue: 0.36),
+        accentGreen: Color(hex: "#57D28C"),
+        accentTeal: Color(hex: "#35B86F"),
+        shadow: Color.black.opacity(0.42),
+        tabBarBackground: Color(hex: "#12261D"),
+        tabBarInactive: Color(hex: "#8BC2A8"),
+        promoCardBackground: Color(hex: "#1A382C"),
+        pillGreen: Color(hex: "#57D28C"),
+        sheetGradientTop: Color(hex: "#1D3E30"),
+        sheetGradientBottom: Color(hex: "#143126"),
+        saleBadgeStart: Color(hex: "#7AE8AA"),
+        saleBadgeEnd: Color(hex: "#35B86F"),
+        accentOrange: Color(hex: "#7AE8AA"),
+        accentBlue: Color(hex: "#57D28C")
+    )
+
     private static var activePalette: Palette {
         let styleRaw = UserDefaults.standard.string(forKey: themeStyleKey) ?? "default"
         if styleRaw == "lilac_calm" {
@@ -134,6 +158,9 @@ enum Colors {
         }
         if styleRaw == "tiimo" {
             return tiimoPalette
+        }
+        if styleRaw == "green" {
+            return greenPalette
         }
 
         let modeRaw = UserDefaults.standard.string(forKey: themeModeKey) ?? "Dark"
@@ -276,6 +303,27 @@ struct TiimoLightTheme: AppTheme {
     let switchTintOn = Color(hex: "#7F77DD")
 }
 
+struct GreenTheme: AppTheme {
+    let backgroundPrimary = Color(hex: "#0D1A14")
+    let backgroundSurface = Color(hex: "#12231B")
+    let backgroundCard = Color(hex: "#173126")
+    let accentPrimary = Color(hex: "#35B86F")
+    let accentSecondary = Color(hex: "#224638")
+    let textPrimary = Color(hex: "#E9FFF4")
+    let textSecondary = Color(hex: "#B9E3CF")
+    let textCaption = Color(hex: "#7FB49B")
+    let buttonPrimaryBg = Color(hex: "#35B86F")
+    let buttonPrimaryLabel = Color(hex: "#0D1A14")
+    let selectionFill = Color(hex: "#224638")
+    let selectionBorder = Color(hex: "#57D28C")
+    let progressTrack = Color(hex: "#224638")
+    let progressFill = Color(hex: "#57D28C")
+    let cornerRadiusCard: CGFloat = 16
+    let cornerRadiusButton: CGFloat = 16
+    let cornerRadiusPill: CGFloat = 8
+    let switchTintOn = Color(hex: "#57D28C")
+}
+
 class ThemeManager: ObservableObject {
     static let shared = ThemeManager()
     
@@ -297,6 +345,10 @@ class ThemeManager: ObservableObject {
         }
         if styleRaw == "tiimo" {
             activeTheme = TiimoLightTheme()
+            return
+        }
+        if styleRaw == "green" {
+            activeTheme = GreenTheme()
             return
         }
         

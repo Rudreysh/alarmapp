@@ -1,32 +1,42 @@
 import SwiftUI
+import UIKit
+import ImageIO
 
 struct OnboardingIntroView: View {
     let onNext: () -> Void
     var onSkip: (() -> Void)? = nil
     
     @State private var currentPage = 0
+    private let totalPages = 3
 
     var body: some View {
         ZStack {
-            // New ambient luxury background
-            Colors.bgPrimary.ignoresSafeArea()
-            
-            GeometryReader { proxy in
-                let size = proxy.size
-                Circle()
-                    .fill(backgroundColors.0.opacity(0.15))
-                    .frame(width: 300, height: 300)
-                    .blur(radius: 60)
-                    .offset(x: size.width - 200, y: -50)
-                
-                Circle()
-                    .fill(backgroundColors.1.opacity(0.15))
-                    .frame(width: 250, height: 250)
-                    .blur(radius: 60)
-                    .offset(x: -100, y: size.height * 0.5)
+            if currentPage == 0 {
+                firstPageBackground
+                    .ignoresSafeArea()
+            } else {
+                Colors.bgPrimary
+                    .ignoresSafeArea()
             }
-            .animation(.easeInOut(duration: 0.5), value: currentPage)
-            .ignoresSafeArea()
+            
+            if currentPage != 0 {
+                GeometryReader { proxy in
+                    let size = proxy.size
+                    Circle()
+                        .fill(backgroundColors.0.opacity(0.15))
+                        .frame(width: 300, height: 300)
+                        .blur(radius: 60)
+                        .offset(x: size.width - 200, y: -50)
+                    
+                    Circle()
+                        .fill(backgroundColors.1.opacity(0.15))
+                        .frame(width: 250, height: 250)
+                        .blur(radius: 60)
+                        .offset(x: -100, y: size.height * 0.5)
+                }
+                .animation(.easeInOut(duration: 0.5), value: currentPage)
+                .ignoresSafeArea()
+            }
 
             VStack(spacing: 0) {
                 // Header with Skip
@@ -43,8 +53,9 @@ struct OnboardingIntroView: View {
                 }
                 
                 TabView(selection: $currentPage) {
-                    pageOne.tag(0)
-                    pageTwo.tag(1)
+                    pageIntro.tag(0)
+                    pageOne.tag(1)
+                    pageTwo.tag(2)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 // Only animate the transition within the TabView layout
@@ -52,12 +63,12 @@ struct OnboardingIntroView: View {
 
                 Spacer()
                 
-                PageDots(count: 2, activeIndex: currentPage)
+                PageDots(count: totalPages, activeIndex: currentPage)
                     .padding(.bottom, Spacing.m)
             }
             .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: currentPage == 1 ? "Get Started" : "Next", style: .blueGlass) {
-                    if currentPage < 1 {
+                PrimaryButton(title: currentPage == totalPages - 1 ? "Get Started" : "Continue", style: .blueGlass) {
+                    if currentPage < totalPages - 1 {
                         withAnimation {
                             currentPage += 1
                         }
@@ -72,6 +83,31 @@ struct OnboardingIntroView: View {
             }
         }
     }
+
+    private var firstPageBackground: some View {
+        ZStack {
+            Color(hex: "#F6F5F3")
+
+            LinearGradient(
+                colors: [
+                    Color(hex: "#F6F5F3").opacity(0.0),
+                    Color(hex: "#FFD9C7").opacity(0.65)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            RadialGradient(
+                colors: [
+                    Color(hex: "#FFC7AD").opacity(0.40),
+                    Color(hex: "#FFC7AD").opacity(0.0)
+                ],
+                center: .bottom,
+                startRadius: 20,
+                endRadius: 460
+            )
+        }
+    }
     
     // Dynamic background colors
     private var backgroundColors: (Color, Color) {
@@ -83,7 +119,37 @@ struct OnboardingIntroView: View {
     }
     
     // MARK: - Pages
-    
+
+    private var pageIntro: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 32)
+
+            Text("Hey! I'm your alarm.")
+                .font(.system(size: 36, weight: .black, design: .rounded))
+                .foregroundColor(Colors.textPrimary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Spacing.l)
+                .padding(.bottom, 20)
+
+            HStack {
+                Spacer()
+                AnimatedGIFView(resourceName: "purple-bg-alarm", resourceExtension: "gif")
+                    .frame(width: 220, height: 220)
+                Spacer()
+            }
+            .padding(.bottom, 24)
+
+            Text("(The one you keep snoozing at 2am)")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(Colors.textTertiary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Spacing.l)
+                .padding(.top, 4)
+
+            Spacer()
+        }
+    }
+
     private var pageOne: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
@@ -176,5 +242,77 @@ struct OnboardingIntroView: View {
                 .stroke(Colors.cardStroke, lineWidth: 1)
         )
         .appShadow(Shadows.card)
+    }
+}
+
+private struct AnimatedGIFView: UIViewRepresentable {
+    let resourceName: String
+    let resourceExtension: String
+
+    final class ContainerView: UIView {
+        let imageView = UIImageView()
+    }
+
+    func makeUIView(context: Context) -> ContainerView {
+        let container = ContainerView()
+        let imageView = container.imageView
+        imageView.contentMode = .scaleAspectFit
+        imageView.clipsToBounds = true
+        imageView.backgroundColor = .clear
+        imageView.image = loadAnimatedImage()
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(imageView)
+        NSLayoutConstraint.activate([
+            imageView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            imageView.topAnchor.constraint(equalTo: container.topAnchor),
+            imageView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+        container.clipsToBounds = true
+        container.backgroundColor = .clear
+        return container
+    }
+
+    func updateUIView(_ uiView: ContainerView, context: Context) {
+        if uiView.imageView.image == nil {
+            uiView.imageView.image = loadAnimatedImage()
+        }
+    }
+
+    private func loadAnimatedImage() -> UIImage? {
+        guard let url = Bundle.main.url(forResource: resourceName, withExtension: resourceExtension),
+              let data = try? Data(contentsOf: url),
+              let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+            return nil
+        }
+
+        let frameCount = CGImageSourceGetCount(source)
+        guard frameCount > 0 else { return nil }
+
+        var frames: [UIImage] = []
+        var totalDuration: Double = 0
+
+        for index in 0..<frameCount {
+            guard let cgImage = CGImageSourceCreateImageAtIndex(source, index, nil) else { continue }
+            let duration = frameDuration(from: source, at: index)
+            totalDuration += duration
+            frames.append(UIImage(cgImage: cgImage))
+        }
+
+        guard !frames.isEmpty else { return nil }
+        return UIImage.animatedImage(with: frames, duration: max(totalDuration, 0.1))
+    }
+
+    private func frameDuration(from source: CGImageSource, at index: Int) -> Double {
+        let defaultDuration = 0.06
+        guard let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any],
+              let gifProperties = properties[kCGImagePropertyGIFDictionary] as? [CFString: Any] else {
+            return defaultDuration
+        }
+
+        let unclamped = gifProperties[kCGImagePropertyGIFUnclampedDelayTime] as? Double
+        let clamped = gifProperties[kCGImagePropertyGIFDelayTime] as? Double
+        let duration = unclamped ?? clamped ?? defaultDuration
+        return duration < 0.011 ? defaultDuration : duration
     }
 }
