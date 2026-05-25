@@ -125,6 +125,7 @@ struct OnboardingWallpaperSelectionView: View {
                 }
             }
             .padding(.top, -8)
+            .onboardingContentFrame()
             .overlay(
                 VStack {
                     Spacer()

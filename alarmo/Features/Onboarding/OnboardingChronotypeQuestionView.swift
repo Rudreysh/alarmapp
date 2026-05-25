@@ -2,9 +2,8 @@ import SwiftUI
 
 struct OnboardingChronotypeQuestionView: View {
     let onNext: () -> Void
-    @State private var selectedOptionID: String = "b"
+    @State private var selectedOptionID: String? = nil
 
-    private let tiimoPurple = Color(hex: "#7F77DD")
 
     private let options: [QuestionOption] = [
         .init(id: "a", text: "Early bird — I'm up before 7am naturally", emoji: "🌅"),
@@ -18,7 +17,7 @@ struct OnboardingChronotypeQuestionView: View {
             title: "When do you naturally wake up best?",
             options: options,
             selectedOptionID: $selectedOptionID,
-            selectedColor: tiimoPurple,
+            selectedColor: Colors.accentBlue,
             questionIndex: 3,
             questionTotal: 30,
             onNext: onNext

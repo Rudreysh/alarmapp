@@ -2,14 +2,13 @@ import SwiftUI
 
 struct OnboardingHalfAsleepQuestionView: View {
     let onNext: () -> Void
-    @State private var selectedOptionID: String = "b"
-    private let tiimoPurple = Color(hex: "#7F77DD")
+    @State private var selectedOptionID: String? = nil
 
     private let options: [QuestionOption] = [
-        .init(id: "a", text: "No, I feel aware"),
-        .init(id: "b", text: "Sometimes"),
-        .init(id: "c", text: "Often"),
-        .init(id: "d", text: "Almost every morning")
+        .init(id: "a", text: "No, I feel aware", emoji: "✅"),
+        .init(id: "b", text: "Sometimes", emoji: "🤔"),
+        .init(id: "c", text: "Often", emoji: "😵"),
+        .init(id: "d", text: "Almost every morning", emoji: "🌫")
     ]
 
     var body: some View {
@@ -17,11 +16,10 @@ struct OnboardingHalfAsleepQuestionView: View {
             title: "Do you feel confused or half-asleep after your alarm?",
             options: options,
             selectedOptionID: $selectedOptionID,
-            selectedColor: tiimoPurple,
+            selectedColor: Colors.accentBlue,
             questionIndex: 8,
             questionTotal: 30,
             onNext: onNext
         )
     }
 }
-

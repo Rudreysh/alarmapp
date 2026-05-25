@@ -7,6 +7,18 @@ struct OnboardingQuoteCategorySelectionView: View {
     let onNext: () -> Void
     @State private var previewQuoteIndex = 0
     private let previewTimer = Timer.publish(every: 8, on: .main, in: .common).autoconnect()
+    
+    private var isTiimoTheme: Bool {
+        SettingsStore.shared.alarmThemeStyle == .tiimo
+    }
+    
+    private var titleColor: Color {
+        isTiimoTheme ? .black : .white
+    }
+    
+    private var subtitleColor: Color {
+        isTiimoTheme ? .black.opacity(0.85) : .white.opacity(0.85)
+    }
 
     var body: some View {
         ZStack {
@@ -15,7 +27,7 @@ struct OnboardingQuoteCategorySelectionView: View {
             VStack(spacing: 0) {
                 Text("Choose\nmotivation quote")
                     .font(.system(size: 26, weight: .bold))
-                     .foregroundColor(.black)
+                     .foregroundColor(titleColor)
                     .multilineTextAlignment(.center)
                     .padding(.top, Spacing.xs)
                     .padding(.bottom, Spacing.xs)
@@ -30,9 +42,10 @@ struct OnboardingQuoteCategorySelectionView: View {
                 )) {
                     Text("Motivation Quotes")
                         .font(.system(size: 16, weight: .semibold))
-                         .foregroundColor(.black)
+                         .foregroundColor(titleColor)
                 }
                 .toggleStyle(SwitchToggleStyle(tint: Colors.accentTeal))
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, Spacing.s)
 
@@ -51,13 +64,13 @@ struct OnboardingQuoteCategorySelectionView: View {
                             VStack(spacing: 8) {
                                 Text(quote.text)
                                     .font(.system(size: 24, weight: .semibold, design: .serif))
-                                    .foregroundColor(.black)
+                                    .foregroundColor(titleColor)
                                     .multilineTextAlignment(.center)
                                     .lineLimit(4)
                                     .minimumScaleFactor(0.75)
                                 Text("- \(quote.author)")
                                     .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(.black.opacity(0.85))
+                                    .foregroundColor(subtitleColor)
                                     .lineLimit(1)
                             }
                             .padding(.horizontal, Spacing.l)
@@ -93,6 +106,7 @@ struct OnboardingQuoteCategorySelectionView: View {
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, Spacing.l)
             }
+            .onboardingContentFrame()
         }
     }
 
@@ -118,6 +132,7 @@ struct OnboardingWallpaperPreviewView: View {
             }
 
             VStack {
+                // Keep preview content width consistent with Tiimo onboarding layout
                 HStack {
                     Button(action: onBack) {
                         Image(systemName: "chevron.left")
@@ -187,6 +202,7 @@ struct OnboardingWallpaperPreviewView: View {
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, Spacing.m)
             }
+            .onboardingContentFrame()
         }
     }
 

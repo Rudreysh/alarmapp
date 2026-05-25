@@ -138,6 +138,8 @@ struct OnboardingSoundSelectionView: View {
                     .font(.system(size: 26, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
                     .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
                     .frame(maxWidth: .infinity)
                     .padding(.top, Spacing.l)
                     .padding(.bottom, Spacing.s)
@@ -180,7 +182,8 @@ struct OnboardingSoundSelectionView: View {
                     .padding(.bottom, 100)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .onboardingContentFrame()
 
             // ─── Next button ───────────────────────────────────────────
             VStack {

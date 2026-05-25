@@ -2,14 +2,13 @@ import SwiftUI
 
 struct OnboardingWakeLateImpactQuestionView: View {
     let onNext: () -> Void
-    @State private var selectedOptionID: String = "b"
-    private let tiimoPurple = Color(hex: "#7F77DD")
+    @State private var selectedOptionID: String? = nil
 
     private let options: [QuestionOption] = [
-        .init(id: "a", text: "It does not affect much"),
-        .init(id: "b", text: "I feel rushed"),
-        .init(id: "c", text: "I feel stressed"),
-        .init(id: "d", text: "It affects my whole day")
+        .init(id: "a", text: "It does not affect much", emoji: "🙂"),
+        .init(id: "b", text: "I feel rushed", emoji: "🏃"),
+        .init(id: "c", text: "I feel stressed", emoji: "😣"),
+        .init(id: "d", text: "It affects my whole day", emoji: "💥")
     ]
 
     var body: some View {
@@ -17,11 +16,10 @@ struct OnboardingWakeLateImpactQuestionView: View {
             title: "How does waking up late affect your day?",
             options: options,
             selectedOptionID: $selectedOptionID,
-            selectedColor: tiimoPurple,
+            selectedColor: Colors.accentBlue,
             questionIndex: 5,
             questionTotal: 30,
             onNext: onNext
         )
     }
 }
-

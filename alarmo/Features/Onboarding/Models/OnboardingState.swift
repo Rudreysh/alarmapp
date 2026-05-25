@@ -2,6 +2,7 @@ import Foundation
 
 struct OnboardingState {
     var currentStep: OnboardingStep = .intro
+    var firstName: String = ""
     var selectedHour: Int = AppConstants.defaultHour
     var selectedMinute: Int = AppConstants.defaultMinute
     var selectedSecond: Int = AppConstants.defaultSecond

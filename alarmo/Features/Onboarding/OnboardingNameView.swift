@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct OnboardingNameView: View {
+    @ObservedObject var viewModel: OnboardingViewModel
     let onNext: () -> Void
     @State private var firstName: String = ""
     @FocusState private var isNameFocused: Bool
@@ -32,20 +33,16 @@ struct OnboardingNameView: View {
             }
             .padding(.horizontal, Spacing.l)
             .safeAreaInset(edge: .bottom) {
-                Button(action: onNext) {
-                    Text("Continue")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .background(Color.black, in: Capsule())
+                PrimaryButton(title: "Continue", style: .blueGlass) {
+                    viewModel.setFirstName(firstName)
+                    onNext()
                 }
-                .buttonStyle(PressedScaleButtonStyle())
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, Spacing.m)
             }
         }
         .onAppear {
+            firstName = viewModel.firstName
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 isNameFocused = true
             }

@@ -2,9 +2,8 @@ import SwiftUI
 
 struct OnboardingStruggleQuestionView: View {
     let onNext: () -> Void
-    @State private var selectedOptionID: String = "a"
+    @State private var selectedOptionID: String? = nil
 
-    private let tiimoPurple = Color(hex: "#7F77DD")
 
     private let options: [StruggleOption] = [
         .init(id: "a", text: "I sleep through alarms", emoji: "😴"),
@@ -19,7 +18,7 @@ struct OnboardingStruggleQuestionView: View {
             title: "What's your biggest morning challenge?",
             options: options.map { QuestionOption(id: $0.id, text: $0.text, emoji: $0.emoji) },
             selectedOptionID: $selectedOptionID,
-            selectedColor: tiimoPurple,
+            selectedColor: Colors.accentBlue,
             questionIndex: 4,
             questionTotal: 30,
             onNext: onNext

@@ -4,7 +4,7 @@ import ImageIO
 struct OnboardingQuestionScaffold: View {
     let title: String
     let options: [QuestionOption]
-    @Binding var selectedOptionID: String
+    @Binding var selectedOptionID: String?
     let selectedColor: Color
     let questionIndex: Int
     let questionTotal: Int
@@ -15,13 +15,11 @@ struct OnboardingQuestionScaffold: View {
             Colors.bgPrimary.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                HStack(alignment: .center, spacing: 16) {
-                    QuestionnaireProgressBar(progress: progressFraction, tint: selectedColor)
-                        .frame(height: 12)
-                    QuestionHeaderGIFIcon(resourceName: "purple-bg-alarm", resourceExtension: "gif", size: 76)
-                        .frame(width: 76, height: 76)
-                        .fixedSize()
-                }
+                QuestionnaireHeaderRow(
+                    progress: progressFraction,
+                    tint: selectedColor,
+                    track: selectedColor.opacity(0.20)
+                )
                 .padding(.horizontal, Spacing.l)
                 .padding(.top, 20)
                 .padding(.bottom, 12)
@@ -74,10 +72,13 @@ struct OnboardingQuestionScaffold: View {
 
                 Spacer()
             }
+            .onboardingContentFrame()
             .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "Continue", style: .alarmDefault, action: onNext)
+                PrimaryButton(title: "Continue", style: .blueGlass, action: onNext)
                     .padding(.horizontal, Spacing.l)
                     .padding(.bottom, Spacing.m)
+                    .disabled(selectedOptionID == nil)
+                    .opacity(selectedOptionID == nil ? 0.55 : 1.0)
             }
         }
     }
@@ -88,8 +89,7 @@ struct OnboardingQuestionScaffold: View {
 
     private var progressFraction: CGFloat {
         guard questionTotal > 0 else { return 0 }
-        let clamped = min(max(questionIndex, 1), questionTotal)
-        return CGFloat(clamped) / CGFloat(questionTotal)
+        return min(max(CGFloat(questionIndex) / CGFloat(questionTotal), 0), 1)
     }
 }
 
@@ -99,20 +99,27 @@ struct QuestionOption: Identifiable {
     var emoji: String? = nil
 }
 
-private struct QuestionnaireProgressBar: View {
+private struct QuestionnaireHeaderRow: View {
     let progress: CGFloat
     let tint: Color
+    let track: Color
 
     var body: some View {
-        GeometryReader { proxy in
-            let width = max(0, proxy.size.width * min(max(progress, 0), 1))
-            ZStack(alignment: .leading) {
-                Capsule(style: .continuous)
-                    .fill(Color.black.opacity(0.10))
-                Capsule(style: .continuous)
-                    .fill(tint.opacity(0.75))
-                    .frame(width: width)
+        HStack(alignment: .center, spacing: 12) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(track)
+                    Capsule()
+                        .fill(tint)
+                        .frame(width: geo.size.width * progress)
+                }
             }
+            .frame(height: 10)
+
+            QuestionHeaderGIFIcon(resourceName: "purple-bg-alarm", resourceExtension: "gif", size: 64)
+                .frame(width: 64, height: 64)
+                .fixedSize()
         }
     }
 }

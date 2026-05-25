@@ -24,7 +24,14 @@ struct OnboardingFlowView: View {
             .navigationDestination(for: OnboardingStep.self) { step in
                 switch step {
                 case .namePrompt:
-                    OnboardingNameView {
+                    OnboardingNameView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.nameWelcome)
+                            viewModel.navigationPath.append(.nameWelcome)
+                        }
+                    }
+                case .nameWelcome:
+                    OnboardingNameWelcomeView(viewModel: viewModel) {
                         withAnimation(.easeInOut) {
                             viewModel.setStep(.chronotypeQuestion)
                             viewModel.navigationPath.append(.chronotypeQuestion)

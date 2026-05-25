@@ -1,10 +1,26 @@
 import SwiftUI
-import ImageIO
+
+private var isTiimoOnboardingTheme: Bool {
+    SettingsStore.shared.alarmThemeStyle == .tiimo
+}
+
+private var snoozeLossColor: Color {
+    isTiimoOnboardingTheme ? .awCoral : .awRed
+}
+
+private var snoozeLossLightColor: Color {
+    isTiimoOnboardingTheme ? .awCoralLight : .awRedLight
+}
+
+private var snoozeLossDarkColor: Color {
+    isTiimoOnboardingTheme ? .awCoralDark : .awRedDark
+}
 
 struct OnboardingSnoozeCountQuestionView: View {
     @ObservedObject var viewModel: OnboardingViewModel
     let onNext: () -> Void
-    private let questionPurple = Color(hex: "#7F77DD")
+    private var questionAccent: Color { Colors.accentBlue }
+    @State private var selectedSnoozes: Int? = nil
 
     private let options: [(title: String, snoozes: Int)] = [
         ("I don't", 0),
@@ -19,7 +35,7 @@ struct OnboardingSnoozeCountQuestionView: View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
             VStack(spacing: 18) {
-                OnboardingQuestionFlowProgress(step: 7, total: 30, tint: Color(hex: "#7F77DD"))
+                ProgressHeader(step: 7, total: 30, showsBadge: false)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("How often do you snooze?")
                         .font(.system(size: 34, weight: .bold, design: .rounded))
@@ -31,7 +47,7 @@ struct OnboardingSnoozeCountQuestionView: View {
                 LazyVGrid(columns: [.init(.flexible()), .init(.flexible())], spacing: 12) {
                     ForEach(options, id: \.title) { option in
                         Button {
-                            viewModel.snoozesPerMorning = option.snoozes
+                            selectedSnoozes = option.snoozes
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         } label: {
                             VStack(spacing: 6) {
@@ -42,25 +58,32 @@ struct OnboardingSnoozeCountQuestionView: View {
                             .frame(maxWidth: .infinity, minHeight: 102)
                             .background(
                                 RoundedRectangle(cornerRadius: 16)
-                                    .fill(viewModel.snoozesPerMorning == option.snoozes ? questionPurple.opacity(0.09) : Colors.cardSurface.opacity(0.6))
+                                    .fill(selectedSnoozes == option.snoozes ? questionAccent.opacity(0.09) : Colors.cardSurface.opacity(0.6))
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16)
-                                    .stroke(viewModel.snoozesPerMorning == option.snoozes ? questionPurple : Colors.cardStroke, lineWidth: 1.5)
+                                    .stroke(selectedSnoozes == option.snoozes ? questionAccent : Colors.cardStroke, lineWidth: 1.5)
                             )
                         }.buttonStyle(.plain)
                     }
                 }
-                Text("That's \(viewModel.snoozeCalculator.dailyMinutesLost) minutes lost every morning")
+                Text(selectedSnoozes == nil ? "Select one option" : "That's \((selectedSnoozes ?? 0) * 9) minutes lost every morning")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundColor(Colors.textSecondary)
                 Spacer()
             }
             .padding(.horizontal, Spacing.l)
+            .onboardingContentFrame()
             .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "That's me →", style: .alarmDefault, action: onNext)
+                PrimaryButton(title: "That's me →", style: .blueGlass) {
+                    guard let selectedSnoozes else { return }
+                    viewModel.snoozesPerMorning = selectedSnoozes
+                    onNext()
+                }
                     .padding(.horizontal, Spacing.l)
                     .padding(.bottom, Spacing.m)
+                    .disabled(selectedSnoozes == nil)
+                    .opacity(selectedSnoozes == nil ? 0.55 : 1.0)
             }
         }
     }
@@ -69,6 +92,7 @@ struct OnboardingSnoozeCountQuestionView: View {
 struct OnboardingSnoozeAgeQuestionView: View {
     @ObservedObject var viewModel: OnboardingViewModel
     let onNext: () -> Void
+    @State private var selectedAge: Int? = nil
     private let ageRanges: [(label: String, age: Int, icon: String)] = [
         ("Under 20", 18, "🌱"),
         ("20 – 25", 23, "🔥"),
@@ -82,7 +106,7 @@ struct OnboardingSnoozeAgeQuestionView: View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
             VStack(spacing: 18) {
-                OnboardingQuestionFlowProgress(step: 8, total: 30, tint: Color(hex: "#7F77DD"))
+                ProgressHeader(step: 8, total: 30, showsBadge: false)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("How old are you?")
                         .font(.system(size: 34, weight: .bold, design: .rounded))
@@ -94,30 +118,37 @@ struct OnboardingSnoozeAgeQuestionView: View {
                 LazyVGrid(columns: [.init(.flexible()), .init(.flexible())], spacing: 12) {
                     ForEach(ageRanges, id: \.label) { option in
                         Button {
-                            viewModel.userAge = option.age
+                            selectedAge = option.age
                             UISelectionFeedbackGenerator().selectionChanged()
                         } label: {
                             VStack(spacing: 6) {
                                 Text(option.icon).font(.system(size: 22))
                                 Text(option.label).font(.system(size: 20, weight: .bold, design: .rounded))
                             }
-                            .foregroundColor(viewModel.userAge == option.age ? Color.awCoral : Colors.textPrimary)
+                            .foregroundColor(selectedAge == option.age ? snoozeLossColor : Colors.textPrimary)
                             .frame(maxWidth: .infinity, minHeight: 102)
                             .background(RoundedRectangle(cornerRadius: 16).fill(Colors.cardSurface.opacity(0.6)))
-                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(viewModel.userAge == option.age ? Color.awCoral : Colors.cardStroke, lineWidth: 1.5))
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(selectedAge == option.age ? snoozeLossColor : Colors.cardStroke, lineWidth: 1.5))
                         }.buttonStyle(.plain)
                     }
                 }
-                Text("You could reclaim \(viewModel.snoozeCalculator.lifetimeYearsLost, specifier: "%.1f") years of mornings")
+                Text(selectedAge == nil ? "Select one option" : "You could reclaim \(SnoozeCalculator(snoozesPerMorning: viewModel.snoozesPerMorning, userAge: selectedAge ?? viewModel.userAge).lifetimeYearsLost, specifier: "%.1f") years of mornings")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundColor(Colors.textSecondary)
                 Spacer()
             }
             .padding(.horizontal, Spacing.l)
+            .onboardingContentFrame()
             .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "Show me the truth →", style: .alarmDefault, action: onNext)
+                PrimaryButton(title: "Show me the truth →", style: .blueGlass) {
+                    guard let selectedAge else { return }
+                    viewModel.userAge = selectedAge
+                    onNext()
+                }
                     .padding(.horizontal, Spacing.l)
                     .padding(.bottom, Spacing.m)
+                    .disabled(selectedAge == nil)
+                    .opacity(selectedAge == nil ? 0.55 : 1.0)
             }
         }
     }
@@ -134,45 +165,46 @@ struct OnboardingSnoozeDailyDrainView: View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
             VStack(spacing: 14) {
-                OnboardingQuestionFlowProgress(step: 9, total: 30, tint: Color(hex: "#7F77DD"))
+                ProgressHeader(step: 9, total: 30, showsBadge: false)
                 Text("Daily drain").font(.system(size: 14, weight: .semibold)).foregroundColor(Colors.textSecondary)
                 Text("This is what snooze costs you every morning")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
-                Text("\(count)").font(.system(size: 94, weight: .bold, design: .rounded)).foregroundColor(Color.awCoral)
+                Text("\(count)").font(.system(size: 94, weight: .bold, design: .rounded)).foregroundColor(snoozeLossColor)
                 Text("minutes lost").font(.system(size: 24, weight: .bold, design: .rounded))
                 Text("before you've even started your day").font(.system(size: 18, weight: .medium)).foregroundColor(Colors.textSecondary)
                 Text(calc.dailyContextString)
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
-                    .foregroundColor(Color.awCoralDark)
+                    .foregroundColor(snoozeLossDarkColor)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
                     .minimumScaleFactor(0.8)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(16)
                     .frame(maxWidth: .infinity)
-                    .background(RoundedRectangle(cornerRadius: 16).fill(Color.awCoralLight))
+                    .background(RoundedRectangle(cornerRadius: 16).fill(snoozeLossLightColor))
                     .opacity(reveal ? 1 : 0).offset(y: reveal ? 0 : 18)
                 GeometryReader { geo in
                     let w = geo.size.width
                     let p = min(1.0, Double(calc.dailyMinutesLost) / 100.0)
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.awGrayDot).frame(height: 14)
-                        Capsule().fill(Color.awCoral).frame(width: w * p, height: 14)
+                        Capsule().fill(snoozeLossColor).frame(width: w * p, height: 14)
                     }
                 }.frame(height: 14)
                 HStack {
-                    MetricCard(title: "This month", value: "\(String(format: "%.1f", calc.hoursLostPerMonth)) hrs", accent: .awCoral)
-                    MetricCard(title: "This year", value: "\(calc.hoursLostPerYear) hrs", accent: .awCoral)
+                    MetricCard(title: "This month", value: "\(String(format: "%.1f", calc.hoursLostPerMonth)) hrs", accent: snoozeLossColor)
+                    MetricCard(title: "This year", value: "\(calc.hoursLostPerYear) hrs", accent: snoozeLossColor)
                 }
                 .opacity(reveal ? 1 : 0)
                 Spacer()
             }
             .padding(Spacing.l)
+            .onboardingContentFrame()
             .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "Keep going →", style: .alarmDefault, action: onNext)
+                PrimaryButton(title: "Keep going →", style: .blueGlass, action: onNext)
                     .padding(.horizontal, Spacing.l)
                     .padding(.bottom, Spacing.m)
             }
@@ -202,19 +234,19 @@ struct OnboardingSnoozeYearGridView: View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
             VStack(alignment: .leading, spacing: 12) {
-                OnboardingQuestionFlowProgress(step: 10, total: 30, tint: Color(hex: "#7F77DD"))
+                ProgressHeader(step: 10, total: 30, showsBadge: false)
                 Text("This is your year in mornings")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
                 HStack(spacing: 14) {
-                    Label("Lost to snooze", systemImage: "circle.fill").foregroundColor(.awCoral)
+                    Label("Lost to snooze", systemImage: "circle.fill").foregroundColor(snoozeLossColor)
                     Label("Free morning", systemImage: "circle.fill").foregroundColor(.awGrayDot)
                 }.font(.system(size: 15, weight: .semibold))
                 LazyVGrid(columns: columns, spacing: 6) {
                     ForEach(0..<365, id: \.self) { idx in
                         Circle()
-                            .fill(idx < revealedCount ? Color.awCoral : Color.awGrayDot)
+                            .fill(idx < revealedCount ? snoozeLossColor : Color.awGrayDot)
                             .frame(width: 11, height: 11)
                     }
                 }
@@ -225,14 +257,15 @@ struct OnboardingSnoozeYearGridView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 HStack {
-                    MetricCard(title: "Days lost / year", value: "\(String(format: "%.1f", calc.daysLostPerYear)) days", accent: .awCoral)
-                    MetricCard(title: "Mornings affected", value: "\(calc.morningsLostPerYear) / yr", accent: .awCoral)
+                    MetricCard(title: "Days lost / year", value: "\(String(format: "%.1f", calc.daysLostPerYear)) days", accent: snoozeLossColor)
+                    MetricCard(title: "Mornings affected", value: "\(calc.morningsLostPerYear) / yr", accent: snoozeLossColor)
                 }
                 Spacer()
             }
             .padding(Spacing.l)
+            .onboardingContentFrame()
             .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "Next →", style: .alarmDefault, action: onNext)
+                PrimaryButton(title: "Next →", style: .blueGlass, action: onNext)
                     .padding(.horizontal, Spacing.l)
                     .padding(.bottom, Spacing.m)
             }
@@ -265,7 +298,7 @@ struct OnboardingSnoozeLifetimeTotalView: View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
             VStack(spacing: 12) {
-                OnboardingQuestionFlowProgress(step: 11, total: 30, tint: Color(hex: "#7F77DD"))
+                ProgressHeader(step: 11, total: 30, showsBadge: false)
                 Text("From now until you're 80").font(.system(size: 18, weight: .semibold)).foregroundColor(Colors.textSecondary)
                 Text("You're on track to spend")
                     .font(.system(size: 30, weight: .bold, design: .rounded))
@@ -273,7 +306,7 @@ struct OnboardingSnoozeLifetimeTotalView: View {
                     .minimumScaleFactor(0.8)
                 Text("\(yearsCount, specifier: "%.1f")")
                     .font(.system(size: 84, weight: .bold, design: .rounded))
-                    .foregroundColor(.awCoral)
+                    .foregroundColor(snoozeLossColor)
                     .scaleEffect(pulse ? 1.02 : 1.0)
                 Text("years asleep between alarms")
                     .font(.system(size: 34, weight: .bold, design: .rounded))
@@ -282,15 +315,16 @@ struct OnboardingSnoozeLifetimeTotalView: View {
                     .minimumScaleFactor(0.8)
                 Text("That's not rest. That's fragmented, groggy limbo.")
                     .font(.system(size: 20, weight: .semibold)).foregroundColor(Colors.textSecondary).multilineTextAlignment(.center)
-                HStack { MetricCard(title: "Lifetime hours", value: "\(Int(calc.lifetimeHoursLost).formatted())", accent: .awCoral)
-                    MetricCard(title: "Lifetime days", value: "\(calc.lifetimeDaysLost) days", accent: .awCoral) }
-                HStack { MetricCard(title: "Hours / year", value: "\(calc.hoursLostPerYear) hrs", accent: .awCoral)
-                    MetricCard(title: "Days / year", value: "\(String(format: "%.1f", calc.daysLostPerYear)) days", accent: .awCoral) }
+                HStack { MetricCard(title: "Lifetime hours", value: "\(Int(calc.lifetimeHoursLost).formatted())", accent: snoozeLossColor)
+                    MetricCard(title: "Lifetime days", value: "\(calc.lifetimeDaysLost) days", accent: snoozeLossColor) }
+                HStack { MetricCard(title: "Hours / year", value: "\(calc.hoursLostPerYear) hrs", accent: snoozeLossColor)
+                    MetricCard(title: "Days / year", value: "\(String(format: "%.1f", calc.daysLostPerYear)) days", accent: snoozeLossColor) }
                 Spacer()
             }
             .padding(Spacing.l)
+            .onboardingContentFrame()
             .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "But there's good news →", style: .alarmDefault, action: onNext)
+                PrimaryButton(title: "But there's good news →", style: .blueGlass, action: onNext)
                     .padding(.horizontal, Spacing.l)
                     .padding(.bottom, Spacing.m)
             }
@@ -322,11 +356,11 @@ struct OnboardingSnoozePayoffView: View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
             VStack(spacing: 8) {
-                OnboardingQuestionFlowProgress(step: 12, total: 30, tint: Color(hex: "#7F77DD"))
-                Text("The good news is...").font(.system(size: 16, weight: .semibold)).foregroundColor(.awGreen)
+                ProgressHeader(step: 12, total: 30, showsBadge: false)
+                Text("The good news is...").font(.system(size: 16, weight: .semibold)).foregroundColor(.white)
                 Text("Awayk can give you").font(.system(size: 26, weight: .bold, design: .rounded))
-                Text("\(yearsCount, specifier: "%.1f")").font(.system(size: 72, weight: .bold, design: .rounded)).foregroundColor(.awGreen)
-                Text("years back").font(.system(size: 32, weight: .bold, design: .rounded)).foregroundColor(.awGreen)
+                Text("\(yearsCount, specifier: "%.1f")").font(.system(size: 72, weight: .bold, design: .rounded)).foregroundColor(.white)
+                Text("years back").font(.system(size: 32, weight: .bold, design: .rounded)).foregroundColor(.white)
                 Text("Here's what you could do with that time.").font(.system(size: 17, weight: .semibold)).foregroundColor(Colors.textSecondary)
                 PayoffBarRow(title: "Books you could read", value: calc.booksCouldRead, progress: bar1)
                 PayoffBarRow(title: "Workouts you could do", value: calc.workoutsCouldDo, progress: bar2)
@@ -345,8 +379,9 @@ struct OnboardingSnoozePayoffView: View {
                 Spacer()
             }
             .padding(Spacing.l)
+            .onboardingContentFrame()
             .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "Let's fix this →", style: .alarmDefault) {
+                PrimaryButton(title: "Let's fix this →", style: .blueGlass) {
                     viewModel.persistSnoozeOnboardingInputs()
                     UserDefaults.standard.set(true, forKey: "onboarding_complete")
                     onNext()
@@ -387,82 +422,6 @@ private struct MetricCard: View {
     }
 }
 
-private struct OnboardingQuestionFlowProgress: View {
-    let step: Int
-    let total: Int
-    let tint: Color
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 14) {
-            GeometryReader { geo in
-                let fraction = total > 0 ? CGFloat(step) / CGFloat(total) : 0
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.black.opacity(0.10)).frame(height: 10)
-                    Capsule().fill(tint.opacity(0.85)).frame(width: geo.size.width * min(max(fraction, 0), 1), height: 10)
-                }
-            }
-            .frame(height: 10)
-            SnoozeHeaderGIFIcon(resourceName: "purple-bg-alarm", resourceExtension: "gif", size: 54)
-                .frame(width: 54, height: 54)
-        }
-    }
-}
-
-private struct SnoozeHeaderGIFIcon: UIViewRepresentable {
-    let resourceName: String
-    let resourceExtension: String
-    let size: CGFloat
-
-    func makeUIView(context: Context) -> UIImageView {
-        let imageView = UIImageView()
-        imageView.contentMode = .scaleAspectFit
-        imageView.clipsToBounds = true
-        loadGIF(into: imageView)
-        return imageView
-    }
-
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UIImageView, context: Context) -> CGSize? {
-        CGSize(width: size, height: size)
-    }
-
-    func updateUIView(_ uiView: UIImageView, context: Context) {
-        uiView.bounds.size = CGSize(width: size, height: size)
-        if !uiView.isAnimating { loadGIF(into: uiView) }
-    }
-
-    private func loadGIF(into imageView: UIImageView) {
-        guard let url = Bundle.main.url(forResource: resourceName, withExtension: resourceExtension),
-              let data = try? Data(contentsOf: url),
-              let source = CGImageSourceCreateWithData(data as CFData, nil) else { return }
-
-        let frameCount = CGImageSourceGetCount(source)
-        guard frameCount > 0 else { return }
-
-        var frames: [UIImage] = []
-        var duration: Double = 0
-        for index in 0..<frameCount {
-            guard let cgImage = CGImageSourceCreateImageAtIndex(source, index, nil) else { continue }
-            frames.append(UIImage(cgImage: cgImage))
-            duration += max(0.02, frameDuration(source: source, index: index))
-        }
-        guard !frames.isEmpty else { return }
-        imageView.stopAnimating()
-        imageView.animationImages = frames
-        imageView.animationDuration = max(0.1, duration)
-        imageView.animationRepeatCount = 0
-        imageView.image = frames.first
-        imageView.startAnimating()
-    }
-
-    private func frameDuration(source: CGImageSource, index: Int) -> Double {
-        guard let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any],
-              let gifProperties = properties[kCGImagePropertyGIFDictionary] as? [CFString: Any] else { return 0.1 }
-        let unclamped = gifProperties[kCGImagePropertyGIFUnclampedDelayTime] as? Double
-        let clamped = gifProperties[kCGImagePropertyGIFDelayTime] as? Double
-        return unclamped ?? clamped ?? 0.1
-    }
-}
-
 private struct PayoffBarRow: View {
     let title: String
     let value: Int
@@ -489,6 +448,9 @@ private extension Color {
     static let awCoral = Color(hex: "#E8724A")
     static let awCoralLight = Color(hex: "#FAECE7")
     static let awCoralDark = Color(hex: "#993C1D")
+    static let awRed = Color(hex: "#E24B4A")
+    static let awRedLight = Color(hex: "#FCEAEA")
+    static let awRedDark = Color(hex: "#8E1E1D")
     static let awGreen = Color(hex: "#1D9E75")
     static let awGreenLight = Color(hex: "#E1F5EE")
     static let awGrayDot = Color(hex: "#D8D4CC")

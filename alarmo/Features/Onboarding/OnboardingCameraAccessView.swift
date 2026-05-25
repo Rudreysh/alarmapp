@@ -45,8 +45,8 @@ var body: some View {
 
                     Text("Permission to Access Camera")
                         .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(isTiimoTheme ? .black : .white)
-                        .lineLimit(2)
+                        .foregroundColor(Colors.textPrimary)
+                        .lineLimit(3)
                         .minimumScaleFactor(0.8)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
@@ -54,7 +54,7 @@ var body: some View {
 
                     Text("Camera access is needed for QR, barcode, and object-based wake-up missions. You can still continue without it and enable later in Settings.")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(isTiimoTheme ? .black.opacity(0.72) : Color.white.opacity(0.82))
+                        .foregroundColor(Colors.textSecondary)
                         .lineSpacing(2)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
@@ -70,10 +70,10 @@ var body: some View {
                     Button(action: onNext) {
                         Text("Skip")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(isTiimoTheme ? .black : .white)
+                            .foregroundColor(Colors.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(Color.white.opacity(0.15))
+                            .background(Colors.cardSurface)
                             .cornerRadius(32)
                     }
                     .disabled(isRequesting)
@@ -88,7 +88,8 @@ var body: some View {
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, 24)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .onboardingContentFrame()
 
             if showCameraPrompt {
                 cameraPromptOverlay

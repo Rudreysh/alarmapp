@@ -45,6 +45,15 @@ final class OnboardingViewModel: ObservableObject {
         set { state.selectedHour = newValue }
     }
 
+    var firstName: String {
+        state.firstName
+    }
+
+    var displayFirstName: String {
+        let trimmed = state.firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "there" : trimmed
+    }
+
     var selectedMinute: Int {
         get { state.selectedMinute }
         set { state.selectedMinute = newValue }
@@ -75,6 +84,10 @@ final class OnboardingViewModel: ObservableObject {
     func setStep(_ step: OnboardingStep) {
         state.currentStep = step
         UserDefaults.standard.set(step.rawValue, forKey: recoveryKey)
+    }
+
+    func setFirstName(_ name: String) {
+        state.firstName = name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func startSetupFlowFromIntroCTA() {

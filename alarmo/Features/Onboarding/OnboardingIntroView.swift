@@ -9,6 +9,8 @@ struct OnboardingIntroView: View {
     @State private var currentPage = 0
     @State private var gifRenderNonce = 0
     @State private var pageOneRevealIndex = 0
+    @State private var pageIntroRevealIndex = 0
+    @State private var pageTwoRevealIndex = 0
     private let totalPages = 3
 
     
@@ -100,6 +102,25 @@ var body: some View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.90) { pageOneRevealIndex = 2 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.45) { pageOneRevealIndex = 3 }
             }
+            if newPage == 0 {
+                pageIntroRevealIndex = 0
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) { pageIntroRevealIndex = 1 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) { pageIntroRevealIndex = 2 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.62) { pageIntroRevealIndex = 3 }
+            }
+            if newPage == 2 {
+                pageTwoRevealIndex = 0
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { pageTwoRevealIndex = 1 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { pageTwoRevealIndex = 2 }
+            }
+        }
+        .onAppear {
+            if isTiimoTheme {
+                pageIntroRevealIndex = 0
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) { pageIntroRevealIndex = 1 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) { pageIntroRevealIndex = 2 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.62) { pageIntroRevealIndex = 3 }
+            }
         }
     }
 
@@ -128,6 +149,9 @@ var body: some View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, 20)
+                .opacity(!isTiimoTheme || pageIntroRevealIndex >= 1 ? 1 : 0)
+                .offset(y: !isTiimoTheme || pageIntroRevealIndex >= 1 ? 0 : 16)
+                .animation(.spring(response: 0.6, dampingFraction: 0.7), value: pageIntroRevealIndex)
 
             HStack {
                 Spacer()
@@ -135,6 +159,9 @@ var body: some View {
                     AnimatedGIFView(resourceName: "purple-bg-alarm", resourceExtension: "gif")
                         .frame(width: 253, height: 253)
                         .id("intro-gif-\(gifRenderNonce)")
+                        .opacity(pageIntroRevealIndex >= 2 ? 1 : 0)
+                        .offset(y: pageIntroRevealIndex >= 2 ? 0 : 16)
+                        .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.1), value: pageIntroRevealIndex)
                 } else {
                     Image("alarm-blue")
                         .resizable()
@@ -151,6 +178,9 @@ var body: some View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, Spacing.l)
                 .padding(.top, 4)
+                .opacity(!isTiimoTheme || pageIntroRevealIndex >= 3 ? 1 : 0)
+                .offset(y: !isTiimoTheme || pageIntroRevealIndex >= 3 ? 0 : 12)
+                .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.15), value: pageIntroRevealIndex)
 
             Spacer()
         }
@@ -211,13 +241,26 @@ var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
                 header(title: "Deep Work, Simplified.", subtitle: "Stay focused with app blocking and coordinate better with time overlap.")
+                    .opacity(!isTiimoTheme || pageTwoRevealIndex >= 1 ? 1 : 0)
+                    .offset(y: !isTiimoTheme || pageTwoRevealIndex >= 1 ? 0 : 18)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.7), value: pageTwoRevealIndex)
 
                 VStack(spacing: Spacing.m) {
                     bentoCard(icon: "shield.lefthalf.filled", color: Color.orange, title: "App Blocking", subtitle: "Block distracting apps during focus sessions and alarm missions.", height: 138)
+                        .opacity(!isTiimoTheme || pageTwoRevealIndex >= 2 ? 1 : 0)
+                        .offset(y: !isTiimoTheme || pageTwoRevealIndex >= 2 ? 0 : 16)
+                        .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.12), value: pageTwoRevealIndex)
                 }
                 .padding(.horizontal, Spacing.l)
                 .padding(.top, Spacing.xl)
                 .padding(.bottom, Spacing.xxl)
+            }
+        }
+        .onAppear {
+            if isTiimoTheme {
+                pageTwoRevealIndex = 0
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { pageTwoRevealIndex = 1 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { pageTwoRevealIndex = 2 }
             }
         }
     }

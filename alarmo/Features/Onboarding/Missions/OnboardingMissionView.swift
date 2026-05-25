@@ -40,8 +40,9 @@ struct OnboardingMissionView: View {
                     .font(.system(size: 21, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
                     .multilineTextAlignment(.leading)
-                    .lineLimit(1)
+                    .lineLimit(2)
                     .minimumScaleFactor(0.8)
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.xs)
@@ -83,6 +84,7 @@ struct OnboardingMissionView: View {
                     .padding(.bottom, 28)
                 }
             }
+            .onboardingContentFrame()
             .safeAreaInset(edge: .bottom) {
                 PrimaryButton(title: "Done", style: .blueGlass) {
                     onboardingViewModel.completeOnboarding()
