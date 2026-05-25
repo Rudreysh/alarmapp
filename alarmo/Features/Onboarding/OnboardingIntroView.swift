@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import ImageIO
+import Combine
 
 struct OnboardingIntroView: View {
     let onNext: () -> Void
@@ -8,10 +9,8 @@ struct OnboardingIntroView: View {
     
     @State private var currentPage = 0
     @State private var gifRenderNonce = 0
-    @State private var pageOneRevealIndex = 0
     @State private var pageIntroRevealIndex = 0
-    @State private var pageTwoRevealIndex = 0
-    private let totalPages = 3
+    private let totalPages = 2
 
     
     private var isTiimoTheme: Bool {
@@ -63,25 +62,22 @@ var body: some View {
                 TabView(selection: $currentPage) {
                     pageIntro.tag(0)
                     pageOne.tag(1)
-                    pageTwo.tag(2)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 // Only animate the transition within the TabView layout
                 .animation(.easeInOut, value: currentPage)
 
                 Spacer()
-                
-                PageDots(count: totalPages, activeIndex: currentPage)
-                    .padding(.bottom, Spacing.m)
             }
             .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: currentPage == totalPages - 1 ? "Get Started" : "Continue", style: .blueGlass) {
-                    if currentPage < totalPages - 1 {
-                        withAnimation {
-                            currentPage += 1
+                VStack(spacing: 12) {
+                    PageDots(count: totalPages, activeIndex: currentPage)
+                    PrimaryButton(title: currentPage == totalPages - 1 ? "Get Started" : "Continue", style: .blueGlass) {
+                        if currentPage == 0 {
+                            withAnimation { currentPage = 1 }
+                        } else {
+                            onNext()
                         }
-                    } else {
-                        onNext()
                     }
                 }
                 .padding(.horizontal, Spacing.l)
@@ -96,22 +92,11 @@ var body: some View {
             if newPage == 0 {
                 gifRenderNonce += 1
             }
-            if newPage == 1 {
-                pageOneRevealIndex = 0
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { pageOneRevealIndex = 1 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.90) { pageOneRevealIndex = 2 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.45) { pageOneRevealIndex = 3 }
-            }
             if newPage == 0 {
                 pageIntroRevealIndex = 0
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) { pageIntroRevealIndex = 1 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) { pageIntroRevealIndex = 2 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.62) { pageIntroRevealIndex = 3 }
-            }
-            if newPage == 2 {
-                pageTwoRevealIndex = 0
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { pageTwoRevealIndex = 1 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { pageTwoRevealIndex = 2 }
             }
         }
         .onAppear {
@@ -155,19 +140,12 @@ var body: some View {
 
             HStack {
                 Spacer()
-                if isTiimoTheme {
-                    AnimatedGIFView(resourceName: "purple-bg-alarm", resourceExtension: "gif")
-                        .frame(width: 253, height: 253)
-                        .id("intro-gif-\(gifRenderNonce)")
-                        .opacity(pageIntroRevealIndex >= 2 ? 1 : 0)
-                        .offset(y: pageIntroRevealIndex >= 2 ? 0 : 16)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.1), value: pageIntroRevealIndex)
-                } else {
-                    Image("alarm-blue")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 253, height: 253)
-                }
+                AnimatedGIFView(resourceName: "purple-bg-alarm", resourceExtension: "gif")
+                    .frame(width: 253, height: 253)
+                    .id("intro-gif-\(gifRenderNonce)")
+                    .opacity(pageIntroRevealIndex >= 2 ? 1 : 0)
+                    .offset(y: pageIntroRevealIndex >= 2 ? 0 : 16)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.1), value: pageIntroRevealIndex)
                 Spacer()
             }
             .padding(.bottom, 24)
@@ -207,32 +185,16 @@ var body: some View {
                     .padding(.trailing, Spacing.l)
                 }
 
-                VStack(spacing: Spacing.m) {
-                    bentoCard(icon: "alarm.fill", color: Colors.accentTeal, title: "Smart Alarms", subtitle: "Wake up reliably with alarm missions and louder fallback options.", height: 122)
-                        .opacity(pageOneRevealIndex >= 1 ? 1 : 0)
-                        .offset(y: pageOneRevealIndex >= 1 ? 0 : 14)
-                        .animation(.easeOut(duration: 0.65), value: pageOneRevealIndex)
-
-                    bentoCard(icon: "timer", color: Color.orange, title: "Pomodoro", subtitle: "Stay in deep focus.", height: 122)
-                        .opacity(pageOneRevealIndex >= 2 ? 1 : 0)
-                        .offset(y: pageOneRevealIndex >= 2 ? 0 : 14)
-                        .animation(.easeOut(duration: 0.65), value: pageOneRevealIndex)
-
-                    bentoCard(icon: "chart.xyaxis.line", color: Colors.accentBlue, title: "Progress Reports", subtitle: "Track your daily and weekly consistency at a glance.", height: 122)
-                        .opacity(pageOneRevealIndex >= 3 ? 1 : 0)
-                        .offset(y: pageOneRevealIndex >= 3 ? 0 : 14)
-                        .animation(.easeOut(duration: 0.65), value: pageOneRevealIndex)
-                }
+                IntroFeatureCarousel(
+                    slides: [
+                        IntroFeatureSlide(icon: "alarm.fill", accent: Colors.accentTeal, title: "Smart Alarms", subtitle: "Wake up reliably with alarm missions and louder fallback options."),
+                        IntroFeatureSlide(icon: "timer", accent: .orange, title: "Pomodoro", subtitle: "Stay in deep focus with clean countdown sessions."),
+                        IntroFeatureSlide(icon: "chart.xyaxis.line", accent: Colors.accentBlue, title: "Progress Reports", subtitle: "Track daily and weekly consistency at a glance.")
+                    ]
+                )
                 .padding(.horizontal, Spacing.l)
                 .padding(.top, Spacing.l)
                 .padding(.bottom, Spacing.xl)
-            }
-        }
-        .onAppear {
-            if currentPage == 1 && pageOneRevealIndex == 0 {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { pageOneRevealIndex = 1 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.90) { pageOneRevealIndex = 2 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.45) { pageOneRevealIndex = 3 }
             }
         }
     }
@@ -241,26 +203,16 @@ var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
                 header(title: "Deep Work, Simplified.", subtitle: "Stay focused with app blocking and coordinate better with time overlap.")
-                    .opacity(!isTiimoTheme || pageTwoRevealIndex >= 1 ? 1 : 0)
-                    .offset(y: !isTiimoTheme || pageTwoRevealIndex >= 1 ? 0 : 18)
-                    .animation(.spring(response: 0.6, dampingFraction: 0.7), value: pageTwoRevealIndex)
-
-                VStack(spacing: Spacing.m) {
-                    bentoCard(icon: "shield.lefthalf.filled", color: Color.orange, title: "App Blocking", subtitle: "Block distracting apps during focus sessions and alarm missions.", height: 138)
-                        .opacity(!isTiimoTheme || pageTwoRevealIndex >= 2 ? 1 : 0)
-                        .offset(y: !isTiimoTheme || pageTwoRevealIndex >= 2 ? 0 : 16)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.12), value: pageTwoRevealIndex)
-                }
+                IntroFeatureCarousel(
+                    slides: [
+                        IntroFeatureSlide(icon: "shield.lefthalf.filled", accent: .orange, title: "App Blocking", subtitle: "Block distracting apps during focus sessions and alarm missions."),
+                        IntroFeatureSlide(icon: "quote.bubble.fill", accent: Colors.accentTeal, title: "Motivation Quotes", subtitle: "Start mornings with the right mindset and momentum."),
+                        IntroFeatureSlide(icon: "target", accent: Colors.accentBlue, title: "Wake Missions", subtitle: "Complete tasks to stop snoozing and get out of bed.")
+                    ]
+                )
                 .padding(.horizontal, Spacing.l)
                 .padding(.top, Spacing.xl)
                 .padding(.bottom, Spacing.xxl)
-            }
-        }
-        .onAppear {
-            if isTiimoTheme {
-                pageTwoRevealIndex = 0
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { pageTwoRevealIndex = 1 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { pageTwoRevealIndex = 2 }
             }
         }
     }
@@ -284,42 +236,95 @@ var body: some View {
         .padding(.top, Spacing.m)
     }
     
-    // Bento Card Builder
-    private func bentoCard(icon: String, color: Color, title: String, subtitle: String, height: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+}
+
+private struct IntroFeatureSlide: Identifiable {
+    let id = UUID()
+    let icon: String
+    let accent: Color
+    let title: String
+    let subtitle: String
+}
+
+private struct IntroFeatureCarousel: View {
+    let slides: [IntroFeatureSlide]
+    @State private var selectedIndex = 0
+    private let timer = Timer.publish(every: 2.6, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        TabView(selection: $selectedIndex) {
+            ForEach(Array(slides.enumerated()), id: \.offset) { index, slide in
+                IntroFeatureCard(slide: slide)
+                    .tag(index)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .frame(height: 260)
+        .onReceive(timer) { _ in
+            guard slides.count > 1 else { return }
+            withAnimation(.easeInOut(duration: 0.4)) {
+                selectedIndex = (selectedIndex + 1) % slides.count
+            }
+        }
+    }
+}
+
+private struct IntroFeatureCard: View {
+    let slide: IntroFeatureSlide
+
+    var body: some View {
+        HStack(spacing: Spacing.m) {
+            VStack(alignment: .leading, spacing: Spacing.s) {
+                ZStack {
+                    Circle()
+                        .fill(slide.accent.opacity(0.18))
+                        .frame(width: 52, height: 52)
+                    Image(systemName: slide.icon)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(slide.accent)
+                }
+
+                Text(slide.title)
+                    .font(.system(size: 34, weight: .black, design: .rounded))
+                    .foregroundColor(Colors.textPrimary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.75)
+
+                Text(slide.subtitle)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Colors.textSecondary)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             ZStack {
                 Circle()
-                    .fill(color.opacity(0.15))
-                    .frame(width: 44, height: 44)
-                Image(systemName: icon)
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(color)
+                    .fill(slide.accent.opacity(0.16))
+                    .frame(width: 118, height: 118)
+                Image(systemName: slide.icon)
+                    .font(.system(size: 50, weight: .semibold))
+                    .foregroundColor(slide.accent)
             }
-            
-            Spacer()
-            
-            Text(title)
-                .font(.system(size: 17, weight: .bold))
-                .foregroundColor(Colors.textPrimary)
-                .padding(.bottom, 2)
-                .lineLimit(2)
-                .minimumScaleFactor(0.9)
-            
-            Text(subtitle)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(Colors.textSecondary)
-                .lineLimit(3)
-                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(Spacing.l) // robust padding
+        .padding(Spacing.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: height)
+        .frame(height: 248)
         .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Colors.cardSurface)
+            RoundedRectangle(cornerRadius: Radii.card, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Colors.cardSurface.opacity(0.96),
+                            Colors.bgSecondary.opacity(0.96)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: Radii.card, style: .continuous)
                 .stroke(Colors.cardStroke, lineWidth: 1)
         )
         .appShadow(Shadows.card)

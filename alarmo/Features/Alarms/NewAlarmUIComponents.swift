@@ -182,6 +182,29 @@ private struct FocusDialAlarmTimePickerView: View {
         ]
     }
 
+    private var innerCircleGradientColors: [Color] {
+        if isTiimo {
+            return [
+                Color(hex: "#6A5CC4").opacity(0.98),
+                Color(hex: "#5446AB").opacity(0.96),
+                Color(hex: "#3E317F").opacity(0.95)
+            ]
+        }
+        return [
+            (isLightMode ? Color(hex: "#F4F2FF") : Color(hex: "#C7C4F8")).opacity(0.98),
+            (isLightMode ? Color(hex: "#B7B3EE") : Color(hex: "#8E8BC3")).opacity(0.92),
+            (isLightMode ? Color(hex: "#807EA8") : Color(hex: "#5B5A86")).opacity(0.90)
+        ]
+    }
+
+    private var centerAlarmIconColor: Color {
+        isTiimo ? .white : Colors.textSecondary
+    }
+
+    private var centerTimeTextColor: Color {
+        isTiimo ? .white : Colors.textPrimary
+    }
+
     private var topReferenceLabel: String {
         is12HourFormat ? "12AM" : "00"
     }
@@ -229,11 +252,7 @@ private struct FocusDialAlarmTimePickerView: View {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [
-                                (isLightMode ? Color(hex: "#F4F2FF") : Color(hex: "#C7C4F8")).opacity(0.98),
-                                (isLightMode ? Color(hex: "#B7B3EE") : Color(hex: "#8E8BC3")).opacity(0.92),
-                                (isLightMode ? Color(hex: "#807EA8") : Color(hex: "#5B5A86")).opacity(0.90)
-                            ],
+                            colors: innerCircleGradientColors,
                             center: .center,
                             startRadius: 16,
                             endRadius: 110
@@ -248,10 +267,10 @@ private struct FocusDialAlarmTimePickerView: View {
                         VStack(spacing: 6) {
                             Image(systemName: "alarm.fill")
                                 .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(Colors.textSecondary)
+                                .foregroundColor(centerAlarmIconColor)
                             Text(centerTimeLabel)
                                 .font(.system(size: is12HourFormat ? 34 : 31, weight: .black, design: .monospaced))
-                                .foregroundColor(Colors.textPrimary)
+                                .foregroundColor(centerTimeTextColor)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.78)
                                 .frame(maxWidth: ringSize * 0.46)
