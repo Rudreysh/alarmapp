@@ -230,12 +230,13 @@ private struct FocusDialAlarmTimePickerView: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                (isLightMode ? Color.white : Color(red: 0.72, green: 0.74, blue: 0.96)).opacity(0.95),
-                                (isLightMode ? Colors.cardSurface : Color.black).opacity(0.95)
+                                (isLightMode ? Color(hex: "#F4F2FF") : Color(hex: "#C7C4F8")).opacity(0.98),
+                                (isLightMode ? Color(hex: "#B7B3EE") : Color(hex: "#8E8BC3")).opacity(0.92),
+                                (isLightMode ? Color(hex: "#807EA8") : Color(hex: "#5B5A86")).opacity(0.90)
                             ],
                             center: .center,
-                            startRadius: 20,
-                            endRadius: 100
+                            startRadius: 16,
+                            endRadius: 110
                         )
                     )
                     .frame(width: ringSize * 0.62, height: ringSize * 0.62)

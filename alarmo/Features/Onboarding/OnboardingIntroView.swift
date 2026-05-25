@@ -7,6 +7,8 @@ struct OnboardingIntroView: View {
     var onSkip: (() -> Void)? = nil
     
     @State private var currentPage = 0
+    @State private var gifRenderNonce = 0
+    @State private var pageOneRevealIndex = 0
     private let totalPages = 3
 
     
@@ -86,31 +88,23 @@ var body: some View {
                 .animation(.easeInOut, value: currentPage)
             }
         }
+        .onChange(of: currentPage) { _, newPage in
+            // TabView may recycle/detach the first page view and leave GIF playback stopped.
+            // Force a remount whenever user comes back to page 0 so animation always restarts.
+            if newPage == 0 {
+                gifRenderNonce += 1
+            }
+            if newPage == 1 {
+                pageOneRevealIndex = 0
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { pageOneRevealIndex = 1 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.90) { pageOneRevealIndex = 2 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.45) { pageOneRevealIndex = 3 }
+            }
+        }
     }
 
     private var firstPageBackground: some View {
-        ZStack {
-            Color(hex: "#F6F5F3")
-
-            LinearGradient(
-                colors: [
-                    Color(hex: "#F6F5F3").opacity(0.0),
-                    Color(hex: "#FFD9C7").opacity(0.65)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-
-            RadialGradient(
-                colors: [
-                    Color(hex: "#FFC7AD").opacity(0.40),
-                    Color(hex: "#FFC7AD").opacity(0.0)
-                ],
-                center: .bottom,
-                startRadius: 20,
-                endRadius: 460
-            )
-        }
+        Colors.bgPrimary
     }
     
     // Dynamic background colors
@@ -137,8 +131,16 @@ var body: some View {
 
             HStack {
                 Spacer()
-                AnimatedGIFView(resourceName: "purple-bg-alarm", resourceExtension: "gif")
-                    .frame(width: 220, height: 220)
+                if isTiimoTheme {
+                    AnimatedGIFView(resourceName: "purple-bg-alarm", resourceExtension: "gif")
+                        .frame(width: 253, height: 253)
+                        .id("intro-gif-\(gifRenderNonce)")
+                } else {
+                    Image("alarm-blue")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 253, height: 253)
+                }
                 Spacer()
             }
             .padding(.bottom, 24)
@@ -157,18 +159,50 @@ var body: some View {
     private var pageOne: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
-                header(title: "Master your time.", subtitle: "Alarms, habits and focus in one unified workspace.")
+                HStack(alignment: .top) {
+                    header(title: "Master your time.", subtitle: "Alarms, habits and focus in one unified workspace.")
+                    ZStack {
+                        Circle()
+                            .fill(Colors.cardSurface)
+                            .frame(width: 34, height: 34)
+                        Image(systemName: "alarm.fill")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(Colors.accentTeal)
+                    }
+                    .overlay(
+                        Circle()
+                            .stroke(Colors.cardStroke, lineWidth: 1)
+                    )
+                    .padding(.top, Spacing.m)
+                    .padding(.trailing, Spacing.l)
+                }
 
                 VStack(spacing: Spacing.m) {
-                    bentoCard(icon: "alarm.fill", color: Colors.accentTeal, title: "Smart Alarms", subtitle: "Wake up reliably with alarm missions and louder fallback options.", height: 138)
+                    bentoCard(icon: "alarm.fill", color: Colors.accentTeal, title: "Smart Alarms", subtitle: "Wake up reliably with alarm missions and louder fallback options.", height: 122)
+                        .opacity(pageOneRevealIndex >= 1 ? 1 : 0)
+                        .offset(y: pageOneRevealIndex >= 1 ? 0 : 14)
+                        .animation(.easeOut(duration: 0.65), value: pageOneRevealIndex)
 
-                    bentoCard(icon: "timer", color: Color.orange, title: "Pomodoro", subtitle: "Stay in deep focus.", height: 124)
+                    bentoCard(icon: "timer", color: Color.orange, title: "Pomodoro", subtitle: "Stay in deep focus.", height: 122)
+                        .opacity(pageOneRevealIndex >= 2 ? 1 : 0)
+                        .offset(y: pageOneRevealIndex >= 2 ? 0 : 14)
+                        .animation(.easeOut(duration: 0.65), value: pageOneRevealIndex)
 
-                    bentoCard(icon: "chart.xyaxis.line", color: Colors.accentBlue, title: "Progress Reports", subtitle: "Track your daily and weekly consistency at a glance.", height: 116)
+                    bentoCard(icon: "chart.xyaxis.line", color: Colors.accentBlue, title: "Progress Reports", subtitle: "Track your daily and weekly consistency at a glance.", height: 122)
+                        .opacity(pageOneRevealIndex >= 3 ? 1 : 0)
+                        .offset(y: pageOneRevealIndex >= 3 ? 0 : 14)
+                        .animation(.easeOut(duration: 0.65), value: pageOneRevealIndex)
                 }
                 .padding(.horizontal, Spacing.l)
-                .padding(.top, Spacing.xl)
-                .padding(.bottom, Spacing.xxl)
+                .padding(.top, Spacing.l)
+                .padding(.bottom, Spacing.xl)
+            }
+        }
+        .onAppear {
+            if currentPage == 1 && pageOneRevealIndex == 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { pageOneRevealIndex = 1 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.90) { pageOneRevealIndex = 2 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.45) { pageOneRevealIndex = 3 }
             }
         }
     }

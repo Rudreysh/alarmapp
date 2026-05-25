@@ -23,6 +23,97 @@ struct OnboardingFlowView: View {
             })
             .navigationDestination(for: OnboardingStep.self) { step in
                 switch step {
+                case .namePrompt:
+                    OnboardingNameView {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.chronotypeQuestion)
+                            viewModel.navigationPath.append(.chronotypeQuestion)
+                        }
+                    }
+                case .chronotypeQuestion:
+                    OnboardingChronotypeQuestionView {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.struggleQuestion)
+                            viewModel.navigationPath.append(.struggleQuestion)
+                        }
+                    }
+                case .struggleQuestion:
+                    OnboardingStruggleQuestionView {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.wakeLateImpactQuestion)
+                            viewModel.navigationPath.append(.wakeLateImpactQuestion)
+                        }
+                    }
+                case .wakeLateImpactQuestion:
+                    OnboardingWakeLateImpactQuestionView {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.wakeFeelQuestion)
+                            viewModel.navigationPath.append(.wakeFeelQuestion)
+                        }
+                    }
+                case .wakeFeelQuestion:
+                    OnboardingWakeFeelQuestionView {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.morningHardestQuestion)
+                            viewModel.navigationPath.append(.morningHardestQuestion)
+                        }
+                    }
+                case .morningHardestQuestion:
+                    OnboardingMorningHardestQuestionView {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.halfAsleepQuestion)
+                            viewModel.navigationPath.append(.halfAsleepQuestion)
+                        }
+                    }
+                case .halfAsleepQuestion:
+                    OnboardingHalfAsleepQuestionView {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.snoozeCountQuestion)
+                            viewModel.navigationPath.append(.snoozeCountQuestion)
+                        }
+                    }
+                case .snoozeCountQuestion:
+                    OnboardingSnoozeCountQuestionView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.snoozeAgeQuestion)
+                            viewModel.navigationPath.append(.snoozeAgeQuestion)
+                        }
+                    }
+                case .snoozeAgeQuestion:
+                    OnboardingSnoozeAgeQuestionView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.snoozeDailyDrain)
+                            viewModel.navigationPath.append(.snoozeDailyDrain)
+                        }
+                    }
+                case .snoozeDailyDrain:
+                    OnboardingSnoozeDailyDrainView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.snoozeYearGrid)
+                            viewModel.navigationPath.append(.snoozeYearGrid)
+                        }
+                    }
+                case .snoozeYearGrid:
+                    OnboardingSnoozeYearGridView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.snoozeLifetimeTotal)
+                            viewModel.navigationPath.append(.snoozeLifetimeTotal)
+                        }
+                    }
+                case .snoozeLifetimeTotal:
+                    OnboardingSnoozeLifetimeTotalView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.snoozePayoff)
+                            viewModel.navigationPath.append(.snoozePayoff)
+                        }
+                    }
+                case .snoozePayoff:
+                    OnboardingSnoozePayoffView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.setTime)
+                            viewModel.navigationPath.append(.setTime)
+                        }
+                    }
                 case .setTime:
                     OnboardingSetTimeView(viewModel: viewModel) {
                         withAnimation(.easeInOut) {

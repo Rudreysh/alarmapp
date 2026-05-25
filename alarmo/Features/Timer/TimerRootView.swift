@@ -36,7 +36,7 @@ struct TimerRootView: View {
     
     var body: some View {
         ZStack {
-            TimerGlassBackground()
+            Colors.bgPrimary.ignoresSafeArea()
             
             VStack(spacing: 0) {
                 // Header row + mode row
