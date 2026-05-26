@@ -37,7 +37,7 @@ struct OnboardingNameWelcomeView: View {
                     .frame(width: mascotSize, height: mascotSize)
                     .position(mascotPosition(in: proxy))
                     .opacity(isMascotHidden ? 0 : 1)
-                    .animation(.easeInOut(duration: 0.55), value: isMascotFlying)
+                    .animation(.easeInOut(duration: 0.33), value: isMascotFlying)
                     .background(
                         GeometryReader { geo in
                             Color.clear.preference(
@@ -87,7 +87,7 @@ struct OnboardingNameWelcomeView: View {
         guard !isAdvancing else { return }
         isAdvancing = true
         isMascotFlying = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.39) {
             onNext()
         }
     }

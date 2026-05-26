@@ -5,15 +5,9 @@ struct OnboardingFlowView: View {
     @ObservedObject var appPreferences: AppPreferences
     @ObservedObject var alarmStore: AlarmStore
     @EnvironmentObject private var navStore: NavigationStore
-    @State private var welcomeMascotFrame: CGRect = .zero
-    @State private var flyingMascotFrame: CGRect = .zero
-    @State private var isMascotFlightActive = false
-    @State private var isWaitingForQuestionMascotTarget = false
 
     var body: some View {
-        GeometryReader { _ in
-            ZStack {
-                NavigationStack(path: $viewModel.navigationPath) {
+        NavigationStack(path: $viewModel.navigationPath) {
             OnboardingIntroView(onNext: {
                 withAnimation(.easeInOut) {
                     viewModel.startSetupFlowFromIntroCTA()
@@ -37,10 +31,7 @@ struct OnboardingFlowView: View {
                         }
                     }
                 case .nameWelcome:
-                    OnboardingNameWelcomeView(
-                        viewModel: viewModel,
-                        isMascotHidden: isMascotFlightActive
-                    ) {
+                    OnboardingNameWelcomeView(viewModel: viewModel) {
                         beginNameWelcomeMascotFlight()
                     }
                 case .chronotypeQuestion:
@@ -366,63 +357,15 @@ struct OnboardingFlowView: View {
                 }
             }
                 }
-                .environment(\.onboardingQuestionMascotHidden, isMascotFlightActive)
-                .onPreferenceChange(OnboardingWelcomeMascotFramePreferenceKey.self) { frame in
-                    guard !frame.isEmpty else { return }
-                    welcomeMascotFrame = frame
-                }
-                .onPreferenceChange(OnboardingQuestionMascotFramePreferenceKey.self) { frame in
-                    guard !frame.isEmpty else { return }
-                    continueNameWelcomeMascotFlight(to: frame)
-                }
-
-                if isMascotFlightActive, !flyingMascotFrame.isEmpty {
-                    AnimatedGIFView(resourceName: OnboardingMascotAsset.resourceName, resourceExtension: "gif")
-                        .frame(width: flyingMascotFrame.width, height: flyingMascotFrame.height)
-                        .position(x: flyingMascotFrame.midX, y: flyingMascotFrame.midY)
-                        .allowsHitTesting(false)
-                        .zIndex(100)
-                }
-            }
-            .coordinateSpace(name: OnboardingMascotFlightCoordinateSpace.name)
-        }
         .tint(Colors.accentTeal)
     }
 
     private func beginNameWelcomeMascotFlight() {
-        let startFrame = welcomeMascotFrame.isEmpty
-            ? CGRect(x: 80, y: 360, width: 252, height: 252)
-            : welcomeMascotFrame
-
-        flyingMascotFrame = startFrame
-        isMascotFlightActive = true
-        isWaitingForQuestionMascotTarget = true
-
-        withAnimation(.easeInOut(duration: 0.25)) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
             viewModel.setStep(.chronotypeQuestion)
             viewModel.navigationPath.append(.chronotypeQuestion)
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
-            if isWaitingForQuestionMascotTarget {
-                isMascotFlightActive = false
-                isWaitingForQuestionMascotTarget = false
-            }
-        }
-    }
-
-    private func continueNameWelcomeMascotFlight(to targetFrame: CGRect) {
-        guard isMascotFlightActive, isWaitingForQuestionMascotTarget else { return }
-        isWaitingForQuestionMascotTarget = false
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-            withAnimation(.easeInOut(duration: 0.68)) {
-                flyingMascotFrame = targetFrame
-            }
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.82) {
-            isMascotFlightActive = false
         }
     }
 }

@@ -1739,8 +1739,19 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             return
         }
         let sourceAlarm: Alarm? = {
-            guard let uuid = UUID(uuidString: sourceAlarmId) else { return nil }
-            return (alarmStore ?? AlarmStore.shared).alarm(by: uuid)
+            let store = alarmStore ?? AlarmStore.shared
+            if let uuid = UUID(uuidString: sourceAlarmId),
+               let found = store.alarm(by: uuid) {
+                return found
+            }
+            // UUID mapping expired or was never persisted (e.g. app restarted after scheduling).
+            // If there is exactly one enabled alarm it is unambiguously the one that fired.
+            let enabled = store.alarms.filter { $0.enabled }
+            if enabled.count == 1 {
+                print("[NotificationManager] UUID mapping miss for surface=\(surfaceAlarmId) — falling back to sole enabled alarm \(enabled[0].id)")
+                return enabled[0]
+            }
+            return nil
         }()
         print("[NotificationManager] 🔔 AlarmKit alarm alerting: surface=\(surfaceAlarmId), source=\(sourceAlarmId)")
         setAlarmFlowPhase(
@@ -1765,7 +1776,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                 reason: "alarmkit-alerting"
             )
         } else {
-            print("[AlarmKit→Engine] Source alarm model missing for \(sourceAlarmId); engine start skipped")
+            print("[AlarmKit→Engine] Source alarm model missing for \(sourceAlarmId) — activating AlarmKit audible fallback")
+            // Arm the state machine so the backup alarm chain schedules with audible sound
+            // instead of the default silent sound. Allowed transitions: stopped → alarmKitSettling → alarmKitFallback.
+            AlarmAudioStateController.shared.beginAlarmSession(alarmId: surfaceAlarmId, soundName: "default", reason: "source-alarm-missing")
+            AlarmAudioStateController.shared.transitionAudioPhase(to: .alarmKitSettling, reason: "source-alarm-missing")
+            AlarmAudioStateController.shared.transitionAudioPhase(to: .alarmKitFallback, reason: "source-alarm-missing")
         }
 
         // Always arm bridge audio on alerting updates so quick foreground/

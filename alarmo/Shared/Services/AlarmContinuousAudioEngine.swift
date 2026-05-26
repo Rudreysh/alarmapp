@@ -1117,19 +1117,43 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         let fileManager = FileManager.default
         let bundleURL = Bundle.main.bundleURL
         let extensions = ["mp3", "wav", "m4a", "caf"]
+
+        // Search BundledSounds/ringtones/ first — these are guaranteed alarm-suitable sounds.
+        let ringingDirURL = bundleURL.appendingPathComponent("BundledSounds/ringtones")
+        if fileManager.fileExists(atPath: ringingDirURL.path),
+           let enumerator = fileManager.enumerator(at: ringingDirURL, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
+            for case let fileURL as URL in enumerator {
+                let ext = fileURL.pathExtension.lowercased()
+                guard extensions.contains(ext) else { continue }
+                let key = normalizedSoundKey(fileURL.deletingPathExtension().lastPathComponent)
+                guard !key.contains("alarmosilence"), !key.contains("silencealarm") else { continue }
+                log("[Engine] findFallbackSound: ringtones fallback '\(fileURL.lastPathComponent)'")
+                return fileURL
+            }
+        }
+
+        // Broad bundle scan. Prefer non-SFX sounds; SFX/Ranks level-up sounds are a last resort.
         if let enumerator = fileManager.enumerator(at: bundleURL, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
+            var sfxCandidate: URL?
             var silentCandidate: URL?
             for case let fileURL as URL in enumerator {
-                if fileURL.isFileURL && extensions.contains(fileURL.pathExtension.lowercased()) {
-                    let key = normalizedSoundKey(fileURL.deletingPathExtension().lastPathComponent)
-                    let isSilentAsset = key.contains("alarmosilence") || key.contains("silencealarm")
-                    if isSilentAsset {
-                        if silentCandidate == nil { silentCandidate = fileURL }
-                        continue
-                    }
-                    log("[Engine] findFallbackSound: using audible fallback '\(fileURL.lastPathComponent)'")
-                    return fileURL
+                guard fileURL.isFileURL, extensions.contains(fileURL.pathExtension.lowercased()) else { continue }
+                let key = normalizedSoundKey(fileURL.deletingPathExtension().lastPathComponent)
+                if key.contains("alarmosilence") || key.contains("silencealarm") {
+                    if silentCandidate == nil { silentCandidate = fileURL }
+                    continue
                 }
+                let isSFX = fileURL.pathComponents.contains("Ranks") || fileURL.pathComponents.contains("SFX")
+                if isSFX {
+                    if sfxCandidate == nil { sfxCandidate = fileURL }
+                    continue
+                }
+                log("[Engine] findFallbackSound: bundle fallback '\(fileURL.lastPathComponent)'")
+                return fileURL
+            }
+            if let sfxCandidate {
+                log("[Engine] findFallbackSound: SFX fallback (no ringtone available) '\(sfxCandidate.lastPathComponent)'")
+                return sfxCandidate
             }
             if let silentCandidate {
                 log("[Engine] findFallbackSound: only silent fallback available '\(silentCandidate.lastPathComponent)'")

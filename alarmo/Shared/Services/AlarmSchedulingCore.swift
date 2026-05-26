@@ -91,7 +91,7 @@ enum AlarmCustomUIHandoffStore {
     nonisolated private static let surfaceAlarmIDKey = "alarmo.alarmKit.pendingCustomUISurfaceAlarmId"
     nonisolated private static let timestampKey = "alarmo.alarmKit.pendingCustomUITimestamp"
     nonisolated private static let surfaceSourceMapKey = "alarmo.alarmKit.surfaceSourceMap"
-    nonisolated private static let maxAge: TimeInterval = 10 * 60
+    nonisolated private static let maxAge: TimeInterval = 4 * 60 * 60
     nonisolated static let urlScheme = "alarmo"
     nonisolated static let urlHost = "alarm-ringing"
 
