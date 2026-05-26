@@ -1,24 +1,15 @@
 import SwiftUI
-import ImageIO
 
 struct OnboardingNameWelcomeView: View {
     @ObservedObject var viewModel: OnboardingViewModel
+    var isMascotHidden = false
     let onNext: () -> Void
-
-    private var isTiimoTheme: Bool {
-        SettingsStore.shared.alarmThemeStyle == .tiimo
-    }
+    @State private var isMascotFlying = false
+    @State private var isAdvancing = false
 
     var body: some View {
         GeometryReader { proxy in
-            let gifSize: CGFloat = isTiimoTheme ? 190 : 200
-            let contentWidth = min(proxy.size.width, 460)
-            let contentLeading = (proxy.size.width - contentWidth) / 2
-            // Keep mascot centered on welcome screen.
-            let startX = proxy.size.width * 0.5
-            let startY = proxy.size.height * 0.50
-
-            ZStack {
+            ZStack(alignment: .topLeading) {
                 Colors.bgPrimary.ignoresSafeArea()
 
                 VStack(spacing: 0) {
@@ -40,74 +31,64 @@ struct OnboardingNameWelcomeView: View {
                     Spacer()
                 }
                 .onboardingContentFrame()
+                .frame(width: proxy.size.width, height: proxy.size.height)
 
-                WelcomeGIFIcon(resourceName: "purple-bg-alarm", resourceExtension: "gif")
-                    .frame(width: gifSize, height: gifSize)
-                    .position(x: startX, y: startY)
+                AnimatedGIFView(resourceName: OnboardingMascotAsset.resourceName, resourceExtension: "gif")
+                    .frame(width: mascotSize, height: mascotSize)
+                    .position(mascotPosition(in: proxy))
+                    .opacity(isMascotHidden ? 0 : 1)
+                    .animation(.easeInOut(duration: 0.55), value: isMascotFlying)
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear.preference(
+                                key: OnboardingWelcomeMascotFramePreferenceKey.self,
+                                value: geo.frame(in: .named(OnboardingMascotFlightCoordinateSpace.name))
+                            )
+                        }
+                    )
+                    .zIndex(10)
             }
-            .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "Continue", style: .blueGlass) {
-                    onNext()
-                }
-                .padding(.horizontal, Spacing.l)
-                .padding(.bottom, Spacing.m)
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+        }
+        .safeAreaInset(edge: .bottom) {
+            PrimaryButton(title: "Continue", style: .blueGlass) {
+                advanceWithAnimation()
             }
+            .padding(.horizontal, Spacing.l)
+            .padding(.bottom, Spacing.m)
+            .disabled(isAdvancing)
+            .opacity(isAdvancing ? 0.7 : 1.0)
         }
-    }
-}
-
-private struct WelcomeGIFIcon: UIViewRepresentable {
-    let resourceName: String
-    let resourceExtension: String
-
-    func makeUIView(context: Context) -> UIImageView {
-        let imageView = UIImageView()
-        imageView.contentMode = .scaleAspectFit
-        imageView.clipsToBounds = true
-        loadGIF(into: imageView)
-        return imageView
-    }
-
-    func updateUIView(_ uiView: UIImageView, context: Context) {
-        if !uiView.isAnimating {
-            loadGIF(into: uiView)
+        .onAppear {
+            isAdvancing = false
+            isMascotFlying = false
         }
     }
 
-    private func loadGIF(into imageView: UIImageView) {
-        guard let url = Bundle.main.url(forResource: resourceName, withExtension: resourceExtension),
-              let data = try? Data(contentsOf: url),
-              let source = CGImageSourceCreateWithData(data as CFData, nil) else {
-            return
-        }
-
-        let frameCount = CGImageSourceGetCount(source)
-        guard frameCount > 0 else { return }
-
-        var frames: [UIImage] = []
-        var duration: Double = 0
-        for index in 0..<frameCount {
-            guard let cgImage = CGImageSourceCreateImageAtIndex(source, index, nil) else { continue }
-            frames.append(UIImage(cgImage: cgImage))
-            duration += max(0.02, frameDuration(source: source, index: index))
-        }
-
-        guard !frames.isEmpty else { return }
-        imageView.stopAnimating()
-        imageView.animationImages = frames
-        imageView.animationDuration = max(0.1, duration)
-        imageView.animationRepeatCount = 0
-        imageView.image = frames.first
-        imageView.startAnimating()
+    private var mascotSize: CGFloat {
+        isMascotFlying ? 64 : 252
     }
 
-    private func frameDuration(source: CGImageSource, index: Int) -> Double {
-        guard let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any],
-              let gifProperties = properties[kCGImagePropertyGIFDictionary] as? [CFString: Any] else {
-            return 0.1
+    private func mascotPosition(in proxy: GeometryProxy) -> CGPoint {
+        isMascotFlying ? mascotTargetPosition(in: proxy) : mascotStartPosition(in: proxy)
+    }
+
+    private func mascotStartPosition(in proxy: GeometryProxy) -> CGPoint {
+        CGPoint(x: proxy.size.width * 0.5, y: proxy.size.height * 0.58)
+    }
+
+    private func mascotTargetPosition(in proxy: GeometryProxy) -> CGPoint {
+        // Matches the questionary header GIF: padding-top 20 + half of 64pt GIF = 52pt from content top.
+        // X mirrors the right-aligned 64pt icon with Spacing.l (24pt) right padding.
+        CGPoint(x: proxy.size.width - Spacing.l - 32, y: 52)
+    }
+
+    private func advanceWithAnimation() {
+        guard !isAdvancing else { return }
+        isAdvancing = true
+        isMascotFlying = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
+            onNext()
         }
-        let unclamped = gifProperties[kCGImagePropertyGIFUnclampedDelayTime] as? Double
-        let clamped = gifProperties[kCGImagePropertyGIFDelayTime] as? Double
-        return unclamped ?? clamped ?? 0.1
     }
 }

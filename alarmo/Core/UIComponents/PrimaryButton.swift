@@ -50,7 +50,7 @@ struct PrimaryButton: View {
     @ViewBuilder
     private var backgroundView: some View {
         if isTiimo {
-            Color(hex: "#7F77DD")
+            Color.black
         } else {
             switch style {
             case .alarmDefault:

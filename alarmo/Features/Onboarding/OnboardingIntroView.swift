@@ -10,7 +10,6 @@ struct OnboardingIntroView: View {
     @State private var currentPage = 0
     @State private var gifRenderNonce = 0
     @State private var pageIntroRevealIndex = 0
-    private let totalPages = 2
 
     
     private var isTiimoTheme: Bool {
@@ -18,32 +17,8 @@ struct OnboardingIntroView: View {
     }
 var body: some View {
         ZStack {
-            if currentPage == 0 {
-                firstPageBackground
-                    .ignoresSafeArea()
-            } else {
-                Colors.bgPrimary
-                    .ignoresSafeArea()
-            }
-            
-            if currentPage != 0 {
-                GeometryReader { proxy in
-                    let size = proxy.size
-                    Circle()
-                        .fill(backgroundColors.0.opacity(0.15))
-                        .frame(width: 300, height: 300)
-                        .blur(radius: 60)
-                        .offset(x: size.width - 200, y: -50)
-                    
-                    Circle()
-                        .fill(backgroundColors.1.opacity(0.15))
-                        .frame(width: 250, height: 250)
-                        .blur(radius: 60)
-                        .offset(x: -100, y: size.height * 0.5)
-                }
-                .animation(.easeInOut(duration: 0.5), value: currentPage)
+            Colors.bgPrimary
                 .ignoresSafeArea()
-            }
 
             VStack(spacing: 0) {
                 // Header with Skip
@@ -59,31 +34,18 @@ var body: some View {
                     }
                 }
                 
-                TabView(selection: $currentPage) {
-                    pageIntro.tag(0)
-                    pageOne.tag(1)
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                // Only animate the transition within the TabView layout
-                .animation(.easeInOut, value: currentPage)
+                pageIntro
 
                 Spacer()
             }
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 12) {
-                    PageDots(count: totalPages, activeIndex: currentPage)
-                    PrimaryButton(title: currentPage == totalPages - 1 ? "Get Started" : "Continue", style: .blueGlass) {
-                        if currentPage == 0 {
-                            withAnimation { currentPage = 1 }
-                        } else {
-                            onNext()
-                        }
+                    PrimaryButton(title: "Continue", style: .blueGlass) {
+                        onNext()
                     }
                 }
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, 48) // Elevated like the other screens
-                // Also let the button title animate
-                .animation(.easeInOut, value: currentPage)
             }
         }
         .onChange(of: currentPage) { _, newPage in
@@ -109,58 +71,45 @@ var body: some View {
         }
     }
 
-    private var firstPageBackground: some View {
-        Colors.bgPrimary
-    }
-    
-    // Dynamic background colors
-    private var backgroundColors: (Color, Color) {
-        switch currentPage {
-        case 0: return (Colors.accentTeal, Colors.accentBlue)
-        case 1: return (Colors.accentBlue, Color.purple)
-        default: return (Colors.accentTeal, Colors.accentBlue)
-        }
-    }
-    
     // MARK: - Pages
 
     private var pageIntro: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 32)
+        GeometryReader { proxy in
+            ZStack {
+                VStack(spacing: 0) {
+                    Spacer().frame(height: 110)
 
-            Text("Hey! I'm your alarm.")
-                .font(.system(size: 36, weight: .black, design: .rounded))
-                .foregroundColor(Colors.textPrimary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Spacing.l)
-                .padding(.bottom, 20)
-                .opacity(!isTiimoTheme || pageIntroRevealIndex >= 1 ? 1 : 0)
-                .offset(y: !isTiimoTheme || pageIntroRevealIndex >= 1 ? 0 : 16)
-                .animation(.spring(response: 0.6, dampingFraction: 0.7), value: pageIntroRevealIndex)
+                    Text("Hey! I'm your alarm.")
+                        .font(.system(size: 36, weight: .black, design: .rounded))
+                        .foregroundColor(Colors.textPrimary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, Spacing.l)
+                        .padding(.bottom, 20)
+                        .opacity(!isTiimoTheme || pageIntroRevealIndex >= 1 ? 1 : 0)
+                        .offset(y: !isTiimoTheme || pageIntroRevealIndex >= 1 ? 0 : 16)
+                        .animation(.spring(response: 0.6, dampingFraction: 0.7), value: pageIntroRevealIndex)
 
-            HStack {
-                Spacer()
-                AnimatedGIFView(resourceName: "purple-bg-alarm", resourceExtension: "gif")
-                    .frame(width: 253, height: 253)
+                    Text("(The one you keep snoozing at 2am)")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Colors.textTertiary)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 4)
+                        .padding(.horizontal, Spacing.l)
+                        .opacity(!isTiimoTheme || pageIntroRevealIndex >= 3 ? 1 : 0)
+                        .offset(y: !isTiimoTheme || pageIntroRevealIndex >= 3 ? 0 : 12)
+                        .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.15), value: pageIntroRevealIndex)
+
+                    Spacer()
+                }
+
+                AnimatedGIFView(resourceName: OnboardingMascotAsset.resourceName, resourceExtension: "gif")
+                    .frame(width: 252, height: 252)
                     .id("intro-gif-\(gifRenderNonce)")
-                    .opacity(pageIntroRevealIndex >= 2 ? 1 : 0)
-                    .offset(y: pageIntroRevealIndex >= 2 ? 0 : 16)
+                    .position(x: proxy.size.width * 0.5, y: proxy.size.height * 0.58)
+                    .opacity(!isTiimoTheme || pageIntroRevealIndex >= 2 ? 1 : 0)
+                    .offset(y: !isTiimoTheme || pageIntroRevealIndex >= 2 ? 0 : 16)
                     .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.1), value: pageIntroRevealIndex)
-                Spacer()
             }
-            .padding(.bottom, 24)
-
-            Text("(The one you keep snoozing at 2am)")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(Colors.textTertiary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Spacing.l)
-                .padding(.top, 4)
-                .opacity(!isTiimoTheme || pageIntroRevealIndex >= 3 ? 1 : 0)
-                .offset(y: !isTiimoTheme || pageIntroRevealIndex >= 3 ? 0 : 12)
-                .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.15), value: pageIntroRevealIndex)
-
-            Spacer()
         }
     }
 
@@ -331,7 +280,7 @@ private struct IntroFeatureCard: View {
     }
 }
 
-private struct AnimatedGIFView: UIViewRepresentable {
+struct AnimatedGIFView: UIViewRepresentable {
     let resourceName: String
     let resourceExtension: String
 
@@ -413,5 +362,12 @@ private struct AnimatedGIFView: UIViewRepresentable {
         let clamped = gifProperties[kCGImagePropertyGIFDelayTime] as? Double
         let duration = unclamped ?? clamped ?? defaultDuration
         return duration < 0.011 ? defaultDuration : duration
+    }
+}
+
+enum OnboardingMascotAsset {
+    static var resourceName: String {
+        let isTiimo = UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw") == AlarmThemeStyle.tiimo.rawValue
+        return isTiimo ? "bluealarm_whitebg" : "bluealarm_blackbg"
     }
 }

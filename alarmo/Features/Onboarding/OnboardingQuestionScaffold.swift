@@ -9,6 +9,7 @@ struct OnboardingQuestionScaffold: View {
     let questionIndex: Int
     let questionTotal: Int
     let onNext: () -> Void
+    @Environment(\.onboardingQuestionMascotHidden) private var isQuestionMascotHidden
 
     var body: some View {
         ZStack {
@@ -18,7 +19,8 @@ struct OnboardingQuestionScaffold: View {
                 QuestionnaireHeaderRow(
                     progress: progressFraction,
                     tint: selectedColor,
-                    track: selectedColor.opacity(0.20)
+                    track: selectedColor.opacity(0.20),
+                    isMascotHidden: isQuestionMascotHidden
                 )
                 .padding(.horizontal, Spacing.l)
                 .padding(.top, 20)
@@ -103,6 +105,7 @@ private struct QuestionnaireHeaderRow: View {
     let progress: CGFloat
     let tint: Color
     let track: Color
+    let isMascotHidden: Bool
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
@@ -117,9 +120,18 @@ private struct QuestionnaireHeaderRow: View {
             }
             .frame(height: 10)
 
-            QuestionHeaderGIFIcon(resourceName: "purple-bg-alarm", resourceExtension: "gif", size: 64)
+            QuestionHeaderGIFIcon(resourceName: OnboardingMascotAsset.resourceName, resourceExtension: "gif", size: 64)
                 .frame(width: 64, height: 64)
                 .fixedSize()
+                .opacity(isMascotHidden ? 0 : 1)
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(
+                            key: OnboardingQuestionMascotFramePreferenceKey.self,
+                            value: geo.frame(in: .named(OnboardingMascotFlightCoordinateSpace.name))
+                        )
+                    }
+                )
         }
     }
 }

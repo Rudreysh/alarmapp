@@ -30,15 +30,15 @@ struct ProgressHeader: View {
                 ZStack(alignment: .leading) {
                     Capsule()
                         .fill(isTiimo ? Color(hex: "#E8E4F5") : Colors.cardStroke.opacity(0.45))
-                        .frame(height: 4)
+                        .frame(height: 8)
                     
                     Capsule()
                         .fill(isTiimo ? Color(hex: "#7F77DD") : Colors.accentBlue)
-                        .frame(width: geometry.size.width * CGFloat(step) / CGFloat(total), height: 4)
+                        .frame(width: geometry.size.width * CGFloat(step) / CGFloat(total), height: 8)
                         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: step)
                 }
             }
-            .frame(height: 4)
+            .frame(height: 8)
             .padding(.vertical, 16)
         } else {
             HStack(spacing: 12) {

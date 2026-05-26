@@ -349,6 +349,7 @@ struct OnboardingSnoozePayoffView: View {
     @State private var bar2: CGFloat = 0
     @State private var bar3: CGFloat = 0
     @State private var reveal = false
+    private var isTiimoTheme: Bool { SettingsStore.shared.alarmThemeStyle == .tiimo }
 
     var body: some View {
         let calc = viewModel.snoozeCalculator
@@ -357,11 +358,13 @@ struct OnboardingSnoozePayoffView: View {
             Colors.bgPrimary.ignoresSafeArea()
             VStack(spacing: 8) {
                 ProgressHeader(step: 12, total: 30, showsBadge: false)
-                Text("The good news is...").font(.system(size: 16, weight: .semibold)).foregroundColor(.white)
-                Text("Awayk can give you").font(.system(size: 26, weight: .bold, design: .rounded))
-                Text("\(yearsCount, specifier: "%.1f")").font(.system(size: 72, weight: .bold, design: .rounded)).foregroundColor(.white)
-                Text("years back").font(.system(size: 32, weight: .bold, design: .rounded)).foregroundColor(.white)
-                Text("Here's what you could do with that time.").font(.system(size: 17, weight: .semibold)).foregroundColor(Colors.textSecondary)
+                Text("The good news is...").font(.system(size: 16, weight: .semibold)).foregroundColor(.black)
+                Text("Awayk can give you")
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .foregroundColor(isTiimoTheme ? .awGreen : Colors.textPrimary)
+                Text("\(yearsCount, specifier: "%.1f")").font(.system(size: 72, weight: .bold, design: .rounded)).foregroundColor(.awGreen)
+                Text("years back").font(.system(size: 32, weight: .bold, design: .rounded)).foregroundColor(.awGreen)
+                Text("Here's what you could do with that time.").font(.system(size: 17, weight: .semibold)).foregroundColor(.black)
                 PayoffBarRow(title: "Books you could read", value: calc.booksCouldRead, progress: bar1)
                 PayoffBarRow(title: "Workouts you could do", value: calc.workoutsCouldDo, progress: bar2)
                 PayoffBarRow(title: "Calm mornings", value: calc.calmMornings, progress: bar3)
