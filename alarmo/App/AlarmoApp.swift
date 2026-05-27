@@ -7,6 +7,10 @@ struct AwaykApp: App {
     
     private var sharedModelContainer: ModelContainer = Self.buildModelContainer()
 
+    init() {
+        AlarmCustomUIHandoffStore.pruneOrphanedMappings()
+    }
+
     private static func buildModelContainer() -> ModelContainer {
         let schema = Schema([PlanItem.self, CompletionLog.self, ActivityEvent.self, AppList.self])
         let config = ModelConfiguration(schema: schema)
