@@ -8,3 +8,4 @@
 [DONE] FIX 5 — Hardened fallback sound resolution to never return silent assets + added launch-time bundled alarm asset verification in app init — 2026-05-27 13:15:55 CEST
 [DONE] FIX 6 — Foreground/AlarmKit race hardened: foreground path now phase-guarded + idempotent; AlarmKit alerting during preparing/fade/primary dismisses surfaces without restarting engine — 2026-05-27 13:18:14 CEST
 [DONE] FIX 7 — Bridge start failure now records fallback and schedules immediate audible AlarmKit recovery (same-surface/rebind/new-start paths) — 2026-05-27 13:21:04 CEST
+[DONE] FIX 8 — Mid-ring engine failure now triggers immediate audible AlarmKit recovery while preserving existing respawn scheduling — 2026-05-27 13:23:48 CEST

@@ -157,8 +157,27 @@ final class AlarmAudioStateController {
     }
 
     func recordFallback(reason: String) {
+        let previousPhase = phase
+        let alarmId = currentAlarmId
         transitionAudioPhase(to: .alarmKitFallback, reason: reason)
-        if let alarmId = currentAlarmId {
+
+        if previousPhase == .appEnginePrimary || previousPhase == .appEngineFadingIn {
+            log("[StateController] ⚠️ Engine failed mid-ring (was in \(previousPhase.rawValue))")
+            guard let alarmId else {
+                log("[StateController] Cannot recover — no current alarm ID")
+                return
+            }
+            if #available(iOS 26.0, *) {
+                Task { @MainActor in
+                    await NotificationManager.shared.scheduleImmediateAudibleFallback(
+                        sourceAlarmId: alarmId,
+                        reason: "engine-failed-mid-ring-from-\(previousPhase.rawValue)"
+                    )
+                }
+            }
+        }
+
+        if let alarmId {
             NotificationManager.shared.scheduleHardwareButtonRespawnIfNeeded(
                 sourceAlarmId: alarmId,
                 alarmName: nil,
