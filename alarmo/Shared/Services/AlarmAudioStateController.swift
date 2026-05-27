@@ -45,6 +45,7 @@ final class AlarmAudioStateController {
     private(set) var appEnginePreparedAt: Date?
     private(set) var appEngineFadeInStartedAt: Date?
     private(set) var appEnginePrimaryConfirmedAt: Date?
+    private(set) var phaseEnteredAt: Date?
     private(set) var lastPhaseTransitionReason: String = "init"
     private(set) var terminalActionRecorded: Bool = false
 
@@ -68,6 +69,11 @@ final class AlarmAudioStateController {
         phase != .stopped && currentAlarmId != nil && !terminalActionRecorded
     }
 
+    func timeInCurrentPhase() -> TimeInterval {
+        guard let enteredAt = phaseEnteredAt else { return 0 }
+        return Date().timeIntervalSince(enteredAt)
+    }
+
     func transitionAudioPhase(to newPhase: AlarmAudioPhase, reason: String) {
         let oldPhase = phase
         guard let allowed = allowedTransitions[oldPhase], allowed.contains(newPhase) else {
@@ -75,6 +81,7 @@ final class AlarmAudioStateController {
             return
         }
         phase = newPhase
+        phaseEnteredAt = Date()
         lastPhaseTransitionReason = reason
 
         switch newPhase {

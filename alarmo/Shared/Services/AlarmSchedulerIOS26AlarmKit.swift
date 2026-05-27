@@ -517,7 +517,30 @@ extension AlarmSchedulerIOS26AlarmKit {
         print("[AlarmKitUI] title=\"\(alertTitle)\" stopButton=\"\(alarmKitStopButtonText)\" symbol=\"\(alarmKitStopButtonSymbol)\" tintColor=accentBlue")
         print("[AlarmKitUI] secondaryButton=\"Snooze\" enabled=\(alarmKitSecondaryButtonEnabled)")
 
-        let shouldUseAudibleFallback = AlarmAudioStateController.shared.phase == .alarmKitFallback
+        let shouldUseAudibleFallback: Bool = {
+            let state = AlarmAudioStateController.shared
+            let phase = state.phase
+
+            if phase == .alarmKitFallback {
+                print("[Scheduler] Audible fallback enabled — phase=alarmKitFallback")
+                return true
+            }
+
+            if phase == .stopped, AlarmStore.shared.hasAnyAlarmScheduled() {
+                print("[Scheduler] Audible fallback enabled — phase=stopped with active scheduled alarms (missed-event recovery)")
+                return true
+            }
+
+            if phase == .waitingForAlarmKit {
+                let elapsed = state.timeInCurrentPhase()
+                if elapsed > 10.0 {
+                    print("[Scheduler] Audible fallback enabled — stuck in waitingForAlarmKit for \(String(format: "%.2f", elapsed))s")
+                    return true
+                }
+            }
+
+            return false
+        }()
 
         // Default policy: AlarmKit uses silent sound; engine owns real audio.
         // Fallback policy: if engine failed and we have a resolvable custom sound,

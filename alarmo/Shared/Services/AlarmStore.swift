@@ -218,6 +218,12 @@ final class AlarmStore: ObservableObject {
         alarms.first { $0.id == id }
     }
 
+    func hasAnyAlarmScheduled(referenceDate: Date = Date()) -> Bool {
+        alarms.contains { alarm in
+            alarm.enabled && Self.nextFireDate(for: alarm, from: referenceDate) != nil
+        }
+    }
+
     static func nextFireDate(for alarm: Alarm, from date: Date) -> Date? {
         var calendar = Calendar.current
         
