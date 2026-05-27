@@ -28,3 +28,9 @@
   - Build: BUILD SUCCEEDED ✅
   - Commit: 581c429
 
+[DONE] FIX 14 — Added schedule-time alarm self-diagnostics (sound/volume/storage/background refresh) and hooked into AlarmStore add/update with diagnostic notifications — 2026-05-27 13:52 CEST
+  - Files: AlarmDiagnostics.swift, AlarmStore.swift, AlarmContinuousAudioEngine.swift
+  - Test: Not run (UI banner/alert wiring intentionally left to existing view subscribers)
+  - Build: BUILD SUCCEEDED ✅
+  - Commit: PENDING
+

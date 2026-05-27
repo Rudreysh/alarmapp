@@ -1208,6 +1208,10 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         return findFallbackSound()
     }
 
+    func resolvedSoundURLForDiagnostics(soundName: String) -> URL? {
+        findSoundURL(for: soundName)
+    }
+
     private func findFallbackSound() -> URL? {
         let fileManager = FileManager.default
         let bundleURL = Bundle.main.bundleURL
