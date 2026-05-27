@@ -22,3 +22,9 @@
   - Build: BUILD SUCCEEDED ✅
   - Commit: 3dab1cd
 
+[DONE] FIX 13 — Bluetooth route override hardened to force built-in speaker with route verification + retry — 2026-05-27 13:47 CEST
+  - File: AlarmContinuousAudioEngine.swift
+  - Test: Not run (manual BT routing scenario pending)
+  - Build: BUILD SUCCEEDED ✅
+  - Commit: PENDING
+

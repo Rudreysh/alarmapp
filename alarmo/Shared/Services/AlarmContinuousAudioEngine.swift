@@ -651,9 +651,19 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         }
 
         do {
-            try AVAudioSession.sharedInstance().setActive(true, options: [])
+            let session = AVAudioSession.sharedInstance()
+            try session.setActive(true, options: [])
+            try session.overrideOutputAudioPort(.speaker)
+            let currentRoute = session.currentRoute
+            let isSpeaker = currentRoute.outputs.contains { $0.portType == .builtInSpeaker }
+            if !isSpeaker {
+                log("[Engine] ⚠️ Speaker override failed — current route: \(currentRoute.outputs.map { $0.portName })")
+                try? session.overrideOutputAudioPort(.speaker)
+            }
+            let verifiedRoute = session.currentRoute.outputs.map { $0.portName }
+            log("[Engine] Audio routed to: \(verifiedRoute)")
             log("[Engine] startFadeIn: session activated")
-            let activatedOutput = AVAudioSession.sharedInstance().outputVolume
+            let activatedOutput = session.outputVolume
             let appState = UIApplication.shared.applicationState
             log("[Volume] outputVolume=\(String(format: "%.2f", activatedOutput)) playerVolume=\(String(format: "%.2f", p.volume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) reason=start-fadein-activated")
             if appState != .active && activatedOutput <= 0.01 {
