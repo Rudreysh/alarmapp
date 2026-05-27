@@ -1776,12 +1776,25 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                 reason: "alarmkit-alerting"
             )
         } else {
-            print("[AlarmKit→Engine] Source alarm model missing for \(sourceAlarmId) — activating AlarmKit audible fallback")
-            // Arm the state machine so the backup alarm chain schedules with audible sound
-            // instead of the default silent sound. Allowed transitions: stopped → alarmKitSettling → alarmKitFallback.
-            AlarmAudioStateController.shared.beginAlarmSession(alarmId: surfaceAlarmId, soundName: "default", reason: "source-alarm-missing")
-            AlarmAudioStateController.shared.transitionAudioPhase(to: .alarmKitSettling, reason: "source-alarm-missing")
-            AlarmAudioStateController.shared.transitionAudioPhase(to: .alarmKitFallback, reason: "source-alarm-missing")
+            print("[NotificationManager] ⚠️ Source mapping lost — entering recovery path (surface=\(surfaceAlarmId), source=\(sourceAlarmId))")
+            let fallbackSoundName = recoveredSoundNameForMissingSource(sourceAlarmId: sourceAlarmId)
+            print("[NotificationManager] Recovery path sound=\(fallbackSoundName)")
+            AlarmAudioStateController.shared.handleAlarmKitAlerting(
+                alarmId: surfaceAlarmId,
+                soundName: fallbackSoundName,
+                reason: "source-mapping-lost-recovery"
+            )
+            if let surfaceUUID = UUID(uuidString: surfaceAlarmId) {
+                AlarmCustomUIHandoffStore.request(
+                    alarmID: surfaceUUID,
+                    surfaceAlarmID: surfaceUUID
+                )
+            }
+            // Also arm fallback state so subsequent backup/respawn scheduling is audible.
+            AlarmAudioStateController.shared.transitionAudioPhase(
+                to: .alarmKitFallback,
+                reason: "source-mapping-lost-recovery"
+            )
         }
 
         // Always arm bridge audio on alerting updates so quick foreground/
@@ -1883,6 +1896,25 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             }
         }
         await AlarmManagerFacade.shared.markAlarmFired(id: alarm.id)
+    }
+
+    private func recoveredSoundNameForMissingSource(sourceAlarmId: String) -> String {
+        if let sourceUUID = UUID(uuidString: sourceAlarmId),
+           let sourceAlarm = (alarmStore ?? AlarmStore.shared).alarm(by: sourceUUID) {
+            let sound = sourceAlarm.soundName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !sound.isEmpty {
+                return sound
+            }
+        }
+
+        let onboardingKey = "alarmo.alarm.onboardingSoundName"
+        if let stored = UserDefaults.standard.string(forKey: onboardingKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !stored.isEmpty {
+            return stored
+        }
+
+        return "Cockpit Alert"
     }
 #endif
 
