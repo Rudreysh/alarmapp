@@ -7,3 +7,4 @@
 [DONE] FIX 4 — Volume<=0.01 while backgrounded now forces alarmKitFallback and schedules immediate (+0.5s) audible AlarmKit recovery — 2026-05-27 13:07:39 CEST
 [DONE] FIX 5 — Hardened fallback sound resolution to never return silent assets + added launch-time bundled alarm asset verification in app init — 2026-05-27 13:15:55 CEST
 [DONE] FIX 6 — Foreground/AlarmKit race hardened: foreground path now phase-guarded + idempotent; AlarmKit alerting during preparing/fade/primary dismisses surfaces without restarting engine — 2026-05-27 13:18:14 CEST
+[DONE] FIX 7 — Bridge start failure now records fallback and schedules immediate audible AlarmKit recovery (same-surface/rebind/new-start paths) — 2026-05-27 13:21:04 CEST
