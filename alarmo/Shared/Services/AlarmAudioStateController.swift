@@ -206,6 +206,16 @@ final class AlarmAudioStateController {
             return
         }
 
+        if let existingId = currentAlarmId, existingId != alarmId {
+            log("[StateController] ⚠️ Concurrent alarm detected:")
+            log("[StateController]   Current alarm: \(existingId) (phase=\(phase.rawValue))")
+            log("[StateController]   New alarm: \(alarmId)")
+            NotificationManager.shared.dismissLinkedAlarmKitSurfaces(sourceAlarmId: alarmId)
+            log("[StateController] Dismissed concurrent alarm surface: \(alarmId)")
+            recordConcurrentAlarmEvent(currentId: existingId, dismissedId: alarmId)
+            return
+        }
+
         if phase == .alarmKitSettling || phase == .appEnginePreparing {
             // Keep AlarmKit surface behavior unchanged, but ensure AppEngine
             // audible takeover is actually armed. In some locked-screen paths
@@ -441,6 +451,10 @@ final class AlarmAudioStateController {
 
     private func log(_ message: String) {
         print("[AlarmAudio] \(message)")
+    }
+
+    private func recordConcurrentAlarmEvent(currentId: String, dismissedId: String) {
+        log("[StateController] Concurrent alarm event current=\(currentId) dismissed=\(dismissedId)")
     }
 }
 
