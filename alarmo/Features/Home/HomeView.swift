@@ -506,17 +506,12 @@ struct HomeView: View {
             HStack {
                 Spacer()
                 VStack(alignment: .trailing, spacing: 8) {
-                    if showAlarmExpandedPanel {
-                        alarmExpandedPanel
-                            .offset(x: -86, y: 92)
-                            .transition(.move(edge: .trailing).combined(with: .opacity))
-                    }
-
                     VStack(spacing: 10) {
                         launcherCircleButton(icon: "plus", tint: Colors.accentRed) {
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                             withAnimation(.easeInOut(duration: 0.22)) {
-                                showAlarmExpandedPanel = true
+                                showAddMenu.toggle()
+                                showAlarmExpandedPanel = false
                             }
                         }
                     }
