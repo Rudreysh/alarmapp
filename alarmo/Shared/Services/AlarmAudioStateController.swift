@@ -45,14 +45,12 @@ final class AlarmAudioStateController {
     private(set) var appEnginePreparedAt: Date?
     private(set) var appEngineFadeInStartedAt: Date?
     private(set) var appEnginePrimaryConfirmedAt: Date?
-    private(set) var phaseEnteredAt: Date?
     private(set) var lastPhaseTransitionReason: String = "init"
     private(set) var terminalActionRecorded: Bool = false
 
     private var takeoverWorkItem: DispatchWorkItem?
     private var takeoverScheduled: Bool = false
     private var takeoverScheduledAt: Date?
-    private var fallbackRespawnScheduledRunId: UUID?
 
     private let allowedTransitions: [AlarmAudioPhase: Set<AlarmAudioPhase>] = [
         .waitingForAlarmKit: [.alarmKitSettling, .appEnginePreparing, .stopped],
@@ -70,11 +68,6 @@ final class AlarmAudioStateController {
         phase != .stopped && currentAlarmId != nil && !terminalActionRecorded
     }
 
-    func timeInCurrentPhase() -> TimeInterval {
-        guard let enteredAt = phaseEnteredAt else { return 0 }
-        return Date().timeIntervalSince(enteredAt)
-    }
-
     func transitionAudioPhase(to newPhase: AlarmAudioPhase, reason: String) {
         let oldPhase = phase
         guard let allowed = allowedTransitions[oldPhase], allowed.contains(newPhase) else {
@@ -82,7 +75,6 @@ final class AlarmAudioStateController {
             return
         }
         phase = newPhase
-        phaseEnteredAt = Date()
         lastPhaseTransitionReason = reason
 
         switch newPhase {
@@ -119,7 +111,6 @@ final class AlarmAudioStateController {
 
         takeoverScheduled = false
         takeoverScheduledAt = nil
-        fallbackRespawnScheduledRunId = nil
         currentAlarmId = alarmId
         currentAlarmRunId = UUID()
         selectedSoundName = soundName
@@ -159,37 +150,8 @@ final class AlarmAudioStateController {
     }
 
     func recordFallback(reason: String) {
-        let previousPhase = phase
-        let alarmId = currentAlarmId
-        let runId = currentAlarmRunId
-        if phase != .alarmKitFallback {
-            transitionAudioPhase(to: .alarmKitFallback, reason: reason)
-        } else {
-            log("[StateController] Already in alarmKitFallback — suppressing duplicate fallback transition. reason=\(reason)")
-        }
-
-        if previousPhase == .appEnginePrimary || previousPhase == .appEngineFadingIn {
-            log("[StateController] ⚠️ Engine failed mid-ring (was in \(previousPhase.rawValue))")
-            guard let alarmId else {
-                log("[StateController] Cannot recover — no current alarm ID")
-                return
-            }
-            if #available(iOS 26.0, *) {
-                Task { @MainActor in
-                    await NotificationManager.shared.scheduleImmediateAudibleFallback(
-                        sourceAlarmId: alarmId,
-                        reason: "engine-failed-mid-ring-from-\(previousPhase.rawValue)"
-                    )
-                }
-            }
-        }
-
-        if let alarmId {
-            if fallbackRespawnScheduledRunId == runId {
-                log("[StateController] Fallback respawn already scheduled for runId=\(runId?.uuidString ?? "nil") — suppressing duplicate schedule")
-                return
-            }
-            fallbackRespawnScheduledRunId = runId
+        transitionAudioPhase(to: .alarmKitFallback, reason: reason)
+        if let alarmId = currentAlarmId {
             NotificationManager.shared.scheduleHardwareButtonRespawnIfNeeded(
                 sourceAlarmId: alarmId,
                 alarmName: nil,
@@ -201,7 +163,6 @@ final class AlarmAudioStateController {
     func recordStopped(reason: String) {
         takeoverScheduled = false
         takeoverScheduledAt = nil
-        fallbackRespawnScheduledRunId = nil
         terminalActionRecorded = true
         takeoverWorkItem?.cancel()
         takeoverWorkItem = nil
@@ -213,19 +174,9 @@ final class AlarmAudioStateController {
     }
 
     func handleAlarmKitAlerting(alarmId: String, soundName: String, reason: String) {
-        if phase == .appEnginePreparing || phase == .appEngineFadingIn || phase == .appEnginePrimary {
-            log("[StateController] AlarmKit alerting after engine already started — dismissing surface only")
+        if phase == .appEngineFadingIn || phase == .appEnginePrimary {
+            log("[StateController] AlarmKit alerting — engine already primary, dismissing surface only")
             NotificationManager.shared.dismissLinkedAlarmKitSurfaces(sourceAlarmId: alarmId)
-            return
-        }
-
-        if let existingId = currentAlarmId, existingId != alarmId {
-            log("[StateController] ⚠️ Concurrent alarm detected:")
-            log("[StateController]   Current alarm: \(existingId) (phase=\(phase.rawValue))")
-            log("[StateController]   New alarm: \(alarmId)")
-            NotificationManager.shared.dismissLinkedAlarmKitSurfaces(sourceAlarmId: alarmId)
-            log("[StateController] Dismissed concurrent alarm surface: \(alarmId)")
-            recordConcurrentAlarmEvent(currentId: existingId, dismissedId: alarmId)
             return
         }
 
@@ -286,17 +237,6 @@ final class AlarmAudioStateController {
     /// Creates/reuses session and schedules takeover with the same runId.
     func handleForegroundTimerAlarm(alarmId: String, soundName: String) {
         log("[StateController] handleForegroundTimerAlarm: alarmId=\(alarmId)")
-
-        guard phase == .stopped else {
-            log("[StateController] Foreground timer ignored — phase is \(phase.rawValue)")
-            return
-        }
-
-        if currentAlarmId == alarmId && currentAlarmRunId != nil {
-            log("[StateController] Foreground timer: session already exists for \(alarmId)")
-            return
-        }
-
         beginAlarmSession(alarmId: alarmId, soundName: soundName, reason: "foreground-timer")
         guard let runId = currentAlarmRunId else { return }
         log("[StateController] handleForegroundTimerAlarm: runId=\(runId.uuidString)")
@@ -328,7 +268,7 @@ final class AlarmAudioStateController {
             log("[StateController] Takeover blocked — terminal action recorded")
             return
         }
-        guard phase == .alarmKitSettling || phase == .appEnginePreparing || phase == .alarmKitFallback else {
+        guard phase == .alarmKitSettling || phase == .appEnginePreparing else {
             log("[StateController] Takeover blocked — phase \(phase.rawValue) not eligible")
             return
         }
@@ -464,10 +404,6 @@ final class AlarmAudioStateController {
 
     private func log(_ message: String) {
         print("[AlarmAudio] \(message)")
-    }
-
-    private func recordConcurrentAlarmEvent(currentId: String, dismissedId: String) {
-        log("[StateController] Concurrent alarm event current=\(currentId) dismissed=\(dismissedId)")
     }
 }
 

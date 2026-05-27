@@ -289,30 +289,6 @@ private struct AwaykAlarmMetadata: AlarmMetadata {
 
 @available(iOS 26.0, *)
 extension AlarmSchedulerIOS26AlarmKit {
-    private static let criticalStorageBytes: Int64 = 50_000_000
-    private static var forceSystemDefaultSound: Bool = false
-
-    private static func availableStorageBytes() -> Int64? {
-        let homeURL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
-        guard let values = try? homeURL.resourceValues(forKeys: [.volumeAvailableCapacityKey]) else { return nil }
-        guard let available = values.volumeAvailableCapacity else { return nil }
-        return Int64(available)
-    }
-
-    private static func markSystemDefaultFallbackIfNeeded(for error: Error?) {
-        if let available = availableStorageBytes(), available < criticalStorageBytes {
-            print("[Scheduler] Storage critically low (\(available) bytes) — forcing AlarmKit .default sound")
-            forceSystemDefaultSound = true
-            return
-        }
-        if let error {
-            print("[Scheduler] ⚠️ Could not stage silent sound: \(error) — forcing AlarmKit .default sound")
-        } else {
-            print("[Scheduler] ⚠️ Could not stage silent sound — forcing AlarmKit .default sound")
-        }
-        forceSystemDefaultSound = true
-    }
-
     var fallbackAlarmSoundKey: String { "cockpitalert" }
     var maxAlarmKitSoundDuration: TimeInterval { 29.5 }
     var alarmKitStopButtonText: String { "Open to Stop" }
@@ -353,7 +329,6 @@ extension AlarmSchedulerIOS26AlarmKit {
         let silentFileName = "alarmo_silence.caf"
         guard let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else {
             print("[SilentSound] ❌ nil-libraryDir")
-            markSystemDefaultFallbackIfNeeded(for: nil)
             return nil
         }
         let soundsDir = library.appendingPathComponent("Sounds", isDirectory: true)
@@ -361,7 +336,6 @@ extension AlarmSchedulerIOS26AlarmKit {
             try FileManager.default.createDirectory(at: soundsDir, withIntermediateDirectories: true)
         } catch {
             print("[SilentSound] ❌ create-sounds-dir-failed: \(error)")
-            markSystemDefaultFallbackIfNeeded(for: error)
             return nil
         }
         let destinationURL = soundsDir.appendingPathComponent(silentFileName, isDirectory: false)
@@ -370,7 +344,6 @@ extension AlarmSchedulerIOS26AlarmKit {
            let size = attrs[.size] as? Int,
            size > 1000 {
             print("[SilentSound] ✅ existing-valid: \(silentFileName) size=\(size)")
-            forceSystemDefaultSound = false
             return silentFileName
         }
         let settings: [String: Any] = [
@@ -407,16 +380,13 @@ extension AlarmSchedulerIOS26AlarmKit {
             guard let verifyPlayer = try? AVAudioPlayer(contentsOf: destinationURL),
                   verifyPlayer.duration > 0 else {
                 print("[SilentSound] ❌ generation-failed: verify-player")
-                markSystemDefaultFallbackIfNeeded(for: nil)
                 return nil
             }
             print("[SilentSound] ✅ generated-valid: \(silentFileName) duration=\(String(format: "%.2f", verifyPlayer.duration))")
-            forceSystemDefaultSound = false
             return silentFileName
         } catch {
             try? FileManager.default.removeItem(at: tempURL)
             print("[SilentSound] ❌ generation-failed: \(error)")
-            markSystemDefaultFallbackIfNeeded(for: error)
             return nil
         }
     }
@@ -509,8 +479,8 @@ extension AlarmSchedulerIOS26AlarmKit {
         soundName: String? = nil,
         useSystemDefaultSound: Bool = false
     ) -> AlarmManager.AlarmConfiguration<AwaykAlarmMetadata> {
+        _ = useSystemDefaultSound
         _ = Self.ensureSilentAlertSoundStaged()
-        let forceDefault = useSystemDefaultSound || Self.forceSystemDefaultSound
         let alertTitle = alarmKitAlertTitle(for: schedule)
         let alertPresentation = AlarmPresentation.Alert(
             title: LocalizedStringResource(stringLiteral: alertTitle),
@@ -547,39 +517,13 @@ extension AlarmSchedulerIOS26AlarmKit {
         print("[AlarmKitUI] title=\"\(alertTitle)\" stopButton=\"\(alarmKitStopButtonText)\" symbol=\"\(alarmKitStopButtonSymbol)\" tintColor=accentBlue")
         print("[AlarmKitUI] secondaryButton=\"Snooze\" enabled=\(alarmKitSecondaryButtonEnabled)")
 
-        let shouldUseAudibleFallback: Bool = {
-            let state = AlarmAudioStateController.shared
-            let phase = state.phase
-
-            if phase == .alarmKitFallback {
-                print("[Scheduler] Audible fallback enabled — phase=alarmKitFallback")
-                return true
-            }
-
-            if phase == .stopped, AlarmStore.shared.hasAnyAlarmScheduled() {
-                print("[Scheduler] Audible fallback enabled — phase=stopped with active scheduled alarms (missed-event recovery)")
-                return true
-            }
-
-            if phase == .waitingForAlarmKit {
-                let elapsed = state.timeInCurrentPhase()
-                if elapsed > 10.0 {
-                    print("[Scheduler] Audible fallback enabled — stuck in waitingForAlarmKit for \(String(format: "%.2f", elapsed))s")
-                    return true
-                }
-            }
-
-            return false
-        }()
+        let shouldUseAudibleFallback = AlarmAudioStateController.shared.phase == .alarmKitFallback
 
         // Default policy: AlarmKit uses silent sound; engine owns real audio.
         // Fallback policy: if engine failed and we have a resolvable custom sound,
         // allow AlarmKit to become audible as the sole owner.
         let alarmKitSound: AlertConfiguration.AlertSound
-        if forceDefault {
-            alarmKitSound = .default
-            print("[Scheduler] ⚠️ AlarmKit sound forced to .default")
-        } else if shouldUseAudibleFallback,
+        if shouldUseAudibleFallback,
            let requested = soundName,
            let staged = stageNotificationSound(named: requested) {
             alarmKitSound = .named(staged)

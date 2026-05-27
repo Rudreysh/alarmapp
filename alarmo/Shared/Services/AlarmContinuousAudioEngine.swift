@@ -1,7 +1,6 @@
 import Foundation
 import AVFoundation
 import UIKit
-import CallKit
 
 @inline(__always)
 private func swiftlog(_ message: String) {
@@ -10,6 +9,10 @@ private func swiftlog(_ message: String) {
 
 final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
     static let shared = AlarmContinuousAudioEngine()
+
+    static func verifyBundledAlarmAssetsOnLaunch() {
+        _ = shared.findFallbackSound()
+    }
 
     private var player: AVAudioPlayer?
     private var currentSoundName: String?
@@ -37,9 +40,6 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
     private var isCurrentlyInterrupted: Bool = false
     private var wasHealthyBeforeInterruption: Bool = false
     private(set) var isProgressingNow: Bool = false
-    private let callObserver = CXCallObserver()
-    private var callEndCheckTimer: Timer?
-    private var deferredFadeInContext: (alarmRunId: UUID, targetVolume: Float)?
     
     private func log(_ message: String) {
         swiftlog(message)
@@ -64,6 +64,11 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
 
     func isPlayingAlarm(alarmId: String) -> Bool {
         currentAlarmId == alarmId && player?.isPlaying == true
+    }
+
+    // Compatibility API used by diagnostics in newer UI branches.
+    func resolvedSoundURLForDiagnostics(soundName: String) -> URL? {
+        findSoundURL(for: soundName)
     }
 
     func start(soundName: String, alarmId: String, volume: Float = 1.0) {
@@ -227,9 +232,6 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         clearEngineState()
         stopWatchdog()
         stopMetering()
-        callEndCheckTimer?.invalidate()
-        callEndCheckTimer = nil
-        deferredFadeInContext = nil
         player?.stop()
         player = nil
         isPlaying = false
@@ -310,89 +312,19 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         }
     }
 
-    static func verifyBundledAlarmAssetsOnLaunch() {
-        let fileManager = FileManager.default
-        let requiredPath = "BundledSounds/ringtones/Default Alarm.caf"
-        let resourceBase = Bundle.main.resourceURL ?? Bundle.main.bundleURL
-        let requiredPathCandidates = [
-            resourceBase.appendingPathComponent(requiredPath),
-            resourceBase.appendingPathComponent("Resources/\(requiredPath)"),
-            Bundle.main.bundleURL.appendingPathComponent(requiredPath),
-            Bundle.main.bundleURL.appendingPathComponent("Resources/\(requiredPath)"),
-            resourceBase.appendingPathComponent("Default Alarm.caf"),
-            Bundle.main.bundleURL.appendingPathComponent("Default Alarm.caf")
-        ]
-        let requiredFileURL = requiredPathCandidates.first(where: { fileManager.fileExists(atPath: $0.path) })
-        let requiredExists = requiredFileURL != nil
-        let requiredSize = requiredFileURL.flatMap {
-            (try? fileManager.attributesOfItem(atPath: $0.path)[.size] as? Int64) ?? 0
-        } ?? 0
-        if !requiredExists || requiredSize < 50_000 {
-            let attemptedPaths = requiredPathCandidates.map(\.path).joined(separator: " | ")
-            swiftlog("[CRITICAL] Missing or invalid required fallback asset: \(requiredPath) size=\(requiredSize) attempted=\(attemptedPaths)")
-#if DEBUG
-            fatalError("CRITICAL: Required fallback asset missing or invalid at \(requiredPath)")
-#else
-            return
-#endif
-        }
-        if let resolved = requiredFileURL,
-           !resolved.path.contains("/BundledSounds/ringtones/") {
-            swiftlog("[WARN] Required fallback asset resolved outside canonical path: \(resolved.path)")
-        }
-        let allowedExtensions = Set(["mp3", "wav", "m4a", "caf"])
-        let ringtoneCandidates = [
-            resourceBase.appendingPathComponent("BundledSounds/ringtones", isDirectory: true),
-            resourceBase.appendingPathComponent("Resources/BundledSounds/ringtones", isDirectory: true),
-            Bundle.main.bundleURL.appendingPathComponent("BundledSounds/ringtones", isDirectory: true),
-            Bundle.main.bundleURL.appendingPathComponent("Resources/BundledSounds/ringtones", isDirectory: true)
-        ]
-        let ringtonesURL = ringtoneCandidates.first(where: { fileManager.fileExists(atPath: $0.path) })
-        let files: [URL]
-        if let ringtonesURL {
-            files = (try? fileManager.contentsOfDirectory(
-                at: ringtonesURL,
-                includingPropertiesForKeys: nil,
-                options: [.skipsHiddenFiles]
-            )) ?? []
-        } else {
-            files = (fileManager.enumerator(
-                at: resourceBase,
-                includingPropertiesForKeys: nil,
-                options: [.skipsHiddenFiles]
-            )?.allObjects as? [URL])?
-                .filter { allowedExtensions.contains($0.pathExtension.lowercased()) } ?? []
-            swiftlog("[WARN] BundledSounds/ringtones directory not found directly; using bundle-wide scan")
-        }
-
-        let hasAudible = files.contains { url in
-            let name = url.lastPathComponent.lowercased()
-            guard !name.contains("silence"), !name.contains("alarmo_silence") else { return false }
-            guard allowedExtensions.contains(url.pathExtension.lowercased()) else { return false }
-            let size = (try? fileManager.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
-            return size >= 10_000
-        }
-
-        if !hasAudible {
-#if DEBUG
-            fatalError("CRITICAL: No audible alarm sounds in BundledSounds/ringtones")
-#else
-            swiftlog("[CRITICAL] No audible alarm sounds in BundledSounds/ringtones")
-#endif
-        }
-    }
-
     private func configureSession() throws {
         installObserversIfNeeded()
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playback, mode: .default, options: [])
+        // .mixWithOthers prevents `cannotInterruptOthers` activation failures
+        // while app is backgrounded/locked and system surfaces are transitioning.
+        try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
         try session.setActive(true, options: [])
     }
 
     private func configureSessionCategoryOnly() throws {
         installObserversIfNeeded()
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playback, mode: .default, options: [])
+        try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
     }
 
     private func installObserversIfNeeded() {
@@ -678,42 +610,15 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         }
         log("[Engine] startFadeIn proceeding with player — duration=\(String(format: "%.2f", p.duration))s")
 
-        let onCall = callObserver.calls.contains { !$0.hasEnded }
-        if onCall {
-            log("[Engine] User is on a call — deferring audible alarm")
-            deferredFadeInContext = (alarmRunId: alarmRunId, targetVolume: targetVolume)
-            triggerHapticAlert()
-            scheduleCallEndCheck()
-            return
-        }
-
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setActive(true, options: [])
-            try session.overrideOutputAudioPort(.speaker)
-            let currentRoute = session.currentRoute
-            let isSpeaker = currentRoute.outputs.contains { $0.portType == .builtInSpeaker }
-            if !isSpeaker {
-                log("[Engine] ⚠️ Speaker override failed — current route: \(currentRoute.outputs.map { $0.portName })")
-                try? session.overrideOutputAudioPort(.speaker)
-            }
-            let verifiedRoute = session.currentRoute.outputs.map { $0.portName }
-            log("[Engine] Audio routed to: \(verifiedRoute)")
+            try AVAudioSession.sharedInstance().setActive(true, options: [])
             log("[Engine] startFadeIn: session activated")
-            let activatedOutput = session.outputVolume
+            let activatedOutput = AVAudioSession.sharedInstance().outputVolume
             let appState = UIApplication.shared.applicationState
             log("[Volume] outputVolume=\(String(format: "%.2f", activatedOutput)) playerVolume=\(String(format: "%.2f", p.volume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) reason=start-fadein-activated")
             if appState != .active && activatedOutput <= 0.01 {
                 log("[Engine] startFadeIn: locked/background with near-zero outputVolume (\(String(format: "%.2f", activatedOutput))) — switching to AlarmKit fallback")
-                AlarmAudioStateController.shared.recordFallback(reason: "muted-defer-to-alarmkit-audible")
-                if #available(iOS 26.0, *) {
-                    Task { @MainActor in
-                        await NotificationManager.shared.scheduleImmediateAudibleFallback(
-                            sourceAlarmId: self.currentAlarmId,
-                            reason: "muted-engine-cannot-play"
-                        )
-                    }
-                }
+                AlarmAudioStateController.shared.recordFallback(reason: "locked-zero-output-at-fadein")
                 return
             }
         } catch {
@@ -774,34 +679,6 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             }
             self.startWatchdogIfNeeded()
             self.persistEngineState()
-        }
-    }
-
-    private func triggerHapticAlert() {
-        let generator = UINotificationFeedbackGenerator()
-        generator.prepare()
-        generator.notificationOccurred(.warning)
-    }
-
-    private func scheduleCallEndCheck() {
-        callEndCheckTimer?.invalidate()
-        callEndCheckTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] timer in
-            guard let self else {
-                timer.invalidate()
-                return
-            }
-            let stillOnCall = self.callObserver.calls.contains { !$0.hasEnded }
-            guard !stillOnCall else { return }
-            timer.invalidate()
-            self.callEndCheckTimer = nil
-            guard let context = self.deferredFadeInContext else { return }
-            self.deferredFadeInContext = nil
-            self.log("[Engine] Call ended — resuming alarm audio")
-            self.startFadeIn(
-                alarmRunId: context.alarmRunId,
-                fadeInDuration: 2.0,
-                targetVolume: context.targetVolume
-            )
         }
     }
 
@@ -1245,64 +1122,31 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         return findFallbackSound()
     }
 
-    func resolvedSoundURLForDiagnostics(soundName: String) -> URL? {
-        findSoundURL(for: soundName)
-    }
-
     private func findFallbackSound() -> URL? {
         let fileManager = FileManager.default
         let bundleURL = Bundle.main.bundleURL
         let extensions = ["mp3", "wav", "m4a", "caf"]
-
-        // Search BundledSounds/ringtones/ first — these should be alarm-suitable sounds.
-        let ringingDirURL = bundleURL.appendingPathComponent("BundledSounds/ringtones")
-        if fileManager.fileExists(atPath: ringingDirURL.path),
-           let enumerator = fileManager.enumerator(at: ringingDirURL, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
-            for case let fileURL as URL in enumerator {
-                let ext = fileURL.pathExtension.lowercased()
-                guard extensions.contains(ext), isAudibleAlarmSound(fileURL) else { continue }
-                log("[Engine] findFallbackSound: ringtones fallback '\(fileURL.lastPathComponent)'")
-                return fileURL
-            }
-        }
-
-        if let bundleAudible = bundleWideAudibleSearch(bundleURL: bundleURL, allowedExtensions: extensions) {
-            log("[Engine] findFallbackSound: bundle fallback '\(bundleAudible.lastPathComponent)'")
-            return bundleAudible
-        }
-
-        log("[Engine] ⚠️ CRITICAL: No audible fallback sound found in bundle")
-        AlarmAudioStateController.shared.recordFallback(reason: "no-bundle-audible-sound")
-        return nil
-    }
-
-    private func bundleWideAudibleSearch(bundleURL: URL, allowedExtensions: [String]) -> URL? {
-        let fileManager = FileManager.default
-        var sfxCandidate: URL?
         if let enumerator = fileManager.enumerator(at: bundleURL, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
+            var silentCandidate: URL?
             for case let fileURL as URL in enumerator {
-                guard fileURL.isFileURL else { continue }
-                guard allowedExtensions.contains(fileURL.pathExtension.lowercased()) else { continue }
-                guard isAudibleAlarmSound(fileURL) else { continue }
-
-                let isSFX = fileURL.pathComponents.contains("Ranks") || fileURL.pathComponents.contains("SFX")
-                if isSFX {
-                    if sfxCandidate == nil { sfxCandidate = fileURL }
-                    continue
+                if fileURL.isFileURL && extensions.contains(fileURL.pathExtension.lowercased()) {
+                    let key = normalizedSoundKey(fileURL.deletingPathExtension().lastPathComponent)
+                    let isSilentAsset = key.contains("alarmosilence") || key.contains("silencealarm")
+                    if isSilentAsset {
+                        if silentCandidate == nil { silentCandidate = fileURL }
+                        continue
+                    }
+                    log("[Engine] findFallbackSound: using audible fallback '\(fileURL.lastPathComponent)'")
+                    return fileURL
                 }
-                return fileURL
+            }
+            if let silentCandidate {
+                log("[Engine] findFallbackSound: only silent fallback available '\(silentCandidate.lastPathComponent)'")
+                return silentCandidate
             }
         }
-        return sfxCandidate
-    }
-
-    private func isAudibleAlarmSound(_ url: URL) -> Bool {
-        let filename = url.lastPathComponent.lowercased()
-        if filename.contains("silence") || filename.contains("alarmo_silence") {
-            return false
-        }
-        let size = fileSizeAtURL(url)
-        return size >= 10_000
+        log("[Engine] findFallbackSound: no fallback sound found in bundle")
+        return nil
     }
 
     private func normalizedSoundKey(_ raw: String) -> String {

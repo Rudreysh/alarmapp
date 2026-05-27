@@ -23,7 +23,6 @@ final class AlarmStore: ObservableObject {
     }
 
     func add(_ alarm: Alarm) {
-        runScheduleDiagnostics(for: alarm)
         alarms.append(alarm)
         if alarm.type == .quick {
             persistSync()
@@ -33,7 +32,6 @@ final class AlarmStore: ObservableObject {
     }
 
     func update(_ alarm: Alarm) {
-        runScheduleDiagnostics(for: alarm)
         guard let index = alarms.firstIndex(where: { $0.id == alarm.id }) else { return }
         alarms[index] = alarm
         if alarm.type == .quick {
@@ -220,12 +218,6 @@ final class AlarmStore: ObservableObject {
         alarms.first { $0.id == id }
     }
 
-    func hasAnyAlarmScheduled(referenceDate: Date = Date()) -> Bool {
-        alarms.contains { alarm in
-            alarm.enabled && Self.nextFireDate(for: alarm, from: referenceDate) != nil
-        }
-    }
-
     static func nextFireDate(for alarm: Alarm, from date: Date) -> Date? {
         var calendar = Calendar.current
         
@@ -262,27 +254,6 @@ final class AlarmStore: ObservableObject {
         }
         let chosen = candidates.sorted().first
         return chosen
-    }
-
-    private func runScheduleDiagnostics(for alarm: Alarm) {
-        Task { @MainActor in
-            let diagnostics = AlarmDiagnostics.runScheduleDiagnostics(for: alarm)
-            guard !diagnostics.isEmpty else { return }
-
-            let payload = diagnostics.map { diagnostic in
-                "\(diagnostic.level == .critical ? "CRITICAL" : "WARNING"): \(diagnostic.message)"
-            }.joined(separator: " | ")
-            print("[AlarmDiagnostics] \(payload)")
-
-            NotificationCenter.default.post(
-                name: .alarmDiagnosticsGenerated,
-                object: nil,
-                userInfo: [
-                    "alarmId": alarm.id.uuidString,
-                    "diagnostics": diagnostics.map { ["level": "\($0.level)", "message": $0.message] }
-                ]
-            )
-        }
     }
 
 

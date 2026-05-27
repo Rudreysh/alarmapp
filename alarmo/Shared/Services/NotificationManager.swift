@@ -99,7 +99,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     /// shortest first; if AlarmKit silently rejects it (some iOS builds reject
     /// schedules under a certain threshold), we fall back to longer delays.
     /// Worst-case gap of silence between AlarmKit fires.
-    private static let backupAlarmDelays: [TimeInterval] = [3.0]
+    private static let backupAlarmDelays: [TimeInterval] = [2.0, 3.0, 5.0]
     private enum AlarmFlowPhase {
         case idle
         case ringingLocked
@@ -981,10 +981,6 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             print("[Backup] Skipping backup chain — engine is active and healthy (would cause session conflict)")
             return
         }
-        if AlarmAudioStateController.shared.phase == .alarmKitFallback {
-            print("[Backup] Engine unhealthy but already in alarmKitFallback — skipping backup chain to avoid alerting churn")
-            return
-        }
         print("[Backup] Engine not healthy — scheduling backup AlarmKit chain")
 
         let helper = AlarmSchedulerIOS26AlarmKit()
@@ -1016,51 +1012,6 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             }
         }
         print("[NotificationManager] ❌ ALL backup AlarmKit schedule attempts failed: \(lastError?.localizedDescription ?? "unknown")")
-    }
-
-    @available(iOS 26.0, *)
-    @MainActor
-    func scheduleImmediateAudibleFallback(sourceAlarmId: String?, reason: String) async {
-        guard let sourceAlarmId,
-              let sourceUUID = UUID(uuidString: sourceAlarmId) else { return }
-
-        print("[NotificationManager] Immediate audible fallback for \(sourceAlarmId) — reason: \(reason)")
-
-        // Ensure fallback phase is armed before scheduling.
-        if AlarmAudioStateController.shared.phase != .alarmKitFallback {
-            AlarmAudioStateController.shared.recordFallback(reason: "immediate-audible-fallback-\(reason)")
-        }
-
-        let helper = AlarmSchedulerIOS26AlarmKit()
-        let sourceAlarm = (alarmStore ?? AlarmStore.shared).alarm(by: sourceUUID)
-        let title: String
-        if let sourceAlarmName = sourceAlarm?.name.trimmingCharacters(in: .whitespacesAndNewlines),
-           !sourceAlarmName.isEmpty {
-            title = sourceAlarmName
-        } else {
-            title = "Alarm"
-        }
-
-        let preferredSound = sourceAlarm?.soundName ?? AlarmAudioStateController.shared.selectedSoundName
-        let immediateSurfaceUUID = UUID()
-
-        do {
-            _ = try await helper.scheduleWithFallbackSound(
-                manager: AlarmManager.shared,
-                id: immediateSurfaceUUID,
-                originalAlarmID: sourceUUID,
-                title: title,
-                schedule: .fixed(Date().addingTimeInterval(0.5)),
-                snoozeEnabled: false,
-                snoozeInterval: nil,
-                preferredSoundName: preferredSound
-            )
-            AlarmCustomUIHandoffStore.request(alarmID: sourceUUID, surfaceAlarmID: immediateSurfaceUUID)
-            pendingBackupAlarmIds[sourceAlarmId] = immediateSurfaceUUID
-            print("[NotificationManager] ✅ Immediate audible fallback scheduled at +0.5s for source=\(sourceAlarmId)")
-        } catch {
-            print("[NotificationManager] ❌ Immediate audible fallback failed for \(sourceAlarmId): \(error)")
-        }
     }
 
     /// Cancel the currently-pending backup alarm for a source. Called when
@@ -1628,13 +1579,22 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
         Task { @MainActor in
             guard let sourceUUID = UUID(uuidString: sourceAlarmId) else { return }
-            // Keep any currently alerting AlarmKit surface alive during active ring.
-            // Stopping/canceling here can tear down audible ownership unexpectedly.
+            do {
+                let alarms = try AlarmManager.shared.alarms
+                for alarm in alarms where alarm.state == .alerting {
+                    let mappedSource = AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: alarm.id.uuidString)
+                    guard mappedSource == sourceAlarmId || alarm.id.uuidString == sourceAlarmId else { continue }
+                    try? AlarmManager.shared.stop(id: alarm.id)
+                    try? AlarmManager.shared.cancel(id: alarm.id)
+                }
+            } catch {
+                print("[NotificationManager] inspect-before-hardware-respawn failed: \(error)")
+            }
 
             let helper = AlarmSchedulerIOS26AlarmKit()
             let sourceAlarm = (alarmStore ?? AlarmStore.shared).alarm(by: sourceUUID)
             let title = resolvedAlarmLabel(sourceAlarmId: sourceAlarmId, alarmName: alarmName)
-            let delayLadder: [TimeInterval] = [3.0]
+            let delayLadder: [TimeInterval] = [2.0, 2.2, 2.4, 2.6]
             let snoozeInterval = sourceAlarm.flatMap { helper.resolvedSnoozeInterval(for: $0) }
             let snoozeEnabled = snoozeInterval != nil
 
@@ -1652,7 +1612,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                         preferredSoundName: sourceAlarm?.soundName
                     )
                     AlarmCustomUIHandoffStore.request(alarmID: sourceUUID, surfaceAlarmID: newUUID)
-                    print("[NotificationManager] \(reason) — respawning AlarmKit in 3s (source=\(sourceAlarmId), delay=\(delay))")
+                    print("[NotificationManager] \(reason) — respawning AlarmKit in 2s (source=\(sourceAlarmId), delay=\(delay))")
                     return
                 } catch {
                     print("[NotificationManager] Hardware respawn attempt +\(delay)s failed for \(sourceAlarmId): \(error)")
@@ -1779,19 +1739,8 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             return
         }
         let sourceAlarm: Alarm? = {
-            let store = alarmStore ?? AlarmStore.shared
-            if let uuid = UUID(uuidString: sourceAlarmId),
-               let found = store.alarm(by: uuid) {
-                return found
-            }
-            // UUID mapping expired or was never persisted (e.g. app restarted after scheduling).
-            // If there is exactly one enabled alarm it is unambiguously the one that fired.
-            let enabled = store.alarms.filter { $0.enabled }
-            if enabled.count == 1 {
-                print("[NotificationManager] UUID mapping miss for surface=\(surfaceAlarmId) — falling back to sole enabled alarm \(enabled[0].id)")
-                return enabled[0]
-            }
-            return nil
+            guard let uuid = UUID(uuidString: sourceAlarmId) else { return nil }
+            return (alarmStore ?? AlarmStore.shared).alarm(by: uuid)
         }()
         print("[NotificationManager] 🔔 AlarmKit alarm alerting: surface=\(surfaceAlarmId), source=\(sourceAlarmId)")
         setAlarmFlowPhase(
@@ -1816,25 +1765,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                 reason: "alarmkit-alerting"
             )
         } else {
-            print("[NotificationManager] ⚠️ Source mapping lost — entering recovery path (surface=\(surfaceAlarmId), source=\(sourceAlarmId))")
-            let fallbackSoundName = recoveredSoundNameForMissingSource(sourceAlarmId: sourceAlarmId)
-            print("[NotificationManager] Recovery path sound=\(fallbackSoundName)")
-            AlarmAudioStateController.shared.handleAlarmKitAlerting(
-                alarmId: surfaceAlarmId,
-                soundName: fallbackSoundName,
-                reason: "source-mapping-lost-recovery"
-            )
-            if let surfaceUUID = UUID(uuidString: surfaceAlarmId) {
-                AlarmCustomUIHandoffStore.request(
-                    alarmID: surfaceUUID,
-                    surfaceAlarmID: surfaceUUID
-                )
-            }
-            // Also arm fallback state so subsequent backup/respawn scheduling is audible.
-            AlarmAudioStateController.shared.transitionAudioPhase(
-                to: .alarmKitFallback,
-                reason: "source-mapping-lost-recovery"
-            )
+            print("[AlarmKit→Engine] Source alarm model missing for \(sourceAlarmId); engine start skipped")
         }
 
         // Always arm bridge audio on alerting updates so quick foreground/
@@ -1847,8 +1778,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         // Dismiss the PREVIOUSLY-fired alarm for this source so banners
         // don't stack. Only one AlarmKit alarm should be alerting at a time
         // for any given source — the most recent backup or the original.
-        // Do not stop/cancel previously alerting surfaces during active ring maintenance.
-        // Aggressive surface pruning here can trigger alerting churn and audible gaps.
+        if let priorAlertingId = lastFiredAlarmIdsBySource[sourceAlarmId],
+           priorAlertingId != alarm.id {
+            try? AlarmManager.shared.stop(id: priorAlertingId)
+            try? AlarmManager.shared.cancel(id: priorAlertingId)
+            print("[NotificationManager] 🧹 Dismissed prior alerting alarm \(priorAlertingId.uuidString) to prevent banner stacking")
+        }
         lastFiredAlarmIdsBySource[sourceAlarmId] = alarm.id
 
         // Mark the backup slot empty if this was a backup that fired.
@@ -1932,25 +1867,6 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             }
         }
         await AlarmManagerFacade.shared.markAlarmFired(id: alarm.id)
-    }
-
-    private func recoveredSoundNameForMissingSource(sourceAlarmId: String) -> String {
-        if let sourceUUID = UUID(uuidString: sourceAlarmId),
-           let sourceAlarm = (alarmStore ?? AlarmStore.shared).alarm(by: sourceUUID) {
-            let sound = sourceAlarm.soundName.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !sound.isEmpty {
-                return sound
-            }
-        }
-
-        let onboardingKey = "alarmo.alarm.onboardingSoundName"
-        if let stored = UserDefaults.standard.string(forKey: onboardingKey)?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-           !stored.isEmpty {
-            return stored
-        }
-
-        return "Cockpit Alert"
     }
 #endif
 

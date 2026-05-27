@@ -151,19 +151,6 @@ final class AlarmBackgroundAudioBridge {
         }
     }
 
-    private func triggerAudibleFallbackRecovery(sourceAlarmId: String, reason: String) {
-        swiftlog("[Bridge] ⚠️ Failed to start bridge audio: \(reason)")
-        AlarmAudioStateController.shared.recordFallback(reason: "bridge-start-failed-\(reason)")
-        if #available(iOS 26.0, *) {
-            Task { @MainActor in
-                await NotificationManager.shared.scheduleImmediateAudibleFallback(
-                    sourceAlarmId: sourceAlarmId,
-                    reason: "bridge-failure-\(reason)"
-                )
-            }
-        }
-    }
-
     func start(surfaceAlarmId: String, sourceAlarmId: String? = nil) {
         let resolvedSourceAlarmId = sourceAlarmId
             ?? AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceAlarmId)
@@ -193,8 +180,6 @@ final class AlarmBackgroundAudioBridge {
             startOrPrepareEngine(soundName: alarm.soundName, alarmId: resolvedSourceAlarmId, reason: "bridge-active-same-surface")
             if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
                 lastAudibleAt = Date()
-            } else {
-                triggerAudibleFallbackRecovery(sourceAlarmId: resolvedSourceAlarmId, reason: "same-surface")
             }
             if watchdogTimer == nil {
                 startWatchdog()
@@ -211,8 +196,6 @@ final class AlarmBackgroundAudioBridge {
             startOrPrepareEngine(soundName: alarm.soundName, alarmId: resolvedSourceAlarmId, reason: "bridge-rebind")
             if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
                 lastAudibleAt = Date()
-            } else {
-                triggerAudibleFallbackRecovery(sourceAlarmId: resolvedSourceAlarmId, reason: "rebind")
             }
             if watchdogTimer == nil {
                 startWatchdog()
@@ -233,8 +216,6 @@ final class AlarmBackgroundAudioBridge {
         startOrPrepareEngine(soundName: alarm.soundName, alarmId: resolvedSourceAlarmId, reason: "bridge-fallback-start")
         if AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
             lastAudibleAt = Date()
-        } else {
-            triggerAudibleFallbackRecovery(sourceAlarmId: resolvedSourceAlarmId, reason: "new-start")
         }
         activeAlarmID = surfaceAlarmId
         activeSourceAlarmID = resolvedSourceAlarmId

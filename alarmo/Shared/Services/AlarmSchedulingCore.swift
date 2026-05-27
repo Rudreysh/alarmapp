@@ -91,6 +91,7 @@ enum AlarmCustomUIHandoffStore {
     nonisolated private static let surfaceAlarmIDKey = "alarmo.alarmKit.pendingCustomUISurfaceAlarmId"
     nonisolated private static let timestampKey = "alarmo.alarmKit.pendingCustomUITimestamp"
     nonisolated private static let surfaceSourceMapKey = "alarmo.alarmKit.surfaceSourceMap"
+    nonisolated private static let maxAge: TimeInterval = 10 * 60
     nonisolated static let urlScheme = "alarmo"
     nonisolated static let urlHost = "alarm-ringing"
 
@@ -114,7 +115,9 @@ enum AlarmCustomUIHandoffStore {
 
     nonisolated static func pendingRequest(now: Date = Date()) -> PendingRequest? {
         guard let sourceAlarmID = UserDefaults.standard.string(forKey: sourceAlarmIDKey) else { return nil }
-        guard sourceAlarmStillExists(sourceAlarmID) else {
+        let timestamp = UserDefaults.standard.double(forKey: timestampKey)
+
+        guard timestamp > 0, now.timeIntervalSince1970 - timestamp <= maxAge else {
             clear()
             return nil
         }
@@ -142,29 +145,14 @@ enum AlarmCustomUIHandoffStore {
         }
         var map = loadSurfaceSourceMap()
         if let mapped = map[surfaceAlarmID] {
-            if sourceAlarmStillExists(mapped.sourceAlarmID) {
+            let age = Date().timeIntervalSince1970 - mapped.timestamp
+            if age <= maxAge {
                 return mapped.sourceAlarmID
             }
             map[surfaceAlarmID] = nil
             persistSurfaceSourceMap(map)
         }
         return surfaceAlarmID
-    }
-
-    nonisolated static func pruneOrphanedMappings() {
-        let store = AlarmStore.shared
-        let validIDs = Set(store.alarms.map { $0.id.uuidString })
-        var map = loadSurfaceSourceMap()
-        let before = map.count
-        map = map.filter { _, entry in validIDs.contains(entry.sourceAlarmID) }
-        if before != map.count {
-            persistSurfaceSourceMap(map)
-        }
-
-        if let pendingSource = UserDefaults.standard.string(forKey: sourceAlarmIDKey),
-           !validIDs.contains(pendingSource) {
-            clear()
-        }
     }
 
     nonisolated static func handoffURL(for alarmID: UUID) -> URL {
@@ -192,6 +180,19 @@ enum AlarmCustomUIHandoffStore {
         UserDefaults.standard.removeObject(forKey: timestampKey)
     }
 
+    // Compatibility helper expected by newer app bootstrap code.
+    nonisolated static func pruneOrphanedMappings(now: Date = Date()) {
+        var map = loadSurfaceSourceMap()
+        let cutoff = now.timeIntervalSince1970 - maxAge
+        map = map.filter { $0.value.timestamp >= cutoff }
+        persistSurfaceSourceMap(map)
+
+        if let pendingTimestamp = UserDefaults.standard.object(forKey: timestampKey) as? TimeInterval,
+           pendingTimestamp < cutoff {
+            clear()
+        }
+    }
+
     nonisolated private static func loadSurfaceSourceMap() -> [String: SurfaceSourceEntry] {
         guard let data = UserDefaults.standard.data(forKey: surfaceSourceMapKey),
               let decoded = try? JSONDecoder().decode([String: SurfaceSourceEntry].self, from: data) else {
@@ -203,11 +204,6 @@ enum AlarmCustomUIHandoffStore {
     nonisolated private static func persistSurfaceSourceMap(_ map: [String: SurfaceSourceEntry]) {
         guard let data = try? JSONEncoder().encode(map) else { return }
         UserDefaults.standard.set(data, forKey: surfaceSourceMapKey)
-    }
-
-    nonisolated private static func sourceAlarmStillExists(_ sourceAlarmID: String) -> Bool {
-        guard let uuid = UUID(uuidString: sourceAlarmID) else { return false }
-        return AlarmStore.shared.alarm(by: uuid) != nil
     }
 }
 
