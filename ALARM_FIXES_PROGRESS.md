@@ -26,5 +26,5 @@
   - File: AlarmContinuousAudioEngine.swift
   - Test: Not run (manual BT routing scenario pending)
   - Build: BUILD SUCCEEDED ✅
-  - Commit: PENDING
+  - Commit: 581c429
 
