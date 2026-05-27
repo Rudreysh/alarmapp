@@ -10,3 +10,15 @@
 [DONE] FIX 7 — Bridge start failure now records fallback and schedules immediate audible AlarmKit recovery (same-surface/rebind/new-start paths) — 2026-05-27 13:21:04 CEST
 [DONE] FIX 8 — Mid-ring engine failure now triggers immediate audible AlarmKit recovery while preserving existing respawn scheduling — 2026-05-27 13:23:48 CEST
 [DONE] FIX 9 — Concurrent AlarmKit alerting now follows first-alarm-wins policy, dismisses new concurrent surface, and records event log — 2026-05-27 13:30:35 CEST
+[DONE] FIX 11 — Storage full staging recovery — 2026-05-27 13:40 CEST
+  - File: AlarmSchedulerIOS26AlarmKit.swift
+  - Test: Not run (manual device/storage scenario pending)
+  - Build: BUILD SUCCEEDED ✅
+  - Commit: c7b196a
+
+[DONE] FIX 12 — Alarm during phone call defers audible fade-in and resumes after call ends — 2026-05-27 13:44 CEST
+  - File: AlarmContinuousAudioEngine.swift
+  - Test: Not run (manual phone call scenario pending)
+  - Build: BUILD SUCCEEDED ✅
+  - Commit: PENDING
+

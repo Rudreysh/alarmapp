@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 import UIKit
+import CallKit
 
 @inline(__always)
 private func swiftlog(_ message: String) {
@@ -36,6 +37,9 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
     private var isCurrentlyInterrupted: Bool = false
     private var wasHealthyBeforeInterruption: Bool = false
     private(set) var isProgressingNow: Bool = false
+    private let callObserver = CXCallObserver()
+    private var callEndCheckTimer: Timer?
+    private var deferredFadeInContext: (alarmRunId: UUID, targetVolume: Float)?
     
     private func log(_ message: String) {
         swiftlog(message)
@@ -223,6 +227,9 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         clearEngineState()
         stopWatchdog()
         stopMetering()
+        callEndCheckTimer?.invalidate()
+        callEndCheckTimer = nil
+        deferredFadeInContext = nil
         player?.stop()
         player = nil
         isPlaying = false
@@ -634,6 +641,15 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         }
         log("[Engine] startFadeIn proceeding with player — duration=\(String(format: "%.2f", p.duration))s")
 
+        let onCall = callObserver.calls.contains { !$0.hasEnded }
+        if onCall {
+            log("[Engine] User is on a call — deferring audible alarm")
+            deferredFadeInContext = (alarmRunId: alarmRunId, targetVolume: targetVolume)
+            triggerHapticAlert()
+            scheduleCallEndCheck()
+            return
+        }
+
         do {
             try AVAudioSession.sharedInstance().setActive(true, options: [])
             log("[Engine] startFadeIn: session activated")
@@ -711,6 +727,34 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             }
             self.startWatchdogIfNeeded()
             self.persistEngineState()
+        }
+    }
+
+    private func triggerHapticAlert() {
+        let generator = UINotificationFeedbackGenerator()
+        generator.prepare()
+        generator.notificationOccurred(.warning)
+    }
+
+    private func scheduleCallEndCheck() {
+        callEndCheckTimer?.invalidate()
+        callEndCheckTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
+            let stillOnCall = self.callObserver.calls.contains { !$0.hasEnded }
+            guard !stillOnCall else { return }
+            timer.invalidate()
+            self.callEndCheckTimer = nil
+            guard let context = self.deferredFadeInContext else { return }
+            self.deferredFadeInContext = nil
+            self.log("[Engine] Call ended — resuming alarm audio")
+            self.startFadeIn(
+                alarmRunId: context.alarmRunId,
+                fadeInDuration: 2.0,
+                targetVolume: context.targetVolume
+            )
         }
     }
 
