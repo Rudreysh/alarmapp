@@ -9,6 +9,7 @@ struct AwaykApp: App {
 
     init() {
         AlarmCustomUIHandoffStore.pruneOrphanedMappings()
+        AlarmContinuousAudioEngine.verifyBundledAlarmAssetsOnLaunch()
     }
 
     private static func buildModelContainer() -> ModelContainer {

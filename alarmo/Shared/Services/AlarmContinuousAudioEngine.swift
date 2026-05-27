@@ -303,6 +303,39 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         }
     }
 
+    static func verifyBundledAlarmAssetsOnLaunch() {
+        let fileManager = FileManager.default
+        guard let ringtonesURL = Bundle.main.url(forResource: "BundledSounds/ringtones", withExtension: nil) else {
+#if DEBUG
+            fatalError("CRITICAL: BundledSounds/ringtones folder missing from app bundle")
+#else
+            swiftlog("[CRITICAL] BundledSounds/ringtones folder missing from app bundle")
+            return
+#endif
+        }
+
+        let files = (try? fileManager.contentsOfDirectory(
+            at: ringtonesURL,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )) ?? []
+
+        let hasAudible = files.contains { url in
+            let name = url.lastPathComponent.lowercased()
+            guard !name.contains("silence"), !name.contains("alarmo_silence") else { return false }
+            let size = (try? fileManager.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
+            return size >= 10_000
+        }
+
+        if !hasAudible {
+#if DEBUG
+            fatalError("CRITICAL: No audible alarm sounds in BundledSounds/ringtones")
+#else
+            swiftlog("[CRITICAL] No audible alarm sounds in BundledSounds/ringtones")
+#endif
+        }
+    }
+
     private func configureSession() throws {
         installObserversIfNeeded()
         let session = AVAudioSession.sharedInstance()
@@ -1126,50 +1159,55 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         let bundleURL = Bundle.main.bundleURL
         let extensions = ["mp3", "wav", "m4a", "caf"]
 
-        // Search BundledSounds/ringtones/ first — these are guaranteed alarm-suitable sounds.
+        // Search BundledSounds/ringtones/ first — these should be alarm-suitable sounds.
         let ringingDirURL = bundleURL.appendingPathComponent("BundledSounds/ringtones")
         if fileManager.fileExists(atPath: ringingDirURL.path),
            let enumerator = fileManager.enumerator(at: ringingDirURL, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
             for case let fileURL as URL in enumerator {
                 let ext = fileURL.pathExtension.lowercased()
-                guard extensions.contains(ext) else { continue }
-                let key = normalizedSoundKey(fileURL.deletingPathExtension().lastPathComponent)
-                guard !key.contains("alarmosilence"), !key.contains("silencealarm") else { continue }
+                guard extensions.contains(ext), isAudibleAlarmSound(fileURL) else { continue }
                 log("[Engine] findFallbackSound: ringtones fallback '\(fileURL.lastPathComponent)'")
                 return fileURL
             }
         }
 
-        // Broad bundle scan. Prefer non-SFX sounds; SFX/Ranks level-up sounds are a last resort.
+        if let bundleAudible = bundleWideAudibleSearch(bundleURL: bundleURL, allowedExtensions: extensions) {
+            log("[Engine] findFallbackSound: bundle fallback '\(bundleAudible.lastPathComponent)'")
+            return bundleAudible
+        }
+
+        log("[Engine] ⚠️ CRITICAL: No audible fallback sound found in bundle")
+        AlarmAudioStateController.shared.recordFallback(reason: "no-bundle-audible-sound")
+        return nil
+    }
+
+    private func bundleWideAudibleSearch(bundleURL: URL, allowedExtensions: [String]) -> URL? {
+        let fileManager = FileManager.default
+        var sfxCandidate: URL?
         if let enumerator = fileManager.enumerator(at: bundleURL, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
-            var sfxCandidate: URL?
-            var silentCandidate: URL?
             for case let fileURL as URL in enumerator {
-                guard fileURL.isFileURL, extensions.contains(fileURL.pathExtension.lowercased()) else { continue }
-                let key = normalizedSoundKey(fileURL.deletingPathExtension().lastPathComponent)
-                if key.contains("alarmosilence") || key.contains("silencealarm") {
-                    if silentCandidate == nil { silentCandidate = fileURL }
-                    continue
-                }
+                guard fileURL.isFileURL else { continue }
+                guard allowedExtensions.contains(fileURL.pathExtension.lowercased()) else { continue }
+                guard isAudibleAlarmSound(fileURL) else { continue }
+
                 let isSFX = fileURL.pathComponents.contains("Ranks") || fileURL.pathComponents.contains("SFX")
                 if isSFX {
                     if sfxCandidate == nil { sfxCandidate = fileURL }
                     continue
                 }
-                log("[Engine] findFallbackSound: bundle fallback '\(fileURL.lastPathComponent)'")
                 return fileURL
             }
-            if let sfxCandidate {
-                log("[Engine] findFallbackSound: SFX fallback (no ringtone available) '\(sfxCandidate.lastPathComponent)'")
-                return sfxCandidate
-            }
-            if let silentCandidate {
-                log("[Engine] findFallbackSound: only silent fallback available '\(silentCandidate.lastPathComponent)'")
-                return silentCandidate
-            }
         }
-        log("[Engine] findFallbackSound: no fallback sound found in bundle")
-        return nil
+        return sfxCandidate
+    }
+
+    private func isAudibleAlarmSound(_ url: URL) -> Bool {
+        let filename = url.lastPathComponent.lowercased()
+        if filename.contains("silence") || filename.contains("alarmo_silence") {
+            return false
+        }
+        let size = fileSizeAtURL(url)
+        return size >= 10_000
     }
 
     private func normalizedSoundKey(_ raw: String) -> String {
