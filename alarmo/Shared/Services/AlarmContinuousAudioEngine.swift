@@ -312,24 +312,63 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
 
     static func verifyBundledAlarmAssetsOnLaunch() {
         let fileManager = FileManager.default
-        guard let ringtonesURL = Bundle.main.url(forResource: "BundledSounds/ringtones", withExtension: nil) else {
+        let requiredPath = "BundledSounds/ringtones/Default Alarm.caf"
+        let resourceBase = Bundle.main.resourceURL ?? Bundle.main.bundleURL
+        let requiredPathCandidates = [
+            resourceBase.appendingPathComponent(requiredPath),
+            resourceBase.appendingPathComponent("Resources/\(requiredPath)"),
+            Bundle.main.bundleURL.appendingPathComponent(requiredPath),
+            Bundle.main.bundleURL.appendingPathComponent("Resources/\(requiredPath)"),
+            resourceBase.appendingPathComponent("Default Alarm.caf"),
+            Bundle.main.bundleURL.appendingPathComponent("Default Alarm.caf")
+        ]
+        let requiredFileURL = requiredPathCandidates.first(where: { fileManager.fileExists(atPath: $0.path) })
+        let requiredExists = requiredFileURL != nil
+        let requiredSize = requiredFileURL.flatMap {
+            (try? fileManager.attributesOfItem(atPath: $0.path)[.size] as? Int64) ?? 0
+        } ?? 0
+        if !requiredExists || requiredSize < 50_000 {
+            let attemptedPaths = requiredPathCandidates.map(\.path).joined(separator: " | ")
+            swiftlog("[CRITICAL] Missing or invalid required fallback asset: \(requiredPath) size=\(requiredSize) attempted=\(attemptedPaths)")
 #if DEBUG
-            fatalError("CRITICAL: BundledSounds/ringtones folder missing from app bundle")
+            fatalError("CRITICAL: Required fallback asset missing or invalid at \(requiredPath)")
 #else
-            swiftlog("[CRITICAL] BundledSounds/ringtones folder missing from app bundle")
             return
 #endif
         }
-
-        let files = (try? fileManager.contentsOfDirectory(
-            at: ringtonesURL,
-            includingPropertiesForKeys: nil,
-            options: [.skipsHiddenFiles]
-        )) ?? []
+        if let resolved = requiredFileURL,
+           !resolved.path.contains("/BundledSounds/ringtones/") {
+            swiftlog("[WARN] Required fallback asset resolved outside canonical path: \(resolved.path)")
+        }
+        let allowedExtensions = Set(["mp3", "wav", "m4a", "caf"])
+        let ringtoneCandidates = [
+            resourceBase.appendingPathComponent("BundledSounds/ringtones", isDirectory: true),
+            resourceBase.appendingPathComponent("Resources/BundledSounds/ringtones", isDirectory: true),
+            Bundle.main.bundleURL.appendingPathComponent("BundledSounds/ringtones", isDirectory: true),
+            Bundle.main.bundleURL.appendingPathComponent("Resources/BundledSounds/ringtones", isDirectory: true)
+        ]
+        let ringtonesURL = ringtoneCandidates.first(where: { fileManager.fileExists(atPath: $0.path) })
+        let files: [URL]
+        if let ringtonesURL {
+            files = (try? fileManager.contentsOfDirectory(
+                at: ringtonesURL,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )) ?? []
+        } else {
+            files = (fileManager.enumerator(
+                at: resourceBase,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )?.allObjects as? [URL])?
+                .filter { allowedExtensions.contains($0.pathExtension.lowercased()) } ?? []
+            swiftlog("[WARN] BundledSounds/ringtones directory not found directly; using bundle-wide scan")
+        }
 
         let hasAudible = files.contains { url in
             let name = url.lastPathComponent.lowercased()
             guard !name.contains("silence"), !name.contains("alarmo_silence") else { return false }
+            guard allowedExtensions.contains(url.pathExtension.lowercased()) else { return false }
             let size = (try? fileManager.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
             return size >= 10_000
         }
@@ -346,16 +385,14 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
     private func configureSession() throws {
         installObserversIfNeeded()
         let session = AVAudioSession.sharedInstance()
-        // .mixWithOthers prevents `cannotInterruptOthers` activation failures
-        // while app is backgrounded/locked and system surfaces are transitioning.
-        try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+        try session.setCategory(.playback, mode: .default, options: [])
         try session.setActive(true, options: [])
     }
 
     private func configureSessionCategoryOnly() throws {
         installObserversIfNeeded()
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+        try session.setCategory(.playback, mode: .default, options: [])
     }
 
     private func installObserversIfNeeded() {

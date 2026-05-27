@@ -1624,17 +1624,8 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
         Task { @MainActor in
             guard let sourceUUID = UUID(uuidString: sourceAlarmId) else { return }
-            do {
-                let alarms = try AlarmManager.shared.alarms
-                for alarm in alarms where alarm.state == .alerting {
-                    let mappedSource = AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: alarm.id.uuidString)
-                    guard mappedSource == sourceAlarmId || alarm.id.uuidString == sourceAlarmId else { continue }
-                    try? AlarmManager.shared.stop(id: alarm.id)
-                    try? AlarmManager.shared.cancel(id: alarm.id)
-                }
-            } catch {
-                print("[NotificationManager] inspect-before-hardware-respawn failed: \(error)")
-            }
+            // Keep any currently alerting AlarmKit surface alive during active ring.
+            // Stopping/canceling here can tear down audible ownership unexpectedly.
 
             let helper = AlarmSchedulerIOS26AlarmKit()
             let sourceAlarm = (alarmStore ?? AlarmStore.shared).alarm(by: sourceUUID)

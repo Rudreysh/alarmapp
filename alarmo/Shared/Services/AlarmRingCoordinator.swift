@@ -53,9 +53,7 @@ final class AlarmRingCoordinator: ObservableObject {
                 queue: .main
             ) { [weak self] _ in
                 guard let self else { return }
-                self.endRingingBackgroundTask()
-                AlarmBackgroundAudioBridge.shared.stop()
-                print("[Coordinator] Ring background task ended — engine is now primary audio owner")
+                print("[Coordinator] Engine became primary — preserving ring background task and bridge until final Stop/Snooze")
             }
         }
     }

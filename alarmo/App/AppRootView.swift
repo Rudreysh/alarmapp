@@ -546,8 +546,7 @@ struct AppRootView: View {
             print("📲 [ALARMTRACE_ROOT] EVENT=DEFERRED_DISMISS_SURFACE_SCHEDULED SOURCE=\(sourceAlarmId) SURFACE=\(alarmId)")
             try? await Task.sleep(nanoseconds: 350_000_000)
             guard ringCoordinator.isRinging else { return }
-            print("📲 [ALARMTRACE_ROOT] EVENT=DEFERRED_DISMISS_SURFACE_EXECUTING SOURCE=\(sourceAlarmId) SURFACE=\(alarmId)")
-            notificationManager.dismissLinkedAlarmKitSurfaces(sourceAlarmId: sourceAlarmId)
+            print("📲 [ALARMTRACE_ROOT] EVENT=DEFERRED_DISMISS_SURFACE_SKIPPED_ACTIVE_RING SOURCE=\(sourceAlarmId) SURFACE=\(alarmId)")
             _ = alarmId
         }
     }
