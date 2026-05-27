@@ -25,8 +25,9 @@ struct OnboardingNameView: View {
                     .focused($isNameFocused)
 
                 Rectangle()
-                    .fill(Colors.textSecondary.opacity(0.15))
-                    .frame(height: 1)
+                    .fill(isNameFocused ? Colors.accentTeal : Colors.textSecondary.opacity(0.25))
+                    .frame(height: isNameFocused ? 2 : 1)
+                    .animation(.easeInOut(duration: 0.2), value: isNameFocused)
                     .padding(.top, 10)
 
                 Spacer()
@@ -39,6 +40,8 @@ struct OnboardingNameView: View {
                 }
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, Spacing.m)
+                .disabled(firstName.trimmingCharacters(in: .whitespaces).isEmpty)
+                .opacity(firstName.trimmingCharacters(in: .whitespaces).isEmpty ? 0.4 : 1.0)
             }
         }
         .onAppear {

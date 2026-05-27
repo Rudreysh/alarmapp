@@ -100,7 +100,7 @@ struct PomoTimerView: View {
             let topSectionSpacer = isDenseLayout ? CGFloat(6) : CGFloat(16)
             let controlsTopSpacer = isDenseLayout ? CGFloat(2) : CGFloat(8)
             let diameter = min(availableWidth * 0.75, availableHeight * 0.45)
-            let middleDialDiameter = diameter * 0.60 // 20% smaller than previous center dial size
+            let middleDialDiameter = diameter * 0.72 // 20% larger circumference than the previous Pomodoro circle
             let ringSectionSpacing = isDenseLayout ? CGFloat(18) : CGFloat(24)
             let timerReadoutSize = max(Layout.timerReadoutMinimumSize, diameter * Layout.timerReadoutBaseFactor * Layout.timerReadoutScale)
             let resetIconSize = Layout.resetBaseSize * Layout.resetScale

@@ -513,7 +513,7 @@ struct HomeView: View {
                     }
 
                     VStack(spacing: 10) {
-                        launcherCircleButton(icon: "alarm.fill", tint: Colors.accentRed) {
+                        launcherCircleButton(icon: "plus", tint: Colors.accentRed) {
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                             withAnimation(.easeInOut(duration: 0.22)) {
                                 showAlarmExpandedPanel = true
@@ -530,7 +530,7 @@ struct HomeView: View {
                         Capsule(style: .continuous)
                             .stroke(Colors.cardStroke.opacity(0.35), lineWidth: 1)
                     )
-                    .appShadow(Shadows.card)
+                    .appShadow(alarmLauncherShadow)
                     .coachMark(
                         title: "Add Alarm",
                         subtitle: "Tap icon to create.",
@@ -614,6 +614,10 @@ struct HomeView: View {
 
     private func openCreateAlarm() {
         showAddMenu = false
+        sortOrder = 3
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showAlarmExpandedPanel = false
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             showCreateAlarm = true
         }
@@ -702,6 +706,17 @@ struct HomeView: View {
 }
 
 private extension HomeView {
+    var alarmLauncherShadow: AppShadow {
+        SettingsStore.shared.alarmThemeStyle == .tiimo
+            ? AppShadow(
+                color: Colors.shadow.opacity(0.5),
+                radius: Shadows.card.radius * 0.5,
+                x: Shadows.card.x,
+                y: Shadows.card.y * 0.5
+            )
+            : Shadows.card
+    }
+
     func launcherCircleButton(icon: String, tint: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             ZStack {
@@ -721,9 +736,9 @@ private extension HomeView {
             VStack(spacing: 12) {
                 alarmExpandedRow(
                     icon: "alarm.fill",
-                    title: "Set Alarm",
+                    title: "New Alarm",
                     tint: Colors.accentRed,
-                    action: { openEditAlarmFromLauncher() }
+                    action: { openCreateAlarm() }
                 )
 
                 alarmExpandedRow(

@@ -357,6 +357,7 @@ struct OnboardingFlowView: View {
                 }
             }
                 }
+                .environment(\.usesOnboardingDefaultWhiteButton, true)
         .tint(Colors.accentTeal)
     }
 

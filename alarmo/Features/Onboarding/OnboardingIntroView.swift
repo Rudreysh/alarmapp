@@ -40,12 +40,16 @@ var body: some View {
             }
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 12) {
-                    PrimaryButton(title: "Continue", style: .blueGlass) {
+                    Text("Quick setup · 2 min")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Colors.textTertiary)
+
+                    PrimaryButton(title: "Let's go", style: .blueGlass) {
                         onNext()
                     }
                 }
                 .padding(.horizontal, Spacing.l)
-                .padding(.bottom, 48) // Elevated like the other screens
+                .padding(.bottom, 48)
             }
         }
         .onChange(of: currentPage) { _, newPage in
