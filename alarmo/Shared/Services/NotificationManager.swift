@@ -1014,6 +1014,51 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         print("[NotificationManager] ❌ ALL backup AlarmKit schedule attempts failed: \(lastError?.localizedDescription ?? "unknown")")
     }
 
+    @available(iOS 26.0, *)
+    @MainActor
+    func scheduleImmediateAudibleFallback(sourceAlarmId: String?, reason: String) async {
+        guard let sourceAlarmId,
+              let sourceUUID = UUID(uuidString: sourceAlarmId) else { return }
+
+        print("[NotificationManager] Immediate audible fallback for \(sourceAlarmId) — reason: \(reason)")
+
+        // Ensure fallback phase is armed before scheduling.
+        if AlarmAudioStateController.shared.phase != .alarmKitFallback {
+            AlarmAudioStateController.shared.recordFallback(reason: "immediate-audible-fallback-\(reason)")
+        }
+
+        let helper = AlarmSchedulerIOS26AlarmKit()
+        let sourceAlarm = (alarmStore ?? AlarmStore.shared).alarm(by: sourceUUID)
+        let title: String
+        if let sourceAlarmName = sourceAlarm?.name.trimmingCharacters(in: .whitespacesAndNewlines),
+           !sourceAlarmName.isEmpty {
+            title = sourceAlarmName
+        } else {
+            title = "Alarm"
+        }
+
+        let preferredSound = sourceAlarm?.soundName ?? AlarmAudioStateController.shared.selectedSoundName
+        let immediateSurfaceUUID = UUID()
+
+        do {
+            _ = try await helper.scheduleWithFallbackSound(
+                manager: AlarmManager.shared,
+                id: immediateSurfaceUUID,
+                originalAlarmID: sourceUUID,
+                title: title,
+                schedule: .fixed(Date().addingTimeInterval(0.5)),
+                snoozeEnabled: false,
+                snoozeInterval: nil,
+                preferredSoundName: preferredSound
+            )
+            AlarmCustomUIHandoffStore.request(alarmID: sourceUUID, surfaceAlarmID: immediateSurfaceUUID)
+            pendingBackupAlarmIds[sourceAlarmId] = immediateSurfaceUUID
+            print("[NotificationManager] ✅ Immediate audible fallback scheduled at +0.5s for source=\(sourceAlarmId)")
+        } catch {
+            print("[NotificationManager] ❌ Immediate audible fallback failed for \(sourceAlarmId): \(error)")
+        }
+    }
+
     /// Cancel the currently-pending backup alarm for a source. Called when
     /// the backup fires (so the next one can be scheduled) OR when the user
     /// presses Stop/Snooze in-app (chain ends).

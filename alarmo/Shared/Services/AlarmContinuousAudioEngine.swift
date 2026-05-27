@@ -609,7 +609,15 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             log("[Volume] outputVolume=\(String(format: "%.2f", activatedOutput)) playerVolume=\(String(format: "%.2f", p.volume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) reason=start-fadein-activated")
             if appState != .active && activatedOutput <= 0.01 {
                 log("[Engine] startFadeIn: locked/background with near-zero outputVolume (\(String(format: "%.2f", activatedOutput))) — switching to AlarmKit fallback")
-                AlarmAudioStateController.shared.recordFallback(reason: "locked-zero-output-at-fadein")
+                AlarmAudioStateController.shared.recordFallback(reason: "muted-defer-to-alarmkit-audible")
+                if #available(iOS 26.0, *) {
+                    Task { @MainActor in
+                        await NotificationManager.shared.scheduleImmediateAudibleFallback(
+                            sourceAlarmId: self.currentAlarmId,
+                            reason: "muted-engine-cannot-play"
+                        )
+                    }
+                }
                 return
             }
         } catch {
