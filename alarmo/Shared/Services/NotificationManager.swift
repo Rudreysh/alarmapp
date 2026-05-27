@@ -99,7 +99,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     /// shortest first; if AlarmKit silently rejects it (some iOS builds reject
     /// schedules under a certain threshold), we fall back to longer delays.
     /// Worst-case gap of silence between AlarmKit fires.
-    private static let backupAlarmDelays: [TimeInterval] = [2.0, 3.0, 5.0]
+    private static let backupAlarmDelays: [TimeInterval] = [3.0]
     private enum AlarmFlowPhase {
         case idle
         case ringingLocked
@@ -981,6 +981,10 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             print("[Backup] Skipping backup chain — engine is active and healthy (would cause session conflict)")
             return
         }
+        if AlarmAudioStateController.shared.phase == .alarmKitFallback {
+            print("[Backup] Engine unhealthy but already in alarmKitFallback — skipping backup chain to avoid alerting churn")
+            return
+        }
         print("[Backup] Engine not healthy — scheduling backup AlarmKit chain")
 
         let helper = AlarmSchedulerIOS26AlarmKit()
@@ -1630,7 +1634,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             let helper = AlarmSchedulerIOS26AlarmKit()
             let sourceAlarm = (alarmStore ?? AlarmStore.shared).alarm(by: sourceUUID)
             let title = resolvedAlarmLabel(sourceAlarmId: sourceAlarmId, alarmName: alarmName)
-            let delayLadder: [TimeInterval] = [2.0, 2.2, 2.4, 2.6]
+            let delayLadder: [TimeInterval] = [3.0]
             let snoozeInterval = sourceAlarm.flatMap { helper.resolvedSnoozeInterval(for: $0) }
             let snoozeEnabled = snoozeInterval != nil
 
@@ -1648,7 +1652,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                         preferredSoundName: sourceAlarm?.soundName
                     )
                     AlarmCustomUIHandoffStore.request(alarmID: sourceUUID, surfaceAlarmID: newUUID)
-                    print("[NotificationManager] \(reason) — respawning AlarmKit in 2s (source=\(sourceAlarmId), delay=\(delay))")
+                    print("[NotificationManager] \(reason) — respawning AlarmKit in 3s (source=\(sourceAlarmId), delay=\(delay))")
                     return
                 } catch {
                     print("[NotificationManager] Hardware respawn attempt +\(delay)s failed for \(sourceAlarmId): \(error)")
@@ -1843,12 +1847,8 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         // Dismiss the PREVIOUSLY-fired alarm for this source so banners
         // don't stack. Only one AlarmKit alarm should be alerting at a time
         // for any given source — the most recent backup or the original.
-        if let priorAlertingId = lastFiredAlarmIdsBySource[sourceAlarmId],
-           priorAlertingId != alarm.id {
-            try? AlarmManager.shared.stop(id: priorAlertingId)
-            try? AlarmManager.shared.cancel(id: priorAlertingId)
-            print("[NotificationManager] 🧹 Dismissed prior alerting alarm \(priorAlertingId.uuidString) to prevent banner stacking")
-        }
+        // Do not stop/cancel previously alerting surfaces during active ring maintenance.
+        // Aggressive surface pruning here can trigger alerting churn and audible gaps.
         lastFiredAlarmIdsBySource[sourceAlarmId] = alarm.id
 
         // Mark the backup slot empty if this was a backup that fired.

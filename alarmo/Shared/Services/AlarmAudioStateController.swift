@@ -52,6 +52,7 @@ final class AlarmAudioStateController {
     private var takeoverWorkItem: DispatchWorkItem?
     private var takeoverScheduled: Bool = false
     private var takeoverScheduledAt: Date?
+    private var fallbackRespawnScheduledRunId: UUID?
 
     private let allowedTransitions: [AlarmAudioPhase: Set<AlarmAudioPhase>] = [
         .waitingForAlarmKit: [.alarmKitSettling, .appEnginePreparing, .stopped],
@@ -118,6 +119,7 @@ final class AlarmAudioStateController {
 
         takeoverScheduled = false
         takeoverScheduledAt = nil
+        fallbackRespawnScheduledRunId = nil
         currentAlarmId = alarmId
         currentAlarmRunId = UUID()
         selectedSoundName = soundName
@@ -159,7 +161,12 @@ final class AlarmAudioStateController {
     func recordFallback(reason: String) {
         let previousPhase = phase
         let alarmId = currentAlarmId
-        transitionAudioPhase(to: .alarmKitFallback, reason: reason)
+        let runId = currentAlarmRunId
+        if phase != .alarmKitFallback {
+            transitionAudioPhase(to: .alarmKitFallback, reason: reason)
+        } else {
+            log("[StateController] Already in alarmKitFallback — suppressing duplicate fallback transition. reason=\(reason)")
+        }
 
         if previousPhase == .appEnginePrimary || previousPhase == .appEngineFadingIn {
             log("[StateController] ⚠️ Engine failed mid-ring (was in \(previousPhase.rawValue))")
@@ -178,6 +185,11 @@ final class AlarmAudioStateController {
         }
 
         if let alarmId {
+            if fallbackRespawnScheduledRunId == runId {
+                log("[StateController] Fallback respawn already scheduled for runId=\(runId?.uuidString ?? "nil") — suppressing duplicate schedule")
+                return
+            }
+            fallbackRespawnScheduledRunId = runId
             NotificationManager.shared.scheduleHardwareButtonRespawnIfNeeded(
                 sourceAlarmId: alarmId,
                 alarmName: nil,
@@ -189,6 +201,7 @@ final class AlarmAudioStateController {
     func recordStopped(reason: String) {
         takeoverScheduled = false
         takeoverScheduledAt = nil
+        fallbackRespawnScheduledRunId = nil
         terminalActionRecorded = true
         takeoverWorkItem?.cancel()
         takeoverWorkItem = nil
@@ -315,7 +328,7 @@ final class AlarmAudioStateController {
             log("[StateController] Takeover blocked — terminal action recorded")
             return
         }
-        guard phase == .alarmKitSettling || phase == .appEnginePreparing else {
+        guard phase == .alarmKitSettling || phase == .appEnginePreparing || phase == .alarmKitFallback else {
             log("[StateController] Takeover blocked — phase \(phase.rawValue) not eligible")
             return
         }
