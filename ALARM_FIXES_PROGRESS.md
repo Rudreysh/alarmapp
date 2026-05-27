@@ -32,5 +32,5 @@
   - Files: AlarmDiagnostics.swift, AlarmStore.swift, AlarmContinuousAudioEngine.swift
   - Test: Not run (UI banner/alert wiring intentionally left to existing view subscribers)
   - Build: BUILD SUCCEEDED ✅
-  - Commit: PENDING
+  - Commit: 5edcc84
 
