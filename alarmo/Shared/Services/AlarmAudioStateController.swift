@@ -181,8 +181,8 @@ final class AlarmAudioStateController {
     }
 
     func handleAlarmKitAlerting(alarmId: String, soundName: String, reason: String) {
-        if phase == .appEngineFadingIn || phase == .appEnginePrimary {
-            log("[StateController] AlarmKit alerting — engine already primary, dismissing surface only")
+        if phase == .appEnginePreparing || phase == .appEngineFadingIn || phase == .appEnginePrimary {
+            log("[StateController] AlarmKit alerting after engine already started — dismissing surface only")
             NotificationManager.shared.dismissLinkedAlarmKitSurfaces(sourceAlarmId: alarmId)
             return
         }
@@ -244,6 +244,17 @@ final class AlarmAudioStateController {
     /// Creates/reuses session and schedules takeover with the same runId.
     func handleForegroundTimerAlarm(alarmId: String, soundName: String) {
         log("[StateController] handleForegroundTimerAlarm: alarmId=\(alarmId)")
+
+        guard phase == .stopped else {
+            log("[StateController] Foreground timer ignored — phase is \(phase.rawValue)")
+            return
+        }
+
+        if currentAlarmId == alarmId && currentAlarmRunId != nil {
+            log("[StateController] Foreground timer: session already exists for \(alarmId)")
+            return
+        }
+
         beginAlarmSession(alarmId: alarmId, soundName: soundName, reason: "foreground-timer")
         guard let runId = currentAlarmRunId else { return }
         log("[StateController] handleForegroundTimerAlarm: runId=\(runId.uuidString)")
