@@ -8,19 +8,13 @@ struct OnboardingFlowView: View {
 
     var body: some View {
         NavigationStack(path: $viewModel.navigationPath) {
-            OnboardingIntroView(onNext: {
-                withAnimation(.easeInOut) {
-                    viewModel.startSetupFlowFromIntroCTA()
+            Group {
+                if AlarmThemeStyle.persisted.usesTiimoLayoutBranch {
+                    OnboardingIntroView(onNext: startSetupFlow, onSkip: skipOnboarding)
+                } else {
+                    WelcomeView(onContinue: startSetupFlow, onSkip: skipOnboarding)
                 }
-            }, onSkip: {
-                // Skip onboarding entirely and go straight to main alarm UI.
-                withAnimation(.easeInOut) {
-                    appPreferences.devAlwaysShowOnboarding = false
-                    appPreferences.forceShowOnboardingNextLaunch = false
-                    appPreferences.onboardingCompleted = true
-                    viewModel.completeOnboarding()
-                }
-            })
+            }
             .navigationDestination(for: OnboardingStep.self) { step in
                 switch step {
                 case .namePrompt:
@@ -354,11 +348,27 @@ struct OnboardingFlowView: View {
                     .navigationBarBackButtonHidden(true)
                 case .intro:
                     EmptyView()
-                }
             }
-                }
+        }
+    }
+
                 .environment(\.usesOnboardingDefaultWhiteButton, true)
         .tint(Colors.accentTeal)
+    }
+
+    private func startSetupFlow() {
+        withAnimation(.easeInOut) {
+            viewModel.startSetupFlowFromIntroCTA()
+        }
+    }
+
+    private func skipOnboarding() {
+        withAnimation(.easeInOut) {
+            appPreferences.devAlwaysShowOnboarding = false
+            appPreferences.forceShowOnboardingNextLaunch = false
+            appPreferences.onboardingCompleted = true
+            viewModel.completeOnboarding()
+        }
     }
 
     private func beginNameWelcomeMascotFlight() {

@@ -36,7 +36,7 @@ struct SunRayTimePickerView: View {
     @State private var ringGlowPulse: CGFloat = 0.0
     @State private var lastTickSoundAt: CFAbsoluteTime = 0
     var sizeMultiplier: CGFloat = 1.0
-    private let tiimoWeekdayPurple = Color(hex: "#7F77DD")
+    private var tiimoWeekdayPurple: Color { Colors.accentBlue }
     
     // Base Sunray size. Final size can be increased by `sizeMultiplier`.
     private let baseSize: CGFloat = 214
@@ -84,7 +84,7 @@ struct SunRayTimePickerView: View {
     }
     
     private var isTiimo: Bool {
-        settingsStore.alarmThemeStyle == .tiimo
+        settingsStore.alarmThemeStyle.usesTiimoLayoutBranch
     }
     
     var body: some View {
@@ -103,9 +103,9 @@ struct SunRayTimePickerView: View {
                     .padding(.horizontal, 8)
                     .background(
                         Capsule()
-                            .fill(is12HourFormat ? (isTiimo ? Color(hex: "#F0EFFE") : Colors.accentTeal.opacity(0.15)) : Color.clear)
+                            .fill(is12HourFormat ? (isTiimo ? Colors.pillGreen : Colors.accentTeal.opacity(0.15)) : Color.clear)
                             .overlay(
-                                Capsule().stroke(is12HourFormat ? (isTiimo ? tiimoWeekdayPurple.opacity(0.5) : Colors.accentTeal.opacity(0.5)) : (isTiimo ? Color(hex: "#E0DCFF") : Colors.cardStroke), lineWidth: 1)
+                                Capsule().stroke(is12HourFormat ? (isTiimo ? tiimoWeekdayPurple.opacity(0.5) : Colors.accentTeal.opacity(0.5)) : Colors.cardStroke, lineWidth: 1)
                             )
                     )
             }
@@ -148,7 +148,7 @@ struct SunRayTimePickerView: View {
                         }
                         
                         Circle()
-                            .stroke(isTiimo ? Color(hex: "#C4BCFF") : Colors.cardStroke, lineWidth: 1)
+                            .stroke(isTiimo ? Colors.saleBadgeStart : Colors.cardStroke, lineWidth: 1)
                             .frame(width: size, height: size)
                         
                         ForEach(0..<60) { i in
@@ -159,7 +159,7 @@ struct SunRayTimePickerView: View {
                                 .fill(
                                     isActiveTick
                                     ? (isTiimo ? tiimoWeekdayPurple : Colors.accentTeal)
-                                    : (isTiimo ? Color(hex: "#D0CCED") : (isLightMode ? Colors.textSecondary.opacity(i % 5 == 0 ? 0.28 : 0.14) : Color.white.opacity(i % 5 == 0 ? 0.3 : 0.1)))
+                                    : (isTiimo ? Colors.cardStroke : (isLightMode ? Colors.textSecondary.opacity(i % 5 == 0 ? 0.28 : 0.14) : Color.white.opacity(i % 5 == 0 ? 0.3 : 0.1)))
                                 )
                                 .frame(width: i % 5 == 0 ? 2 : 1, height: i % 5 == 0 ? 10 : 6)
                                 .offset(y: -(size/2))
@@ -256,7 +256,7 @@ struct SunRayTimePickerView: View {
                         Rectangle()
                             .fill(
                                 isTiimo
-                                ? LinearGradient(colors: [Color(hex: "#9D92F2"), tiimoWeekdayPurple], startPoint: .bottom, endPoint: .top)
+                                ? LinearGradient(colors: [Colors.saleBadgeStart, tiimoWeekdayPurple], startPoint: .bottom, endPoint: .top)
                                 : LinearGradient(
                                     colors: [
                                         Color.white.opacity(0.92),
@@ -275,7 +275,7 @@ struct SunRayTimePickerView: View {
                             .fill(
                                 isTiimo
                                 ? LinearGradient(
-                                    colors: [Color(hex: "#B8AEFF"), Color(hex: "#8E82EF"), Color(hex: "#6F62E6")],
+                                    colors: [Colors.saleBadgeStart, Colors.saleBadgeEnd, tiimoWeekdayPurple],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -284,7 +284,7 @@ struct SunRayTimePickerView: View {
                             .frame(width: 12, height: 12)
                             .overlay(
                                 Circle()
-                                    .stroke(isTiimo ? Color(hex: "#CFC8FF").opacity(0.95) : Color.clear, lineWidth: isTiimo ? 1 : 0)
+                                    .stroke(isTiimo ? Colors.saleBadgeStart.opacity(0.95) : Color.clear, lineWidth: isTiimo ? 1 : 0)
                             )
                             .shadow(color: isTiimo ? .clear : Color.white.opacity(0.8), radius: 4)
                     }
@@ -375,6 +375,12 @@ struct SunRayTimePickerView: View {
                             )
                         }
                     }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        activeComponent = .hour
+                        showWheelPicker = true
+                        triggerFeedback()
+                    }
                 }
                 .frame(width: size + 30, height: size + 30)
             }
@@ -392,9 +398,9 @@ struct SunRayTimePickerView: View {
                     .padding(.horizontal, 8)
                     .background(
                         Capsule()
-                            .fill(!is12HourFormat ? (isTiimo ? Color(hex: "#F0EFFE") : Colors.accentTeal.opacity(0.15)) : Color.clear)
+                            .fill(!is12HourFormat ? (isTiimo ? Colors.pillGreen : Colors.accentTeal.opacity(0.15)) : Color.clear)
                             .overlay(
-                                Capsule().stroke(!is12HourFormat ? (isTiimo ? tiimoWeekdayPurple.opacity(0.5) : Colors.accentTeal.opacity(0.5)) : (isTiimo ? Color(hex: "#E0DCFF") : Colors.cardStroke), lineWidth: 1)
+                                Capsule().stroke(!is12HourFormat ? (isTiimo ? tiimoWeekdayPurple.opacity(0.5) : Colors.accentTeal.opacity(0.5)) : Colors.cardStroke, lineWidth: 1)
                             )
                     )
             }

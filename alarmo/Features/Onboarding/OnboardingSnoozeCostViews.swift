@@ -1,7 +1,7 @@
 import SwiftUI
 
 private var isTiimoOnboardingTheme: Bool {
-    SettingsStore.shared.alarmThemeStyle == .tiimo
+    SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch
 }
 
 private var snoozeLossColor: Color {
@@ -349,7 +349,7 @@ struct OnboardingSnoozePayoffView: View {
     @State private var bar2: CGFloat = 0
     @State private var bar3: CGFloat = 0
     @State private var reveal = false
-    private var isTiimoTheme: Bool { SettingsStore.shared.alarmThemeStyle == .tiimo }
+    private var isTiimoTheme: Bool { SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch }
 
     var body: some View {
         let calc = viewModel.snoozeCalculator

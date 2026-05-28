@@ -111,7 +111,7 @@ private struct FocusDialAlarmTimePickerView: View {
     private let ringSize: CGFloat = 186
     private let ringWidth: CGFloat = 36
     private let alarmRingBlue = Color(red: 0.08, green: 0.78, blue: 0.92)
-    private let tiimoWeekdayPurple = Color(hex: "#7F77DD")
+    private var tiimoWeekdayPurple: Color { Colors.accentBlue }
 
     private var progress: Double {
         min(max(currentMinutesInCycle / totalMinutesInCycle, 0), 1)
@@ -166,7 +166,7 @@ private struct FocusDialAlarmTimePickerView: View {
     }
 
     private var isTiimo: Bool {
-        settingsStore.alarmThemeStyle == .tiimo
+        settingsStore.alarmThemeStyle.usesTiimoLayoutBranch
     }
 
     private var ringAccentColor: Color {
@@ -185,9 +185,9 @@ private struct FocusDialAlarmTimePickerView: View {
     private var innerCircleGradientColors: [Color] {
         if isTiimo {
             return [
-                Color(hex: "#6A5CC4").opacity(0.98),
-                Color(hex: "#5446AB").opacity(0.96),
-                Color(hex: "#3E317F").opacity(0.95)
+                Colors.saleBadgeEnd.opacity(0.98),
+                Colors.accentBlue.opacity(0.96),
+                Colors.accentTeal.opacity(0.95)
             ]
         }
         return [
@@ -300,18 +300,25 @@ private struct FocusDialAlarmTimePickerView: View {
                 }
                 .frame(width: ringSize + 160)
             }
-            .frame(width: ringSize + 20, height: ringSize + 20)
-            .contentShape(Circle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        isDragging = true
-                        updateFromDrag(location: value.location)
-                    }
-                    .onEnded { _ in
-                        isDragging = false
-                    }
-            )
+            // Keep frame wide enough so side format buttons remain fully tappable.
+            .frame(width: ringSize + 170, height: ringSize + 20)
+            .overlay {
+                // Restrict drag gesture hit-testing to a ring band (not the center)
+                // so the center time remains tappable and side 12H/24H buttons work.
+                Circle()
+                    .stroke(Color.white.opacity(0.001), lineWidth: ringWidth + 28)
+                    .frame(width: ringSize + 20, height: ringSize + 20)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                isDragging = true
+                                updateFromDrag(location: value.location)
+                            }
+                            .onEnded { _ in
+                                isDragging = false
+                            }
+                    )
+            }
 
             Button {
                 showWheelPicker = true

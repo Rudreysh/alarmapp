@@ -9,7 +9,7 @@ struct OnboardingQuoteCategorySelectionView: View {
     private let previewTimer = Timer.publish(every: 8, on: .main, in: .common).autoconnect()
     
     private var isTiimoTheme: Bool {
-        SettingsStore.shared.alarmThemeStyle == .tiimo
+        SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch
     }
     
     private var titleColor: Color {

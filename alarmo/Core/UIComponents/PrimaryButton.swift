@@ -23,12 +23,20 @@ struct PrimaryButton: View {
     let action: () -> Void
     @Environment(\.usesOnboardingDefaultWhiteButton) private var usesOnboardingDefaultWhiteButton
 
-    private var isTiimo: Bool {
-        SettingsStore.shared.alarmThemeStyle == .tiimo
+    private var themeStyle: AlarmThemeStyle {
+        SettingsStore.shared.alarmThemeStyle
+    }
+
+    private var usesTiimoLayoutTheme: Bool {
+        themeStyle.usesTiimoLayoutBranch
+    }
+
+    private var usesTiimoDarkButton: Bool {
+        themeStyle == .tiimo
     }
 
     private var usesDefaultOnboardingWhiteStyle: Bool {
-        !isTiimo && usesOnboardingDefaultWhiteButton
+        !usesTiimoLayoutTheme && usesOnboardingDefaultWhiteButton
     }
 
     var body: some View {
@@ -59,31 +67,34 @@ struct PrimaryButton: View {
                 y: shadowY
             )
         }
-        .buttonStyle(AdaptiveButtonStyle(isTiimo: isTiimo))
+        .buttonStyle(AdaptiveButtonStyle(usesTiimoLayoutTheme: usesTiimoLayoutTheme))
         .accessibilityLabel(Text(title))
     }
 
     private var buttonFontSize: CGFloat {
-        isTiimo ? 17 : 18
+        usesTiimoLayoutTheme ? 17 : 18
     }
 
     private var buttonFontWeight: Font.Weight {
-        isTiimo ? .semibold : .bold
+        usesTiimoLayoutTheme ? .semibold : .bold
     }
 
     private var foregroundColor: Color {
         if usesDefaultOnboardingWhiteStyle {
             return .black
         }
-        return isTiimo ? .white : Colors.textPrimary
+        if usesTiimoDarkButton {
+            return .white
+        }
+        return Colors.textPrimary
     }
 
     private var fixedHeight: CGFloat? {
-        (isTiimo || usesDefaultOnboardingWhiteStyle) ? 56 : nil
+        (usesTiimoLayoutTheme || usesDefaultOnboardingWhiteStyle) ? 56 : nil
     }
 
     private var verticalPadding: CGFloat {
-        (isTiimo || usesDefaultOnboardingWhiteStyle) ? 0 : Spacing.m
+        (usesTiimoLayoutTheme || usesDefaultOnboardingWhiteStyle) ? 0 : Spacing.m
     }
 
     private var strokeColor: Color {
@@ -98,7 +109,7 @@ struct PrimaryButton: View {
     }
 
     private var shadowColor: Color {
-        if isTiimo {
+        if usesTiimoLayoutTheme {
             return .clear
         }
         if usesDefaultOnboardingWhiteStyle {
@@ -117,8 +128,12 @@ struct PrimaryButton: View {
 
     @ViewBuilder
     private var backgroundView: some View {
-        if isTiimo {
-            Color.black
+        if usesTiimoLayoutTheme {
+            if usesTiimoDarkButton {
+                Color.black
+            } else {
+                Colors.accentTeal
+            }
         } else if usesDefaultOnboardingWhiteStyle {
             Color.white
         } else {
@@ -141,10 +156,10 @@ struct PrimaryButton: View {
 }
 
 struct AdaptiveButtonStyle: ButtonStyle {
-    let isTiimo: Bool
+    let usesTiimoLayoutTheme: Bool
     
     func makeBody(configuration: Configuration) -> some View {
-        if isTiimo {
+        if usesTiimoLayoutTheme {
             configuration.label
                 .opacity(configuration.isPressed ? 0.9 : 1.0)
                 .scaleEffect(configuration.isPressed ? 0.98 : 1.0)

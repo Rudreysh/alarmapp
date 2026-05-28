@@ -54,6 +54,7 @@ enum AlarmThemeStyle: String, Codable, CaseIterable, Identifiable {
     case `default` = "default"
     case lilacCalm = "lilac_calm"
     case tiimo = "tiimo"
+    case meadowCream = "meadow_cream"
     case green = "green"
 
     var id: String { rawValue }
@@ -63,6 +64,7 @@ enum AlarmThemeStyle: String, Codable, CaseIterable, Identifiable {
         case .default: return "Default"
         case .lilacCalm: return "Lilac Calm"
         case .tiimo: return "Tiimo"
+        case .meadowCream: return "Meadow Cream"
         case .green: return "Green"
         }
     }
@@ -72,7 +74,33 @@ enum AlarmThemeStyle: String, Codable, CaseIterable, Identifiable {
         case .default: return "circle.lefthalf.filled"
         case .lilacCalm: return "sparkles"
         case .tiimo: return "square.on.square"
+        case .meadowCream: return "leaf.circle.fill"
         case .green: return "leaf.fill"
+        }
+    }
+}
+
+extension AlarmThemeStyle {
+    static var persisted: AlarmThemeStyle {
+        let rawValue = UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw")
+        return AlarmThemeStyle(rawValue: rawValue ?? AlarmThemeStyle.default.rawValue) ?? .default
+    }
+
+    var forcesLightColorScheme: Bool {
+        switch self {
+        case .lilacCalm, .tiimo, .meadowCream:
+            return true
+        case .default, .green:
+            return false
+        }
+    }
+
+    var usesTiimoLayoutBranch: Bool {
+        switch self {
+        case .tiimo, .meadowCream:
+            return true
+        case .default, .lilacCalm, .green:
+            return false
         }
     }
 }

@@ -127,6 +127,30 @@ enum Colors {
         accentBlue: Color(hex: "#7F77DD")
     )
 
+    private static let meadowCreamPalette = Palette(
+        bgPrimary: Color(hex: "#FFF5E6"),
+        bgSecondary: Color(hex: "#FFF9F1"),
+        cardSurface: Color(hex: "#FFFFFF"),
+        cardStroke: Color(hex: "#D4F5E9"),
+        textPrimary: Color(hex: "#6B4C3B"),
+        textSecondary: Color(hex: "#9F8A7A"),
+        textTertiary: Color(hex: "#C4B5A8"),
+        accentRed: Color(hex: "#D45E4A"),
+        accentGreen: Color(hex: "#7DC395"),
+        accentTeal: Color(hex: "#7DC395"),
+        shadow: Color(hex: "#6B4C3B").opacity(0.10),
+        tabBarBackground: Color(hex: "#FFFFFF"),
+        tabBarInactive: Color(hex: "#B39E8D"),
+        promoCardBackground: Color(hex: "#F6FFFA"),
+        pillGreen: Color(hex: "#A8E6CF"),
+        sheetGradientTop: Color(hex: "#FFF5E6"),
+        sheetGradientBottom: Color(hex: "#FFFDF8"),
+        saleBadgeStart: Color(hex: "#A8E6CF"),
+        saleBadgeEnd: Color(hex: "#7DC395"),
+        accentOrange: Color(hex: "#FCB13A"),
+        accentBlue: Color(hex: "#7DC395")
+    )
+
     private static let greenPalette = Palette(
         bgPrimary: Color(hex: "#0D1A14"),
         bgSecondary: Color(hex: "#12231B"),
@@ -158,6 +182,9 @@ enum Colors {
         }
         if styleRaw == "tiimo" {
             return tiimoPalette
+        }
+        if styleRaw == "meadow_cream" {
+            return meadowCreamPalette
         }
         if styleRaw == "green" {
             return greenPalette
@@ -303,6 +330,27 @@ struct TiimoLightTheme: AppTheme {
     let switchTintOn = Color(hex: "#7F77DD")
 }
 
+struct MeadowCreamTheme: AppTheme {
+    let backgroundPrimary = Color(hex: "#FFF5E6")
+    let backgroundSurface = Color(hex: "#FFF9F1")
+    let backgroundCard = Color(hex: "#FFFFFF")
+    let accentPrimary = Color(hex: "#7DC395")
+    let accentSecondary = Color(hex: "#D4F5E9")
+    let textPrimary = Color(hex: "#6B4C3B")
+    let textSecondary = Color(hex: "#9F8A7A")
+    let textCaption = Color(hex: "#C4B5A8")
+    let buttonPrimaryBg = Color(hex: "#7DC395")
+    let buttonPrimaryLabel = Color(hex: "#6B4C3B")
+    let selectionFill = Color(hex: "#D4F5E9")
+    let selectionBorder = Color(hex: "#A8E6CF")
+    let progressTrack = Color(hex: "#EDE1D3")
+    let progressFill = Color(hex: "#7DC395")
+    let cornerRadiusCard: CGFloat = 20
+    let cornerRadiusButton: CGFloat = 100
+    let cornerRadiusPill: CGFloat = 48
+    let switchTintOn = Color(hex: "#7DC395")
+}
+
 struct GreenTheme: AppTheme {
     let backgroundPrimary = Color(hex: "#0D1A14")
     let backgroundSurface = Color(hex: "#12231B")
@@ -345,6 +393,10 @@ class ThemeManager: ObservableObject {
         }
         if styleRaw == "tiimo" {
             activeTheme = TiimoLightTheme()
+            return
+        }
+        if styleRaw == "meadow_cream" {
+            activeTheme = MeadowCreamTheme()
             return
         }
         if styleRaw == "green" {

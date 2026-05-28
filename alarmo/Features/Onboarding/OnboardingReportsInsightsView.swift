@@ -21,7 +21,15 @@ struct OnboardingReportsInsightsView: View {
 
     
     private var isTiimoTheme: Bool {
-        UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw") == AlarmThemeStyle.tiimo.rawValue
+        AlarmThemeStyle.persisted.usesTiimoLayoutBranch
+    }
+
+    private var secondaryActionTextColor: Color {
+        isTiimoTheme ? Colors.textPrimary : .white
+    }
+
+    private var secondaryActionBackground: Color {
+        isTiimoTheme ? Colors.cardSurface : Color.white.opacity(0.15)
     }
 var body: some View {
         ZStack {
@@ -71,10 +79,10 @@ var body: some View {
                     Button(action: onNext) {
                         Text("Skip")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(isTiimoTheme ? .black : .white)
+                            .foregroundColor(secondaryActionTextColor)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(Color.white.opacity(0.15))
+                            .background(secondaryActionBackground)
                             .cornerRadius(32)
                     }
                     .disabled(isRequesting)
@@ -129,7 +137,7 @@ var body: some View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("\"Awayk\" would like to send you notifications")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(Colors.textPrimary)
+                    .foregroundColor(.white)
                     .lineSpacing(3)
 
                 Text("Notifications may include alerts, sounds, and badges. These can be configured in Settings.")

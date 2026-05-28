@@ -5,14 +5,14 @@ struct SectionHeader: View {
     let title: String
     
     private var isTiimo: Bool {
-        SettingsStore.shared.alarmThemeStyle == .tiimo
+        SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch
     }
 
     var body: some View {
         HStack {
             Text(title.uppercased())
                 .font(.system(size: isTiimo ? 12 : 13, weight: isTiimo ? .medium : .bold))
-                .foregroundColor(isTiimo ? Color(hex: "#9490A6") : Colors.textSecondary)
+                .foregroundColor(isTiimo ? Colors.textTertiary : Colors.textSecondary)
                 .tracking(isTiimo ? 0.72 : 1.0) 
             Spacer()
         }
@@ -27,7 +27,7 @@ struct GroupedSettingsCard<Content: View>: View {
     let content: Content
     
     private var isTiimo: Bool {
-        SettingsStore.shared.alarmThemeStyle == .tiimo
+        SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch
     }
 
     init(@ViewBuilder content: () -> Content) {
@@ -42,7 +42,7 @@ struct GroupedSettingsCard<Content: View>: View {
         .cornerRadius(isTiimo ? 20 : 16)
         .overlay(
             RoundedRectangle(cornerRadius: isTiimo ? 20 : 16)
-                .stroke(isTiimo ? Color(hex: "#F0EFFE") : Color.clear, lineWidth: isTiimo ? 1 : 0)
+                .stroke(isTiimo ? Colors.cardStroke : Color.clear, lineWidth: isTiimo ? 1 : 0)
         )
         .padding(.horizontal, 16)
     }

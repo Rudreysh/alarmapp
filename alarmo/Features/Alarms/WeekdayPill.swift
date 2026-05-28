@@ -9,16 +9,16 @@ struct WeekdayPill: View {
     private let alarmWeekdayBlue = Color(red: 0.08, green: 0.78, blue: 0.92)
 
     private var isTiimo: Bool {
-        SettingsStore.shared.alarmThemeStyle == .tiimo
+        SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch
     }
 
     var body: some View {
         Button(action: onTap) {
             Text(label)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(isTiimo ? (isSelected ? .white : Color(hex: "#9490A6")) : (isSelected ? .white : Colors.textSecondary))
+                .foregroundColor(isTiimo ? (isSelected ? .white : Colors.textTertiary) : (isSelected ? .white : Colors.textSecondary))
                 .frame(width: 36, height: 36)
-                .background(isTiimo ? (isSelected ? Color(hex: "#7F77DD") : Color(hex: "#F1EEF8")) : (isSelected ? alarmWeekdayBlue : Colors.cardSurface))
+                .background(isTiimo ? (isSelected ? Colors.accentBlue : Colors.pillGreen) : (isSelected ? alarmWeekdayBlue : Colors.cardSurface))
                 .cornerRadius(isTiimo ? 18 : 12)
                 .opacity(isInteractive ? 1.0 : 1.0)
         }

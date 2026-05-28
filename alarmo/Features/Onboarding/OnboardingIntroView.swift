@@ -7,33 +7,35 @@ struct OnboardingIntroView: View {
     let onNext: () -> Void
     var onSkip: (() -> Void)? = nil
     
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var currentPage = 0
     @State private var gifRenderNonce = 0
     @State private var pageIntroRevealIndex = 0
+    @State private var typedText = ""
+    @State private var typedCaption = ""
+    @State private var morningCoachSectionHeight: CGFloat = 0
+    @State private var typingTimer: AnyCancellable?
+    @State private var captionTypingTimer: AnyCancellable?
+    private let introMainText = "Hey, I'm your alarm!"
+    private let introCaptionText = "I'll help you stop snoozing through the morning."
+    private let typingSelectionFeedback = UISelectionFeedbackGenerator()
+    private let typingImpactFeedback = UIImpactFeedbackGenerator(style: .soft)
 
     
     private var isTiimoTheme: Bool {
-        UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw") == AlarmThemeStyle.tiimo.rawValue
+        AlarmThemeStyle.persisted.usesTiimoLayoutBranch
     }
-var body: some View {
+
+    var body: some View {
         ZStack {
             Colors.bgPrimary
                 .ignoresSafeArea()
+                
+            if currentPage == 0 && isTiimoTheme {
+                AnimatedSkyView()
+            }
 
             VStack(spacing: 0) {
-                // Header with Skip
-                HStack {
-                    Spacer()
-                    if let onSkip = onSkip {
-                        Button("Skip") {
-                            onSkip()
-                        }
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(isTiimoTheme ? .black : Colors.textSecondary)
-                        .padding()
-                    }
-                }
-                
                 pageIntro
 
                 Spacer()
@@ -50,6 +52,30 @@ var body: some View {
                 }
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, 48)
+                .opacity(!isTiimoTheme || pageIntroRevealIndex >= 3 ? 1 : 0)
+                .offset(y: !isTiimoTheme || pageIntroRevealIndex >= 3 ? 0 : 10)
+                .animation(.spring(response: 0.58, dampingFraction: 0.84), value: pageIntroRevealIndex)
+            }
+
+            if let onSkip = onSkip {
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button("Skip") {
+                            onSkip()
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(isTiimoTheme ? .black : Colors.textSecondary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .contentShape(Rectangle())
+                    }
+                    Spacer()
+                }
+                .padding(.top, 4)
+                .ignoresSafeArea(edges: .top)
+                .zIndex(50)
             }
         }
         .onChange(of: currentPage) { _, newPage in
@@ -59,61 +85,197 @@ var body: some View {
                 gifRenderNonce += 1
             }
             if newPage == 0 {
-                pageIntroRevealIndex = 0
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) { pageIntroRevealIndex = 1 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) { pageIntroRevealIndex = 2 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.62) { pageIntroRevealIndex = 3 }
+                runIntroSequence()
             }
         }
         .onAppear {
             if isTiimoTheme {
-                pageIntroRevealIndex = 0
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) { pageIntroRevealIndex = 1 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) { pageIntroRevealIndex = 2 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.62) { pageIntroRevealIndex = 3 }
+                runIntroSequence()
             }
+        }
+        .onDisappear {
+            typingTimer?.cancel()
+            captionTypingTimer?.cancel()
         }
     }
 
+    private func runIntroSequence() {
+        guard isTiimoTheme else { return }
+        pageIntroRevealIndex = 0
+        startTypingEffect()
+
+        if reduceMotion {
+            pageIntroRevealIndex = 3
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { pageIntroRevealIndex = 1 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.78) { pageIntroRevealIndex = 2 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.90) { pageIntroRevealIndex = 3 }
+    }
+    
+    private func startTypingEffect() {
+        typedText = ""
+        typedCaption = ""
+        typingTimer?.cancel()
+        captionTypingTimer?.cancel()
+        if reduceMotion {
+            typedText = introMainText
+            typedCaption = introCaptionText
+            return
+        }
+
+        typingSelectionFeedback.prepare()
+        typingImpactFeedback.prepare()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.92) {
+            var charIndex = 0
+            let chars = Array(introMainText)
+            typingTimer = Timer.publish(every: 0.06, on: .main, in: .common)
+                .autoconnect()
+                .sink { _ in
+                    if charIndex < chars.count {
+                        let nextCharacter = chars[charIndex]
+                        typedText.append(nextCharacter)
+                        emitTypingFeedback(for: nextCharacter, index: charIndex, cadence: 2)
+                        charIndex += 1
+                    } else {
+                        emitTypingCompletionFeedback()
+                        typingTimer?.cancel()
+                    }
+                }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.04) {
+            var charIndex = 0
+            let chars = Array(introCaptionText)
+            captionTypingTimer = Timer.publish(every: 0.045, on: .main, in: .common)
+                .autoconnect()
+                .sink { _ in
+                    if charIndex < chars.count {
+                        let nextCharacter = chars[charIndex]
+                        typedCaption.append(nextCharacter)
+                        emitTypingFeedback(for: nextCharacter, index: charIndex, cadence: 3)
+                        charIndex += 1
+                    } else {
+                        emitTypingCompletionFeedback()
+                        captionTypingTimer?.cancel()
+                    }
+                }
+        }
+    }
+
+    private func emitTypingFeedback(for character: Character, index: Int, cadence: Int) {
+        guard character.isLetter || character.isNumber else { return }
+        guard index.isMultiple(of: cadence) else { return }
+        typingSelectionFeedback.selectionChanged()
+        typingSelectionFeedback.prepare()
+    }
+
+    private func emitTypingCompletionFeedback() {
+        typingImpactFeedback.impactOccurred(intensity: 0.6)
+        typingImpactFeedback.prepare()
+    }
     // MARK: - Pages
 
     private var pageIntro: some View {
         GeometryReader { proxy in
-            ZStack {
-                VStack(spacing: 0) {
-                    Spacer().frame(height: 110)
-
-                    Text("Hey! I'm your alarm.")
-                        .font(.system(size: 36, weight: .black, design: .rounded))
-                        .foregroundColor(Colors.textPrimary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, Spacing.l)
-                        .padding(.bottom, 20)
-                        .opacity(!isTiimoTheme || pageIntroRevealIndex >= 1 ? 1 : 0)
-                        .offset(y: !isTiimoTheme || pageIntroRevealIndex >= 1 ? 0 : 16)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.7), value: pageIntroRevealIndex)
-
-                    Text("(The one you keep snoozing at 2am)")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Colors.textTertiary)
-                        .multilineTextAlignment(.center)
-                        .padding(.top, 4)
-                        .padding(.horizontal, Spacing.l)
-                        .opacity(!isTiimoTheme || pageIntroRevealIndex >= 3 ? 1 : 0)
-                        .offset(y: !isTiimoTheme || pageIntroRevealIndex >= 3 ? 0 : 12)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.15), value: pageIntroRevealIndex)
-
-                    Spacer()
-                }
-
-                AnimatedGIFView(resourceName: OnboardingMascotAsset.resourceName, resourceExtension: "gif")
-                    .frame(width: 252, height: 252)
-                    .id("intro-gif-\(gifRenderNonce)")
-                    .position(x: proxy.size.width * 0.5, y: proxy.size.height * 0.58)
-                    .opacity(!isTiimoTheme || pageIntroRevealIndex >= 2 ? 1 : 0)
-                    .offset(y: !isTiimoTheme || pageIntroRevealIndex >= 2 ? 0 : 16)
-                    .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.1), value: pageIntroRevealIndex)
+            if isTiimoTheme {
+                tiimoIntroContent(in: proxy)
+            } else {
+                defaultIntroContent(in: proxy)
             }
+        }
+    }
+
+    private func tiimoIntroContent(in proxy: GeometryProxy) -> some View {
+        let mascotSize = min(proxy.size.width * 0.493, 202)
+        let topSpacing = max(88, min(124, proxy.size.height * 0.16))
+        let introBlockDownwardOffset = (morningCoachSectionHeight > 0 ? morningCoachSectionHeight : 110) * 0.7
+
+        return VStack(spacing: 0) {
+            Spacer().frame(height: topSpacing)
+
+            VStack(spacing: 0) {
+                AlarmSpeechBubble(
+                    typedText: typedText,
+                    isTyping: pageIntroRevealIndex >= 2 && typedText != introMainText
+                )
+                    .padding(.horizontal, Spacing.l)
+                    .opacity(pageIntroRevealIndex >= 2 ? 1 : 0)
+                    .offset(y: pageIntroRevealIndex >= 2 ? 0 : 12)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.7), value: pageIntroRevealIndex)
+
+                Spacer().frame(height: 12)
+
+                ZStack {
+                    MascotLandingGlow()
+                        .frame(width: mascotSize * 0.92, height: mascotSize * 0.5)
+                        .offset(y: mascotSize * 0.32)
+
+                    AnimatedGIFView(resourceName: OnboardingMascotAsset.resourceName, resourceExtension: "gif")
+                        .frame(width: mascotSize, height: mascotSize)
+                        .id("intro-gif-\(gifRenderNonce)")
+                }
+                .frame(width: mascotSize, height: mascotSize + 14)
+                .opacity(pageIntroRevealIndex >= 1 ? 1 : 0)
+                .scaleEffect(pageIntroRevealIndex >= 1 ? 1 : 0.86)
+                .blur(radius: pageIntroRevealIndex >= 1 ? 0 : 5)
+                .offset(y: pageIntroRevealIndex >= 1 ? 0 : 22)
+                .animation(.spring(response: 0.72, dampingFraction: 0.72), value: pageIntroRevealIndex)
+
+                Spacer().frame(height: 16)
+
+                AlarmTypedCaption(text: typedCaption)
+                    .padding(.horizontal, Spacing.l)
+                    .opacity(pageIntroRevealIndex >= 3 ? 1 : 0)
+                    .offset(y: pageIntroRevealIndex >= 3 ? 0 : 10)
+                    .animation(.spring(response: 0.58, dampingFraction: 0.84), value: pageIntroRevealIndex)
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear.preference(
+                                key: OnboardingIntroMorningCoachHeightPreferenceKey.self,
+                                value: geo.size.height
+                            )
+                        }
+                    )
+            }
+            .offset(y: introBlockDownwardOffset)
+
+            Spacer(minLength: 0)
+        }
+        .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+        .onPreferenceChange(OnboardingIntroMorningCoachHeightPreferenceKey.self) { newHeight in
+            guard newHeight > 0 else { return }
+            morningCoachSectionHeight = newHeight
+        }
+    }
+
+    private func defaultIntroContent(in proxy: GeometryProxy) -> some View {
+        ZStack {
+            VStack(spacing: 0) {
+                Spacer().frame(height: 110)
+
+                Text("Hey! I'm your alarm.")
+                    .font(.system(size: 36, weight: .black, design: .rounded))
+                    .foregroundColor(Colors.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.bottom, 20)
+
+                Text("I'll help you stop snoozing through the morning.")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Colors.textTertiary)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 4)
+                    .padding(.horizontal, Spacing.l)
+
+                Spacer()
+            }
+
+            AnimatedGIFView(resourceName: OnboardingMascotAsset.resourceName, resourceExtension: "gif")
+                .frame(width: 252, height: 252)
+                .id("intro-gif-\(gifRenderNonce)")
+                .position(x: proxy.size.width * 0.5, y: proxy.size.height * 0.58)
         }
     }
 
@@ -197,6 +359,149 @@ private struct IntroFeatureSlide: Identifiable {
     let accent: Color
     let title: String
     let subtitle: String
+}
+
+private struct OnboardingIntroMorningCoachHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+private struct AlarmSpeechBubble: View {
+    let typedText: String
+    let isTyping: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .lastTextBaseline, spacing: 5) {
+                    Text(typedText.isEmpty ? " " : typedText)
+                        .font(.system(size: 19, weight: .bold, design: .rounded))
+                        .foregroundColor(Color(hex: "#1A1A1A"))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.82)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Color.white.opacity(0.94))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(Color(hex: "#F0EFFE"), lineWidth: 1.2)
+            )
+            .overlay(alignment: .bottom) {
+                SpeechTail()
+                    .fill(Color.white.opacity(0.94))
+                    .frame(width: 30, height: 15)
+                    .offset(x: 54, y: 13)
+            }
+            .shadow(color: Color.black.opacity(0.07), radius: 18, x: 0, y: 10)
+        }
+    }
+}
+
+private struct AlarmTypedCaption: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let text: String
+    @State private var cursorVisible = false
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "sun.max.fill")
+                    .font(.system(size: 11, weight: .black))
+                    .foregroundColor(Color(hex: "#F6B44B"))
+
+                Text("MORNING COACH")
+                    .font(.system(size: 11, weight: .black, design: .rounded))
+                    .tracking(1.0)
+                    .foregroundColor(Color(hex: "#9A8D79"))
+            }
+
+            HStack(alignment: .lastTextBaseline, spacing: 5) {
+                Text(text.isEmpty ? " " : text)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundColor(Color(hex: "#3E3A4E"))
+                    .lineSpacing(4)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(Color(hex: "#7F77DD").opacity(0.9))
+                    .frame(width: 2.5, height: 16)
+                    .opacity(reduceMotion ? 1 : (cursorVisible ? 1 : 0.18))
+                    .animation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true), value: cursorVisible)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 16)
+        .frame(maxWidth: 330)
+        .background(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(Color.white.opacity(0.88))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.95),
+                            Color(hex: "#F3E7D4").opacity(0.78)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.2
+                )
+        )
+        .shadow(color: Color(hex: "#B8945C").opacity(0.12), radius: 20, x: 0, y: 10)
+        .onAppear {
+            cursorVisible = true
+        }
+    }
+}
+
+private struct MascotLandingGlow: View {
+    var body: some View {
+        ZStack {
+            Ellipse()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color(red: 255 / 255, green: 183 / 255, blue: 92 / 255).opacity(0.25),
+                            Color(red: 255 / 255, green: 183 / 255, blue: 92 / 255).opacity(0)
+                        ],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 95
+                    )
+                )
+
+            Ellipse()
+                .fill(Color.white.opacity(0.24))
+                .frame(width: 150, height: 42)
+                .blur(radius: 13)
+                .offset(y: 26)
+        }
+    }
+}
+
+private struct SpeechTail: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
 }
 
 private struct IntroFeatureCarousel: View {
@@ -288,74 +593,158 @@ struct AnimatedGIFView: UIViewRepresentable {
     let resourceName: String
     let resourceExtension: String
 
-    final class ContainerView: UIView {
-        let imageView = UIImageView()
-    }
-
-    func makeUIView(context: Context) -> ContainerView {
-        let container = ContainerView()
-        let imageView = container.imageView
-        imageView.contentMode = .scaleAspectFit
-        imageView.clipsToBounds = true
-        imageView.backgroundColor = .clear
-        configureAnimation(on: imageView)
-        imageView.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(imageView)
-        NSLayoutConstraint.activate([
-            imageView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            imageView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            imageView.topAnchor.constraint(equalTo: container.topAnchor),
-            imageView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
-        ])
-        container.clipsToBounds = true
-        container.backgroundColor = .clear
+    func makeUIView(context: Context) -> StreamingGIFContainerView {
+        let container = StreamingGIFContainerView()
+        container.configure(resourceName: resourceName, resourceExtension: resourceExtension)
         return container
     }
 
-    func updateUIView(_ uiView: ContainerView, context: Context) {
-        let imageView = uiView.imageView
-        if imageView.animationImages == nil || imageView.animationImages?.isEmpty == true {
-            configureAnimation(on: imageView)
-        } else if !imageView.isAnimating {
-            imageView.startAnimating()
+    func updateUIView(_ uiView: StreamingGIFContainerView, context: Context) {
+        uiView.configure(resourceName: resourceName, resourceExtension: resourceExtension)
+    }
+
+    static func dismantleUIView(_ uiView: StreamingGIFContainerView, coordinator: ()) {
+        uiView.stop()
+    }
+}
+
+final class StreamingGIFContainerView: UIView {
+    private let imageView = UIImageView()
+    private var displayLink: CADisplayLink?
+    private var source: CGImageSource?
+    private var frameDurations: [TimeInterval] = []
+    private var currentFrameIndex = 0
+    private var accumulatedFrameTime: TimeInterval = 0
+    private var previousTimestamp: CFTimeInterval = 0
+    private var resourceIdentifier: String?
+    private var currentMaxPixelSize = 0
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupView()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupView()
+    }
+
+    deinit {
+        stop()
+    }
+
+    func configure(resourceName: String, resourceExtension: String) {
+        let identifier = "\(resourceName).\(resourceExtension)"
+        guard identifier != resourceIdentifier else {
+            startIfNeeded()
+            return
         }
-    }
 
-    private func configureAnimation(on imageView: UIImageView) {
-        guard let (frames, duration) = loadFramesAndDuration() else { return }
-        imageView.stopAnimating()
-        imageView.animationImages = frames
-        imageView.animationDuration = max(duration, 0.1)
-        imageView.animationRepeatCount = 0 // infinite loop
-        imageView.image = frames.first
-        imageView.startAnimating()
-    }
+        stop()
+        resourceIdentifier = identifier
+        source = nil
+        frameDurations = []
+        currentFrameIndex = 0
+        accumulatedFrameTime = 0
+        previousTimestamp = 0
+        imageView.image = nil
 
-    private func loadFramesAndDuration() -> ([UIImage], Double)? {
         guard let url = Bundle.main.url(forResource: resourceName, withExtension: resourceExtension),
-              let data = try? Data(contentsOf: url),
-              let source = CGImageSourceCreateWithData(data as CFData, nil) else {
-            return nil
+              let gifSource = CGImageSourceCreateWithURL(url as CFURL, [
+                kCGImageSourceShouldCache: false
+              ] as CFDictionary) else {
+            return
         }
 
-        let frameCount = CGImageSourceGetCount(source)
-        guard frameCount > 0 else { return nil }
-
-        var frames: [UIImage] = []
-        var totalDuration: Double = 0
-
-        for index in 0..<frameCount {
-            guard let cgImage = CGImageSourceCreateImageAtIndex(source, index, nil) else { continue }
-            let duration = frameDuration(from: source, at: index)
-            totalDuration += duration
-            frames.append(UIImage(cgImage: cgImage))
-        }
-
-        guard !frames.isEmpty else { return nil }
-        return (frames, totalDuration)
+        source = gifSource
+        let frameCount = CGImageSourceGetCount(gifSource)
+        guard frameCount > 0 else { return }
+        frameDurations = (0..<frameCount).map { Self.frameDuration(from: gifSource, at: $0) }
+        displayFrame(at: 0)
+        startIfNeeded()
     }
 
-    private func frameDuration(from source: CGImageSource, at index: Int) -> Double {
+    func stop() {
+        displayLink?.invalidate()
+        displayLink = nil
+        previousTimestamp = 0
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let newMaxPixelSize = max(1, Int(ceil(max(bounds.width, bounds.height) * traitCollection.displayScale)))
+        if abs(newMaxPixelSize - currentMaxPixelSize) > 8 {
+            currentMaxPixelSize = newMaxPixelSize
+            displayFrame(at: currentFrameIndex)
+        }
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        window == nil ? stop() : startIfNeeded()
+    }
+
+    private func setupView() {
+        imageView.contentMode = .scaleAspectFit
+        imageView.clipsToBounds = true
+        imageView.backgroundColor = .clear
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(imageView)
+        NSLayoutConstraint.activate([
+            imageView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            imageView.topAnchor.constraint(equalTo: topAnchor),
+            imageView.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+        clipsToBounds = true
+        backgroundColor = .clear
+    }
+
+    private func startIfNeeded() {
+        guard displayLink == nil, source != nil, !frameDurations.isEmpty, window != nil else { return }
+        let link = CADisplayLink(target: self, selector: #selector(stepFrame(_:)))
+        link.add(to: .main, forMode: .common)
+        displayLink = link
+    }
+
+    @objc private func stepFrame(_ link: CADisplayLink) {
+        guard let source, !frameDurations.isEmpty else { return }
+        if previousTimestamp == 0 {
+            previousTimestamp = link.timestamp
+            return
+        }
+
+        accumulatedFrameTime += link.timestamp - previousTimestamp
+        previousTimestamp = link.timestamp
+
+        let duration = frameDurations[currentFrameIndex]
+        guard accumulatedFrameTime >= duration else { return }
+
+        accumulatedFrameTime = 0
+        currentFrameIndex = (currentFrameIndex + 1) % CGImageSourceGetCount(source)
+        displayFrame(at: currentFrameIndex)
+    }
+
+    private func displayFrame(at index: Int) {
+        guard let source else { return }
+        let maxPixelSize = max(currentMaxPixelSize, Int(ceil(max(bounds.width, bounds.height) * max(traitCollection.displayScale, 1))))
+        let options: [CFString: Any] = [
+            kCGImageSourceShouldCache: false,
+            kCGImageSourceShouldCacheImmediately: false,
+            kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
+        ]
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, index, options as CFDictionary)
+            ?? CGImageSourceCreateImageAtIndex(source, index, [
+                kCGImageSourceShouldCache: false
+            ] as CFDictionary) else {
+            return
+        }
+        imageView.image = UIImage(cgImage: cgImage, scale: max(traitCollection.displayScale, 1), orientation: .up)
+    }
+
+    private static func frameDuration(from source: CGImageSource, at index: Int) -> TimeInterval {
         let defaultDuration = 0.06
         guard let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any],
               let gifProperties = properties[kCGImagePropertyGIFDictionary] as? [CFString: Any] else {
@@ -371,7 +760,7 @@ struct AnimatedGIFView: UIViewRepresentable {
 
 enum OnboardingMascotAsset {
     static var resourceName: String {
-        let isTiimo = UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw") == AlarmThemeStyle.tiimo.rawValue
+        let isTiimo = AlarmThemeStyle.persisted.usesTiimoLayoutBranch
         return isTiimo ? "bluealarm_whitebg" : "bluealarm_blackbg"
     }
 }
