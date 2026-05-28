@@ -50,12 +50,12 @@ struct ReportView: View {
     }
     
     private var isTiimo: Bool {
-        settingsStore.alarmThemeStyle == .tiimo
+        settingsStore.alarmThemeStyle.usesTiimoLayoutBranch
     }
     
     private func domainButtonForegroundColor(domain: ReportDomain, isSelected: Bool) -> Color {
         if isTiimo {
-            return isSelected ? Color(hex: "#7F77DD") : Color(hex: "#9490A6")
+            return isSelected ? Colors.accentBlue : Colors.textTertiary
         } else {
             return isSelected ? Colors.textPrimary : Colors.textSecondary
         }
@@ -94,7 +94,7 @@ struct ReportView: View {
     @ViewBuilder
     private var domainContainerBackground: some View {
         if isTiimo {
-            Color(hex: "#F1EEF8")
+            Colors.pillGreen
         } else {
             LinearGradient(
                 colors: [
@@ -109,7 +109,7 @@ struct ReportView: View {
     
     private func periodButtonForegroundColor(isSelected: Bool) -> Color {
         if isTiimo {
-            return isSelected ? Color(hex: "#7F77DD") : Color(hex: "#9490A6")
+            return isSelected ? Colors.accentBlue : Colors.textTertiary
         } else {
             return isSelected ? Colors.textPrimary : Colors.textSecondary
         }
@@ -148,7 +148,7 @@ struct ReportView: View {
     @ViewBuilder
     private var periodContainerBackground: some View {
         if isTiimo {
-            Color(hex: "#F1EEF8")
+            Colors.pillGreen
         } else {
             LinearGradient(
                 colors: [

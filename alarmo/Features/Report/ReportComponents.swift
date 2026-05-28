@@ -3,22 +3,22 @@ import Charts
 
 enum ReportPalette {
     static var accent: Color {
-        if SettingsStore.shared.alarmThemeStyle == .tiimo {
-            return Color(hex: "#7F77DD")
+        if SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch {
+            return Colors.accentBlue
         }
         return Color(red: 0.08, green: 0.78, blue: 0.92)
     }
     
     static var accentDark: Color {
-        if SettingsStore.shared.alarmThemeStyle == .tiimo {
-            return Color(hex: "#534AB7")
+        if SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch {
+            return Colors.textPrimary
         }
         return Color(red: 0.05, green: 0.34, blue: 0.52)
     }
     
     static var glow: Color {
-        if SettingsStore.shared.alarmThemeStyle == .tiimo {
-            return Color(hex: "#C4BCFF")
+        if SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch {
+            return Colors.saleBadgeStart
         }
         return Color(red: 0.28, green: 0.88, blue: 0.98)
     }
@@ -919,7 +919,7 @@ struct OverallMonthCalendarView: View {
     private let yearColumns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 2)
     
     private var isTiimo: Bool {
-        SettingsStore.shared.alarmThemeStyle == .tiimo
+        SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch
     }
     
     var body: some View {
@@ -955,7 +955,7 @@ struct OverallMonthCalendarView: View {
                         ForEach(Array(orderedWeekdaySymbols.enumerated()), id: \.offset) { _, day in
                             Text(day)
                                 .font(.system(size: 12, weight: isTiimo ? .regular : .bold))
-                                .foregroundColor(isTiimo ? Color(hex: "#9490A6") : Colors.textPrimary)
+                                .foregroundColor(isTiimo ? Colors.textTertiary : Colors.textPrimary)
                                 .frame(maxWidth: .infinity)
                         }
                     }
@@ -971,18 +971,18 @@ struct OverallMonthCalendarView: View {
                                 if isTiimo {
                                     ZStack {
                                         Circle()
-                                            .fill(isSelected ? Color(hex: "#F0EFFE") : Color(hex: "#F5F4F8"))
+                                            .fill(isSelected ? Colors.pillGreen : Colors.cardSurface)
                                             .frame(width: 40, height: 40)
                                         
                                         if isToday || isSelected {
                                             Circle()
-                                                .stroke(Color(hex: "#7F77DD"), lineWidth: 2)
+                                                .stroke(Colors.accentBlue, lineWidth: 2)
                                                 .frame(width: 40, height: 40)
                                         }
                                         
                                         Text("\(calendar.component(.day, from: date))")
                                             .font(.system(size: 15, weight: (isToday || isSelected) ? .bold : .regular))
-                                            .foregroundColor((isToday || isSelected) ? Color(hex: "#534AB7") : Color(hex: "#1A1A1A"))
+                                            .foregroundColor((isToday || isSelected) ? Colors.textPrimary : Colors.textPrimary)
                                     }
                                     .onTapGesture {
                                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -1033,7 +1033,7 @@ struct OverallMonthCalendarView: View {
                         ForEach(Array(orderedWeekdaySymbols.enumerated()), id: \.offset) { _, symbol in
                             Text(symbol)
                                 .font(.system(size: 12, weight: isTiimo ? .regular : .bold))
-                                .foregroundColor(isTiimo ? Color(hex: "#9490A6") : Colors.textPrimary)
+                                .foregroundColor(isTiimo ? Colors.textTertiary : Colors.textPrimary)
                                 .frame(maxWidth: .infinity)
                         }
                     }
@@ -1052,19 +1052,19 @@ struct OverallMonthCalendarView: View {
 
                                     if isToday {
                                         RoundedRectangle(cornerRadius: 10)
-                                            .stroke(isTiimo ? Color(hex: "#7F77DD") : ReportPalette.accent.opacity(0.65), lineWidth: isTiimo ? 2.0 : 1.2)
+                                            .stroke(isTiimo ? Colors.accentBlue : ReportPalette.accent.opacity(0.65), lineWidth: isTiimo ? 2.0 : 1.2)
                                             .frame(height: 36)
                                     }
 
                                     if isSelected {
                                         RoundedRectangle(cornerRadius: 10)
-                                            .stroke(isTiimo ? Color(hex: "#7F77DD") : Color.white.opacity(0.85), lineWidth: isTiimo ? 2.0 : 1.6)
+                                            .stroke(isTiimo ? Colors.accentBlue : Color.white.opacity(0.85), lineWidth: isTiimo ? 2.0 : 1.6)
                                             .frame(height: 36)
                                     }
 
                                     Text("\(calendar.component(.day, from: date))")
                                         .font(.system(size: 14, weight: (isToday || isSelected) ? .bold : .medium))
-                                        .foregroundColor(isTiimo ? (isSelected || isToday ? Color(hex: "#534AB7") : Color(hex: "#1A1A1A")) : Colors.textPrimary)
+                                        .foregroundColor(isTiimo ? (isSelected || isToday ? Colors.textPrimary : Colors.textPrimary) : Colors.textPrimary)
                                 }
                                 .onTapGesture {
                                     withAnimation(.easeInOut(duration: 0.2)) {
@@ -1098,9 +1098,9 @@ struct OverallMonthCalendarView: View {
                             GeometryReader { proxy in
                                 ZStack(alignment: .leading) {
                                     Capsule()
-                                        .fill(isTiimo ? Color(hex: "#E8E4F5") : Colors.textTertiary.opacity(0.18))
+                                        .fill(isTiimo ? Colors.pillGreen : Colors.textTertiary.opacity(0.18))
                                     Capsule()
-                                        .fill(isTiimo ? LinearGradient(colors: [Color(hex: "#C4BCFF"), Color(hex: "#7F77DD")], startPoint: .leading, endPoint: .trailing) : ReportPalette.accentGradient)
+                                        .fill(isTiimo ? LinearGradient(colors: [Colors.saleBadgeStart, Colors.accentBlue], startPoint: .leading, endPoint: .trailing) : ReportPalette.accentGradient)
                                         .frame(width: proxy.size.width * min(max(rate, 0), 1))
                                 }
                             }
@@ -1115,7 +1115,7 @@ struct OverallMonthCalendarView: View {
                         .cornerRadius(14)
                         .overlay(
                             RoundedRectangle(cornerRadius: 14)
-                                .stroke(isTiimo ? Color(hex: "#F0EFFE") : Colors.cardStroke, lineWidth: 1)
+                                .stroke(isTiimo ? Colors.pillGreen : Colors.cardStroke, lineWidth: 1)
                         )
                     }
                 }
@@ -1124,7 +1124,7 @@ struct OverallMonthCalendarView: View {
         .padding(24)
         .background(Colors.cardSurface)
         .cornerRadius(isTiimo ? 20 : 32)
-        .overlay(RoundedRectangle(cornerRadius: isTiimo ? 20 : 32).stroke(isTiimo ? Color(hex: "#F0EFFE") : Colors.cardStroke, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: isTiimo ? 20 : 32).stroke(isTiimo ? Colors.pillGreen : Colors.cardStroke, lineWidth: 1))
     }
     
     private var periodTitle: String {
@@ -1221,12 +1221,12 @@ struct OverallMonthCalendarView: View {
 
     private func colorForValue(_ value: Double) -> Color {
         if value <= 0 { 
-            return isTiimo ? Color(hex: "#F5F4F8") : Color.white.opacity(0.06) 
+            return isTiimo ? Colors.cardSurface : Color.white.opacity(0.06) 
         }
         if isTiimo {
-            if value < 0.34 { return Color(hex: "#7F77DD").opacity(0.25) }
-            if value < 0.67 { return Color(hex: "#7F77DD").opacity(0.55) }
-            return Color(hex: "#7F77DD").opacity(0.85)
+            if value < 0.34 { return Colors.accentBlue.opacity(0.25) }
+            if value < 0.67 { return Colors.accentBlue.opacity(0.55) }
+            return Colors.accentBlue.opacity(0.85)
         }
         if value < 0.34 { return ReportPalette.accent.opacity(0.28) }
         if value < 0.67 { return ReportPalette.accent.opacity(0.55) }

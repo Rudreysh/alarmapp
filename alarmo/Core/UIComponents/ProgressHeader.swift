@@ -19,21 +19,21 @@ struct ProgressHeader: View {
         total >= 12 ? 4 : 8
     }
 
-    private var isTiimo: Bool {
-        SettingsStore.shared.alarmThemeStyle == .tiimo
+    private var usesTiimoLayoutTheme: Bool {
+        SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch
     }
 
     var body: some View {
-        if isTiimo || total >= 20 {
-            // Tiimo Light continuous progress bar style
+        if usesTiimoLayoutTheme || total >= 20 {
+            // Continuous progress bar style for light Tiimo-family themes.
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(isTiimo ? Color(hex: "#E8E4F5") : Colors.cardStroke.opacity(0.45))
+                        .fill(usesTiimoLayoutTheme ? Colors.pillGreen.opacity(0.75) : Colors.cardStroke.opacity(0.45))
                         .frame(height: 8)
                     
                     Capsule()
-                        .fill(isTiimo ? Color(hex: "#7F77DD") : Colors.accentBlue)
+                        .fill(Colors.accentBlue)
                         .frame(width: geometry.size.width * CGFloat(step) / CGFloat(total), height: 8)
                         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: step)
                 }

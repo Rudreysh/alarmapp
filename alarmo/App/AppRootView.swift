@@ -585,7 +585,8 @@ struct AppRootView: View {
     }
 
     private var resolvedColorScheme: ColorScheme? {
-        (appThemeStyleRaw == AlarmThemeStyle.lilacCalm.rawValue || appThemeStyleRaw == AlarmThemeStyle.tiimo.rawValue) ? .light : settingsStore.themeMode.colorScheme
+        let style = AlarmThemeStyle(rawValue: appThemeStyleRaw) ?? .default
+        return style.forcesLightColorScheme ? .light : settingsStore.themeMode.colorScheme
     }
 
     private func handlePlanNotificationMarkDone(userInfo: [AnyHashable: Any]?) {

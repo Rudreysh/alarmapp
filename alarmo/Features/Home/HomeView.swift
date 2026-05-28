@@ -702,7 +702,7 @@ struct HomeView: View {
 
 private extension HomeView {
     var alarmLauncherShadow: AppShadow {
-        SettingsStore.shared.alarmThemeStyle == .tiimo
+        SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch
             ? AppShadow(
                 color: Colors.shadow.opacity(0.5),
                 radius: Shadows.card.radius * 0.5,

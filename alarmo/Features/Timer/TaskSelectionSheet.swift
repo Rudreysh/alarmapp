@@ -332,7 +332,7 @@ struct TaskRowCard: View {
     }
 
     private var playButtonColor: Color {
-        if SettingsStore.shared.alarmThemeStyle == .tiimo {
+        if SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch {
             return Colors.accentBlue.opacity(isSelected ? 1.0 : 0.55)
         }
         return isSelected ? TimerPalette.accent : Colors.textTertiary.opacity(0.3)
@@ -392,7 +392,7 @@ struct PlanTaskRowCard: View {
     }
 
     private var playButtonColor: Color {
-        if SettingsStore.shared.alarmThemeStyle == .tiimo {
+        if SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch {
             return Colors.accentBlue.opacity(isSelected ? 1.0 : 0.55)
         }
         return isSelected ? TimerPalette.accent : Colors.textTertiary.opacity(0.3)

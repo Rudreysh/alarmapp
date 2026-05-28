@@ -48,6 +48,10 @@ struct QuickSettingsPanel: View {
     }
 
     private var isTiimoTheme: Bool {
+        settingsStore.alarmThemeStyle.usesTiimoLayoutBranch
+    }
+
+    private var isClassicTiimoTheme: Bool {
         settingsStore.alarmThemeStyle == .tiimo
     }
 
@@ -149,7 +153,11 @@ struct QuickSettingsPanel: View {
                             Text(tab.title)
                                 .font(.system(size: 13, weight: .bold))
                         }
-                        .foregroundColor(isSelected ? (isTiimoTheme ? .white : Colors.textPrimary) : (isTiimoTheme ? Color(hex: "#8D86B0") : Colors.textSecondary))
+                        .foregroundColor(
+                            isSelected
+                                ? (isTiimoTheme ? (isClassicTiimoTheme ? .white : Colors.textPrimary) : Colors.textPrimary)
+                                : (isTiimoTheme ? Colors.textTertiary : Colors.textSecondary)
+                        )
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
                         .background(
@@ -158,7 +166,7 @@ struct QuickSettingsPanel: View {
                                     isSelected
                                         ? LinearGradient(
                                             colors: isTiimoTheme
-                                                ? [Color(hex: "#8A7CFF"), Color(hex: "#6F62E6")]
+                                                ? [Colors.saleBadgeStart, Colors.saleBadgeEnd]
                                                 : (isLightMode
                                                     ? [Color.white, Color(red: 0.90, green: 0.96, blue: 1.0)]
                                                     : [Colors.accentTeal.opacity(0.9), Colors.accentTeal.opacity(0.75)]),
@@ -168,10 +176,10 @@ struct QuickSettingsPanel: View {
                                         : LinearGradient(
                                             colors: [
                                                 isTiimoTheme
-                                                    ? Color(hex: "#F2EFFF")
+                                                    ? Colors.pillGreen
                                                     : (isLightMode ? Color(red: 0.93, green: 0.94, blue: 0.97) : Colors.cardSurface),
                                                 isTiimoTheme
-                                                    ? Color(hex: "#ECE7FF")
+                                                    ? Colors.cardSurface
                                                     : (isLightMode ? Color(red: 0.88, green: 0.90, blue: 0.94) : Colors.cardSurface.opacity(0.95))
                                             ],
                                             startPoint: .topLeading,
@@ -184,13 +192,13 @@ struct QuickSettingsPanel: View {
                                 .stroke(
                                     isSelected
                                         ? (isTiimoTheme
-                                            ? Color(hex: "#6B5FE0")
+                                            ? Colors.accentBlue
                                             : (isLightMode ? Color(red: 0.55, green: 0.76, blue: 0.96).opacity(0.7) : Color.white.opacity(0.18)))
-                                        : (isTiimoTheme ? Color(hex: "#DDD5FA") : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.08))),
+                                        : (isTiimoTheme ? Colors.cardStroke : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.08))),
                                     lineWidth: isTiimoTheme && isSelected ? 1.5 : 1
                                 )
                         )
-                        .shadow(color: isTiimoTheme && isSelected ? Color(hex: "#6F62E6").opacity(0.28) : .clear, radius: 8, x: 0, y: 3)
+                        .shadow(color: isTiimoTheme && isSelected ? Colors.accentBlue.opacity(0.28) : .clear, radius: 8, x: 0, y: 3)
                     }
                     .buttonStyle(.plain)
                 }

@@ -349,8 +349,7 @@ private struct ProPaywallPlanSelectionView: View {
 
     @StateObject private var paywallViewModel = PaywallViewModel()
     private var useDarkText: Bool {
-        let style = UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw") ?? AlarmThemeStyle.default.rawValue
-        return style == AlarmThemeStyle.tiimo.rawValue || style == AlarmThemeStyle.lilacCalm.rawValue
+        AlarmThemeStyle.persisted.forcesLightColorScheme
     }
 
     var body: some View {
@@ -466,8 +465,7 @@ private struct ProPlanCard: View {
     let selected: Bool
     let onTap: () -> Void
     private var useDarkText: Bool {
-        let style = UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw") ?? AlarmThemeStyle.default.rawValue
-        return style == AlarmThemeStyle.tiimo.rawValue || style == AlarmThemeStyle.lilacCalm.rawValue
+        AlarmThemeStyle.persisted.forcesLightColorScheme
     }
 
     var body: some View {

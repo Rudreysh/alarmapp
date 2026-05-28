@@ -29,7 +29,23 @@ struct OnboardingAlarmPermissionView: View {
 
     
     private var isTiimoTheme: Bool {
-        UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw") == AlarmThemeStyle.tiimo.rawValue
+        AlarmThemeStyle.persisted.usesTiimoLayoutBranch
+    }
+
+    private var titleTextColor: Color {
+        isTiimoTheme ? Colors.textPrimary : .white
+    }
+
+    private var bodyTextColor: Color {
+        isTiimoTheme ? Colors.textSecondary : Color.white.opacity(0.82)
+    }
+
+    private var secondaryActionTextColor: Color {
+        isTiimoTheme ? Colors.textPrimary : .white
+    }
+
+    private var secondaryActionBackground: Color {
+        isTiimoTheme ? Colors.cardSurface : Color.white.opacity(0.15)
     }
 var body: some View {
         ZStack {
@@ -53,7 +69,7 @@ var body: some View {
 
                     Text("Allow Alarms to Ring on Lock Screen")
                         .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(isTiimoTheme ? .black : .white)
+                        .foregroundColor(titleTextColor)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
                         .multilineTextAlignment(.center)
@@ -62,7 +78,7 @@ var body: some View {
 
                     Text("On iOS 26+, Alarm permission enables true system alarm behavior so alarms can ring while the phone is locked and in Silent mode.")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(isTiimoTheme ? .black.opacity(0.72) : Color.white.opacity(0.82))
+                        .foregroundColor(bodyTextColor)
                         .lineSpacing(2)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
@@ -79,10 +95,10 @@ var body: some View {
                     Button(action: onNext) {
                         Text("Skip")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(isTiimoTheme ? .black : .white)
+                            .foregroundColor(secondaryActionTextColor)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(Color.white.opacity(0.15))
+                            .background(secondaryActionBackground)
                             .cornerRadius(32)
                     }
                     .disabled(isRequesting)

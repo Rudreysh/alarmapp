@@ -22,7 +22,7 @@ struct OnboardingCameraAccessView: View {
 
     
     private var isTiimoTheme: Bool {
-        UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw") == AlarmThemeStyle.tiimo.rawValue
+        AlarmThemeStyle.persisted.usesTiimoLayoutBranch
     }
 var body: some View {
         ZStack {
