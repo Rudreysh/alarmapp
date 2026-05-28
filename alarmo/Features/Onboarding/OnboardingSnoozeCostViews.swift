@@ -16,20 +16,30 @@ private var snoozeLossDarkColor: Color {
     isTiimoOnboardingTheme ? .awCoralDark : .awRedDark
 }
 
+struct SnoozeOption: Identifiable {
+    let id = UUID()
+    let title: String
+    let snoozes: Int
+    let icon: String
+    let subtitle: String
+    let accentColor: Color
+}
+
 struct OnboardingSnoozeCountQuestionView: View {
     @ObservedObject var viewModel: OnboardingViewModel
     let onNext: () -> Void
-    private var questionAccent: Color { Colors.accentBlue }
     @State private var selectedSnoozes: Int? = nil
 
-    private let options: [(title: String, snoozes: Int)] = [
-        ("I don't", 0),
-        ("Just once", 1),
-        ("2 – 3 times", 3),
-        ("4 – 5 times", 5),
-        ("6 – 7 times", 7),
-        ("Lost count", 8)
-    ]
+    private var snoozeOptions: [SnoozeOption] {
+        [
+            SnoozeOption(title: "I don't", snoozes: 0, icon: "⚡️", subtitle: "0 mins lost", accentColor: Colors.accentGreen),
+            SnoozeOption(title: "Just once", snoozes: 1, icon: "🥱", subtitle: "9 mins lost", accentColor: Colors.accentTeal),
+            SnoozeOption(title: "2 – 3 times", snoozes: 3, icon: "💤", subtitle: "18–27 mins", accentColor: Colors.accentBlue),
+            SnoozeOption(title: "4 – 5 times", snoozes: 5, icon: "🛌", subtitle: "36–45 mins", accentColor: Colors.accentOrange),
+            SnoozeOption(title: "6 – 7 times", snoozes: 7, icon: "🚨", subtitle: "54–63 mins", accentColor: snoozeLossColor),
+            SnoozeOption(title: "Lost count", snoozes: 8, icon: "🫠", subtitle: "72+ mins lost", accentColor: snoozeLossColor)
+        ]
+    }
 
     var body: some View {
         ZStack {
@@ -44,29 +54,48 @@ struct OnboardingSnoozeCountQuestionView: View {
                         .foregroundColor(Colors.textSecondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                
                 LazyVGrid(columns: [.init(.flexible()), .init(.flexible())], spacing: 12) {
-                    ForEach(options, id: \.title) { option in
+                    ForEach(snoozeOptions) { option in
+                        let isSelected = selectedSnoozes == option.snoozes
                         Button {
-                            selectedSnoozes = option.snoozes
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.70)) {
+                                selectedSnoozes = option.snoozes
+                            }
                             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         } label: {
-                            VStack(spacing: 6) {
-                                Text("⏰").font(.system(size: 22))
-                                Text(option.title).font(.system(size: 20, weight: .bold, design: .rounded))
+                            VStack(spacing: 8) {
+                                Text(option.icon)
+                                    .font(.system(size: 26))
+                                    .scaleEffect(isSelected ? 1.22 : 1.0)
+                                    .shadow(color: isSelected ? option.accentColor.opacity(0.4) : Color.clear, radius: 4)
+                                
+                                VStack(spacing: 2) {
+                                    Text(option.title)
+                                        .font(.system(size: 19, weight: .bold, design: .rounded))
+                                        .foregroundColor(Colors.textPrimary)
+                                    
+                                    Text(option.subtitle)
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .foregroundColor(isSelected ? option.accentColor : Colors.textSecondary)
+                                }
                             }
-                            .foregroundColor(Colors.textPrimary)
-                            .frame(maxWidth: .infinity, minHeight: 102)
+                            .frame(maxWidth: .infinity, minHeight: 110)
                             .background(
                                 RoundedRectangle(cornerRadius: 16)
-                                    .fill(selectedSnoozes == option.snoozes ? questionAccent.opacity(0.09) : Colors.cardSurface.opacity(0.6))
+                                    .fill(isSelected ? option.accentColor.opacity(0.09) : Colors.cardSurface.opacity(0.6))
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16)
-                                    .stroke(selectedSnoozes == option.snoozes ? questionAccent : Colors.cardStroke, lineWidth: 1.5)
+                                    .stroke(isSelected ? option.accentColor : Colors.cardStroke, lineWidth: isSelected ? 2.0 : 1.5)
                             )
-                        }.buttonStyle(.plain)
+                            .shadow(color: isSelected ? option.accentColor.opacity(0.18) : Color.clear, radius: 10, y: 4)
+                            .scaleEffect(isSelected ? 1.04 : 1.0)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
+                
                 Text(selectedSnoozes == nil ? "Select one option" : "That's \((selectedSnoozes ?? 0) * 9) minutes lost every morning")
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundColor(Colors.textSecondary)
@@ -80,10 +109,10 @@ struct OnboardingSnoozeCountQuestionView: View {
                     viewModel.snoozesPerMorning = selectedSnoozes
                     onNext()
                 }
-                    .padding(.horizontal, Spacing.l)
-                    .padding(.bottom, Spacing.m)
-                    .disabled(selectedSnoozes == nil)
-                    .opacity(selectedSnoozes == nil ? 0.55 : 1.0)
+                .padding(.horizontal, Spacing.l)
+                .padding(.bottom, Spacing.m)
+                .disabled(selectedSnoozes == nil)
+                .opacity(selectedSnoozes == nil ? 0.55 : 1.0)
             }
         }
     }
