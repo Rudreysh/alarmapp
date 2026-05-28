@@ -377,20 +377,18 @@ private struct AlarmSpeechBubble: View {
         Text(typedText.isEmpty ? " " : typedText)
             .font(.system(size: 19, weight: .bold, design: .rounded))
             .foregroundColor(Color(hex: "#1A1A1A"))
-            .lineLimit(2)
-            .minimumScaleFactor(0.82)
+            .lineLimit(1)
             .padding(.horizontal, 22)
             .padding(.vertical, 14)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .center)
+            .fixedSize(horizontal: true, vertical: false)
             .background(
-                iOSSpeechBubbleShape(cornerRadius: 22, tailWidth: 28, tailHeight: 14, tailOffset: 48)
+                iOSSpeechBubbleShape(cornerRadius: 22, tailWidth: 28, tailHeight: 14, tailOffset: 20)
                     .fill(Color.white.opacity(0.94))
                     .background(Color.white.opacity(0.12))
-                    .clipShape(iOSSpeechBubbleShape(cornerRadius: 22, tailWidth: 28, tailHeight: 14, tailOffset: 48))
+                    .clipShape(iOSSpeechBubbleShape(cornerRadius: 22, tailWidth: 28, tailHeight: 14, tailOffset: 20))
             )
             .overlay(
-                iOSSpeechBubbleShape(cornerRadius: 22, tailWidth: 28, tailHeight: 14, tailOffset: 48)
+                iOSSpeechBubbleShape(cornerRadius: 22, tailWidth: 28, tailHeight: 14, tailOffset: 20)
                     .stroke(
                         LinearGradient(
                             colors: [
