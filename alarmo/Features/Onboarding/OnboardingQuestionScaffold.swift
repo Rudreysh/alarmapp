@@ -107,6 +107,18 @@ private struct QuestionnaireHeaderRow: View {
     let track: Color
     let isMascotHidden: Bool
 
+    private var isTiimo: Bool {
+        AlarmThemeStyle.persisted.usesTiimoLayoutBranch
+    }
+
+    private var glowColor: Color {
+        isTiimo ? Color(hex: "F5C87A").opacity(0.38) : Color(hex: "9B59F5").opacity(0.35)
+    }
+
+    private var ringColor: Color {
+        isTiimo ? Color(hex: "E8D7C0").opacity(0.4) : Color(hex: "FFB84A").opacity(0.18)
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             GeometryReader { geo in
@@ -120,18 +132,34 @@ private struct QuestionnaireHeaderRow: View {
             }
             .frame(height: 10)
 
-            QuestionHeaderGIFIcon(resourceName: OnboardingMascotAsset.resourceName, resourceExtension: "gif", size: 64)
-                .frame(width: 64, height: 64)
-                .fixedSize()
-                .opacity(isMascotHidden ? 0 : 1)
-                .background(
-                    GeometryReader { geo in
-                        Color.clear.preference(
-                            key: OnboardingQuestionMascotFramePreferenceKey.self,
-                            value: geo.frame(in: .named(OnboardingMascotFlightCoordinateSpace.name))
-                        )
-                    }
-                )
+            ZStack {
+                if !isMascotHidden {
+                    Circle()
+                        .fill(glowColor)
+                        .frame(width: 58, height: 58)
+                        .blur(radius: 7)
+                        .offset(y: 3)
+                }
+
+                QuestionHeaderGIFIcon(resourceName: OnboardingMascotAsset.resourceName, resourceExtension: "gif", size: 64)
+                    .frame(width: 64, height: 64)
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(ringColor, lineWidth: 1.0)
+                    )
+            }
+            .frame(width: 64, height: 64)
+            .fixedSize()
+            .opacity(isMascotHidden ? 0 : 1)
+            .background(
+                GeometryReader { geo in
+                    Color.clear.preference(
+                        key: OnboardingQuestionMascotFramePreferenceKey.self,
+                        value: geo.frame(in: .named(OnboardingMascotFlightCoordinateSpace.name))
+                    )
+                }
+            )
         }
     }
 }

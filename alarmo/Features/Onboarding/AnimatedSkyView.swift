@@ -8,6 +8,7 @@ struct AnimatedSkyView: View {
     @State private var cloudTwoDrifted = false
     @State private var cloudThreeDrifted = false
     @State private var birdFlightProgress: CGFloat = 0
+    @State private var sway = false
 
     var body: some View {
         GeometryReader { proxy in
@@ -30,9 +31,12 @@ struct AnimatedSkyView: View {
                     startX: -90,
                     endX: proxy.size.width + 90,
                     didDrift: cloudOneDrifted,
-                    reduceMotion: reduceMotion
+                    reduceMotion: reduceMotion,
+                    sway: sway,
+                    swayOffset: 5.5
                 )
                 .animation(.linear(duration: 22).repeatForever(autoreverses: false), value: cloudOneDrifted)
+                .animation(.easeInOut(duration: 4.8).repeatForever(autoreverses: true), value: sway)
 
                 DriftingCloud(
                     scale: 0.78,
@@ -41,9 +45,12 @@ struct AnimatedSkyView: View {
                     startX: proxy.size.width + 80,
                     endX: -80,
                     didDrift: cloudTwoDrifted,
-                    reduceMotion: reduceMotion
+                    reduceMotion: reduceMotion,
+                    sway: sway,
+                    swayOffset: -4.0
                 )
                 .animation(.linear(duration: 30).repeatForever(autoreverses: false), value: cloudTwoDrifted)
+                .animation(.easeInOut(duration: 5.6).repeatForever(autoreverses: true), value: sway)
 
                 DriftingCloud(
                     scale: 0.62,
@@ -52,9 +59,12 @@ struct AnimatedSkyView: View {
                     startX: -70,
                     endX: proxy.size.width + 70,
                     didDrift: cloudThreeDrifted,
-                    reduceMotion: reduceMotion
+                    reduceMotion: reduceMotion,
+                    sway: sway,
+                    swayOffset: 3.5
                 )
                 .animation(.linear(duration: 26).repeatForever(autoreverses: false), value: cloudThreeDrifted)
+                .animation(.easeInOut(duration: 4.2).repeatForever(autoreverses: true), value: sway)
 
                 BirdsFlyby(progress: reduceMotion ? 0.22 : birdFlightProgress)
                     .frame(width: 38, height: 18)
@@ -74,6 +84,10 @@ struct AnimatedSkyView: View {
                 cloudTwoDrifted = true
                 cloudThreeDrifted = true
                 birdFlightProgress = 1
+                
+                withAnimation(.easeInOut(duration: 4.5).repeatForever(autoreverses: true)) {
+                    sway = true
+                }
             }
             .onChange(of: reduceMotion) { _, isReduced in
                 guard isReduced else { return }
@@ -83,6 +97,7 @@ struct AnimatedSkyView: View {
                 cloudTwoDrifted = false
                 cloudThreeDrifted = false
                 birdFlightProgress = 0
+                sway = false
             }
         }
         .ignoresSafeArea()
@@ -135,12 +150,15 @@ private struct DriftingCloud: View {
     let endX: CGFloat
     let didDrift: Bool
     let reduceMotion: Bool
+    let sway: Bool
+    let swayOffset: CGFloat
 
     var body: some View {
         CloudShapeView()
             .frame(width: 76 * scale, height: 34 * scale)
             .opacity(opacity)
             .position(x: reduceMotion ? (startX + endX) * 0.5 : (didDrift ? endX : startX), y: yPosition)
+            .offset(y: reduceMotion ? 0 : (sway ? swayOffset : -swayOffset))
     }
 }
 

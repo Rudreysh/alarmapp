@@ -41,7 +41,9 @@ struct OnboardingNameView: View {
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, Spacing.m)
                 .disabled(firstName.trimmingCharacters(in: .whitespaces).isEmpty)
+                .scaleEffect(firstName.trimmingCharacters(in: .whitespaces).isEmpty ? 0.96 : 1.0)
                 .opacity(firstName.trimmingCharacters(in: .whitespaces).isEmpty ? 0.4 : 1.0)
+                .animation(.spring(response: 0.38, dampingFraction: 0.72), value: firstName.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
         .onAppear {

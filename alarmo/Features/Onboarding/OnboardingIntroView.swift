@@ -16,7 +16,7 @@ struct OnboardingIntroView: View {
     @State private var morningCoachSectionHeight: CGFloat = 0
     @State private var typingTimer: AnyCancellable?
     @State private var captionTypingTimer: AnyCancellable?
-    private let introMainText = "Hey, I'm your alarm!"
+    private let introMainText = "Hey! I'm your alarm."
     private let introCaptionText = "I'll help you stop snoozing through the morning."
     private let typingSelectionFeedback = UISelectionFeedbackGenerator()
     private let typingImpactFeedback = UIImpactFeedbackGenerator(style: .soft)
@@ -374,35 +374,36 @@ private struct AlarmSpeechBubble: View {
     let isTyping: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .lastTextBaseline, spacing: 5) {
-                    Text(typedText.isEmpty ? " " : typedText)
-                        .font(.system(size: 19, weight: .bold, design: .rounded))
-                        .foregroundColor(Color(hex: "#1A1A1A"))
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.82)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .padding(.horizontal, 18)
+        Text(typedText.isEmpty ? " " : typedText)
+            .font(.system(size: 19, weight: .bold, design: .rounded))
+            .foregroundColor(Color(hex: "#1A1A1A"))
+            .lineLimit(2)
+            .minimumScaleFactor(0.82)
+            .padding(.horizontal, 22)
             .padding(.vertical, 14)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .center)
             .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                iOSSpeechBubbleShape(cornerRadius: 22, tailWidth: 28, tailHeight: 14, tailOffset: 48)
                     .fill(Color.white.opacity(0.94))
+                    .background(Color.white.opacity(0.12))
+                    .clipShape(iOSSpeechBubbleShape(cornerRadius: 22, tailWidth: 28, tailHeight: 14, tailOffset: 48))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color(hex: "#F0EFFE"), lineWidth: 1.2)
+                iOSSpeechBubbleShape(cornerRadius: 22, tailWidth: 28, tailHeight: 14, tailOffset: 48)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.95),
+                                Color(hex: "#F0EFFE").opacity(0.85)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.2
+                    )
             )
-            .overlay(alignment: .bottom) {
-                SpeechTail()
-                    .fill(Color.white.opacity(0.94))
-                    .frame(width: 30, height: 15)
-                    .offset(x: 54, y: 13)
-            }
             .shadow(color: Color.black.opacity(0.07), radius: 18, x: 0, y: 10)
-        }
     }
 }
 
@@ -493,12 +494,77 @@ private struct MascotLandingGlow: View {
     }
 }
 
-private struct SpeechTail: Shape {
+private struct iOSSpeechBubbleShape: Shape {
+    let cornerRadius: CGFloat
+    let tailWidth: CGFloat
+    let tailHeight: CGFloat
+    let tailOffset: CGFloat
+    
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        
+        let w = rect.width
+        let h = rect.height
+        let r = min(cornerRadius, min(w / 2, h / 2))
+        
+        let tailCenterX = rect.midX + tailOffset
+        let tailStart = tailCenterX - tailWidth / 2
+        let tailEnd = tailCenterX + tailWidth / 2
+        
+        path.move(to: CGPoint(x: rect.minX + r, y: rect.minY))
+        
+        path.addLine(to: CGPoint(x: rect.maxX - r, y: rect.minY))
+        path.addArc(
+            center: CGPoint(x: rect.maxX - r, y: rect.minY + r),
+            radius: r,
+            startAngle: Angle(degrees: -90),
+            endAngle: Angle(degrees: 0),
+            clockwise: false
+        )
+        
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - r))
+        path.addArc(
+            center: CGPoint(x: rect.maxX - r, y: rect.maxY - r),
+            radius: r,
+            startAngle: Angle(degrees: 0),
+            endAngle: Angle(degrees: 90),
+            clockwise: false
+        )
+        
+        path.addLine(to: CGPoint(x: tailEnd, y: rect.maxY))
+        
+        let tip = CGPoint(x: tailCenterX + 2, y: rect.maxY + tailHeight)
+        let control1 = CGPoint(
+            x: tailEnd - (tailWidth * 0.15),
+            y: rect.maxY + (tailHeight * 0.45)
+        )
+        path.addQuadCurve(to: tip, control: control1)
+        
+        let control2 = CGPoint(
+            x: tailStart + (tailWidth * 0.2),
+            y: rect.maxY + (tailHeight * 0.4)
+        )
+        path.addQuadCurve(to: CGPoint(x: tailStart, y: rect.maxY), control: control2)
+        
+        path.addLine(to: CGPoint(x: rect.minX + r, y: rect.maxY))
+        
+        path.addArc(
+            center: CGPoint(x: rect.minX + r, y: rect.maxY - r),
+            radius: r,
+            startAngle: Angle(degrees: 90),
+            endAngle: Angle(degrees: 180),
+            clockwise: false
+        )
+        
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + r))
+        path.addArc(
+            center: CGPoint(x: rect.minX + r, y: rect.minY + r),
+            radius: r,
+            startAngle: Angle(degrees: 180),
+            endAngle: Angle(degrees: 270),
+            clockwise: false
+        )
+        
         path.closeSubpath()
         return path
     }

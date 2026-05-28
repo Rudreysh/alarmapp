@@ -49,24 +49,37 @@ struct WelcomeView: View {
     }
 
     private func headlineCard(in proxy: GeometryProxy) -> some View {
-        Text(typedHeadline)
-            .font(.system(size: 20, weight: .semibold, design: .rounded))
+        Text(typedHeadline.isEmpty ? " " : typedHeadline)
+            .font(.system(size: 20, weight: .bold, design: .rounded))
             .foregroundColor(Color(hex: "F7EEFF"))
             .lineLimit(1)
             .minimumScaleFactor(0.72)
-            .padding(.horizontal, 15)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 14)
             .fixedSize(horizontal: true, vertical: false)
-            .frame(maxWidth: proxy.size.width - 70, alignment: .center)
+            .frame(maxWidth: proxy.size.width - 60, alignment: .center)
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color(hex: "14082A").opacity(0.82))
+                iOSSpeechBubbleShape(cornerRadius: 22, tailWidth: 28, tailHeight: 14, tailOffset: 20)
+                    .fill(Color(hex: "1C0E36").opacity(0.68))
+                    .background(.ultraThinMaterial)
+                    .clipShape(iOSSpeechBubbleShape(cornerRadius: 22, tailWidth: 28, tailHeight: 14, tailOffset: 20))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color(hex: "B464DC").opacity(0.18), lineWidth: 1)
+                iOSSpeechBubbleShape(cornerRadius: 22, tailWidth: 28, tailHeight: 14, tailOffset: 20)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.24),
+                                Color.white.opacity(0.04),
+                                Color(hex: "B464DC").opacity(0.18)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.2
+                    )
             )
-            .shadow(color: Color(hex: "080312").opacity(0.28), radius: 14, x: 0, y: 10)
+            .shadow(color: Color(hex: "080312").opacity(0.35), radius: 16, x: 0, y: 12)
             .opacity(headlineVisible ? 1 : 0)
             .offset(y: headlineVisible ? 0 : -16)
             .position(x: proxy.size.width / 2, y: proxy.size.height * 0.385)
@@ -895,6 +908,82 @@ private final class WelcomeStreamingGIFView: UIView {
         let clamped = gifProperties[kCGImagePropertyGIFDelayTime] as? Double
         let duration = unclamped ?? clamped ?? defaultDuration
         return duration < 0.011 ? defaultDuration : duration
+    }
+}
+
+private struct iOSSpeechBubbleShape: Shape {
+    let cornerRadius: CGFloat
+    let tailWidth: CGFloat
+    let tailHeight: CGFloat
+    let tailOffset: CGFloat
+    
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        
+        let w = rect.width
+        let h = rect.height
+        let r = min(cornerRadius, min(w / 2, h / 2))
+        
+        let tailCenterX = rect.midX + tailOffset
+        let tailStart = tailCenterX - tailWidth / 2
+        let tailEnd = tailCenterX + tailWidth / 2
+        
+        path.move(to: CGPoint(x: rect.minX + r, y: rect.minY))
+        
+        path.addLine(to: CGPoint(x: rect.maxX - r, y: rect.minY))
+        path.addArc(
+            center: CGPoint(x: rect.maxX - r, y: rect.minY + r),
+            radius: r,
+            startAngle: Angle(degrees: -90),
+            endAngle: Angle(degrees: 0),
+            clockwise: false
+        )
+        
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - r))
+        path.addArc(
+            center: CGPoint(x: rect.maxX - r, y: rect.maxY - r),
+            radius: r,
+            startAngle: Angle(degrees: 0),
+            endAngle: Angle(degrees: 90),
+            clockwise: false
+        )
+        
+        path.addLine(to: CGPoint(x: tailEnd, y: rect.maxY))
+        
+        let tip = CGPoint(x: tailCenterX + 2, y: rect.maxY + tailHeight)
+        let control1 = CGPoint(
+            x: tailEnd - (tailWidth * 0.15),
+            y: rect.maxY + (tailHeight * 0.45)
+        )
+        path.addQuadCurve(to: tip, control: control1)
+        
+        let control2 = CGPoint(
+            x: tailStart + (tailWidth * 0.2),
+            y: rect.maxY + (tailHeight * 0.4)
+        )
+        path.addQuadCurve(to: CGPoint(x: tailStart, y: rect.maxY), control: control2)
+        
+        path.addLine(to: CGPoint(x: rect.minX + r, y: rect.maxY))
+        
+        path.addArc(
+            center: CGPoint(x: rect.minX + r, y: rect.maxY - r),
+            radius: r,
+            startAngle: Angle(degrees: 90),
+            endAngle: Angle(degrees: 180),
+            clockwise: false
+        )
+        
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + r))
+        path.addArc(
+            center: CGPoint(x: rect.minX + r, y: rect.minY + r),
+            radius: r,
+            startAngle: Angle(degrees: 180),
+            endAngle: Angle(degrees: 270),
+            clockwise: false
+        )
+        
+        path.closeSubpath()
+        return path
     }
 }
 

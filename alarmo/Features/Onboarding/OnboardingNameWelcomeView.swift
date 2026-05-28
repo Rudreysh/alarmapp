@@ -118,10 +118,14 @@ struct OnboardingNameWelcomeView: View {
     private func mascotPosition(in proxy: GeometryProxy) -> CGPoint {
         let start = mascotStartPosition(in: proxy)
         let target = mascotTargetPosition(in: proxy)
-        return CGPoint(
-            x: lerp(from: start.x, to: target.x, progress: mascotFlightProgress),
-            y: lerp(from: start.y, to: target.y, progress: mascotFlightProgress)
-        )
+        
+        let lx = lerp(from: start.x, to: target.x, progress: mascotFlightProgress)
+        let ly = lerp(from: start.y, to: target.y, progress: mascotFlightProgress)
+        
+        // Add a gorgeous parabolic downward arc swoop during flight progress
+        let arcOffset = sin(mascotFlightProgress * .pi) * 35
+        
+        return CGPoint(x: lx, y: ly + arcOffset)
     }
 
     private var mascotOpacity: Double {
@@ -149,7 +153,13 @@ struct OnboardingNameWelcomeView: View {
     }
 
     private var mascotRotationDegrees: Double {
-        guard mascotFlightProgress < 0.001, mascotRevealProgress > 0.95, !reduceMotion else { return 0 }
+        guard mascotFlightProgress < 0.001, mascotRevealProgress > 0.95, !reduceMotion else {
+            // Banking tilt during flight progress: tilts to 12 degrees then back to 0
+            if mascotFlightProgress >= 0.001 && mascotFlightProgress < 0.999 && !reduceMotion {
+                return Double(sin(mascotFlightProgress * .pi) * 12)
+            }
+            return 0
+        }
         return isMascotBreathing ? -1.2 : 1.0
     }
 
@@ -172,10 +182,19 @@ struct OnboardingNameWelcomeView: View {
         guard !isAdvancing else { return }
         isAdvancing = true
         isMascotBreathing = false
-        withAnimation(.spring(response: 0.58, dampingFraction: 0.84)) {
+        
+        // Flight animation
+        withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
             mascotFlightProgress = 1
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.39) {
+        
+        // Docking haptic confirmation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.36) {
+            let impact = UIImpactFeedbackGenerator(style: .light)
+            impact.impactOccurred(intensity: 0.65)
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) {
             onNext()
         }
     }
