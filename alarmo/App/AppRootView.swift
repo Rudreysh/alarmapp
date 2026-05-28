@@ -35,6 +35,7 @@ struct AppRootView: View {
     @State private var customUIHandoffStartedAt: Date?
     @State private var customUIHandoffAttemptCount: Int = 0
     @AppStorage("settings.alarmThemeStyleRaw") private var appThemeStyleRaw: String = AlarmThemeStyle.default.rawValue
+    @State private var showLaunchLogo = true
 
     init() {
         let preferences = AppPreferences()
@@ -45,11 +46,26 @@ struct AppRootView: View {
     }
 
     var body: some View {
-        return Group {
-            if showingMainTab {
-                MainTabContainerView(preferences: appPreferences, alarmStore: alarmStore)
-            } else {
-                OnboardingFlowView(viewModel: onboardingViewModel, appPreferences: appPreferences, alarmStore: alarmStore)
+        return ZStack {
+            Group {
+                if showingMainTab {
+                    MainTabContainerView(preferences: appPreferences, alarmStore: alarmStore)
+                } else {
+                    OnboardingFlowView(viewModel: onboardingViewModel, appPreferences: appPreferences, alarmStore: alarmStore)
+                }
+            }
+
+            if showLaunchLogo {
+                LaunchLogoView(isTiimoTheme: isTiimoTheme)
+                    .transition(.opacity)
+                    .zIndex(999)
+            }
+        }
+        .animation(.easeInOut(duration: 0.24), value: showLaunchLogo)
+        .onAppear {
+            let dismissDelay: TimeInterval = UIAccessibility.isReduceMotionEnabled ? 0.55 : 1.0
+            DispatchQueue.main.asyncAfter(deadline: .now() + dismissDelay) {
+                showLaunchLogo = false
             }
         }
         .environmentObject(themeManager)
@@ -589,6 +605,11 @@ struct AppRootView: View {
         return style.forcesLightColorScheme ? .light : settingsStore.themeMode.colorScheme
     }
 
+    private var isTiimoTheme: Bool {
+        let style = AlarmThemeStyle(rawValue: appThemeStyleRaw) ?? .default
+        return style.usesTiimoLayoutBranch
+    }
+
     private func handlePlanNotificationMarkDone(userInfo: [AnyHashable: Any]?) {
         guard let idString = userInfo?["planItemId"] as? String,
               let id = UUID(uuidString: idString) else { return }
@@ -665,6 +686,24 @@ struct AppRootView: View {
             checkDate = previous
         }
         return streak
+    }
+}
+
+private struct LaunchLogoView: View {
+    let isTiimoTheme: Bool
+
+    var body: some View {
+        ZStack {
+            (isTiimoTheme ? Color.white : Color.black)
+                .ignoresSafeArea()
+
+            Text("Awayk")
+                .font(.system(size: 44, weight: .bold, design: .rounded))
+                .foregroundColor(isTiimoTheme ? .black : .white)
+                .kerning(0.4)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Awayk")
     }
 }
 

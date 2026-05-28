@@ -1,0 +1,185 @@
+
+<h2 class="sr-only">Awayk welcome screen concept with animated sun, drifting clouds, and waving alarm mascot in a phone frame</h2>
+
+<style>
+.stage {
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-lg);
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+}
+.phone {
+  width: 300px;
+  height: 600px;
+  border-radius: 38px;
+  border: 2px solid var(--color-border-secondary);
+  overflow: hidden;
+  position: relative;
+  background: linear-gradient(180deg, #FBF3E8 0%, #FDF6EC 45%, #FFF9F1 100%);
+}
+.statusbar {
+  position: absolute; top: 0; left: 0; right: 0; height: 38px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; font-size: 12px; font-weight: 500; color: #1a1a1a;
+  z-index: 30;
+}
+.skip {
+  position: absolute; top: 52px; right: 22px; z-index: 30;
+  font-size: 15px; font-weight: 500; color: #1a1a1a;
+}
+.sky { position: absolute; top: 0; left: 0; right: 0; height: 340px; overflow: hidden; }
+
+.sun {
+  position: absolute; top: 70px; left: 50%; width: 70px; height: 70px;
+  margin-left: -35px; border-radius: 50%;
+  background: radial-gradient(circle, #FFD56B 0%, #FFC24B 60%, #FCB13A 100%);
+  animation: sunrise 6s ease-in-out infinite alternate;
+}
+.sun::after {
+  content: ''; position: absolute; inset: -14px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,193,75,0.35) 0%, rgba(255,193,75,0) 70%);
+  animation: pulse 4s ease-in-out infinite;
+}
+@keyframes sunrise {
+  0% { transform: translateY(18px) scale(0.96); }
+  100% { transform: translateY(-6px) scale(1.02); }
+}
+@keyframes pulse {
+  0%,100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+.cloud {
+  position: absolute; background: #fff; border-radius: 100px; opacity: 0.92;
+}
+.cloud::before, .cloud::after {
+  content: ''; position: absolute; background: #fff; border-radius: 50%;
+}
+.cloud1 { width: 60px; height: 20px; top: 90px; animation: drift1 22s linear infinite; }
+.cloud1::before { width: 26px; height: 26px; top: -11px; left: 10px; }
+.cloud1::after { width: 20px; height: 20px; top: -8px; left: 32px; }
+.cloud2 { width: 46px; height: 16px; top: 150px; opacity: 0.78; animation: drift2 30s linear infinite; }
+.cloud2::before { width: 20px; height: 20px; top: -9px; left: 8px; }
+.cloud2::after { width: 16px; height: 16px; top: -6px; left: 24px; }
+.cloud3 { width: 38px; height: 13px; top: 60px; opacity: 0.6; animation: drift1 26s linear infinite; animation-delay: -8s; }
+.cloud3::before { width: 16px; height: 16px; top: -7px; left: 7px; }
+.cloud3::after { width: 13px; height: 13px; top: -5px; left: 20px; }
+
+@keyframes drift1 {
+  0% { left: -70px; } 100% { left: 320px; }
+}
+@keyframes drift2 {
+  0% { left: 320px; } 100% { left: -70px; }
+}
+
+.headline {
+  position: absolute; top: 150px; left: 24px; right: 24px; z-index: 20;
+  background: #fff; border-radius: 22px; padding: 18px 20px; text-align: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+}
+.headline h1 { font-size: 26px; font-weight: 500; color: #1a1a1a; margin: 0; }
+.subline {
+  position: absolute; top: 234px; left: 24px; right: 24px; z-index: 20;
+  text-align: center; font-size: 15px; color: #9B97C2; font-weight: 500;
+}
+
+.mascot {
+  position: absolute; top: 290px; left: 50%; margin-left: -70px;
+  width: 140px; height: 150px; z-index: 15;
+  animation: bob 3s ease-in-out infinite;
+}
+@keyframes bob {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.mascot-glow {
+  position: absolute; top: 340px; left: 50%; margin-left: -90px;
+  width: 180px; height: 120px; z-index: 14;
+  background: radial-gradient(ellipse, rgba(255,180,90,0.22) 0%, rgba(255,180,90,0) 70%);
+  animation: glowpulse 4s ease-in-out infinite;
+}
+@keyframes glowpulse {
+  0%,100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+.wave {
+  transform-origin: 78px 58px;
+  animation: wavehand 1.8s ease-in-out infinite;
+}
+@keyframes wavehand {
+  0%,100% { transform: rotate(0deg); }
+  25% { transform: rotate(18deg); }
+  75% { transform: rotate(-8deg); }
+}
+.eye { animation: blink 4s infinite; transform-origin: center; }
+@keyframes blink {
+  0%,92%,100% { transform: scaleY(1); }
+  96% { transform: scaleY(0.1); }
+}
+
+.setup-meta {
+  position: absolute; bottom: 96px; left: 0; right: 0; z-index: 20;
+  text-align: center; font-size: 14px; font-weight: 500; color: #B0ADc0;
+}
+.cta {
+  position: absolute; bottom: 34px; left: 22px; right: 22px; z-index: 20;
+  height: 56px; background: #111; border-radius: 28px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 17px; font-weight: 500;
+  animation: ctapulse 3s ease-in-out infinite;
+}
+@keyframes ctapulse {
+  0%,100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+.birds { position: absolute; top: 110px; left: 40px; z-index: 12; animation: flyby 18s linear infinite; }
+@keyframes flyby {
+  0% { left: -30px; top: 120px; opacity: 0; }
+  10% { opacity: 0.5; }
+  90% { opacity: 0.5; }
+  100% { left: 310px; top: 80px; opacity: 0; }
+}
+</style>
+
+<div class="stage">
+  <div class="phone">
+    <div class="statusbar"><span>15:50</span><span>📶 89%</span></div>
+    <div class="skip">Skip</div>
+
+    <div class="sky">
+      <div class="sun"></div>
+      <div class="cloud cloud1"></div>
+      <div class="cloud cloud2"></div>
+      <div class="cloud cloud3"></div>
+      <svg class="birds" width="30" height="14" viewBox="0 0 30 14">
+        <path d="M2 8 Q5 3 8 8 Q11 3 14 8" fill="none" stroke="#B0936A" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M16 6 Q19 2 22 6 Q25 2 28 6" fill="none" stroke="#B0936A" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <div class="headline"><h1>Hey! I'm your alarm.</h1></div>
+    <div class="subline">(The one you keep snoozing at 2am)</div>
+
+    <div class="mascot-glow"></div>
+    <svg class="mascot" viewBox="0 0 140 150">
+      <ellipse cx="48" cy="36" rx="16" ry="20" fill="#2E7FF2" transform="rotate(-28 48 36)"/>
+      <ellipse cx="92" cy="36" rx="16" ry="20" fill="#2E7FF2" transform="rotate(28 92 36)"/>
+      <rect x="66" y="14" width="8" height="14" rx="4" fill="#2E7FF2"/>
+      <circle cx="70" cy="78" r="56" fill="#2E7FF2"/>
+      <circle cx="70" cy="78" r="42" fill="#FBF0DC"/>
+      <g class="eye"><circle cx="56" cy="74" r="6" fill="#1a1a1a"/></g>
+      <g class="eye"><circle cx="84" cy="74" r="6" fill="#1a1a1a"/></g>
+      <path d="M60 90 Q70 100 80 90" fill="none" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round"/>
+      <line x1="70" y1="78" x2="70" y2="56" stroke="#FF4438" stroke-width="4" stroke-linecap="round"/>
+      <line x1="70" y1="78" x2="82" y2="68" stroke="#FF4438" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="70" cy="78" r="3.5" fill="#FF4438"/>
+      <ellipse cx="34" cy="120" rx="9" ry="13" fill="#2E7FF2"/>
+      <ellipse cx="106" cy="120" rx="9" ry="13" fill="#2E7FF2"/>
+      <g class="wave"><ellipse cx="118" cy="64" rx="9" ry="13" fill="#2E7FF2" transform="rotate(30 118 64)"/></g>
+    </svg>
+
+    <div class="setup-meta">Quick setup · 2 min</div>
+    <div class="cta">Let's go</div>
+  </div>
+</div>
