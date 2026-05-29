@@ -269,6 +269,7 @@ struct OnboardingSoundSelectionView: View {
                         isBuffering: isSoundBuffering(named: sound.title),
                         isStarred: sound.isStarred,
                         onSelect: {
+                            soundPlayer.stop() // Immediate stop of previous sound
                             if let url = AssetManager.shared.localURL(for: sound.fileURL.lastPathComponent) {
                                 let asset = SoundAsset(id: sound.id, title: sound.title, fileURL: url, category: sound.category)
                                 viewModel.tapSound(asset, volume: onboardingViewModel.state.selectedVolume)
@@ -311,7 +312,8 @@ struct OnboardingSoundSelectionView: View {
                     ) { action in
                         switch action {
                         case .select:
-                            viewModel.selectSoundOnly(sound)
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            viewModel.tapSound(sound, volume: onboardingViewModel.state.selectedVolume)
                             onboardingViewModel.setSelectedSound(sound)
                         case .play:
                             viewModel.tapSound(sound, volume: onboardingViewModel.state.selectedVolume)
@@ -375,6 +377,7 @@ struct OnboardingSoundSelectionView: View {
             isBuffering: isSoundBuffering(named: remoteSound.title),
             isStarred: isStarred,
             onSelect: {
+                soundPlayer.stop() // Immediate stop of previous sound
                 if let url = AssetManager.shared.localURL(for: remoteSound.filename) {
                     let asset = SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: url, category: .cloud)
                     viewModel.tapSound(asset, volume: onboardingViewModel.state.selectedVolume)

@@ -869,6 +869,7 @@ struct SoundPickerView: View {
     }
 
     private func downloadAndPlay(remoteSound: RemoteSound) {
+        soundPlayer.stop() // Immediate stop of previous sound
         Task {
             do {
                 let localURL = try await assetManager.downloadAsset(
@@ -1076,11 +1077,15 @@ struct SoundRow: View {
                     .strokeBorder(isSelected ? Colors.accentTeal : Colors.textTertiary, lineWidth: 2)
                     .background(Circle().fill(isSelected ? Colors.accentTeal : Color.clear))
                     .frame(width: 24, height: 24)
+                    .scaleEffect(isSelected ? 1.12 : 1.0)
+                    .animation(.spring(response: 0.28, dampingFraction: 0.65), value: isSelected)
                     .overlay(
                         Circle()
                             .fill(Color.white)
                             .frame(width: 8, height: 8)
+                            .scaleEffect(isSelected ? 1.0 : 0.01)
                             .opacity(isSelected ? 1 : 0)
+                            .animation(.spring(response: 0.2, dampingFraction: 0.5), value: isSelected)
                     )
                 
                 VStack(alignment: .leading, spacing: 2) {
@@ -1103,6 +1108,7 @@ struct SoundRow: View {
             }
             .contentShape(Rectangle())
             .onTapGesture {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 onAction(.select)
             }
             .padding(.vertical, 12)
@@ -1269,11 +1275,15 @@ struct RemoteSoundRow: View {
                         .strokeBorder(isSelected ? oceanBlue : Colors.textTertiary, lineWidth: 2)
                         .background(Circle().fill(isSelected ? oceanBlue : Color.clear))
                         .frame(width: 24, height: 24)
+                        .scaleEffect(isSelected ? 1.12 : 1.0)
+                        .animation(.spring(response: 0.28, dampingFraction: 0.65), value: isSelected)
                         .overlay(
                             Circle()
                                 .fill(Color.white)
                                 .frame(width: 8, height: 8)
+                                .scaleEffect(isSelected ? 1.0 : 0.01)
                                 .opacity(isSelected ? 1 : 0)
+                                .animation(.spring(response: 0.2, dampingFraction: 0.5), value: isSelected)
                         )
                 } else {
                     Image(systemName: "icloud.and.arrow.down")
@@ -1285,7 +1295,10 @@ struct RemoteSoundRow: View {
             .padding(.leading, 16)
             .contentShape(Rectangle())
             .onTapGesture {
-                if !isDownloaded && !isDownloading {
+                if isDownloaded {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    onSelect()
+                } else if !isDownloading {
                     startDownload()
                 }
             }
