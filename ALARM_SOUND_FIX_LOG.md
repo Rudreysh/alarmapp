@@ -234,3 +234,26 @@ takes over → `appEnginePrimary` suppresses respawns). But the storm can still 
 genuine prolonged fallback. Recommended follow-up: add a circuit-breaker / max-respawn cap
 and a longer backoff to `ensureBackupAlarmKitChain` + `ensureAlarmKitSurfaceForLockedLoopIfNeeded`.
 This was outside the original 7-fix scope; flagging rather than guessing a fix.
+
+---
+
+## [FIX 8 DONE] Snooze no longer kills one-shot/quick alarms — BUILD SUCCEEDED
+
+**Symptom:** Pressing Snooze in the custom UI stopped the alarm permanently; it never
+rang again after the snooze interval.
+
+**Root cause:** In `AlarmRingCoordinator.stopRingingInternal`, the source-alarm retirement
+block ran for BOTH stop and snooze (it was not guarded by `preserveSession`):
+```
+if alarm.type == .quick { alarmStore?.remove(id:) }          // quick → deleted
+else if repeatMask == 0 && !isDaily { toggleEnabled(false) } // one-shot → disabled
+```
+On snooze (`preserveSession == true`) this deleted/disabled the alarm, so when the snooze
+reschedule fired, `alarm(by:)` found no live alarm and the engine never started → silence.
+Repeating/daily alarms skipped this block, which is why snooze appeared to work for them.
+
+**Fix:** Wrapped the block in `if !preserveSession { … }`. Snooze now preserves the alarm;
+the existing re-ring paths (AlarmKit reschedule via `scheduleSnooze` + the foreground
+`asyncAfter` → `startRinging`) fire the alarm again after the configured snooze interval
+(snoozeMinutes/snoozeSeconds), and the loop repeats until the user presses Stop. Real Stop
+(`!preserveSession`) retires quick/one-shot alarms exactly as before.

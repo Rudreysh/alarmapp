@@ -379,12 +379,19 @@ final class AlarmRingCoordinator: ObservableObject {
                 alarmSessionSnapshots.removeValue(forKey: alarm.id)
             }
 
-            if alarm.type == .quick {
-                print("[AlarmRingCoordinator] 🗑️ Auto-deleting Quick Alarm: \(alarm.name)")
-                alarmStore?.remove(id: alarm.id)
-            } else if alarm.repeatMask == 0 && !alarm.isDaily {
-                print("[AlarmRingCoordinator] 🔕 Disabling one-shot alarm: \(alarm.name)")
-                alarmStore?.toggleEnabled(id: alarm.id, enabled: false)
+            // Only retire the source alarm on a real STOP. On SNOOZE
+            // (preserveSession == true) the alarm must stay alive so the snooze
+            // reschedule can ring it again after the interval — deleting a quick
+            // alarm or disabling a one-shot here was permanently killing the
+            // alarm on snooze.
+            if !preserveSession {
+                if alarm.type == .quick {
+                    print("[AlarmRingCoordinator] 🗑️ Auto-deleting Quick Alarm: \(alarm.name)")
+                    alarmStore?.remove(id: alarm.id)
+                } else if alarm.repeatMask == 0 && !alarm.isDaily {
+                    print("[AlarmRingCoordinator] 🔕 Disabling one-shot alarm: \(alarm.name)")
+                    alarmStore?.toggleEnabled(id: alarm.id, enabled: false)
+                }
             }
 
             // Log Dismissed Event
