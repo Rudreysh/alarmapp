@@ -1245,29 +1245,59 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         return findFallbackSound()
     }
 
+    // Preferred fallback sound names in priority order — these are guaranteed bundled alarm tones.
+    // Checked before the general bundle scan so SFX/rank sounds are never used as the fallback.
+    private static let preferredFallbackSoundKeys = ["defaultalarm", "clockalarm", "alarm"]
+
     private func findFallbackSound() -> URL? {
         let fileManager = FileManager.default
         let bundleURL = Bundle.main.bundleURL
         let extensions = ["mp3", "wav", "m4a", "caf"]
+
+        var audibleFiles: [URL] = []
+        var silentCandidate: URL?
+
         if let enumerator = fileManager.enumerator(at: bundleURL, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
-            var silentCandidate: URL?
             for case let fileURL as URL in enumerator {
-                if fileURL.isFileURL && extensions.contains(fileURL.pathExtension.lowercased()) {
-                    let key = normalizedSoundKey(fileURL.deletingPathExtension().lastPathComponent)
-                    let isSilentAsset = key.contains("alarmosilence") || key.contains("silencealarm")
-                    if isSilentAsset {
-                        if silentCandidate == nil { silentCandidate = fileURL }
-                        continue
-                    }
-                    log("[Engine] findFallbackSound: using audible fallback '\(fileURL.lastPathComponent)'")
-                    return fileURL
+                guard fileURL.isFileURL, extensions.contains(fileURL.pathExtension.lowercased()) else { continue }
+                let key = normalizedSoundKey(fileURL.deletingPathExtension().lastPathComponent)
+                if key.contains("alarmosilence") || key.contains("silencealarm") {
+                    if silentCandidate == nil { silentCandidate = fileURL }
+                } else {
+                    audibleFiles.append(fileURL)
                 }
             }
-            if let silentCandidate {
-                log("[Engine] findFallbackSound: only silent fallback available '\(silentCandidate.lastPathComponent)'")
-                return silentCandidate
+        }
+
+        // 1. Try preferred alarm-tone names so SFX rank sounds are never used as fallback
+        for preferredKey in Self.preferredFallbackSoundKeys {
+            if let match = audibleFiles.first(where: {
+                normalizedSoundKey($0.deletingPathExtension().lastPathComponent) == preferredKey
+            }) {
+                log("[Engine] findFallbackSound: using preferred fallback '\(match.lastPathComponent)'")
+                return match
             }
         }
+
+        // 2. Any non-SFX / non-rank audio file (alarm tones, ringtones, etc.)
+        if let alarmTone = audibleFiles.first(where: {
+            !$0.path.contains("/SFX/") && !$0.path.contains("/Ranks/")
+        }) {
+            log("[Engine] findFallbackSound: using audible fallback '\(alarmTone.lastPathComponent)'")
+            return alarmTone
+        }
+
+        // 3. Last resort: any audible file including SFX
+        if let first = audibleFiles.first {
+            log("[Engine] findFallbackSound: using SFX fallback '\(first.lastPathComponent)'")
+            return first
+        }
+
+        if let silentCandidate {
+            log("[Engine] findFallbackSound: only silent fallback available '\(silentCandidate.lastPathComponent)'")
+            return silentCandidate
+        }
+
         log("[Engine] findFallbackSound: no fallback sound found in bundle")
         return nil
     }

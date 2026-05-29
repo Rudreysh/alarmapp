@@ -55,6 +55,8 @@ struct SoundPickerView: View {
     @State private var deleteTargetSound: SoundAsset?
     @State private var showDeleteConfirmation = false
     private let customSoundService = CustomSoundService()
+    // Bundled alarm tone used as fallback when the user's chosen sound is unavailable
+    private let fallbackSoundName = "Default Alarm"
     // TODO: Re-enable Spotify import flow when this option is brought back.
     // private let spotifyService = SpotifyService()
 
@@ -238,34 +240,41 @@ struct SoundPickerView: View {
 
                                                 VStack(spacing: 0) {
                                                     ForEach(Array(section.sounds.enumerated()), id: \.element.id) { index, sound in
-                                                        SoundRow(
-                                                            sound: sound,
-                                                            isSelected: selectedSound == sound.title,
-                                                            isPlaying: isSoundPlaying(named: sound.title),
-                                                            isBuffering: isSoundBuffering(named: sound.title)
-                                                        ) { action in
-                                                            switch action {
-                                                            case .select, .play:
-                                                                selectedSound = sound.title
-                                                                if sound.category == .cloud && !sound.fileURL.isFileURL {
-                                                                    let remote = RemoteSound(
-                                                                        id: sound.id,
-                                                                        filename: sound.fileURL.lastPathComponent,
-                                                                        title: sound.title,
-                                                                        category: section.title,
-                                                                        url: sound.fileURL,
-                                                                        isPremium: false
-                                                                    )
-                                                                    if let url = assetManager.localURL(for: remote.filename) {
-                                                                        togglePlay(sound: SoundAsset(id: sound.id, title: sound.title, fileURL: url, category: .cloud, isStarred: sound.isStarred))
+                                                        if let remote = remoteSoundFor(sound: sound, fallbackCategory: section.title) {
+                                                            RemoteSoundRow(
+                                                                remoteSound: remote,
+                                                                isSelected: selectedSound == sound.title,
+                                                                isPlaying: isSoundPlaying(named: sound.title),
+                                                                isBuffering: isSoundBuffering(named: sound.title),
+                                                                isStarred: sound.isStarred,
+                                                                onSelect: {
+                                                                    selectAndPlayRemote(remoteSound: remote)
+                                                                },
+                                                                onPreview: {
+                                                                    if isSoundPlaying(named: remote.title) {
+                                                                        soundPlayer.stop()
                                                                     } else {
-                                                                        downloadAndPlay(remoteSound: remote)
+                                                                        soundPlayer.playStreamURL(remote.url, resourceName: remote.title)
                                                                     }
-                                                                } else {
-                                                                    togglePlay(sound: sound)
+                                                                },
+                                                                onToggleStar: {
+                                                                    toggleStar(sound: sound)
                                                                 }
-                                                            case .toggleStar:
-                                                                toggleStar(sound: sound)
+                                                            )
+                                                        } else {
+                                                            SoundRow(
+                                                                sound: sound,
+                                                                isSelected: selectedSound == sound.title,
+                                                                isPlaying: isSoundPlaying(named: sound.title),
+                                                                isBuffering: isSoundBuffering(named: sound.title)
+                                                            ) { action in
+                                                                switch action {
+                                                                case .select, .play:
+                                                                    selectedSound = sound.title
+                                                                    togglePlay(sound: sound)
+                                                                case .toggleStar:
+                                                                    toggleStar(sound: sound)
+                                                                }
                                                             }
                                                         }
 
@@ -322,9 +331,7 @@ struct SoundPickerView: View {
                                                     
                                                     if isDownloaded {
                                                         SwipeableSoundRow(onDelete: {
-                                                            assetManager.deleteLocalFile(filename: remoteSound.filename)
-                                                            if isCurrentPlayingResource(named: remoteSound.title) { soundPlayer.stop() }
-                                                            loadSounds()
+                                                            deleteDownloadedSound(remoteSound: remoteSound)
                                                         }) {
                                                             RemoteSoundRow(
                                                                 remoteSound: remoteSound,
@@ -333,13 +340,7 @@ struct SoundPickerView: View {
                                                                 isBuffering: isSoundBuffering(named: remoteSound.title),
                                                                 isStarred: isStarred,
                                                                 onSelect: {
-                                                                    loadSounds()
-                                                                    selectedSound = remoteSound.title
-                                                                    if let url = assetManager.localURL(for: remoteSound.filename) {
-                                                                        togglePlay(sound: SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: url, category: .cloud))
-                                                                    } else {
-                                                                        downloadAndPlay(remoteSound: remoteSound)
-                                                                    }
+                                                                    selectAndPlayRemote(remoteSound: remoteSound)
                                                                 },
                                                                 onPreview: {
                                                                     if isSoundPlaying(named: remoteSound.title) {
@@ -361,13 +362,7 @@ struct SoundPickerView: View {
                                                             isBuffering: isSoundBuffering(named: remoteSound.title),
                                                             isStarred: isStarred,
                                                             onSelect: {
-                                                                loadSounds()
-                                                                selectedSound = remoteSound.title
-                                                                if let url = assetManager.localURL(for: remoteSound.filename) {
-                                                                    togglePlay(sound: SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: url, category: .cloud))
-                                                                } else {
-                                                                    downloadAndPlay(remoteSound: remoteSound)
-                                                                }
+                                                                selectAndPlayRemote(remoteSound: remoteSound)
                                                             },
                                                             onPreview: {
                                                                 if isSoundPlaying(named: remoteSound.title) {
@@ -458,25 +453,12 @@ struct SoundPickerView: View {
                                                 }
                                             }
                                         } else {
-                                            let isRemote = !sound.fileURL.isFileURL
-                                            
-                                            if isRemote {
-                                                let remoteSound = RemoteSound(
-                                                    id: sound.id,
-                                                    filename: sound.fileURL.lastPathComponent,
-                                                    title: sound.title,
-                                                    category: sound.category.title,
-                                                    url: sound.fileURL,
-                                                    isPremium: false
-                                                )
-                                                
-                                                let isDownloaded = assetManager.fileExists(filename: sound.fileURL.lastPathComponent)
+                                            if let remoteSound = remoteSoundFor(sound: sound, fallbackCategory: sound.category.title) {
+                                                let isDownloaded = assetManager.fileExists(filename: remoteSound.filename)
                                                 
                                                 if isDownloaded {
                                                     SwipeableSoundRow(onDelete: {
-                                                        assetManager.deleteLocalFile(filename: sound.fileURL.lastPathComponent)
-                                                        if isCurrentPlayingResource(named: sound.title) { soundPlayer.stop() }
-                                                        loadSounds()
+                                                        deleteDownloadedSound(remoteSound: remoteSound)
                                                     }) {
                                                         RemoteSoundRow(
                                                             remoteSound: remoteSound,
@@ -485,27 +467,13 @@ struct SoundPickerView: View {
                                                             isBuffering: isSoundBuffering(named: sound.title),
                                                             isStarred: sound.isStarred,
                                                             onSelect: {
-                                                                selectedSound = sound.title
-                                                                if let url = assetManager.localURL(for: sound.fileURL.lastPathComponent) {
-                                                                    let asset = SoundAsset(id: sound.id, title: sound.title, fileURL: url, category: sound.category)
-                                                                    togglePlay(sound: asset)
-                                                                } else {
-                                                                    let remote = RemoteSound(
-                                                                        id: sound.id,
-                                                                        filename: sound.fileURL.lastPathComponent,
-                                                                        title: sound.title,
-                                                                        category: sound.category.title,
-                                                                        url: sound.fileURL,
-                                                                        isPremium: false
-                                                                    )
-                                                                    downloadAndPlay(remoteSound: remote)
-                                                                }
+                                                                selectAndPlayRemote(remoteSound: remoteSound)
                                                             },
                                                             onPreview: {
                                                                 if isSoundPlaying(named: sound.title) {
                                                                     soundPlayer.stop()
                                                                 } else {
-                                                                    soundPlayer.playStreamURL(sound.fileURL, resourceName: sound.title)
+                                                                    soundPlayer.playStreamURL(remoteSound.url, resourceName: remoteSound.title)
                                                                 }
                                                             },
                                                             onToggleStar: {
@@ -521,27 +489,13 @@ struct SoundPickerView: View {
                                                         isBuffering: isSoundBuffering(named: sound.title),
                                                         isStarred: sound.isStarred,
                                                         onSelect: {
-                                                            selectedSound = sound.title
-                                                            if let url = assetManager.localURL(for: sound.fileURL.lastPathComponent) {
-                                                                let asset = SoundAsset(id: sound.id, title: sound.title, fileURL: url, category: sound.category)
-                                                                togglePlay(sound: asset)
-                                                            } else {
-                                                                let remote = RemoteSound(
-                                                                    id: sound.id,
-                                                                    filename: sound.fileURL.lastPathComponent,
-                                                                    title: sound.title,
-                                                                    category: sound.category.title,
-                                                                    url: sound.fileURL,
-                                                                    isPremium: false
-                                                                )
-                                                                downloadAndPlay(remoteSound: remote)
-                                                            }
+                                                            selectAndPlayRemote(remoteSound: remoteSound)
                                                         },
                                                         onPreview: {
                                                             if isSoundPlaying(named: sound.title) {
                                                                 soundPlayer.stop()
                                                             } else {
-                                                                soundPlayer.playStreamURL(sound.fileURL, resourceName: sound.title)
+                                                                soundPlayer.playStreamURL(remoteSound.url, resourceName: remoteSound.title)
                                                             }
                                                         },
                                                         onToggleStar: {
@@ -852,6 +806,20 @@ struct SoundPickerView: View {
     private func loadSounds() {
         sounds = repository.loadAllSounds()
     }
+
+    /// Deletes a downloaded cloud sound file and resets any alarms that used it to the fallback.
+    private func deleteDownloadedSound(remoteSound: RemoteSound) {
+        let title = remoteSound.title
+        // Reset saved alarms that point to this sound so they still ring at alarm time
+        for var alarm in AlarmStore.shared.alarms where alarm.soundName == title {
+            alarm.soundName = fallbackSoundName
+            AlarmStore.shared.update(alarm)
+        }
+        if selectedSound == title { selectedSound = fallbackSoundName }
+        assetManager.deleteLocalFile(filename: remoteSound.filename)
+        if isCurrentPlayingResource(named: title) { soundPlayer.stop() }
+        loadSounds()
+    }
     
     private func togglePlay(sound: SoundAsset) {
         if isSoundPlaying(named: sound.title) {
@@ -868,6 +836,37 @@ struct SoundPickerView: View {
         loadSounds()
     }
 
+    private func remoteSoundFor(sound: SoundAsset, fallbackCategory: String) -> RemoteSound? {
+        if let remote = assetManager.remoteSounds.first(where: { $0.id == sound.id }) {
+            return remote
+        }
+
+        if let remote = assetManager.remoteSounds.first(where: { normalizedTitle($0.title) == normalizedTitle(sound.title) }) {
+            return remote
+        }
+
+        guard !sound.fileURL.isFileURL else { return nil }
+
+        return RemoteSound(
+            id: sound.id,
+            filename: sound.fileURL.lastPathComponent,
+            title: sound.title,
+            category: fallbackCategory,
+            url: sound.fileURL,
+            isPremium: false
+        )
+    }
+
+    private func selectAndPlayRemote(remoteSound: RemoteSound) {
+        if let url = assetManager.localURL(for: remoteSound.filename) {
+            selectedSound = remoteSound.title
+            togglePlay(sound: SoundAsset(id: remoteSound.id, title: remoteSound.title, fileURL: url, category: .cloud))
+            return
+        }
+
+        downloadAndPlay(remoteSound: remoteSound)
+    }
+
     private func downloadAndPlay(remoteSound: RemoteSound) {
         soundPlayer.stop() // Immediate stop of previous sound
         Task {
@@ -878,6 +877,7 @@ struct SoundPickerView: View {
                 )
                 await MainActor.run {
                     loadSounds()
+                    selectedSound = remoteSound.title
                     let downloadedAsset = SoundAsset(
                         id: remoteSound.id,
                         title: remoteSound.title,
@@ -937,12 +937,15 @@ struct SoundPickerView: View {
             if isSoundPlaying(named: target.title) {
                 soundPlayer.stop()
             }
+            // Reset any saved alarms using this custom sound to the guaranteed fallback
+            for var alarm in AlarmStore.shared.alarms where alarm.soundName == target.title {
+                alarm.soundName = fallbackSoundName
+                AlarmStore.shared.update(alarm)
+            }
+            if selectedSound == target.title { selectedSound = fallbackSoundName }
             try customSoundService.deleteCustomSound(at: target.fileURL)
             loadSounds()
             selectedTab = .custom
-            if selectedSound == target.title {
-                selectedSound = sounds.first?.title ?? selectedSound
-            }
         } catch {
             print("Failed to delete sound: \(error)")
         }
