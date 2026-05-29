@@ -91,7 +91,6 @@ enum AlarmCustomUIHandoffStore {
     nonisolated private static let surfaceAlarmIDKey = "alarmo.alarmKit.pendingCustomUISurfaceAlarmId"
     nonisolated private static let timestampKey = "alarmo.alarmKit.pendingCustomUITimestamp"
     nonisolated private static let surfaceSourceMapKey = "alarmo.alarmKit.surfaceSourceMap"
-    nonisolated private static let maxAge: TimeInterval = 10 * 60
     nonisolated static let urlScheme = "alarmo"
     nonisolated static let urlHost = "alarm-ringing"
 
@@ -117,7 +116,10 @@ enum AlarmCustomUIHandoffStore {
         guard let sourceAlarmID = UserDefaults.standard.string(forKey: sourceAlarmIDKey) else { return nil }
         let timestamp = UserDefaults.standard.double(forKey: timestampKey)
 
-        guard timestamp > 0, now.timeIntervalSince1970 - timestamp <= maxAge else {
+        // Lifecycle-based: no time expiry. A pending handoff stays valid until it
+        // is consumed or explicitly cleared (Stop/Snooze). The old 10-min cap
+        // silenced alarms on the 2nd/3rd snooze.
+        guard timestamp > 0 else {
             clear()
             return nil
         }
@@ -143,14 +145,14 @@ enum AlarmCustomUIHandoffStore {
         if let pending = pendingRequest(), pending.surfaceAlarmID == surfaceAlarmID {
             return pending.sourceAlarmID
         }
-        var map = loadSurfaceSourceMap()
+        let map = loadSurfaceSourceMap()
         if let mapped = map[surfaceAlarmID] {
-            let age = Date().timeIntervalSince1970 - mapped.timestamp
-            if age <= maxAge {
-                return mapped.sourceAlarmID
-            }
-            map[surfaceAlarmID] = nil
-            persistSurfaceSourceMap(map)
+            // Lifecycle-based: the mapping is valid as long as it exists. Removing
+            // the time-based expiry fixes surface→source resolution on later
+            // snoozes (e.g. two 9-min snoozes exceeded the old 10-min cap, the
+            // lookup fell back to the surface UUID, the source alarm was not found,
+            // and the engine never started → silent alarm).
+            return mapped.sourceAlarmID
         }
         return surfaceAlarmID
     }
@@ -182,10 +184,18 @@ enum AlarmCustomUIHandoffStore {
 
     // Compatibility helper expected by newer app bootstrap code.
     nonisolated static func pruneOrphanedMappings(now: Date = Date()) {
+        // Called at app init (before the live alarm store is available), so a
+        // lifecycle check is not possible here. Use a generous 48h safety net to
+        // drop only genuinely abandoned mappings; valid same-day/overnight snooze
+        // mappings are preserved. The old 10-min cap silenced repeated snoozes.
+        let safetyNetAge: TimeInterval = 48 * 60 * 60
+        let cutoff = now.timeIntervalSince1970 - safetyNetAge
         var map = loadSurfaceSourceMap()
-        let cutoff = now.timeIntervalSince1970 - maxAge
+        let before = map.count
         map = map.filter { $0.value.timestamp >= cutoff }
-        persistSurfaceSourceMap(map)
+        if map.count != before {
+            persistSurfaceSourceMap(map)
+        }
 
         if let pendingTimestamp = UserDefaults.standard.object(forKey: timestampKey) as? TimeInterval,
            pendingTimestamp < cutoff {

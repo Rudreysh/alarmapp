@@ -53,9 +53,13 @@ final class AlarmRingCoordinator: ObservableObject {
                 queue: .main
             ) { [weak self] _ in
                 guard let self else { return }
-                self.endRingingBackgroundTask()
+                // Do NOT end the background task here. The bridge's job is done
+                // once the engine is primary, but the coordinator's background
+                // task must stay alive for the ENTIRE ring session so iOS cannot
+                // suspend the process (and silence audio) under memory pressure.
+                // It is ended only on user Stop/Snooze (stopRingingInternal).
                 AlarmBackgroundAudioBridge.shared.stop()
-                print("[Coordinator] Ring background task ended — engine is now primary audio owner")
+                print("[Coordinator] Bridge stopped — engine is primary. Background task continues until user stop.")
             }
         }
     }
@@ -809,12 +813,22 @@ final class AlarmRingCoordinator: ObservableObject {
                     return
                 }
                 // Re-request to keep the watchdog alive across iOS reclaim cycles.
+                print("[Coordinator] Background task expiring — requesting renewal")
                 let oldTask = self.ringingBackgroundTaskID
                 self.ringingBackgroundTaskID = .invalid
                 if oldTask != .invalid {
                     UIApplication.shared.endBackgroundTask(oldTask)
                 }
                 self.beginRingingBackgroundTask()
+                // If iOS refuses the renewal (memory pressure overnight), the app
+                // can be suspended and the engine silenced. Hand off to AlarmKit's
+                // audible fallback (ringer domain) so the user is still woken.
+                if self.ringingBackgroundTaskID == .invalid {
+                    print("[Coordinator] CRITICAL: iOS refused background task renewal — triggering AlarmKit audible fallback")
+                    AlarmAudioStateController.shared.recordFallback(reason: "background-task-refused-by-ios")
+                } else {
+                    print("[Coordinator] Background task renewed id=\(self.ringingBackgroundTaskID.rawValue)")
+                }
             }
         }
     }

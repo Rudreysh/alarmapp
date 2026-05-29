@@ -41,8 +41,9 @@ class AudioRouteManager: ObservableObject {
 
     /// Configure audio session specifically for alarm ringing.
     /// `.playback` is the only category that reliably bypasses the silent switch.
-    /// `.mixWithOthers` lets us coexist with AlarmKit's audio session without
-    /// being paused by its activation/deactivation during UI transitions.
+    /// `.mixWithOthers` is REQUIRED so the app engine can run alongside AlarmKit's
+    /// own (silent) alarm session, which stays active for the whole ring. This MUST
+    /// match the engine's configuration (see AlarmContinuousAudioEngine.configureSession).
     static func configureAlarmSession() throws {
         let session = AVAudioSession.sharedInstance()
         let alarmOptions: AVAudioSession.CategoryOptions = [.mixWithOthers]
@@ -116,10 +117,11 @@ class AudioRouteManager: ObservableObject {
     }
 
     private func handleRouteChange() {
-        guard !AlarmContinuousAudioEngine.shared.isEngineActive else {
-            print("[AudioRouteManager] Route change ignored — engine owns session")
-            return
-        }
+        // No engine-active guard: the engine installs its own route-change
+        // observer (AlarmContinuousAudioEngine.startRouteChangeObserver) that
+        // re-applies the built-in-speaker override during ringing. Here we only
+        // refresh the published external-output state so UI stays in sync; this
+        // does NOT touch the audio session, so it is safe during an active alarm.
         checkCurrentRoute()
     }
 

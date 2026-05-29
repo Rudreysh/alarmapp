@@ -35,6 +35,9 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
     private var watchdogRecoveryWorkItem: DispatchWorkItem?
     private var postStopRampWorkItem: DispatchWorkItem?
     private var observersInstalled = false
+    private var routeChangeObserver: NSObjectProtocol?
+    private var volumeObserver: NSKeyValueObservation?
+    private var volumeEnforcementActive = false
     private let appGroupId = "group.ht.alarmo"
     private var interruptionGraceUntil: Date?
     private var isCurrentlyInterrupted: Bool = false
@@ -232,6 +235,8 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         clearEngineState()
         stopWatchdog()
         stopMetering()
+        stopRouteChangeObserver()
+        stopVolumeObserver()
         player?.stop()
         player = nil
         isPlaying = false
@@ -314,17 +319,63 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
 
     private func configureSession() throws {
         installObserversIfNeeded()
+        startRouteChangeObserver()
+        startVolumeObserver()
         let session = AVAudioSession.sharedInstance()
-        // .mixWithOthers prevents `cannotInterruptOthers` activation failures
-        // while app is backgrounded/locked and system surfaces are transitioning.
+        // .mixWithOthers is REQUIRED here. AlarmKit keeps its own (silent) alarm
+        // sound session active for the ENTIRE ring (it owns the persistent
+        // lock-screen surface). The app engine can only activate its AVAudioPlayer
+        // alongside it by mixing. An exclusive session makes setActive(true) fail
+        // with cannotInterruptOthers during the settle window, permanently blocking
+        // takeover and trapping the app in alarmKitFallback + a respawn storm
+        // (verified on device — do NOT remove .mixWithOthers).
         try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
         try session.setActive(true, options: [])
+        enforceBuiltInSpeakerOutput(context: "session-configure")
     }
 
     private func configureSessionCategoryOnly() throws {
         installObserversIfNeeded()
+        startRouteChangeObserver()
+        startVolumeObserver()
         let session = AVAudioSession.sharedInstance()
+        // .mixWithOthers required — see configureSession() for the full rationale.
         try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+    }
+
+    /// Force alarm audio onto the built-in speaker, overriding any connected
+    /// AirPods / Bluetooth speaker / wired headphones. Without this, iOS routes
+    /// the alarm to whatever output happens to be connected and the phone
+    /// speaker stays silent. Called after every `setActive(true)` in the ring
+    /// path. Verifies the route landed on the speaker and retries up to 3 times.
+    /// Synchronous by design — call sites are synchronous; the brief retry sleep
+    /// only runs in the rare case the first override does not take effect.
+    private func enforceBuiltInSpeakerOutput(context: String) {
+        let session = AVAudioSession.sharedInstance()
+        var lastError: Error?
+
+        for attempt in 1...3 {
+            do {
+                try session.overrideOutputAudioPort(.speaker)
+
+                let onSpeaker = session.currentRoute.outputs
+                    .contains { $0.portType == .builtInSpeaker }
+
+                if onSpeaker {
+                    log("[Engine] Speaker enforced attempt=\(attempt) context=\(context)")
+                    return
+                }
+
+                log("[Engine] Speaker override called but route not speaker yet attempt=\(attempt) context=\(context)")
+                if attempt < 3 { Thread.sleep(forTimeInterval: 0.2) }
+            } catch {
+                lastError = error
+                log("[Engine] overrideOutputAudioPort failed attempt=\(attempt) context=\(context) error=\(error)")
+                if attempt < 3 { Thread.sleep(forTimeInterval: 0.2) }
+            }
+        }
+
+        log("[Engine] CRITICAL: Could not enforce speaker after 3 attempts context=\(context) lastError=\(String(describing: lastError))")
     }
 
     private func installObserversIfNeeded() {
@@ -342,6 +393,73 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             name: AVAudioSession.mediaServicesWereResetNotification,
             object: nil
         )
+    }
+
+    /// Re-apply the built-in-speaker override whenever the audio route changes
+    /// during a ring session. `overrideOutputAudioPort(.speaker)` is point-in-time:
+    /// if AirPods / Bluetooth connect AFTER the alarm starts, audio leaves the
+    /// speaker. This observer catches that and forces it back.
+    /// Self-guarded so repeated calls across ring sessions are safe; removed in stop().
+    private func startRouteChangeObserver() {
+        guard routeChangeObserver == nil else { return }
+        routeChangeObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self, self.isEngineActive else { return }
+            let reason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt ?? 0
+            self.log("[Engine] Route changed during ring — reason=\(reason)")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                guard let self, self.isEngineActive else { return }
+                self.enforceBuiltInSpeakerOutput(context: "route-change-\(reason)")
+            }
+        }
+        log("[Engine] Route change observer installed")
+    }
+
+    private func stopRouteChangeObserver() {
+        if let observer = routeChangeObserver {
+            NotificationCenter.default.removeObserver(observer)
+            routeChangeObserver = nil
+            log("[Engine] Route change observer removed")
+        }
+    }
+
+    /// Observe system output volume during ringing. If the user presses volume
+    /// down below the floor (0.15), maximise the player's own volume headroom and
+    /// trigger AlarmKit's audible fallback (ringer domain, unaffected by the media
+    /// volume buttons) so the alarm cannot be silenced with the volume rocker.
+    /// Self-guarded; removed in stop().
+    private func startVolumeObserver() {
+        guard volumeObserver == nil else { return }
+        volumeEnforcementActive = true
+        volumeObserver = AVAudioSession.sharedInstance().observe(
+            \.outputVolume,
+            options: [.new, .old]
+        ) { [weak self] session, change in
+            guard let self, self.volumeEnforcementActive, self.isEngineActive else { return }
+            let newVol = change.newValue ?? session.outputVolume
+            let oldVol = change.oldValue ?? newVol
+            guard newVol < oldVol else { return }
+            if newVol < 0.15 {
+                self.log("[Engine] Volume dropped to \(String(format: "%.2f", newVol)) during ring — enforcing floor")
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, self.isEngineActive else { return }
+                    self.player?.volume = 1.0
+                    AlarmAudioStateController.shared.recordFallback(reason: "volume-floor-\(String(format: "%.2f", newVol))")
+                    self.log("[Engine] Floor enforced: player.volume=1.0 + AlarmKit audible fallback triggered")
+                }
+            }
+        }
+        log("[Engine] Volume observer installed — floor enforcement active")
+    }
+
+    private func stopVolumeObserver() {
+        volumeEnforcementActive = false
+        volumeObserver?.invalidate()
+        volumeObserver = nil
+        log("[Engine] Volume observer removed")
     }
 
     @objc
@@ -404,6 +522,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
 
             do {
                 try AVAudioSession.sharedInstance().setActive(true, options: [])
+                enforceBuiltInSpeakerOutput(context: "interruption-ended")
                 let played = player?.play() ?? false
                 if played && player?.isPlaying == true {
                     player?.volume = targetVolume
@@ -433,6 +552,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
                       !self.isCurrentlyInterrupted else { return }
                 do {
                     try AVAudioSession.sharedInstance().setActive(true, options: [])
+                    self.enforceBuiltInSpeakerOutput(context: "interruption-retry")
                     _ = self.player?.play()
                     if self.player?.isPlaying == true {
                         self.player?.volume = self.targetVolume
@@ -612,6 +732,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
 
         do {
             try AVAudioSession.sharedInstance().setActive(true, options: [])
+            enforceBuiltInSpeakerOutput(context: "fade-in-activate")
             log("[Engine] startFadeIn: session activated")
             let activatedOutput = AVAudioSession.sharedInstance().outputVolume
             let appState = UIApplication.shared.applicationState
@@ -698,6 +819,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         if !p.isPlaying {
             do {
                 try AVAudioSession.sharedInstance().setActive(true, options: [])
+                enforceBuiltInSpeakerOutput(context: "post-slide-boost")
             } catch {
                 log("[Engine][PostSlideBoost] session activation failed — reason=\(reason) error=\(error.localizedDescription)")
             }
@@ -809,6 +931,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
 
         do {
             try AVAudioSession.sharedInstance().setActive(true, options: [])
+            enforceBuiltInSpeakerOutput(context: "watchdog-recover")
         } catch {
             swiftlog("[Engine] Watchdog: session activation failed: \(error.localizedDescription)")
             return

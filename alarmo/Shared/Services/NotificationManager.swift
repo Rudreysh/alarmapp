@@ -1872,7 +1872,16 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
     private func handleAlarmStopAction(notification: UNNotification) {
         if ringCoordinator?.isRinging == true {
-            ringCoordinator?.stopRinging()
+            // PRD: the alarm stops ONLY via the Stop button in the custom in-app
+            // ringing UI (after mission completion). A notification Stop action must
+            // bring the user into that UI — it must never stop the alarm directly.
+            print("[NotificationManager] alarmStop tapped while ringing — redirecting to custom UI (not stopping)")
+            let sourceAlarmId = (notification.request.content.userInfo["alarmId"] as? String)
+                ?? ringCoordinator?.activeAlarm?.id.uuidString
+            if let sourceAlarmId {
+                requestCustomUIHandoff(sourceAlarmId: sourceAlarmId, surfaceAlarmId: nil)
+                startOrQueueAlarm(alarmId: sourceAlarmId)
+            }
             return
         }
 
