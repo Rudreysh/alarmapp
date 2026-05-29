@@ -58,23 +58,27 @@ struct OnboardingIntroView: View {
             }
 
             if let onSkip = onSkip {
-                VStack {
-                    HStack {
-                        Spacer()
-                        Button("Skip") {
-                            onSkip()
+                GeometryReader { proxy in
+                    VStack(spacing: 0) {
+                        HStack {
+                            Spacer()
+                            Button("Skip") {
+                                onSkip()
+                            }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(isTiimoTheme ? .black : Colors.textSecondary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(isTiimoTheme ? .black : Colors.textSecondary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .contentShape(Rectangle())
+                        .padding(.top, max(8, proxy.safeAreaInsets.top + 2))
+                        .padding(.trailing, 8)
+
+                        Spacer()
                     }
-                    Spacer()
+                    .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
                 }
-                .padding(.top, 4)
-                .ignoresSafeArea(edges: .top)
                 .zIndex(50)
             }
         }
