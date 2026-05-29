@@ -336,6 +336,18 @@ When the custom ringing UI is visible and the app is in the foreground, no notif
 - App is active (`UIApplication.applicationState == .active`)
 - Engine is primary (`phase == .appEnginePrimary`)
 
+### 8.1.1 Unlocked Banner/Badge Dismissal Must Not Stop Alarm
+
+When the phone is unlocked and any alarm-related banner, badge, or in-app top notification UI is dismissed (manually or automatically), the alarm sound must continue ringing.
+
+**Requirement:**
+- Dismissing or swiping away a banner/badge must never call any stop path.
+- Sound may stop only via:
+  - Custom full-screen **Stop** (per section 6.1)
+  - Custom full-screen **Snooze** (temporary stop, per section 6.2)
+
+**Explicit non-stop rule:** Closing notification UI is a visual action only. It must not alter ring session ownership or terminate audio.
+
 ### 8.2 After Slide-To-Stop — Recovery Notification
 
 When the user slides to stop on the lock screen (which must not stop sound):
@@ -659,6 +671,10 @@ Before any release, all of the following scenarios must be tested on a real iPho
 | 18 | Multiple alarms at same time | One rings, others don't crash | |
 | 19 | App deleted and reinstalled | Next alarm fires with fallback sound | |
 | 20 | Storage full scenario | System sound fallback plays | |
+| 21 | Incremental Xcode app update without deleting app | Next alarm still rings audibly | |
+| 22 | Clean build folder + reinstall + immediate alarm schedule | Alarm rings audibly without manual recovery | |
+| 23 | Overnight alarm after daytime code update | Morning alarm rings audibly with lock-screen continuity | |
+| 24 | Unlocked banner/badge dismissed while alarm active | Sound continues; no stop path triggered | |
 
 ### 14.2 Regression Tests After Code Changes
 
@@ -714,6 +730,17 @@ Any change to these files requires running the full test matrix before merging:
 
 **Resolution:** `applyPostStopGentleRamp()` addresses the perceived loudness by ramping engine volume from 15% back to 100%. Additionally, `overrideOutputAudioPort(.speaker)` ensures consistent routing.
 
+### 15.6 Short Audio Gap Tolerance During Ownership Transitions
+
+**Edge case:** During side-button press, lock/unlock churn, slide-to-stop, or AlarmKit/app-engine ownership transitions, a short audible dip may occur.
+
+**Requirement:**
+- Audio continuity target: no audible gap greater than **1.0 second**.
+- Stretch tolerance for extreme system contention: no audible gap greater than **2.0 seconds**.
+- If continuity exceeds 2.0 seconds, the system must immediately trigger fallback recovery and log a critical reliability event.
+
+**Pass criterion:** 95% of transition events remain <= 1.0 second gap, 100% remain <= 2.0 seconds.
+
 ---
 
 ## 16. Implementation Priority Order
@@ -767,6 +794,12 @@ The alarm sound feature is considered complete and correct when:
 5. **Stop button is the only stop.** In 20 tests using Stop button in custom UI, all 20 alarms stop cleanly. In 20 tests using any other method, all 20 alarms continue ringing.
 
 6. **Snooze loop works.** In 10 tests with 3 consecutive snoozes, all 10 complete the full loop correctly and stop only when Stop is pressed.
+
+7. **Update-path stability is reliable.** In 20 runs after incremental Xcode update (without app delete), all 20 alarms ring audibly at fire time.
+
+8. **UI dismissal cannot stop sound.** In 20 unlocked sessions where alarm banners/badges are dismissed, all 20 continue ringing until custom UI Stop/Snooze.
+
+9. **Continuity gap target is met.** Across 100 lock/unlock/slide transition events, 95+ are <= 1.0 second audible gap and 100 are <= 2.0 seconds.
 
 ---
 
