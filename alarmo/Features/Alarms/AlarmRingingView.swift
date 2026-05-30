@@ -390,9 +390,12 @@ struct AlarmRingingView: View {
             let phase = AlarmAudioStateController.shared.phase
             if ringCoordinator.isRinging &&
                 (phase == .alarmKitSettling || phase == .appEnginePreparing || phase == .appEngineFadingIn || phase == .appEnginePrimary) {
+                let floorVolume = ringCoordinator.activeAlarm
+                    .map { max(0.01, min(1.0, $0.soundVolume)) }
+                    ?? AlarmAudioStateController.preAlarmMinimumOutputVolume
                 Task { @MainActor in
                     SystemOutputVolumeFloorManager.shared.attemptRaiseOutputVolumeFloor(
-                        minimumVolume: AlarmAudioStateController.preAlarmMinimumOutputVolume,
+                        minimumVolume: floorVolume,
                         reason: "ringing-view-onappear"
                     )
                 }
@@ -402,6 +405,17 @@ struct AlarmRingingView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: systemVolumeDidChange)) { _ in
             logVolumeSnapshot(reason: "ringing-view-system-volume-change")
+            // Re-enforce the volume floor whenever system volume changes while the
+            // ringing UI is visible (app is foreground). This is the Alarmy-style
+            // "volume goes back up" behavior: user presses volume-down → we immediately
+            // raise it back to the alarm's configured level via MPVolumeView.
+            guard ringCoordinator.isRinging else { return }
+            let floorVolume = ringCoordinator.activeAlarm
+                .map { max(0.01, min(1.0, $0.soundVolume)) }
+                ?? AlarmAudioStateController.preAlarmMinimumOutputVolume
+            // Use immediate (rate-limit-free) enforcement so every volume-button press
+            // is countered instantly, not just the first one in a 1.5s window.
+            SystemOutputVolumeFloorManager.shared.enforceFloorImmediately(minimumVolume: floorVolume)
         }
         .onReceive(NotificationCenter.default.publisher(for: .alarmVolumeFloorHint)) { notification in
             let message = (notification.userInfo?["message"] as? String) ?? "Increase iPhone volume for louder alarm."

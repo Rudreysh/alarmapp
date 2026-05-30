@@ -369,6 +369,13 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
                 log("[Engine] Speaker override called but route not speaker yet attempt=\(attempt) context=\(context)")
                 if attempt < 3 { Thread.sleep(forTimeInterval: 0.2) }
             } catch {
+                // Code=-50 means the session is not yet active (e.g. called from route-change
+                // observer during the prepareSilently window before setActive). The override
+                // will be re-applied when the session activates in startFadeIn — not a failure.
+                if (error as NSError).code == -50 {
+                    log("[Engine] Speaker override skipped — session not active yet (context=\(context))")
+                    return
+                }
                 lastError = error
                 log("[Engine] overrideOutputAudioPort failed attempt=\(attempt) context=\(context) error=\(error)")
                 if attempt < 3 { Thread.sleep(forTimeInterval: 0.2) }
@@ -442,13 +449,27 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             let newVol = change.newValue ?? session.outputVolume
             let oldVol = change.oldValue ?? newVol
             guard newVol < oldVol else { return }
-            if newVol < 0.15 {
-                self.log("[Engine] Volume dropped to \(String(format: "%.2f", newVol)) during ring — enforcing floor")
+            // Fire enforcement whenever volume drops below the alarm's configured floor,
+            // not just below 0.15. This catches the range 1.00 → 0.80 that the old
+            // threshold missed entirely.
+            let floor = AlarmAudioStateController.shared.selectedSoundVolume
+            if newVol < floor {
+                self.log("[Engine] Volume dropped to \(String(format: "%.2f", newVol)) below floor \(String(format: "%.2f", floor)) — enforcing")
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.isEngineActive else { return }
                     self.player?.volume = 1.0
-                    AlarmAudioStateController.shared.recordFallback(reason: "volume-floor-\(String(format: "%.2f", newVol))")
-                    self.log("[Engine] Floor enforced: player.volume=1.0 + AlarmKit audible fallback triggered")
+                    let phase = AlarmAudioStateController.shared.phase
+                    if phase == .appEngineFadingIn || phase == .appEnginePrimary {
+                        // Raise system output volume immediately (no respawn — engine is healthy).
+                        // enforceFloorImmediately bypasses rate limiting for per-button-press response.
+                        self.log("[Engine] Immediate system floor enforce: phase=\(phase.rawValue) target=\(String(format: "%.2f", floor))")
+                        Task { @MainActor in
+                            SystemOutputVolumeFloorManager.shared.enforceFloorImmediately(minimumVolume: floor)
+                        }
+                    } else {
+                        AlarmAudioStateController.shared.recordFallback(reason: "volume-floor-\(String(format: "%.2f", newVol))")
+                        self.log("[Engine] Floor enforced: player.volume=1.0 + AlarmKit audible fallback triggered")
+                    }
                 }
             }
         }
@@ -705,7 +726,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             AlarmAudioStateController.shared.recordAppEnginePrepared()
             Task { @MainActor in
                 SystemOutputVolumeFloorManager.shared.attemptRaiseOutputVolumeFloor(
-                    minimumVolume: AlarmAudioStateController.preAlarmMinimumOutputVolume,
+                    minimumVolume: AlarmAudioStateController.shared.selectedSoundVolume,
                     reason: "prepare-silently-prewarm"
                 )
             }
@@ -738,9 +759,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             let appState = UIApplication.shared.applicationState
             log("[Volume] outputVolume=\(String(format: "%.2f", activatedOutput)) playerVolume=\(String(format: "%.2f", p.volume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) reason=start-fadein-activated")
             if appState != .active && activatedOutput <= 0.01 {
-                log("[Engine] startFadeIn: locked/background with near-zero outputVolume (\(String(format: "%.2f", activatedOutput))) — switching to AlarmKit fallback")
-                AlarmAudioStateController.shared.recordFallback(reason: "locked-zero-output-at-fadein")
-                return
+                log("[Engine] startFadeIn: locked/background with near-zero outputVolume (\(String(format: "%.2f", activatedOutput))) — proceeding (AlarmKit audible safety net active)")
             }
         } catch {
             log("[Engine] startFadeIn: session activation failed: \(error.localizedDescription)")
@@ -758,13 +777,28 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             return
         }
 
+        // Sync engine playback position with AlarmKit's elapsed time so both sources
+        // play the same track in phase. Without this, AlarmKit starts at T=0 and the
+        // engine also starts at T=0 three seconds later — the same melody heard at two
+        // offsets produces an echo/chorus effect. Seeking to AlarmKit's current position
+        // eliminates the phase difference. Only applies when AlarmKit fired this session.
+        if let alertingAt = AlarmAudioStateController.shared.alarmKitAlertingReceivedAt,
+           p.duration > 0 {
+            let elapsed = Date().timeIntervalSince(alertingAt)
+            let syncPos = elapsed.truncatingRemainder(dividingBy: p.duration)
+            if syncPos > 0 {
+                p.currentTime = syncPos
+                log("[Engine] startFadeIn: synced to AlarmKit elapsed=\(String(format: "%.2f", elapsed))s → currentTime=\(String(format: "%.2f", syncPos))s")
+            }
+        }
+
         isPlaying = true
         isProgressingNow = true
         startMeteringIfNeeded()
         AlarmAudioStateController.shared.recordFadeInStarted()
         Task { @MainActor in
             SystemOutputVolumeFloorManager.shared.attemptRaiseOutputVolumeFloor(
-                minimumVolume: AlarmAudioStateController.preAlarmMinimumOutputVolume,
+                minimumVolume: AlarmAudioStateController.shared.selectedSoundVolume,
                 reason: "app-engine-fade-in-start"
             )
         }

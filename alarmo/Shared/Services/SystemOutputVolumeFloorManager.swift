@@ -11,7 +11,7 @@ final class SystemOutputVolumeFloorManager {
     private var lastFloorAttemptAt: [String: Date] = [:]
     private var lastRequestedMinimum: [String: Float] = [:]
     private var activeAttemptInProgress: Set<String> = []
-    private let minimumAttemptInterval: TimeInterval = 10.0
+    private let minimumAttemptInterval: TimeInterval = 1.5
 
     private init() {}
 
@@ -121,6 +121,24 @@ final class SystemOutputVolumeFloorManager {
         volumeView = view
         print("[VolumeFloor] mounted hidden MPVolumeView")
         return view
+    }
+
+    /// Raises system output volume to `minimumVolume` immediately, bypassing rate limiting.
+    /// Use this for real-time volume-button enforcement (user is actively pressing volume-down
+    /// while the alarm is ringing). The regular `attemptRaiseOutputVolumeFloor` is rate-limited
+    /// to once per 1.5s and is not suitable for per-button-press response.
+    func enforceFloorImmediately(minimumVolume: Float) {
+        guard AlarmFeatureFlags.experimentalMPVolumeOutputFloor else { return }
+        let session = AVAudioSession.sharedInstance()
+        let currentOutput = session.outputVolume
+        guard currentOutput < minimumVolume else { return }
+        let routeTypes = session.currentRoute.outputs.map(\.portType)
+        guard routeTypes.contains(.builtInSpeaker) else { return }
+        let view = ensureMountedVolumeView()
+        guard let slider = view.subviews.compactMap({ $0 as? UISlider }).first else { return }
+        slider.setValue(minimumVolume, animated: false)
+        slider.sendActions(for: .valueChanged)
+        print("[VolumeFloor] immediate enforce: \(String(format: "%.2f", currentOutput)) → \(String(format: "%.2f", minimumVolume))")
     }
 
     private func postLowVolumeHint() {
