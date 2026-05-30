@@ -254,7 +254,11 @@ final class AlarmRingCoordinator: ObservableObject {
         guard isRinging, !isPreviewMode, let alarm = activeAlarm else { return }
         watchdogConsecutiveFailures = 0
         watchdogRecoveryInProgress = false
-        print("[Coordinator] Watchdog state reset on reassert — reason: \(reason)")
+        LogThrottler.log(
+            "[Coordinator] Watchdog state reset on reassert — reason: \(reason)",
+            key: "coordinator.watchdog.reassert.\(reason)",
+            interval: 2.0
+        )
         print("[AlarmRingCoordinator] 🔁 Reasserting ringing audio (\(reason)) for \(alarm.id)")
         AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "coordinator-reassert-before-\(reason)")
         if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-reassert-\(reason)") {
@@ -793,7 +797,11 @@ final class AlarmRingCoordinator: ObservableObject {
                     surfaceAlarmId: surfaceAlarmId
                 )
             } else {
-                print("[Coordinator] enforceLockedRingingState suppressed by watchdog — phase \(phase.rawValue)")
+                LogThrottler.log(
+                    "[Coordinator] enforceLockedRingingState suppressed by watchdog — phase \(phase.rawValue)",
+                    key: "coordinator.watchdog.suppressed-phase.\(phase.rawValue)",
+                    interval: 3.0
+                )
             }
         }
 

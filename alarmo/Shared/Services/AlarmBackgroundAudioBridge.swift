@@ -356,12 +356,20 @@ final class AlarmBackgroundAudioBridge {
             let timeSinceLast = Date().timeIntervalSince(lastWatchdogRecoveryAttemptAt)
             guard timeSinceLast >= backoff else {
                 let remaining = max(0, backoff - timeSinceLast)
-                print("[Bridge] Watchdog: silence detected (failure \(consecutiveWatchdogFailures)) — backoff \(String(format: "%.1f", remaining))s remaining")
+                LogThrottler.log(
+                    "[Bridge] Watchdog: silence detected (failure \(consecutiveWatchdogFailures)) — backoff \(String(format: "%.1f", remaining))s remaining",
+                    key: "bridge.watchdog.backoff.\(sourceAlarmId)",
+                    interval: 2.0
+                )
                 return
             }
 
             guard !watchdogRecoveryInProgress else {
-                print("[Bridge] Watchdog: recovery in progress — skipping this tick")
+                LogThrottler.log(
+                    "[Bridge] Watchdog: recovery in progress — skipping this tick",
+                    key: "bridge.watchdog.recovery-in-progress.\(sourceAlarmId)",
+                    interval: 2.0
+                )
                 return
             }
 
@@ -396,14 +404,23 @@ final class AlarmBackgroundAudioBridge {
         // SoundPlayer handles interruption internally via its own observers,
         // but as a safety net, if no audio appears to be playing and we haven't
         // been told to stop, restart it.
-        print("[AlarmBackgroundAudioBridge] 🔍 Watchdog: bridge active for surface=\(alarmId), source=\(sourceAlarmId)")
+        LogThrottler.log(
+            "[AlarmBackgroundAudioBridge] 🔍 Watchdog: bridge active for surface=\(alarmId), source=\(sourceAlarmId)",
+            key: "bridge.watchdog.active.\(sourceAlarmId)",
+            interval: 5.0
+        )
     }
 
     func resetWatchdogBackoff() {
         consecutiveWatchdogFailures = 0
         lastWatchdogRecoveryAttemptAt = .distantPast
         watchdogRecoveryInProgress = false
-        swiftlog("[Bridge] Watchdog backoff reset")
+        LogThrottler.log(
+            "[Bridge] Watchdog backoff reset",
+            key: "bridge.watchdog.backoff-reset",
+            interval: 3.0,
+            sink: swiftlog
+        )
     }
 
     private func triggerImmediateLockedRefresh(reason: String) {
