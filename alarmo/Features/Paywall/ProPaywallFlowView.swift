@@ -72,6 +72,9 @@ struct ProPaywallFlowView: View {
 
 private struct PaywallHeader: View {
     let onClose: () -> Void
+    private var isTiimoTheme: Bool {
+        AlarmThemeStyle.persisted.usesTiimoLayoutBranch
+    }
 
     var body: some View {
         HStack {
@@ -87,12 +90,12 @@ private struct PaywallHeader: View {
                     )
                 Text("PRO")
                     .font(.system(size: 16, weight: .black))
-                    .foregroundColor(.white)
+                    .foregroundColor(isTiimoTheme ? .black : .white)
             }
             Spacer()
             Button(action: onClose) {
                 Image(systemName: "xmark")
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(isTiimoTheme ? .black : .white.opacity(0.6))
                     .padding(8)
             }
         }

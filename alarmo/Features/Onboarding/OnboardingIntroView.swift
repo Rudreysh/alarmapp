@@ -413,6 +413,11 @@ private struct AlarmTypedCaption: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let text: String
     @State private var cursorVisible = false
+    private let finalCaptionText = "I'll help you stop snoozing through the morning."
+    
+    private var shouldShowCursor: Bool {
+        text != finalCaptionText
+    }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -438,7 +443,11 @@ private struct AlarmTypedCaption: View {
                 RoundedRectangle(cornerRadius: 1.5, style: .continuous)
                     .fill(Color(hex: "#7F77DD").opacity(0.9))
                     .frame(width: 2.5, height: 16)
-                    .opacity(reduceMotion ? 1 : (cursorVisible ? 1 : 0.18))
+                    .opacity(
+                        shouldShowCursor
+                        ? (reduceMotion ? 1 : (cursorVisible ? 1 : 0.18))
+                        : 0
+                    )
                     .animation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true), value: cursorVisible)
             }
             .frame(maxWidth: .infinity, alignment: .center)

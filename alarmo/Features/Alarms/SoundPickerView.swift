@@ -586,7 +586,7 @@ struct SoundPickerView: View {
                             
                             Image(systemName: "music.note")
                                 .font(.system(size: 23, weight: .semibold))
-                                .foregroundColor(Colors.accentTeal)
+                                .foregroundColor(Color.white.opacity(0.95))
                             
                             // Plus badge
                             Circle()
@@ -606,8 +606,8 @@ struct SoundPickerView: View {
                                 .offset(x: 14, y: -14)
                         }
                         .frame(width: 56, height: 56)
-                        .shadow(color: Colors.accentBlue.opacity(0.24), radius: 10, x: 0, y: 5)
-                        .shadow(color: Color.black.opacity(0.28), radius: 8, x: 0, y: 4)
+                        .shadow(color: Colors.accentBlue.opacity(0.14), radius: 6, x: 0, y: 3)
+                        .shadow(color: Color.black.opacity(0.14), radius: 4, x: 0, y: 2)
                     }
                     .padding(24)
                 }

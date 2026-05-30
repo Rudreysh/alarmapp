@@ -86,33 +86,18 @@ struct SunRayTimePickerView: View {
     private var isTiimo: Bool {
         settingsStore.alarmThemeStyle.usesTiimoLayoutBranch
     }
+
+    private var dialFrameWidth: CGFloat { size + 30 }
     
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
-            
-            // 12H Button (Left Side)
-            Button(action: {
-                withAnimation { is12HourFormat = true }
-                triggerFeedback()
-            }) {
-                Text("12H")
-                    .font(.system(size: 16, weight: .bold))
-                    .fixedSize()
-                    .foregroundColor(is12HourFormat ? (isTiimo ? tiimoWeekdayPurple : Colors.accentTeal) : Colors.textSecondary.opacity(0.3))
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 8)
-                    .background(
-                        Capsule()
-                            .fill(is12HourFormat ? (isTiimo ? Colors.pillGreen : Colors.accentTeal.opacity(0.15)) : Color.clear)
-                            .overlay(
-                                Capsule().stroke(is12HourFormat ? (isTiimo ? tiimoWeekdayPurple.opacity(0.5) : Colors.accentTeal.opacity(0.5)) : Colors.cardStroke, lineWidth: 1)
-                            )
-                    )
-            }
-            .scaleEffect(is12HourFormat ? 1.05 : 1.0)
-            .animation(.spring(), value: is12HourFormat)
-            
-            VStack(spacing: 8) {
+        GeometryReader { geo in
+            let sideSlotWidth = max(56, (geo.size.width - dialFrameWidth) / 2)
+
+            HStack(alignment: .center, spacing: 0) {
+                twelveHourButton
+                    .frame(width: sideSlotWidth)
+
+                VStack(spacing: 8) {
                 // Small preview at top (Matching attachment style)
                 let hStr = String(format: "%02d", displayHour)
                 let mStr = String(format: "%02d", minute)
@@ -196,11 +181,22 @@ struct SunRayTimePickerView: View {
                         Circle()
                             .trim(from: 0.0, to: activeProgress())
                             .stroke(
-                                tiimoWeekdayPurple,
-                                style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
+                                AngularGradient(
+                                    colors: [
+                                        tiimoWeekdayPurple.opacity(0.96),
+                                        tiimoWeekdayPurple.opacity(0.94),
+                                        Color(hex: "#F6D98A").opacity(0.36),
+                                        tiimoWeekdayPurple.opacity(0.95)
+                                    ],
+                                    center: .center,
+                                    startAngle: .degrees(0),
+                                    endAngle: .degrees(360)
+                                ),
+                                style: StrokeStyle(lineWidth: 5.2, lineCap: .round)
                             )
                             .frame(width: size + 10, height: size + 10)
                             .rotationEffect(.degrees(-90))
+                            .shadow(color: Color(hex: "#F6D98A").opacity(0.15), radius: 2, x: 0, y: 0)
                             .animation(isInteracting ? .none : .interactiveSpring(response: 0.22, dampingFraction: 0.88), value: activeProgress())
                     } else {
                         Circle()
@@ -382,31 +378,15 @@ struct SunRayTimePickerView: View {
                         triggerFeedback()
                     }
                 }
-                .frame(width: size + 30, height: size + 30)
+                .frame(width: dialFrameWidth, height: dialFrameWidth)
+                }
+
+                twentyFourHourButton
+                    .frame(width: sideSlotWidth)
             }
-            
-            // 24H Button (Right Side)
-            Button(action: {
-                withAnimation { is12HourFormat = false }
-                triggerFeedback()
-            }) {
-                Text("24H")
-                    .font(.system(size: 16, weight: .bold))
-                    .fixedSize()
-                    .foregroundColor(!is12HourFormat ? (isTiimo ? tiimoWeekdayPurple : Colors.accentTeal) : Colors.textSecondary.opacity(0.3))
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 8)
-                    .background(
-                        Capsule()
-                            .fill(!is12HourFormat ? (isTiimo ? Colors.pillGreen : Colors.accentTeal.opacity(0.15)) : Color.clear)
-                            .overlay(
-                                Capsule().stroke(!is12HourFormat ? (isTiimo ? tiimoWeekdayPurple.opacity(0.5) : Colors.accentTeal.opacity(0.5)) : Colors.cardStroke, lineWidth: 1)
-                            )
-                    )
-            }
-            .scaleEffect(!is12HourFormat ? 1.05 : 1.0)
-            .animation(.spring(), value: is12HourFormat)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
+        .padding(.horizontal, 4)
         .padding(.bottom, 8)
         // Keep enough vertical room so the larger dial never overlaps following UI.
         .frame(height: size + 92)
@@ -504,6 +484,52 @@ struct SunRayTimePickerView: View {
             .presentationDetents([.height(300)])
             .presentationDragIndicator(.visible)
         }
+    }
+
+    private var twelveHourButton: some View {
+        Button(action: {
+            withAnimation { is12HourFormat = true }
+            triggerFeedback()
+        }) {
+            Text("12H")
+                .font(.system(size: 16, weight: .bold))
+                .fixedSize()
+                .foregroundColor(is12HourFormat ? (isTiimo ? tiimoWeekdayPurple : Colors.accentTeal) : Colors.textSecondary.opacity(0.3))
+                .padding(.vertical, 8)
+                .padding(.horizontal, 8)
+                .background(
+                    Capsule()
+                        .fill(is12HourFormat ? (isTiimo ? Colors.pillGreen : Colors.accentTeal.opacity(0.15)) : Color.clear)
+                        .overlay(
+                            Capsule().stroke(is12HourFormat ? (isTiimo ? tiimoWeekdayPurple.opacity(0.5) : Colors.accentTeal.opacity(0.5)) : Colors.cardStroke, lineWidth: 1)
+                        )
+                )
+        }
+        .scaleEffect(is12HourFormat ? 1.05 : 1.0)
+        .animation(.spring(), value: is12HourFormat)
+    }
+
+    private var twentyFourHourButton: some View {
+        Button(action: {
+            withAnimation { is12HourFormat = false }
+            triggerFeedback()
+        }) {
+            Text("24H")
+                .font(.system(size: 16, weight: .bold))
+                .fixedSize()
+                .foregroundColor(!is12HourFormat ? (isTiimo ? tiimoWeekdayPurple : Colors.accentTeal) : Colors.textSecondary.opacity(0.3))
+                .padding(.vertical, 8)
+                .padding(.horizontal, 8)
+                .background(
+                    Capsule()
+                        .fill(!is12HourFormat ? (isTiimo ? Colors.pillGreen : Colors.accentTeal.opacity(0.15)) : Color.clear)
+                        .overlay(
+                            Capsule().stroke(!is12HourFormat ? (isTiimo ? tiimoWeekdayPurple.opacity(0.5) : Colors.accentTeal.opacity(0.5)) : Colors.cardStroke, lineWidth: 1)
+                        )
+                )
+        }
+        .scaleEffect(!is12HourFormat ? 1.05 : 1.0)
+        .animation(.spring(), value: is12HourFormat)
     }
     
     // MARK: - Helpers

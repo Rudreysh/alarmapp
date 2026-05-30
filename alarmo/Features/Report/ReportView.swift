@@ -416,12 +416,21 @@ struct ReportView: View {
         .padding(.horizontal)
     }
 
-    @ViewBuilder
     private func periodButtonBackgroundView(isSelected: Bool) -> some View {
         let radius: CGFloat = isTiimo ? 100 : 10
-        periodButtonBackground(isSelected: isSelected)
+        let base = periodButtonBackground(isSelected: isSelected)
             .clipShape(RoundedRectangle(cornerRadius: radius))
-            .matchedGeometryEffect(id: "period_bg", in: periodNamespace)
+
+        let animatedBackground: AnyView
+        if isSelected {
+            animatedBackground = AnyView(
+                base.matchedGeometryEffect(id: "period_bg", in: periodNamespace)
+            )
+        } else {
+            animatedBackground = AnyView(base)
+        }
+
+        return animatedBackground
             .overlay(
                 Group {
                     if !isTiimo {
@@ -450,7 +459,11 @@ struct ReportView: View {
                     } label: {
                         Text(period.rawValue)
                             .font(.system(size: 12, weight: isSelected ? .bold : .medium))
-                            .padding(.horizontal, 12)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                            .allowsTightening(true)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .padding(.horizontal, 10)
                             .padding(.vertical, 8)
                             .background(
                                 periodButtonBackgroundView(isSelected: isSelected)
@@ -460,6 +473,7 @@ struct ReportView: View {
                 }
             }
             .padding(4)
+            .layoutPriority(1)
             .background(
                 periodContainerBackground
             )

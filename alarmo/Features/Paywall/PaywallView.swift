@@ -183,13 +183,16 @@ private struct AlertItem: Identifiable {
 
 private struct PaywallHeader: View {
     let onClose: () -> Void
+    private var isTiimoTheme: Bool {
+        AlarmThemeStyle.persisted.usesTiimoLayoutBranch
+    }
 
     var body: some View {
         HStack {
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(Colors.textSecondary)
+                    .foregroundColor(isTiimoTheme ? .black : Colors.textSecondary)
                     .frame(width: 30, height: 30)
                     .background(Colors.cardSurface.opacity(0.9))
                     .clipShape(Circle())
@@ -209,7 +212,7 @@ private struct PaywallHeader: View {
                     .clipShape(Circle())
                 Text("PRO")
                     .bodyText()
-                    .foregroundColor(Colors.textPrimary)
+                    .foregroundColor(isTiimoTheme ? .black : Colors.textPrimary)
             }
         }
         .padding(.horizontal, Spacing.l)
