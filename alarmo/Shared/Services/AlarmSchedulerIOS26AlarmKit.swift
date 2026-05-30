@@ -517,23 +517,21 @@ extension AlarmSchedulerIOS26AlarmKit {
         print("[AlarmKitUI] title=\"\(alertTitle)\" stopButton=\"\(alarmKitStopButtonText)\" symbol=\"\(alarmKitStopButtonSymbol)\" tintColor=accentBlue")
         print("[AlarmKitUI] secondaryButton=\"Snooze\" enabled=\(alarmKitSecondaryButtonEnabled)")
 
-        let shouldUseAudibleFallback = AlarmAudioStateController.shared.phase == .alarmKitFallback
-
-        // Default policy: AlarmKit uses silent sound; engine owns real audio.
-        // Fallback policy: if engine failed and we have a resolvable custom sound,
-        // allow AlarmKit to become audible as the sole owner.
+        // Always stage an audible sound for AlarmKit (ringer domain) as a safety net.
+        // If the engine also starts, they mix via .mixWithOthers for the fade-in window.
+        // If the engine fails, AlarmKit's ringer-domain sound ensures the alarm is heard
+        // even when media volume is zero or the engine's session cannot activate.
+        let effectiveSoundName = soundName ?? "Default Alarm"
         let alarmKitSound: AlertConfiguration.AlertSound
-        if shouldUseAudibleFallback,
-           let requested = soundName,
-           let staged = stageNotificationSound(named: requested) {
+        if let staged = stageNotificationSound(named: effectiveSoundName) {
             alarmKitSound = .named(staged)
-            print("[Scheduler] ⚠️ AlarmKit fallback custom sound selected: .named('\(staged)')")
+            print("[Scheduler] ✅ AlarmKit sound: .named('\(staged)') — ringer domain active")
         } else if let silentSoundFile = Self.ensureSilentAlertSoundStaged() {
             alarmKitSound = .named(silentSoundFile)
-            print("[Scheduler] ✅ AlarmKit sound: .named('\(silentSoundFile)') — engine owns real audio")
+            print("[Scheduler] ⚠️ Sound staging failed for '\(effectiveSoundName)' — silent CAF, engine must succeed")
         } else {
             alarmKitSound = .default
-            print("[Scheduler] ⚠️ AlarmKit silent staging failed — using .default (session conflict possible)")
+            print("[Scheduler] ⚠️ AlarmKit silent staging failed — using .default")
         }
 
         return AlarmManager.AlarmConfiguration(
@@ -605,14 +603,31 @@ extension AlarmSchedulerIOS26AlarmKit {
     }
 
     private func stageNotificationSound(named rawName: String) -> String? {
-        guard let sourceURL = resolveSoundURL(for: rawName) else { return nil }
-        let ext = sourceURL.pathExtension.lowercased()
-        let supportedExtensions: Set<String> = ["wav", "aiff", "caf", "m4a", "mp3"]
-        guard supportedExtensions.contains(ext) else { return nil }
-
         let fileManager = FileManager.default
         guard let library = fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first else { return nil }
         let soundsDir = library.appendingPathComponent("Sounds", isDirectory: true)
+
+        let safeBase = normalizedSoundKey(rawName)
+        let finalBase = safeBase.isEmpty ? "alarmo_alarm" : safeBase
+        let supportedExtensions = ["caf", "m4a", "mp3", "wav", "aiff"]
+
+        // Return an already-staged file immediately, without needing the source URL.
+        // Handles alarm-time calls where staging already succeeded at schedule time.
+        let trimmedName = "\(finalBase)_alarmkit.m4a"
+        if fileManager.fileExists(atPath: soundsDir.appendingPathComponent(trimmedName).path) {
+            return trimmedName
+        }
+        for ext in supportedExtensions {
+            let candidateName = "\(finalBase).\(ext)"
+            if fileManager.fileExists(atPath: soundsDir.appendingPathComponent(candidateName).path) {
+                return candidateName
+            }
+        }
+
+        // Not yet staged — resolve source URL and stage it now.
+        guard let sourceURL = resolveSoundURL(for: rawName) else { return nil }
+        let ext = sourceURL.pathExtension.lowercased()
+        guard supportedExtensions.contains(ext) else { return nil }
 
         do {
             try fileManager.createDirectory(at: soundsDir, withIntermediateDirectories: true)
@@ -620,14 +635,9 @@ extension AlarmSchedulerIOS26AlarmKit {
             return nil
         }
 
-        let safeBase = normalizedSoundKey(rawName)
-        let finalBase = safeBase.isEmpty ? "alarmo_alarm" : safeBase
         let duration = audioDuration(of: sourceURL)
-
         if duration > maxAlarmKitSoundDuration {
-            let trimmedName = "\(finalBase)_alarmkit.m4a"
             let trimmedURL = soundsDir.appendingPathComponent(trimmedName, isDirectory: false)
-
             if !fileManager.fileExists(atPath: trimmedURL.path) {
                 do {
                     try exportTrimmedSound(
@@ -643,7 +653,6 @@ extension AlarmSchedulerIOS26AlarmKit {
         } else {
             let fileName = "\(finalBase).\(ext)"
             let destinationURL = soundsDir.appendingPathComponent(fileName, isDirectory: false)
-
             if !fileManager.fileExists(atPath: destinationURL.path) {
                 do {
                     try fileManager.copyItem(at: sourceURL, to: destinationURL)
@@ -683,22 +692,34 @@ extension AlarmSchedulerIOS26AlarmKit {
             }
         }
 
-        // 3. Check bundled sounds
-        let soundsRoot = Bundle.main.bundleURL.appendingPathComponent("sounds", isDirectory: true)
-        guard let enumerator = fileManager.enumerator(at: soundsRoot, includingPropertiesForKeys: nil) else { return nil }
-
-        var fallbackMatch: URL?
+        // 3. Check bundled sounds — full bundle scan to find resources in subdirectories
+        // (e.g. BundledSounds/ringtones/). The old approach of looking in "sounds/"
+        // failed because that directory does not exist in the compiled bundle.
         let supportedExtensions: Set<String> = ["wav", "aiff", "caf", "m4a", "mp3"]
-        for case let fileURL as URL in enumerator {
-            let ext = fileURL.pathExtension.lowercased()
-            guard !ext.isEmpty else { continue }
 
-            let key = normalizedSoundKey(fileURL.deletingPathExtension().lastPathComponent)
-            if key == normalized {
-                if supportedExtensions.contains(ext) {
-                    return fileURL
+        // Fast path: flat Bundle resource lookup using the original name (not the
+        // normalized key). Bundle filenames include spaces (e.g. "Default Alarm.caf")
+        // which the normalized key strips out, making the lookup always miss.
+        let rawBase = (rawName as NSString).deletingPathExtension
+        for ext in supportedExtensions {
+            if let url = Bundle.main.url(forResource: rawBase, withExtension: ext) {
+                return url
+            }
+        }
+
+        // Full scan: finds resources in any bundle subdirectory.
+        var fallbackMatch: URL?
+        if let enumerator = fileManager.enumerator(at: Bundle.main.bundleURL, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
+            for case let fileURL as URL in enumerator {
+                let ext = fileURL.pathExtension.lowercased()
+                guard !ext.isEmpty else { continue }
+                let key = normalizedSoundKey(fileURL.deletingPathExtension().lastPathComponent)
+                if key == normalized {
+                    if supportedExtensions.contains(ext) {
+                        return fileURL
+                    }
+                    fallbackMatch = fallbackMatch ?? fileURL
                 }
-                fallbackMatch = fallbackMatch ?? fileURL
             }
         }
         return fallbackMatch
@@ -765,9 +786,12 @@ private func swiftlog(_ message: String) {
 @available(iOS 26.0, *)
 struct StopAlarmIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Stop Alarm"
-    // Keep this false so lock-screen Stop intent can run repeatedly without
-    // forcing app activation while the device is still locked.
-    static var openAppWhenRun: Bool = false
+    // true: slide-to-stop immediately triggers iOS Face ID / passcode unlock.
+    // Once authenticated the app opens, the engine is already playing, and
+    // the full-screen alarm UI is shown for Stop / Snooze. The badge does NOT
+    // respawn because the intent runs with the app active (shouldUseLockedHandling
+    // is false), so no zombie re-schedule fires.
+    static var openAppWhenRun: Bool = true
 
     @Parameter(title: "Alarm ID")
     var alarmID: String
@@ -862,7 +886,7 @@ struct StopAlarmIntent: LiveActivityIntent {
                     )
                     AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-after-post-slide-boost-call")
                 }
-                swiftlog("[StopIntent] Engine healthy — notification posted, AlarmKit respawn skipped")
+                swiftlog("[StopIntent] Engine healthy — engine continues, openAppWhenRun=true handles unlock")
                 AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-engine-healthy-return")
                 return .result()
             }
@@ -873,7 +897,7 @@ struct StopAlarmIntent: LiveActivityIntent {
                 return .result()
             }
 
-            swiftlog("[StopIntent] Engine not healthy (confirmed failure in phase \(AlarmAudioStateController.shared.phase.rawValue)) — proceeding with AlarmKit respawn fallback")
+            swiftlog("[StopIntent] Engine confirmed failed (phase=\(AlarmAudioStateController.shared.phase.rawValue)) — proceeding with AlarmKit respawn fallback")
             AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-respawn-fallback")
             let originalAlarm = await MainActor.run { AlarmStore.shared.alarm(by: lookupUUID) }
             if !suppressUnlockPrompt {
@@ -896,10 +920,10 @@ struct StopAlarmIntent: LiveActivityIntent {
                 // audible" can leave the loop without a live system surface after
                 // quick unlock->relock or hardware-button interruptions.
 
-                // Must use a new UUID so AlarmKit doesn't drop the request.
-                // Feature requirement: keep zombie respawn at +4.0s baseline
-                // with +0.2s retry increments for 4 attempts total.
-                let respawnDelays: [TimeInterval] = [4.0, 4.2, 4.4, 4.6]
+                // Use a new UUID so AlarmKit doesn't drop the request.
+                // 1.0s baseline keeps the gap imperceptible while giving AlarmKit
+                // enough scheduling lead time.
+                let respawnDelays: [TimeInterval] = [1.0, 1.2, 1.4, 1.6]
                 let snoozeInterval = helper.resolvedSnoozeInterval(for: originalAlarm)
                 let snoozeEnabled = snoozeInterval != nil
                 let appIsActiveDuringZombieRespawn = await MainActor.run {
@@ -982,7 +1006,7 @@ struct StopAlarmIntent: LiveActivityIntent {
                 let candidate = trimmedAlarmName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 return candidate.isEmpty ? "Alarm" : candidate
             }()
-            let respawnDelays: [TimeInterval] = [4.0, 4.2, 4.4, 4.6]
+            let respawnDelays: [TimeInterval] = [1.0, 1.2, 1.4, 1.6]
             let appIsActiveDuringFallbackRespawn = await MainActor.run {
                 UIApplication.shared.applicationState == .active
             }

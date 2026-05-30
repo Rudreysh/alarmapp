@@ -582,6 +582,10 @@ final class AlarmRingCoordinator: ObservableObject {
             }
 
             self.stopRingingInternal(preserveSession: true, completed: false)
+            // stopRingingInternal marks the alarm flow as completed (12s suppression window).
+            // Clear it immediately so the snooze AlarmKit alarm is not suppressed when
+            // the phone is locked and the snooze interval fires via the notification path.
+            NotificationManager.shared.clearCompletedAlarmFlow(alarmId: currentAlarm.id.uuidString)
             self.scheduler.scheduleSnooze(alarm: currentAlarm, totalSeconds: totalSeconds)
             DispatchQueue.main.asyncAfter(deadline: .now() + TimeInterval(totalSeconds)) { [weak self] in
                 self?.startRinging(alarmId: currentAlarm.id.uuidString, source: .foregroundTimer)

@@ -109,9 +109,12 @@ struct ReportView: View {
     
     private func periodButtonForegroundColor(isSelected: Bool) -> Color {
         if isTiimo {
-            return isSelected ? Colors.accentBlue : Colors.textTertiary
+            // Keep Week/Month/Year labels readable in Tiimo-style themes even
+            // after state switches by avoiding low-contrast tertiary text.
+            return isSelected ? Colors.accentBlue : Colors.textPrimary.opacity(0.78)
         } else {
-            return isSelected ? Colors.textPrimary : Colors.textSecondary
+            // Deselect state still needs strong contrast on darker containers.
+            return isSelected ? Colors.textPrimary : Colors.textPrimary.opacity(0.72)
         }
     }
     
