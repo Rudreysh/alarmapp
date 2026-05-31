@@ -40,7 +40,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
     private var volumeEnforcementActive = false
     private let appGroupId = "group.ht.alarmo"
     private var interruptionGraceUntil: Date?
-    private var isCurrentlyInterrupted: Bool = false
+    private(set) var isCurrentlyInterrupted: Bool = false
     private var wasHealthyBeforeInterruption: Bool = false
     private(set) var isProgressingNow: Bool = false
     
@@ -59,6 +59,14 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
     var isInInterruptionRecoveryWindow: Bool {
         guard let deadline = interruptionGraceUntil else { return false }
         return Date() < deadline
+    }
+
+    /// True if the engine was confirmed playing within the last `seconds` seconds.
+    /// Used by side-button respawn logic to avoid false `recordFallback` calls
+    /// during the brief window when player.isPlaying reads false at scene transition.
+    func wasConfirmedPlayingRecently(within seconds: TimeInterval) -> Bool {
+        guard let last = lastConfirmedPlayingAt else { return false }
+        return Date().timeIntervalSince(last) < seconds
     }
 
     var currentPlayerVolume: Float {
@@ -449,9 +457,15 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             let newVol = change.newValue ?? session.outputVolume
             let oldVol = change.oldValue ?? newVol
             guard newVol < oldVol else { return }
-            // Fire enforcement whenever volume drops below the alarm's configured floor,
-            // not just below 0.15. This catches the range 1.00 → 0.80 that the old
-            // threshold missed entirely.
+            // Enforce the system output volume floor only when the app engine is the
+            // audio owner (appEnginePrimary / appEngineFadingIn). In other phases
+            // (alarmKitFallback, alarmKitSettling, etc.) the AlarmKit ringer provides
+            // sound via the ringer domain, which is immune to media-volume changes.
+            // Calling recordFallback from the else branch was a regression introduced
+            // with the per-button-press enforcement: any ringer-volume dip below
+            // selectedSoundVolume (e.g. 0.80) triggered a full stop+respawn cycle,
+            // causing a 2-second silence when the user pressed the side/volume button
+            // while the phone was locked.
             let floor = AlarmAudioStateController.shared.selectedSoundVolume
             if newVol < floor {
                 self.log("[Engine] Volume dropped to \(String(format: "%.2f", newVol)) below floor \(String(format: "%.2f", floor)) — enforcing")
@@ -459,16 +473,17 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
                     guard let self, self.isEngineActive else { return }
                     self.player?.volume = 1.0
                     let phase = AlarmAudioStateController.shared.phase
-                    if phase == .appEngineFadingIn || phase == .appEnginePrimary {
-                        // Raise system output volume immediately (no respawn — engine is healthy).
-                        // enforceFloorImmediately bypasses rate limiting for per-button-press response.
-                        self.log("[Engine] Immediate system floor enforce: phase=\(phase.rawValue) target=\(String(format: "%.2f", floor))")
-                        Task { @MainActor in
-                            SystemOutputVolumeFloorManager.shared.enforceFloorImmediately(minimumVolume: floor)
-                        }
-                    } else {
-                        AlarmAudioStateController.shared.recordFallback(reason: "volume-floor-\(String(format: "%.2f", newVol))")
-                        self.log("[Engine] Floor enforced: player.volume=1.0 + AlarmKit audible fallback triggered")
+                    guard phase == .appEngineFadingIn || phase == .appEnginePrimary else {
+                        // Non-primary phase: ringer domain handles audio. Do not trigger
+                        // respawn just because media volume changed.
+                        self.log("[Engine] Volume drop below floor ignored — phase=\(phase.rawValue), ringer domain is audio owner")
+                        return
+                    }
+                    // Raise system output volume immediately (no respawn — engine is healthy).
+                    // enforceFloorImmediately bypasses rate limiting for per-button-press response.
+                    self.log("[Engine] Immediate system floor enforce: phase=\(phase.rawValue) target=\(String(format: "%.2f", floor))")
+                    Task { @MainActor in
+                        SystemOutputVolumeFloorManager.shared.enforceFloorImmediately(minimumVolume: floor)
                     }
                 }
             }

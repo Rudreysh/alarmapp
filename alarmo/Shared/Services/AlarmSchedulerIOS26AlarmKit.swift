@@ -846,7 +846,7 @@ struct StopAlarmIntent: LiveActivityIntent {
         }
         let trimmedAlarmName = resolvedAlarmName?.trimmingCharacters(in: .whitespacesAndNewlines)
         AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-entry")
-        
+
         if shouldUseLockedHandling {
             AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-locked-handling")
             let outputVolume = AVAudioSession.sharedInstance().outputVolume

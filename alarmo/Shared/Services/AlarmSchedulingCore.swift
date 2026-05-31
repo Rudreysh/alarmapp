@@ -116,10 +116,19 @@ enum AlarmCustomUIHandoffStore {
         guard let sourceAlarmID = UserDefaults.standard.string(forKey: sourceAlarmIDKey) else { return nil }
         let timestamp = UserDefaults.standard.double(forKey: timestampKey)
 
-        // Lifecycle-based: no time expiry. A pending handoff stays valid until it
-        // is consumed or explicitly cleared (Stop/Snooze). The old 10-min cap
-        // silenced alarms on the 2nd/3rd snooze.
+        // Hard 24h ceiling only. Short TTLs are forbidden here: a healthy locked
+        // alarm may never refresh this timestamp (the engineLiveHealthy path in
+        // processAlarmKitAlertingAlarm skips request()), and a <=10min cap
+        // reintroduced the multi-snooze silence bug. We also reject future-dated
+        // timestamps from a device clock change, which would otherwise keep stale
+        // state alive forever.
         guard timestamp > 0 else {
+            clear()
+            return nil
+        }
+        let age = now.timeIntervalSince1970 - timestamp
+        guard age >= 0, age < 24 * 60 * 60 else {
+            print("[AlarmHandoffStore] cleared pending reason=\(age < 0 ? "future-timestamp" : "hard-expiry") ageSeconds=\(Int(age))")
             clear()
             return nil
         }
@@ -200,6 +209,66 @@ enum AlarmCustomUIHandoffStore {
         if let pendingTimestamp = UserDefaults.standard.object(forKey: timestampKey) as? TimeInterval,
            pendingTimestamp < cutoff {
             clear()
+        }
+    }
+
+    /// Store-aware cleanup run once at startup (from `NotificationManager.configure`)
+    /// after the live `AlarmStore` is available — something `pruneOrphanedMappings()`
+    /// cannot do because it runs pre-AlarmStore at app init. Removes stale handoff
+    /// state that would otherwise ghost-start a ring via
+    /// `AppRootView.handlePendingCustomAlarmUIHandoff` on a normal foreground launch.
+    nonisolated static func pruneWithAlarmStore(
+        _ alarmStore: AlarmStore,
+        now: Date = Date(),
+        runtimeIsActive: Bool = false,
+        appIsForeground: Bool = false
+    ) {
+        let nowTs = now.timeIntervalSince1970
+
+        // --- Pending scalar keys ---
+        if let sourceStr = UserDefaults.standard.string(forKey: sourceAlarmIDKey) {
+            let ts = UserDefaults.standard.double(forKey: timestampKey)
+            let age = nowTs - ts
+            let sourceExists = UUID(uuidString: sourceStr).flatMap { alarmStore.alarm(by: $0) } != nil
+
+            let reason: String?
+            if ts <= 0 { reason = "invalid-timestamp" }
+            else if age < 0 { reason = "future-timestamp" }
+            else if age >= 24 * 60 * 60 { reason = "hard-expiry" }
+            else if !sourceExists && age >= 30 * 60 { reason = "missing-source" }
+            // Aggressive case: stale pending for a still-existing (recurring) alarm.
+            // Safety = NOT runtime-active AND a normal foreground launch (never the
+            // .background alarm-recovery launch). No map-presence requirement — that
+            // would leave the ghost bug unfixed when the map entry is missing.
+            // Threshold is 6h, not 60m: the "Awayk persists until reinstall" state is
+            // hours/days old, while a genuine same-night alarm can ring 1-3h with
+            // runtimeIsActive still false at configure() time (observation/recovery
+            // run AFTER configure). 6h fixes the stale-state bug without risking a
+            // real long-ringing alarm. missing-source stays at 30m because a deleted
+            // alarm can never be a live source.
+            else if sourceExists && age >= 6 * 60 * 60 && !runtimeIsActive && appIsForeground {
+                reason = "inactive-existing-source"
+            } else { reason = nil }
+
+            if let reason {
+                print("[AlarmHandoffStore] cleared pending reason=\(reason) ageSeconds=\(Int(age))")
+                clear()
+            }
+        }
+
+        // --- Surface map ---
+        var map = loadSurfaceSourceMap()
+        let before = map.count
+        map = map.filter { _, entry in
+            let age = nowTs - entry.timestamp
+            if age < 0 { return false }                 // future-dated → remove
+            if age < 60 * 60 { return true }            // keep recent unconditionally (active/snooze)
+            if age >= 48 * 60 * 60 { return false }     // 48h safety net
+            return UUID(uuidString: entry.sourceAlarmID).flatMap { alarmStore.alarm(by: $0) } != nil
+        }
+        if map.count != before {
+            print("[AlarmHandoffStore] pruned surface mappings removed=\(before - map.count) remaining=\(map.count)")
+            persistSurfaceSourceMap(map)
         }
     }
 

@@ -133,6 +133,20 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         // Clean up stale ring-fallback notifications from a previous session
         // that may have been killed without going through stopRinging.
         cancelAllAlarmRingingFallbackChains()
+        // Store-aware cleanup of stale AlarmKit→custom-UI handoff state, now that
+        // AlarmStore is available. Runs before recovery/observation so a stale
+        // pending request cannot ghost-start a ring via handlePendingCustomAlarmUIHandoff.
+        let runtimeIsActive =
+            ringCoordinator.isRinging ||
+            AlarmBackgroundAudioBridge.shared.currentAlarmID != nil ||
+            AlarmContinuousAudioEngine.shared.isEngineActive ||
+            AlarmAudioStateController.shared.phase != .stopped
+        let appIsForeground = UIApplication.shared.applicationState != .background
+        AlarmCustomUIHandoffStore.pruneWithAlarmStore(
+            alarmStore,
+            runtimeIsActive: runtimeIsActive,
+            appIsForeground: appIsForeground
+        )
         checkStatus()
         drainPendingAlarmStarts()
         startAlarmKitObservation()
@@ -1540,11 +1554,24 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         let phase = AlarmAudioStateController.shared.phase
         if phase == .appEnginePrimary || phase == .appEngineFadingIn {
             let outputVolume = AVAudioSession.sharedInstance().outputVolume
-            if AlarmContinuousAudioEngine.shared.confirmStillPlaying() && outputVolume > 0.01 {
+            let isPlaying = AlarmContinuousAudioEngine.shared.confirmStillPlaying()
+            if isPlaying && outputVolume > 0.01 {
                 print("[NotificationManager] Side button respawn suppressed — phase=\(phase.rawValue), engine playing, outputVolume=\(String(format: "%.2f", outputVolume))")
                 return
             }
-            print("[NotificationManager] Side button respawn recovery allowed — phase=\(phase.rawValue), enginePlaying=\(AlarmContinuousAudioEngine.shared.confirmStillPlaying()) outputVolume=\(String(format: "%.2f", outputVolume))")
+            // Guard: if the engine was playing within the last 2 seconds, the "not playing"
+            // reading is likely a transient false-negative at the foreground→background scene
+            // transition (player.isPlaying briefly reads false). Calling recordFallback here
+            // would stop AlarmKit and schedule a respawn, creating a 2-second silence.
+            // Screen lock on a .playback session does not interrupt audio — the engine will
+            // naturally resume. Let the interruption-retry path handle real failures.
+            if AlarmContinuousAudioEngine.shared.wasConfirmedPlayingRecently(within: 2.0)
+                || AlarmContinuousAudioEngine.shared.isCurrentlyInterrupted
+                || AlarmContinuousAudioEngine.shared.isInInterruptionRecoveryWindow {
+                print("[NotificationManager] Side button respawn deferred — engine recently playing or in interruption window (phase=\(phase.rawValue))")
+                return
+            }
+            print("[NotificationManager] Side button respawn recovery allowed — phase=\(phase.rawValue), enginePlaying=\(isPlaying) outputVolume=\(String(format: "%.2f", outputVolume))")
             AlarmAudioStateController.shared.recordFallback(reason: "hardware-button-engine-not-playing-recovery")
         } else if !AlarmAudioStateController.shared.shouldAllowAlarmKitRespawn() {
             print("[NotificationManager] Side button respawn suppressed — phase \(phase.rawValue) not eligible for AlarmKit respawn")
@@ -1695,10 +1722,21 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         let phase = AlarmAudioStateController.shared.phase
         let appIsActive = UIApplication.shared.applicationState == .active
         if appIsActive && (phase == .appEnginePrimary || phase == .appEngineFadingIn) {
-            print("[NotificationManager] AlarmKit surface auto-dismissed — app active phase=\(phase.rawValue) surface=\(surfaceAlarmId)")
-            try? AlarmManager.shared.stop(id: alarm.id)
-            try? AlarmManager.shared.cancel(id: alarm.id)
-            return
+            // Only auto-dismiss the AlarmKit surface when the ring coordinator confirms
+            // an active session. If the coordinator is NOT ringing, the phase is stale
+            // (left over from a previous session where the user tapped the badge without
+            // pressing the in-app Stop button). Blindly dismissing here would kill every
+            // subsequent alarm fire — the "sound never plays again" bug after badge tap.
+            let coordinatorIsRinging = ringCoordinator?.isRinging ?? false
+            if coordinatorIsRinging {
+                print("[NotificationManager] AlarmKit surface auto-dismissed — app active phase=\(phase.rawValue) coordinator ringing surface=\(surfaceAlarmId)")
+                try? AlarmManager.shared.stop(id: alarm.id)
+                try? AlarmManager.shared.cancel(id: alarm.id)
+                return
+            }
+            // Stale phase — coordinator has stopped but state machine wasn't reset.
+            // Fall through to restart the alarm properly.
+            print("[NotificationManager] Stale phase=\(phase.rawValue) with coordinator not ringing — falling through to restart alarm")
         }
         logAlarmTrace(
             event: "process-alerting-entry",
@@ -1721,20 +1759,28 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                 event: "process-alerting-engine-live-healthy",
                 sourceAlarmId: sourceAlarmId,
                 surfaceAlarmId: surfaceAlarmId,
-                extra: "keeping-surface-alive=true"
+                extra: "keeping-surface-alive=\(UIApplication.shared.applicationState != .active)"
             )
-            // Keep AlarmKit surface alive when engine is already healthy.
-            // Aggressive stop/cancel here can cut audio ownership at the wrong time.
             AlarmBackgroundAudioBridge.shared.start(
                 surfaceAlarmId: surfaceAlarmId,
                 sourceAlarmId: sourceAlarmId
             )
             if UIApplication.shared.applicationState != .active {
+                // Phone is locked/background: keep AlarmKit surface alive as the
+                // slide-to-stop anchor and ringer-domain audio backup.
                 startAlarmKitUnlockPromptLoop(
                     sourceAlarmId: sourceAlarmId,
                     surfaceAlarmId: surfaceAlarmId,
                     alarmName: nil
                 )
+            } else {
+                // Phone is unlocked (foreground): engine is the sole audio source.
+                // Stop this AlarmKit surface so the ringer domain does not play
+                // alongside the media-domain engine — which the user hears as
+                // double sound. The in-app ring UI handles Stop/Snooze; the
+                // AlarmKit slide-to-stop badge is not needed here.
+                try? AlarmManager.shared.stop(id: alarm.id)
+                try? AlarmManager.shared.cancel(id: alarm.id)
             }
             return
         }

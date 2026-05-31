@@ -3,7 +3,7 @@
 **Project:** Awayk  
 **Date:** 2026-05-30  
 **Branch:** `sound-fix-issue`  
-**Status:** All issues resolved and verified working (volume control added 2026-05-30)
+**Status:** All issues resolved and verified working (volume control added 2026-05-30; stale handoff cleanup added 2026-05-31; side-button and badge-tap fixes added 2026-05-31)
 
 ---
 
@@ -17,7 +17,7 @@
 6. [Expected Behavior After Fixes](#6-expected-behavior-after-fixes)
 7. [Known Limitations](#7-known-limitations)
 
-> **Issue 15 (Volume control) was added after initial document creation — see section 4 and section 5 for the update.**
+> **Issue 15 (Volume control) and Issue 16 (Stale handoff state cleanup) were added after initial document creation — see section 4 and section 5 for the updates.**
 
 ---
 
@@ -360,6 +360,10 @@ Face ID behavior on device face-down or unrecognized: iOS automatically falls ba
 | `AlarmRingingView.swift` | `onAppear` floor uses `alarm.soundVolume`; `systemVolumeDidChange` handler re-enforces floor on every volume change (Alarmy behavior) |
 | `SystemOutputVolumeFloorManager.swift` | `minimumAttemptInterval` reduced 10.0s → 1.5s |
 | `SoundConfig.swift` | Replaced 8 cloud-only MP3 entries with 5 actual bundled `.caf` filenames |
+| `AlarmSchedulingCore.swift` | `pendingRequest()`: added 24h hard ceiling + future-timestamp guard; added `pruneWithAlarmStore(_:runtimeIsActive:appIsForeground:)` for store-aware startup cleanup |
+| `NotificationManager.swift` | `configure()`: added `pruneWithAlarmStore` call after fallback chain cleanup and before recovery/observation |
+| `AlarmContinuousAudioEngine.swift` (vol observer) | Removed `else { recordFallback }` from volume observer — non-primary phases no longer trigger stop+respawn on volume change |
+| `AlarmSchedulerIOS26AlarmKit.swift` (StopAlarmIntent) | Badge tap in foreground with ring UI active is now a no-op — returns immediately when `!shouldUseLockedHandling && isAlarmRinging` |
 
 ---
 
@@ -495,6 +499,176 @@ effective output = 1.0 × alarm.soundVolume = alarm.soundVolume   ← correct, m
 - Volume can never drop below the user's configured alarm volume while alarm UI is visible
 
 **Background limitation (unchanged):** From background/locked state, `MPVolumeView` cannot raise system volume (no key window). AlarmKit ringer domain handles the initial audio from lock screen (from Issue 3 fix). Once the user unlocks via slide-to-stop + Face ID (Issue 14 fix), the app is foreground and volume floor enforcement activates immediately.
+
+---
+
+### Issue 16 — Stale Handoff State Caused Ghost Ring / "Awayk" Notification Until Reinstall
+
+**Date added:** 2026-05-31  
+**Files:** `AlarmSchedulingCore.swift`, `NotificationManager.swift`
+
+**Symptom:** After an alarm session ended (user stopped the alarm), some users saw the "Awayk" custom alarm UI or notification appear unexpectedly on subsequent app opens — sometimes hours or days later. Deleting and reinstalling the app fixed the behavior, which is the hallmark of stale `UserDefaults` state surviving across launches.
+
+**Root Cause:**
+
+`AlarmCustomUIHandoffStore` persists three scalar keys in `UserDefaults` (the "pending request"):
+
+```
+alarmo.alarmKit.pendingCustomUISourceAlarmId
+alarmo.alarmKit.pendingCustomUISurfaceAlarmId
+alarmo.alarmKit.pendingCustomUITimestamp
+```
+
+And a multi-entry map:
+```
+alarmo.alarmKit.surfaceSourceMap  (JSON: [surfaceUUID → sourceUUID + timestamp])
+```
+
+**The ghost-ring path:** `AppRootView.handlePendingCustomAlarmUIHandoff()` is called on every app launch and foreground transition (lines 97, 189, 308). It reads `pendingRequest()` **directly** (line 408) and calls `ringCoordinator.startRinging(alarmId: pending.sourceAlarmID)` (line 452) using `pending.sourceAlarmID` — not via the map. So if stale pending state exists from a previous alarm session:
+
+- One-shot deleted alarm → source alarm no longer in AlarmStore → `startRinging` returns false (alarm not found). Low harm but noisy.  
+- **Recurring alarm that still exists** → source alarm IS in AlarmStore → `startRinging` succeeds → ghost ring UI starts, alarm sounds, UI shows Stop/Snooze with no real alarm firing. This is the dangerous case.
+
+Three gaps allowed stale state to survive:
+
+1. **`pendingRequest()` had no time expiry.** The comment explicitly said "Lifecycle-based: no time expiry." A pending request written during last week's alarm stayed valid until `clear()` was explicitly called (Stop/Snooze path) or until 48 hours passed via `pruneOrphanedMappings()`. If the app crashed mid-ring, `clear()` was never called and the stale pending survived indefinitely (up to 48h).
+
+2. **`pruneOrphanedMappings()` was time-only (48h) and ran before `AlarmStore` was available.** It ran in `AwaykApp.init()` before SwiftData was loaded, so it could not check whether source alarm IDs still existed. Stale entries for deleted one-off alarms could survive up to 48 hours.
+
+3. **No store-aware cleanup at configure time.** `NotificationManager.configure()` (the first point where `AlarmStore` is available) performed no handoff state cleanup. Stale state for deleted alarms, or stale pending for existing recurring alarms, was never removed with store knowledge.
+
+**Why "source-exists" alone is not proof a pending is valid:**  
+A recurring daily alarm fired at 7am yesterday, was stopped by the user, and `clear()` was called. But if the app crashed between writing the pending request and calling `clear()`, yesterday's pending (sourceAlarmID = daily alarm UUID) survives with the alarm still present in AlarmStore. This satisfies "source exists" yet is completely stale.
+
+**Fix (2 files only):**
+
+**`AlarmSchedulingCore.swift` — Change A: 24h hard ceiling in `pendingRequest()`**
+
+Replaced the "no expiry" comment and added:
+```swift
+let age = now.timeIntervalSince1970 - timestamp
+guard age >= 0, age < 24 * 60 * 60 else {
+    // future-timestamp (clock change) or hard-expiry
+    clear()
+    return nil
+}
+```
+- `age >= 0` rejects future-dated timestamps from device clock changes, which would otherwise make the age appear negative and keep stale state alive forever.
+- 24h ceiling: NOT 2h or 10min. A healthy locked alarm may never refresh the pending timestamp — the `engineLiveHealthy` path in `processAlarmKitAlertingAlarm` (NotificationManager.swift line ~1719) returns early **without** calling `request()`. A 2h TTL would clear a real live alarm; 24h is far beyond any realistic ringing session.
+
+**`AlarmSchedulingCore.swift` — Change B: new `pruneWithAlarmStore(_:runtimeIsActive:appIsForeground:)`**
+
+Store-aware cleanup run once at startup after AlarmStore is loaded. Pending scalar key cleanup rules (in order):
+
+| Condition | Reason logged | Action |
+|---|---|---|
+| `timestamp <= 0` | `invalid-timestamp` | `clear()` |
+| `age < 0` (future-dated) | `future-timestamp` | `clear()` |
+| `age >= 24h` | `hard-expiry` | `clear()` |
+| source alarm not in AlarmStore AND `age >= 30m` | `missing-source` | `clear()` |
+| source alarm exists AND `age >= 6h` AND NOT runtime-active AND foreground launch | `inactive-existing-source` | `clear()` |
+
+The `inactive-existing-source` threshold is **6 hours, not 60 minutes**. A real long-ringing alarm (1–3h) could have `runtimeIsActive == false` at `configure()` time because observation/recovery runs AFTER configure. 6h eliminates this risk while still catching the hours-to-days-old stale state from a prior session. The `appIsForeground` guard (`applicationState != .background`) prevents the aggressive clear during a background alarm-recovery relaunch.
+
+Surface map cleanup: entries < 60m kept unconditionally (protects active alarms and snooze chains); entries > 48h removed (safety net); entries 60m–48h removed if source alarm no longer exists in AlarmStore.
+
+**`NotificationManager.swift` — one call in `configure()`**
+
+Inserted after `cancelAllAlarmRingingFallbackChains()` and before `drainPendingAlarmStarts()` / `startAlarmKitObservation()`:
+```swift
+let runtimeIsActive =
+    ringCoordinator.isRinging ||
+    AlarmBackgroundAudioBridge.shared.currentAlarmID != nil ||
+    AlarmContinuousAudioEngine.shared.isEngineActive ||
+    AlarmAudioStateController.shared.phase != .stopped
+let appIsForeground = UIApplication.shared.applicationState != .background
+AlarmCustomUIHandoffStore.pruneWithAlarmStore(
+    alarmStore,
+    runtimeIsActive: runtimeIsActive,
+    appIsForeground: appIsForeground
+)
+```
+
+`phase != .stopped` covers transitional states (`waitingForAlarmKit`, `alarmKitSettling`, `appEnginePreparing`, `appEngineFadingIn`, `alarmKitFallback`) that the other three signals might miss. Running before observation ensures stale pending state cannot route through `handlePendingCustomAlarmUIHandoff` (called next, line 97 of AppRootView).
+
+**What is NOT changed:**
+
+- `engine.wasPlaying` / `engine.currentAlarmId` / `engine.currentSoundName` / `engine.persistedAt` — already have a 1h TTL in `recoverIfNeeded()` (AlarmContinuousAudioEngine.swift:276). Clearing them would break real alarm recovery. Untouched.
+- `pruneOrphanedMappings()` at `AwaykApp.init()` — kept as the conservative 48h pre-AlarmStore first pass.
+- `cancelAllAlarmRingingFallbackChains()` — already prefix-scoped to `"alarmo-ring-fallback-*"`. No global notification wipe added.
+- `clear()` — already removes the 3 scalar keys correctly. No changes.
+- StopAlarmIntent, snooze, bridge, engine, notification categories — all untouched.
+
+**Protected behaviors verified:**
+
+- **Cold relaunch into active alarm (background):** `appIsForeground == false` → `inactive-existing-source` clear cannot fire. Only `invalid`/`future`/`hard-expiry`/`missing-source` rules apply — none match a seconds-old live alarm. ✓
+- **Foreground launch while real alarm has been ringing 1–3h:** 6h threshold means the pending (e.g. 2h old) is NOT cleared. ✓
+- **Multi-snooze chain:** map entries < 60m kept unconditionally throughout. ✓
+- **Slide-to-stop:** runtime signals active → no aggressive clear; engine/AlarmKit state untouched. ✓
+- **Volume enforcement (Issue 15/16):** entirely independent layers; unaffected. ✓
+
+---
+
+### Issue 17 — Side Button Press Stopped Sound (Volume Observer Regression)
+
+**Date added:** 2026-05-31  
+**Files:** `AlarmContinuousAudioEngine.swift`
+
+**Symptom:** When the user pressed the side or volume button while the alarm was ringing (phone locked or transitioning to background), the sound would stop for ~2 seconds and then resume. Slide-to-stop was unaffected — that path correctly kept audio playing. The issue was specific to volume-button interaction in the locked/background state.
+
+**Root Cause:**
+
+The Issue 15 volume floor fix changed the volume observer threshold from `0.15` to `selectedSoundVolume` (e.g. 0.80). The observer has two branches:
+
+- `appEnginePrimary`/`appEngineFadingIn`: calls `enforceFloorImmediately` — correct, raises system volume
+- `else` (all other phases): called `recordFallback(reason:)` — **this is where the regression was**
+
+In `alarmKitFallback`, `alarmKitSettling`, or `waitingForAlarmKit` phases, AlarmKit's **ringer domain** is the audio source. The ringer domain is completely immune to media volume — pressing the volume button changes the user's media volume but does NOT silence the AlarmKit ringer. However, the old `else` branch called `recordFallback` whenever media volume dropped below `selectedSoundVolume` in these phases.
+
+`recordFallback` → `scheduleHardwareButtonRespawnIfNeeded` → stops all alerting AlarmKit surfaces → schedules respawn at +2s → **2-second silence**.
+
+Before Issue 15, the threshold was `0.15`. A volume drop from 0.90 to 0.70 would not cross 0.15 and would not trigger `recordFallback`. After Issue 15, the same drop (0.90 → 0.79 < 0.80) would trigger it.
+
+**Fix:**
+
+Removed the `else { recordFallback }` branch from the volume observer entirely. When phase is not `appEnginePrimary`/`appEngineFadingIn`, the observer now logs the volume drop and returns without calling `recordFallback`. The ringer domain audio is unaffected by media volume changes, so no respawn is needed. The engine's own watchdog and bridge handle genuine audio failures.
+
+---
+
+### Issue 18 — AlarmKit Badge Tap Stopped Sound When Phone Was Unlocked
+
+**Date added:** 2026-05-31  
+**Files:** `AlarmSchedulerIOS26AlarmKit.swift`
+
+**Symptom:** When the phone was unlocked and the alarm was ringing in foreground (custom ring UI visible), a small AlarmKit banner/badge appeared at the top of the screen. Tapping the badge stopped the alarm sound. Sound should only stop when the user presses the in-app Stop button.
+
+**Root Cause:**
+
+When the badge is tapped, `StopAlarmIntent.perform()` runs. With the app in foreground:
+```swift
+let shouldUseLockedHandling = state != .active || !UIApplication.shared.isProtectedDataAvailable
+// → false when app is active and protected data available
+```
+
+`shouldUseLockedHandling = false` → the intent falls through to the **unlocked-device fallback path**, which:
+1. Calls `scheduleAlarmKitUnlockPrompt` (suppressed when active — no-op)
+2. Calls `startAlarmKitUnlockPromptLoop` (suppressed when active — no-op)
+3. Posts `alarmKitCustomUIHandoffRequested`
+
+Step 3 triggers `handlePendingCustomAlarmUIHandoff` → `startRinging` (already ringing, duplicate path) → `engine.start()` (no-op if playing). This alone should not stop sound.
+
+However, AlarmKit itself **stops its own alarm surface** as part of executing the intent, silencing the ringer-domain audio. If the media engine is also briefly unhealthy at the tap moment (e.g., the badge tap caused a scene state transition), the combined loss of both audio sources produces complete silence. Additionally, the unlocked path's side effects (writing new pending request, posting handoff notification) can interfere with an already-healthy ringing session.
+
+**Fix:**
+
+Added an early return at the start of `StopAlarmIntent.perform()`: if `shouldUseLockedHandling == false` AND `AlarmAudioStateController.shared.isAlarmRinging == true`, the intent returns immediately without any side effects. The in-app ring UI is already showing with Stop/Snooze buttons — the badge tap does nothing. AlarmKit may still stop its own ringer surface (system behavior outside our control), but the engine (media domain) is not touched.
+
+```swift
+if !shouldUseLockedHandling && AlarmAudioStateController.shared.isAlarmRinging {
+    // Badge tap with ring UI active — no-op
+    return .result()
+}
+```
 
 ---
 
