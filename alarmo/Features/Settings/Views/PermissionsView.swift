@@ -48,7 +48,7 @@ struct PermissionsView: View {
                         // Apple Health
                         PermissionRow(
                             title: "Apple Health",
-                            subtitle: "To turn on, open the Apple Health app > Sharing > Apps > Awayk",
+                            subtitle: "To turn on, open the Apple Health app > Sharing > Apps > Alarmo",
                             iconName: "heart.fill",
                             iconBgColor: Colors.accentRed,
                             isOn: $healthAuthStatus,
@@ -59,7 +59,7 @@ struct PermissionsView: View {
                         // Microphone
                         PermissionRow(
                             title: "Microphone",
-                            subtitle: "To turn on, go to iPhone Settings > Awayk > Microphone",
+                            subtitle: "To turn on, go to iPhone Settings > Alarmo > Microphone",
                             iconName: "mic.fill",
                             iconBgColor: Colors.accentTeal,
                             isOn: $micAuthStatus,
@@ -70,7 +70,7 @@ struct PermissionsView: View {
                         // Motion data
                         PermissionRow(
                             title: "Motion data",
-                            subtitle: "To turn on, go to iPhone Settings > Awayk > Motion & Fitness",
+                            subtitle: "To turn on, go to iPhone Settings > Alarmo > Motion & Fitness",
                             iconName: "figure.walk",
                             iconBgColor: Colors.accentOrange,
                             isOn: $motionAuthStatus,
@@ -81,7 +81,7 @@ struct PermissionsView: View {
                         // Notifications
                         PermissionRow(
                             title: "Notifications",
-                            subtitle: "To turn on, go to iPhone Settings > Notifications > Awayk",
+                            subtitle: "To turn on, go to iPhone Settings > Notifications > Alarmo",
                             iconName: "bell.badge.fill",
                             iconBgColor: Colors.accentBlue,
                             isOn: $notificationAuthStatus,
@@ -92,7 +92,7 @@ struct PermissionsView: View {
                         // Screen Time
                         PermissionRow(
                             title: "Screen Time",
-                            subtitle: "To turn on, go to iPhone Settings > Screen Time > Awayk",
+                            subtitle: "To turn on, go to iPhone Settings > Screen Time > Alarmo",
                             iconName: "hourglass.circle.fill",
                             iconBgColor: .purple,
                             isOn: $screenTimeAuthStatus,
@@ -111,12 +111,12 @@ struct PermissionsView: View {
                     }
                 
                 VStack(spacing: 20) {
-                    Text("\"Awayk\" Would Like to Access Screen Time")
+                    Text("\"Alarmo\" Would Like to Access Screen Time")
                         .font(.headline)
                         .multilineTextAlignment(.center)
                         .foregroundColor(.white)
                     
-                    Text("Providing \"Awayk\" access to Screen Time may allow it to see your activity data, restrict content, and limit the usage of apps and websites.")
+                    Text("Providing \"Alarmo\" access to Screen Time may allow it to see your activity data, restrict content, and limit the usage of apps and websites.")
                         .font(.subheadline)
                         .multilineTextAlignment(.center)
                         .foregroundColor(Colors.textSecondary)
@@ -383,15 +383,15 @@ struct AboutPermissionsView: View {
                         PermissionInfoSection(
                             title: "Apple Health",
                             text: """
-                            Awayk can update the Apple Health 'Sleep' category to register the Time Asleep and Time in Bed for each sleep session detected. For this functionality, Awayk requires both read and write access to the 'Sleep' category. Data from the 'Sleep' category may also be used to provide personalised insights and trend information.
+                            Alarmo can update the Apple Health 'Sleep' category to register the Time Asleep and Time in Bed for each sleep session detected. For this functionality, Alarmo requires both read and write access to the 'Sleep' category. Data from the 'Sleep' category may also be used to provide personalised insights and trend information.
 
-                            If you want to track your sleep with an Apple Watch, Awayk requires read access to the following categories: 'Heart Rate', 'Active Energy', 'Stand Hours', 'Stand Minutes', 'Walking Heart Rate Average', 'Mindful Minutes' and 'Steps'.
+                            If you want to track your sleep with an Apple Watch, Alarmo requires read access to the following categories: 'Heart Rate', 'Active Energy', 'Stand Hours', 'Stand Minutes', 'Walking Heart Rate Average', 'Mindful Minutes' and 'Steps'.
 
-                            Awayk can analyse and report important information about your heart rate and other heart-related metrics during sleep. This feature requires read access to the following Apple Health categories: 'Heart Rate', 'Heart Rate Variability', 'Resting Heart Rate', 'Walking Heart Rate Average' and the use of a paired Apple Watch.
+                            Alarmo can analyse and report important information about your heart rate and other heart-related metrics during sleep. This feature requires read access to the following Apple Health categories: 'Heart Rate', 'Heart Rate Variability', 'Resting Heart Rate', 'Walking Heart Rate Average' and the use of a paired Apple Watch.
 
-                            Awayk can analyse your blood oxygen levels and respiratory rate during sleep to provide a report of these metrics for each sleep session. This feature requires read access to the following Apple Health categories: 'Blood Oxygen', 'Respiratory Rate' and the use of a paired Apple Watch.
+                            Alarmo can analyse your blood oxygen levels and respiratory rate during sleep to provide a report of these metrics for each sleep session. This feature requires read access to the following Apple Health categories: 'Blood Oxygen', 'Respiratory Rate' and the use of a paired Apple Watch.
 
-                            Awayk can analyse data about the sounds in the environment that you sleep in and provide a report for each sleep session. This feature requires read and write access to the 'Environmental Sound Levels' Apple Health category and a compatible, paired Apple Watch.
+                            Alarmo can analyse data about the sounds in the environment that you sleep in and provide a report for each sleep session. This feature requires read and write access to the 'Environmental Sound Levels' Apple Health category and a compatible, paired Apple Watch.
                             """
                         )
                         
@@ -399,9 +399,9 @@ struct AboutPermissionsView: View {
                         PermissionInfoSection(
                             title: "Microphone",
                             text: """
-                            Awayk requires permission to access the microphone to record and categorise the sounds you make during sleep or the sounds in your sleep environment (optional feature). In addition, it is required for sleep analysis on your iPhone/iPad and to ensure that the alarm will go off correctly on your iPhone/iPad.
+                            Alarmo requires permission to access the microphone to record and categorise the sounds you make during sleep or the sounds in your sleep environment (optional feature). In addition, it is required for sleep analysis on your iPhone/iPad and to ensure that the alarm will go off correctly on your iPhone/iPad.
 
-                            If you want Awayk to track your sleep automatically (just by wearing your Apple Watch during sleep), or you are using only Awayk on the Apple Watch to track your sleep manually (by pressing 'Start'), then permission to access the microphone is not required.
+                            If you want Alarmo to track your sleep automatically (just by wearing your Apple Watch during sleep), or you are using only Alarmo on the Apple Watch to track your sleep manually (by pressing 'Start'), then permission to access the microphone is not required.
                             """
                         )
                         
@@ -415,15 +415,15 @@ struct AboutPermissionsView: View {
                         PermissionInfoSection(
                             title: "Notifications",
                             text: """
-                            Awayk can send you a notification on the following occasions:
+                            Alarmo can send you a notification on the following occasions:
 
                             · When a new sleep session is detected.
                             · When you optimal bedtime is approaching.
                             · When a new sleep tip or insight is available.
                             · To report your wake-up mood.
-                            All the notifications above can be enabled or disabled individually from Awayk's settings.
+                            All the notifications above can be enabled or disabled individually from Alarmo's settings.
 
-                            Lastly, Awayk can send you a notification when you receive a response from our support staff if you have contacted support.
+                            Lastly, Alarmo can send you a notification when you receive a response from our support staff if you have contacted support.
                             """
                         )
                         
@@ -431,9 +431,9 @@ struct AboutPermissionsView: View {
                         PermissionInfoSection(
                             title: "Screen Time",
                             text: """
-                            Awayk can utilize Apple's Screen Time and Family Controls APIs to securely track your device usage data. 
+                            Alarmo can utilize Apple's Screen Time and Family Controls APIs to securely track your device usage data. 
 
-                            This allows the app to limit access to distracting apps and help you build better digital habits directly from within Awayk.
+                            This allows the app to limit access to distracting apps and help you build better digital habits directly from within Alarmo.
                             """
                         )
                     }

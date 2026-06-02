@@ -1094,7 +1094,7 @@ struct PenaltyCardRegistrationSheet: View {
                             .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
 
-                    Text("By providing your card information, you allow Awayk to charge your card for future penalties according to the enabled rules.")
+                    Text("By providing your card information, you allow Alarmo to charge your card for future penalties according to the enabled rules.")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)

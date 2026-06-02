@@ -78,7 +78,7 @@ struct AppProtectionGuideView: View {
                             
                         SettingsCard {
                             SettingsNavigationRow(
-                                title: "Whitelist Awayk",
+                                title: "Whitelist Alarmo",
                                 subtitle: "Ensure alarms bypass Apple's Sleep Mode Focus",
                                 icon: "moon.stars.fill",
                                 iconColor: Colors.accentOrange,
@@ -98,7 +98,7 @@ struct AppProtectionGuideView: View {
                         SettingsCard {
                             SettingsNavigationRow(
                                 title: "Guided Access Mode",
-                                subtitle: "Lock your device to Awayk overnight",
+                                subtitle: "Lock your device to Alarmo overnight",
                                 icon: "lock.shield.fill",
                                 iconColor: Colors.accentRed,
                                 isLast: false,
@@ -125,7 +125,7 @@ struct AppProtectionGuideView: View {
                             
                         SettingsCard {
                             SettingsNavigationRow(
-                                title: "What Awayk Can & Cannot Do",
+                                title: "What Alarmo Can & Cannot Do",
                                 subtitle: "Apple's security limits explained",
                                 icon: "info.circle.fill",
                                 iconColor: Colors.textSecondary,
@@ -151,13 +151,13 @@ struct FocusModeSetupView: View {
             title: "Focus Mode",
             icon: "moon.fill",
             iconColor: Colors.accentOrange,
-            description: "If you use Sleep Mode or Do Not Disturb, you must whitelist Awayk so notifications and sounds can reach you.",
+            description: "If you use Sleep Mode or Do Not Disturb, you must whitelist Alarmo so notifications and sounds can reach you.",
             steps: [
                 "Open the iOS 'Settings' app.",
                 "Tap on 'Focus'.",
                 "Select 'Sleep' (or whichever mode you use at night).",
                 "Under 'Allowed Notifications', tap 'Apps'.",
-                "Tap 'Add Apps' and select Awayk from the list.",
+                "Tap 'Add Apps' and select Alarmo from the list.",
                 "Ensure 'Time Sensitive Notifications' is also enabled."
             ],
             actionButtonTitle: "Open iOS Settings"
@@ -175,14 +175,14 @@ struct GuidedAccessSetupView: View {
             title: "Guided Access",
             icon: "lock.shield.fill",
             iconColor: Colors.accentRed,
-            description: "Guided Access is the most powerful way to prevent escaping Awayk. It locks your iPhone to a single app.",
+            description: "Guided Access is the most powerful way to prevent escaping Alarmo. It locks your iPhone to a single app.",
             steps: [
                 "Open iOS 'Settings' > 'Accessibility'.",
                 "Scroll down and tap 'Guided Access'.",
                 "Turn Guided Access ON.",
                 "Tap 'Passcode Settings' and set a Guided Access Passcode.",
-                "At night, open Awayk and triple-click your device's side button.",
-                "Tap 'Start' to lock your screen to Awayk."
+                "At night, open Alarmo and triple-click your device's side button.",
+                "Tap 'Start' to lock your screen to Alarmo."
             ],
             warnText: "⚠️ You will need to triple-click and enter your passcode to exit the app in the morning."
         )
@@ -195,7 +195,7 @@ struct ScreenTimeSetupView: View {
             title: "Screen Time",
             icon: "hourglass",
             iconColor: Colors.saleBadgeEnd,
-            description: "Prevent yourself from deleting Awayk in the middle of the night to avoid the alarm.",
+            description: "Prevent yourself from deleting Alarmo in the middle of the night to avoid the alarm.",
             steps: [
                 "Open iOS 'Settings' > 'Screen Time'.",
                 "Tap 'Content & Privacy Restrictions'.",
@@ -216,7 +216,7 @@ struct iOSLimitationsView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("What Awayk Can Do")
+                        Text("What Alarmo Can Do")
                             .font(.title2.bold())
                             .foregroundColor(.white)
                         VStack(alignment: .leading, spacing: 12) {

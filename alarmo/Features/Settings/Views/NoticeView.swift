@@ -45,7 +45,7 @@ struct NoticeView: View {
             } label: {
                 NoticeNavigationRow(
                 title: "Terms & Conditions",
-                subtitle: "Rules and terms for using Awayk."
+                subtitle: "Rules and terms for using Alarmo."
                 )
             }
             .buttonStyle(.plain)
@@ -57,7 +57,7 @@ struct NoticeView: View {
             VStack(alignment: .leading, spacing: 10) {
                 NoticeBullet(text: "Alarm reliability depends on iOS notification permissions, audio volume, Focus modes, and device power state.")
                 NoticeBullet(text: "Keep notifications, background activity, and sound enabled for best wake-up reliability.")
-                NoticeBullet(text: "Awayk is not a medical or emergency alert system.")
+                NoticeBullet(text: "Alarmo is not a medical or emergency alert system.")
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
@@ -163,7 +163,7 @@ private struct PrivacyPolicyView: View {
     private let sections: [LegalDocumentSection] = [
         LegalDocumentSection(
             title: "1. Data We Collect",
-            body: "Awayk stores alarm settings, app preferences, and optional profile data on your device. If you enable premium or account features, purchase and account metadata may be processed to deliver those features."
+            body: "Alarmo stores alarm settings, app preferences, and optional profile data on your device. If you enable premium or account features, purchase and account metadata may be processed to deliver those features."
         ),
         LegalDocumentSection(
             title: "2. How We Use Data",
@@ -171,11 +171,11 @@ private struct PrivacyPolicyView: View {
         ),
         LegalDocumentSection(
             title: "3. Notifications and Permissions",
-            body: "Awayk requires notification permission to trigger alarms. Optional permissions (microphone, motion, Screen Time, etc.) are used only for related features you choose to enable."
+            body: "Alarmo requires notification permission to trigger alarms. Optional permissions (microphone, motion, Screen Time, etc.) are used only for related features you choose to enable."
         ),
         LegalDocumentSection(
             title: "4. Data Sharing",
-            body: "Awayk does not sell personal data. Data may be shared only with service providers required for core functionality such as purchases, crash diagnostics, and cloud sync."
+            body: "Alarmo does not sell personal data. Data may be shared only with service providers required for core functionality such as purchases, crash diagnostics, and cloud sync."
         ),
         LegalDocumentSection(
             title: "5. Data Retention and Deletion",
@@ -201,11 +201,11 @@ private struct TermsConditionsView: View {
     private let sections: [LegalDocumentSection] = [
         LegalDocumentSection(
             title: "1. Acceptance",
-            body: "By using Awayk, you agree to these Terms and applicable Apple platform rules."
+            body: "By using Alarmo, you agree to these Terms and applicable Apple platform rules."
         ),
         LegalDocumentSection(
             title: "2. Intended Use",
-            body: "Awayk is a productivity and alarm application. It is not a medical device, emergency alert service, or safety-critical system."
+            body: "Alarmo is a productivity and alarm application. It is not a medical device, emergency alert service, or safety-critical system."
         ),
         LegalDocumentSection(
             title: "3. Account and Purchases",
@@ -217,11 +217,11 @@ private struct TermsConditionsView: View {
         ),
         LegalDocumentSection(
             title: "5. Prohibited Use",
-            body: "You must not abuse, reverse engineer, interfere with service integrity, or use Awayk in ways that violate applicable law."
+            body: "You must not abuse, reverse engineer, interfere with service integrity, or use Alarmo in ways that violate applicable law."
         ),
         LegalDocumentSection(
             title: "6. Limitation of Liability",
-            body: "Awayk is provided on an as-is basis to the maximum extent allowed by law. Liability is limited for indirect or consequential damages."
+            body: "Alarmo is provided on an as-is basis to the maximum extent allowed by law. Liability is limited for indirect or consequential damages."
         ),
         LegalDocumentSection(
             title: "7. Changes to Terms",

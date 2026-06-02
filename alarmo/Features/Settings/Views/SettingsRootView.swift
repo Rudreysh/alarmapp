@@ -114,6 +114,10 @@ struct SettingsRootView: View {
                                 coordinator.navigate(to: .alarm)
                             }
 
+                            SettingsCategoryNavRow(title: "Habit", icon: "repeat", iconColor: .green, isLast: false) {
+                                coordinator.navigate(to: .habit)
+                            }
+
                             SettingsCategoryNavRow(title: "Timer", icon: "timer", iconColor: .blue, isLast: false) {
                                 coordinator.navigate(to: .timer)
                             }
@@ -196,6 +200,8 @@ struct SettingsRootView: View {
                     PreventPowerOffSettingsView()
                 case .alarm:
                     AlarmSettingsView()
+                case .habit:
+                    HabitSettingsView()
                 case .timer:
                     TimerSettingsMenuView(preferences: preferences)
                 case .advanced:
@@ -261,7 +267,7 @@ struct SettingsRootView: View {
     private var appVersionFooter: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-        return "Awayk v\(version) (\(build))"
+        return "Alarmo v\(version) (\(build))"
     }
 
     private func openMail(subject: String) {

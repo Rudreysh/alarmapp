@@ -9,10 +9,6 @@ enum ReportDomain: String, CaseIterable, Identifiable, Sendable {
     case habits = "Habits"
     case pomodoro = "Pomodoro"
     var id: String { rawValue }
-
-    static var allCases: [ReportDomain] {
-        [.alarms, .pomodoro]
-    }
     
     var icon: String {
         switch self {

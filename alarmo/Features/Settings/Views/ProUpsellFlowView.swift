@@ -73,8 +73,8 @@ struct UpsellBenefitsView: View {
             VStack(spacing: 32) {
                 // Faux Bar Chart comparison
                 HStack(spacing: 16) {
-                    ComparisonChartCard(title: "Before Awayk", duration: "1h 32m", type: .before)
-                    ComparisonChartCard(title: "After Awayk", duration: "0h 12m", type: .after)
+                    ComparisonChartCard(title: "Before Alarmo", duration: "1h 32m", type: .before)
+                    ComparisonChartCard(title: "After Alarmo", duration: "0h 12m", type: .after)
                 }
                 .padding(.horizontal)
                 .padding(.top, 16)
@@ -193,7 +193,7 @@ struct UpsellTrialDesignView: View {
                 TimelineRow(icon: "checkmark", title: "Get your Setup Ready", text: "You successfully started your journey to better productivity.", isFirst: true, isLast: false)
                 TimelineRow(icon: "lock", title: "Today: Boost Motivation", text: "Set smart routines, utilize Pomodoro timers, and build consistent habits.", isFirst: false, isLast: false)
                 TimelineRow(icon: "bell.fill", title: "Day 6: See first results", text: "We'll send a report to show how your focus and habits improved.", isFirst: false, isLast: false)
-                TimelineRow(icon: "star.fill", title: "Day 7: Take your next steps", text: "Continue building productive habits with Awayk's advanced features.", isFirst: false, isLast: true)
+                TimelineRow(icon: "star.fill", title: "Day 7: Take your next steps", text: "Continue building productive habits with Alarmo's advanced features.", isFirst: false, isLast: true)
             }
             .padding(.horizontal, 24)
             
