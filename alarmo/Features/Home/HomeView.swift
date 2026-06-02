@@ -587,7 +587,11 @@ struct HomeView: View {
                     Spacer()
                     HStack {
                         Spacer()
-                        FloatingAddMenu( // Replaced with FloatingAddMenu
+                        FloatingAddMenu(
+                            onSelectTimer: {
+                                showTimer = true
+                                showAddMenu = false
+                            },
                             onSelectHabit: {
                                 openCreateHabit()
                             },

@@ -187,6 +187,8 @@ struct SettingsRootView: View {
                     PreventPowerOffSettingsView()
                 case .alarm:
                     AlarmSettingsView()
+                case .habit:
+                    HabitSettingsView()
                 case .timer:
                     TimerSettingsMenuView(preferences: preferences)
                 case .advanced:
