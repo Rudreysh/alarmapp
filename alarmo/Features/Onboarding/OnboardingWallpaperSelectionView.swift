@@ -8,6 +8,9 @@ struct OnboardingWallpaperSelectionView: View {
     let onNext: () -> Void
     @State private var selectedItem: PhotosPickerItem?
     @State private var selectedCategoryId: String?
+    @State private var activeAllSectionCategoryId: String = "All"
+    @State private var suppressAutoSectionSync = false
+    @State private var lockAllTabHighlight = false
 
     var body: some View {
         ZStack {
@@ -31,97 +34,132 @@ struct OnboardingWallpaperSelectionView: View {
                 
                 // 1. Top Category Pills
                 if !viewModel.state.wallpaperCategories.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            // "All" Pill
-                            let isAllSelected = (activeCategoryId == "All")
-                            Button(action: {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    selectedCategoryId = "All"
-                                }
-                            }) {
-                                Text("All")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .padding(.vertical, 8)
-                                    .padding(.horizontal, 16)
-                                    .background(isAllSelected ? Colors.accentTeal : Colors.cardSurface)
-                                    .foregroundColor(isAllSelected ? .white : Colors.textPrimary)
-                                    .cornerRadius(20)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 20)
-                                            .stroke(Colors.cardStroke, lineWidth: isAllSelected ? 0 : 1)
-                                    )
-                            }
-                            
-                            ForEach(viewModel.state.wallpaperCategories) { category in
-                                let isSelected = (category.id == activeCategoryId)
-                                Button(action: {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        selectedCategoryId = category.id
+                    ScrollViewReader { sectionProxy in
+                        ScrollViewReader { tabsProxy in
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 12) {
+                                    let isAllSelected = selectedCategoryId == "All" && lockAllTabHighlight
+                                    Button(action: {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            selectedCategoryId = "All"
+                                            lockAllTabHighlight = true
+                                            activeAllSectionCategoryId = viewModel.state.wallpaperCategories.first?.id ?? "All"
+                                        }
+                                    }) {
+                                        Text("All")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .padding(.vertical, 8)
+                                            .padding(.horizontal, 16)
+                                            .background(isAllSelected ? Colors.accentTeal : Colors.cardSurface)
+                                            .foregroundColor(isAllSelected ? .white : Colors.textPrimary)
+                                            .cornerRadius(20)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 20)
+                                                    .stroke(Colors.cardStroke, lineWidth: isAllSelected ? 0 : 1)
+                                            )
                                     }
-                                }) {
-                                    Text(category.title)
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .padding(.vertical, 8)
-                                        .padding(.horizontal, 16)
-                                        .background(isSelected ? Colors.accentTeal : Colors.cardSurface)
-                                        .foregroundColor(isSelected ? .white : Colors.textPrimary)
-                                        .cornerRadius(20)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 20)
-                                                .stroke(Colors.cardStroke, lineWidth: isSelected ? 0 : 1)
-                                        )
-                                }
-                            }
-                    }
-                    .padding(.horizontal, Spacing.l)
-                }
-                    .padding(.bottom, Spacing.xs)
-                }
+                                    .id("wall-cat-All")
 
-                // 2. Main Content
-                ScrollView {
-                    VStack(alignment: .leading, spacing: Spacing.l) {
-                        if viewModel.state.wallpaperCategories.isEmpty {
-                            Text("No bundled wallpapers found. Ensure BundledWallpapers is added as a folder reference and target membership is enabled.")
-                                .bodyText()
-                                .foregroundColor(Colors.textSecondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.vertical, Spacing.l)
-                        } else if activeCategoryId == "All" {
-                            ForEach(viewModel.state.wallpaperCategories) { category in
-                                WallpaperCategorySection(category: category, selected: viewModel.state.selectedWallpaper) {
-                                    viewModel.selectWallpaper($0)
+                                    ForEach(viewModel.state.wallpaperCategories) { category in
+                                        let isSelected = selectedCategoryId == "All"
+                                            ? (!lockAllTabHighlight && category.id == activeAllSectionCategoryId)
+                                            : (category.id == activeCategoryId)
+                                        Button(action: {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                lockAllTabHighlight = false
+                                                selectedCategoryId = "All"
+                                                scrollToWallpaperSection(category.id, proxy: sectionProxy)
+                                            }
+                                        }) {
+                                            Text(category.title)
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .padding(.vertical, 8)
+                                                .padding(.horizontal, 16)
+                                                .background(isSelected ? Colors.accentTeal : Colors.cardSurface)
+                                                .foregroundColor(isSelected ? .white : Colors.textPrimary)
+                                                .cornerRadius(20)
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 20)
+                                                        .stroke(Colors.cardStroke, lineWidth: isSelected ? 0 : 1)
+                                                )
+                                        }
+                                        .id("wall-cat-\(category.id)")
+                                    }
                                 }
-                                .padding(.bottom, Spacing.xs)
+                                .padding(.horizontal, Spacing.l)
+                                .onChange(of: activeAllSectionCategoryId) { _, newValue in
+                                    guard selectedCategoryId == "All", !lockAllTabHighlight else { return }
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        tabsProxy.scrollTo("wall-cat-\(newValue)", anchor: .center)
+                                    }
+                                }
                             }
-                            .transition(.opacity)
-                        } else if let category = viewModel.state.wallpaperCategories.first(where: { $0.id == activeCategoryId }) {
-                            WallpaperCategorySection(category: category, selected: viewModel.state.selectedWallpaper) {
-                                viewModel.selectWallpaper($0)
+                            .padding(.bottom, Spacing.xs)
+
+                            // 2. Main Content
+                            ScrollView {
+                                VStack(alignment: .leading, spacing: Spacing.l) {
+                                    if viewModel.state.wallpaperCategories.isEmpty {
+                                        Text("No bundled wallpapers found. Ensure BundledWallpapers is added as a folder reference and target membership is enabled.")
+                                            .bodyText()
+                                            .foregroundColor(Colors.textSecondary)
+                                            .multilineTextAlignment(.center)
+                                            .padding(.vertical, Spacing.l)
+                                    } else if activeCategoryId == "All" {
+                                        ForEach(viewModel.state.wallpaperCategories) { category in
+                                            WallpaperCategorySection(category: category, selected: viewModel.state.selectedWallpaper) {
+                                                viewModel.selectWallpaper($0)
+                                            }
+                                            .padding(.bottom, Spacing.xs)
+                                            .background(
+                                                GeometryReader { geo in
+                                                    Color.clear.preference(
+                                                        key: OnboardingWallpaperSectionOffsetPreferenceKey.self,
+                                                        value: ["wallpaper-section-\(category.id)": geo.frame(in: .named("onboardingWallpaperScroll")).minY]
+                                                    )
+                                                }
+                                            )
+                                            .id("wallpaper-section-\(category.id)")
+                                        }
+                                        .transition(.opacity)
+                                    } else if let category = viewModel.state.wallpaperCategories.first(where: { $0.id == activeCategoryId }) {
+                                        WallpaperCategorySection(category: category, selected: viewModel.state.selectedWallpaper) {
+                                            viewModel.selectWallpaper($0)
+                                        }
+                                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                                    }
+
+                                    VStack(alignment: .leading, spacing: Spacing.m) {
+                                        Text("My Photos")
+                                            .cardTitle()
+                                            .foregroundColor(Colors.textPrimary)
+
+                                        HStack {
+                                            Spacer()
+                                            PhotosPicker(selection: $selectedItem, matching: .images) {
+                                                MyPhotosCard(
+                                                    isSelected: isUserPhotoSelected,
+                                                    thumbnail: selectedUserPhotoImage
+                                                )
+                                            }
+                                            Spacer()
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, Spacing.l)
+                                .padding(.bottom, Spacing.m)
                             }
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                            .coordinateSpace(name: "onboardingWallpaperScroll")
+                            .onPreferenceChange(OnboardingWallpaperSectionOffsetPreferenceKey.self) { offsets in
+                                guard selectedCategoryId == "All", !suppressAutoSectionSync else { return }
+                                guard let next = currentlyVisibleWallpaperSection(offsets: offsets) else { return }
+                                lockAllTabHighlight = false
+                                if next != activeAllSectionCategoryId {
+                                    activeAllSectionCategoryId = next
+                                }
+                            }
                         }
-
-                        VStack(alignment: .leading, spacing: Spacing.m) {
-                            Text("My Photos")
-                                .cardTitle()
-                                .foregroundColor(Colors.textPrimary)
-
-                            HStack {
-                                Spacer()
-                                PhotosPicker(selection: $selectedItem, matching: .images) {
-                                    MyPhotosCard(
-                                        isSelected: isUserPhotoSelected,
-                                        thumbnail: selectedUserPhotoImage
-                                    )
-                                }
-                                Spacer()
-                            }
-                        }
                     }
-                    .padding(.horizontal, Spacing.l)
-                    .padding(.bottom, Spacing.m)
                 }
             }
             .padding(.top, -8)
@@ -138,6 +176,8 @@ struct OnboardingWallpaperSelectionView: View {
         }
         .onAppear {
             viewModel.loadWallpapers()
+            selectedCategoryId = "All"
+            activeAllSectionCategoryId = viewModel.state.wallpaperCategories.first?.id ?? "All"
         }
         .onChange(of: selectedItem) { _, newItem in
             guard let newItem else { return }
@@ -173,6 +213,36 @@ struct OnboardingWallpaperSelectionView: View {
             }
         }
         return UTType.jpeg.preferredFilenameExtension ?? "jpg"
+    }
+
+    private func scrollToWallpaperSection(_ categoryID: String, proxy: ScrollViewProxy) {
+        activeAllSectionCategoryId = categoryID
+        suppressAutoSectionSync = true
+        withAnimation(.easeInOut(duration: 0.25)) {
+            proxy.scrollTo("wallpaper-section-\(categoryID)", anchor: .top)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            suppressAutoSectionSync = false
+        }
+    }
+
+    private func currentlyVisibleWallpaperSection(offsets: [String: CGFloat]) -> String? {
+        let sections = viewModel.state.wallpaperCategories.map { ($0.id, "wallpaper-section-\($0.id)") }
+        let candidates = sections.compactMap { categoryID, id -> (categoryID: String, y: CGFloat)? in
+            guard let y = offsets[id] else { return nil }
+            return (categoryID, y)
+        }
+        let visible = candidates
+            .filter { $0.y <= 120 }
+            .max(by: { $0.y < $1.y }) ?? candidates.min(by: { $0.y < $1.y })
+        return visible?.categoryID
+    }
+}
+
+private struct OnboardingWallpaperSectionOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGFloat] = [:]
+    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
 

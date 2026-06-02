@@ -234,7 +234,7 @@ private struct MissionAnimationView: View {
                 .background(Colors.cardSurface)
                 .cornerRadius(12)
             case .typing:
-                let words = ["|", "W|", "Wa|", "Wak|", "Wake|", "Wake |", "Wake u|", "Wake up|", "Wake up|", "Wake up|"]
+                let words = ["|", "W|", "Wa|", "Wak|", "Wake|", "Wake |", "Wake u|", "Wake up", "Wake up", "Wake up"]
                 let text = words[tick % words.count]
                 Text(text)
                     .font(.system(size: 16, weight: .bold, design: .monospaced))
@@ -439,7 +439,7 @@ private struct MissionAnimationView: View {
                 .background(Colors.cardSurface)
                 .cornerRadius(12)
             case .typing:
-                let words = ["|", "W|", "Wk|", "Wka|", "Wkae|", "Wkae |", "Wkae u|", "Wkae up|", "Wkae up|", "Wkae up|"]
+                let words = ["|", "W|", "Wk|", "Wka|", "Wkae|", "Wkae |", "Wkae u|", "Wkae up", "Wkae up", "Wkae up"]
                 let text = words[tick % words.count]
                 Text(text)
                     .font(.system(size: 16, weight: .bold, design: .monospaced))

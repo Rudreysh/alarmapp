@@ -8,11 +8,13 @@ import Combine
 /// the behaviour, playback, categories and UI are 100% identical.
 struct OnboardingSoundSelectionView: View {
     private enum TopTab: Hashable, Identifiable {
+        case all
         case category(SoundCategory)
         case downloadable(String)
 
         var id: String {
             switch self {
+            case .all: return "all"
             case .category(let category): return "cat:\(category.id)"
             case .downloadable(let name): return "cloud:\(name.lowercased())"
             }
@@ -20,6 +22,7 @@ struct OnboardingSoundSelectionView: View {
 
         var title: String {
             switch self {
+            case .all: return "All Sounds"
             case .category(let category): return category.title
             case .downloadable(let name): return name
             }
@@ -27,6 +30,7 @@ struct OnboardingSoundSelectionView: View {
 
         var emoji: String? {
             switch self {
+            case .all: return "🎵"
             case .category(let category): return category.emoji
             case .downloadable: return nil
             }
@@ -36,6 +40,10 @@ struct OnboardingSoundSelectionView: View {
     @ObservedObject var onboardingViewModel: OnboardingViewModel
     @StateObject private var viewModel = OnboardingSoundSelectionViewModel()
     @ObservedObject private var soundPlayer = SoundPreviewPlayer.shared
+    @State private var showAllSounds = true
+    @State private var activeAllSectionTab: TopTab = .category(.alarmTone)
+    @State private var suppressAutoSectionSync = false
+    @State private var lockAllTabHighlight = false
 
     let onNext: () -> Void
 
@@ -44,10 +52,49 @@ struct OnboardingSoundSelectionView: View {
     }
 
     private var topTabs: [TopTab] {
-        var tabs: [TopTab] = [.category(.favorites), .category(.alarmTone), .category(.focus)]
+        var tabs: [TopTab] = [.all, .category(.favorites), .category(.alarmTone), .category(.focus)]
         tabs += downloadableSections.map { .downloadable($0.category) }
         tabs += [.category(.downloads)]
         return tabs
+    }
+
+    private var allSoundSectionsWithTabs: [(tab: TopTab, title: String, sounds: [SoundAsset])] {
+        let allSounds = SoundCatalogRepository().loadAllSounds()
+        let downloadedCloudSounds = AssetManager.shared.remoteSounds.compactMap { remote -> SoundAsset? in
+            guard let localURL = AssetManager.shared.localURL(for: remote.filename) else { return nil }
+            let isStarred = allSounds.first(where: { $0.id == remote.id })?.isStarred ?? false
+            return SoundAsset(
+                id: remote.id,
+                title: remote.title,
+                fileURL: localURL,
+                category: .downloads,
+                isStarred: isStarred
+            )
+        }
+
+        let localSections: [(TopTab, String, [SoundAsset])] = [
+            (.category(.favorites), "Favorites", allSounds.filter { $0.isStarred }),
+            (.category(.alarmTone), "Alarm Tone", allSounds.filter { $0.category == .alarmTone || $0.category == .loud || $0.category == .classic }),
+            (.category(.focus), "Focus", allSounds.filter { $0.category == .focus }),
+            (.category(.downloads), "Downloads", downloadedCloudSounds)
+        ]
+
+        let cloudSections: [(TopTab, String, [SoundAsset])] = downloadableSections.map { section in
+            let mapped = section.sounds.map { remote in
+                SoundAsset(
+                    id: remote.id,
+                    title: remote.title,
+                    fileURL: remote.url,
+                    category: .cloud,
+                    isStarred: allSounds.first(where: { $0.id == remote.id })?.isStarred ?? false
+                )
+            }
+            return (.downloadable(section.category), section.category, mapped)
+        }
+
+        return (localSections + cloudSections)
+            .map { (tab: $0.0, title: $0.1, sounds: $0.2) }
+            .filter { !$0.sounds.isEmpty }
     }
 
     private var currentCloudCategory: String {
@@ -59,11 +106,20 @@ struct OnboardingSoundSelectionView: View {
     }
 
     private func isTopTabSelected(_ tab: TopTab) -> Bool {
+        if showAllSounds {
+            if lockAllTabHighlight {
+                if case .all = tab { return true }
+                return false
+            }
+            return tab == activeAllSectionTab
+        }
         switch tab {
+        case .all:
+            return false
         case .category(let category):
-            return viewModel.selectedCategory == category
+            return !showAllSounds && viewModel.selectedCategory == category
         case .downloadable(let name):
-            return viewModel.selectedCategory == .cloud && currentCloudCategory == name
+            return !showAllSounds && viewModel.selectedCategory == .cloud && currentCloudCategory == name
         }
     }
 
@@ -93,6 +149,8 @@ struct OnboardingSoundSelectionView: View {
         guard let playing = soundPlayer.playingResourceName else { return false }
         
         switch tab {
+        case .all:
+            return false
         case .category(let category):
             let allSounds = SoundCatalogRepository().loadAllSounds()
             if category == .downloads {
@@ -118,13 +176,29 @@ struct OnboardingSoundSelectionView: View {
         return false
     }
 
-    private func selectTopTab(_ tab: TopTab) {
+    private func selectTopTab(_ tab: TopTab, proxy: ScrollViewProxy? = nil) {
         switch tab {
+        case .all:
+            showAllSounds = true
+            lockAllTabHighlight = true
+            activeAllSectionTab = allSoundSectionsWithTabs.first?.tab ?? .category(.alarmTone)
         case .category(let category):
-            viewModel.selectCategory(category)
+            lockAllTabHighlight = false
+            if showAllSounds, let proxy {
+                scrollToAllSection(for: tab, proxy: proxy)
+            } else {
+                showAllSounds = false
+                viewModel.selectCategory(category)
+            }
         case .downloadable(let name):
-            viewModel.selectCategory(.cloud)
-            viewModel.selectedCloudCategory = name
+            lockAllTabHighlight = false
+            if showAllSounds, let proxy {
+                scrollToAllSection(for: tab, proxy: proxy)
+            } else {
+                showAllSounds = false
+                viewModel.selectCategory(.cloud)
+                viewModel.selectedCloudCategory = name
+            }
         }
     }
 
@@ -150,34 +224,55 @@ struct OnboardingSoundSelectionView: View {
                     .padding(.bottom, Spacing.s)
 
                 // ─── Category pills ───────────────────────────────────────
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(topTabs) { tab in
-                            OnboardingTopTabPill(
-                                title: tab.title,
-                                emoji: tab.emoji,
-                                isSelected: isTopTabSelected(tab),
-                                isPlaying: isPlayingInCategory(tab)
-                            ) {
-                                withAnimation(.spring(response: 0.3)) {
-                                    selectTopTab(tab)
+                ScrollViewReader { listProxy in
+                    ScrollViewReader { tabsProxy in
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(topTabs) { tab in
+                                    OnboardingTopTabPill(
+                                        title: tab.title,
+                                        emoji: tab.emoji,
+                                        isSelected: isTopTabSelected(tab),
+                                        isPlaying: isPlayingInCategory(tab)
+                                    ) {
+                                        withAnimation(.spring(response: 0.3)) {
+                                            selectTopTab(tab, proxy: listProxy)
+                                            tabsProxy.scrollTo(tab.id, anchor: .center)
+                                        }
+                                    }
+                                    .id(tab.id)
+                                }
+                            }
+                            .padding(.horizontal, Spacing.l)
+                            .onChange(of: activeAllSectionTab) { _, newValue in
+                                guard showAllSounds else { return }
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    tabsProxy.scrollTo(newValue.id, anchor: .center)
                                 }
                             }
                         }
-                    }
-                    .padding(.horizontal, Spacing.l)
-                }
-                .padding(.bottom, Spacing.m)
+                        .padding(.bottom, Spacing.m)
 
-                // ─── Sound list ───────────────────────────────────────────
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        soundListBody
+                        // ─── Sound list ───────────────────────────────────────────
+                        ScrollView(showsIndicators: false) {
+                            VStack(spacing: 0) {
+                                soundListBody
+                            }
+                            .background(Colors.cardSurface.opacity(0.3))
+                            .cornerRadius(16)
+                            .padding(.horizontal, Spacing.l)
+                            .padding(.bottom, 100)
+                        }
+                        .coordinateSpace(name: "onboardingAllSoundsScroll")
+                        .onPreferenceChange(OnboardingAllSoundsSectionOffsetPreferenceKey.self) { offsets in
+                            guard showAllSounds, !suppressAutoSectionSync else { return }
+                            guard let next = currentlyVisibleAllSectionTab(offsets: offsets) else { return }
+                            lockAllTabHighlight = false
+                            if next != activeAllSectionTab {
+                                activeAllSectionTab = next
+                            }
+                        }
                     }
-                    .background(Colors.cardSurface.opacity(0.3))
-                    .cornerRadius(16)
-                    .padding(.horizontal, Spacing.l)
-                    .padding(.bottom, 100)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -192,6 +287,7 @@ struct OnboardingSoundSelectionView: View {
         }
         .onAppear {
             Task { await AssetManager.shared.fetchCatalog() }
+            activeAllSectionTab = allSoundSectionsWithTabs.first?.tab ?? .category(.alarmTone)
             if viewModel.selectedSoundId == nil,
                let first = viewModel.soundsForSelectedCategory().first {
                 viewModel.setInitialSelection(first)
@@ -205,7 +301,30 @@ struct OnboardingSoundSelectionView: View {
 
     @ViewBuilder
     private var soundListBody: some View {
-        if viewModel.selectedCategory == .cloud {
+        if showAllSounds {
+            ForEach(Array(allSoundSectionsWithTabs.enumerated()), id: \.offset) { _, section in
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(section.title)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(Colors.textSecondary)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+
+                    ForEach(section.sounds) { sound in
+                        soundRow(for: sound)
+                    }
+                }
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(
+                            key: OnboardingAllSoundsSectionOffsetPreferenceKey.self,
+                            value: ["all-section-\(section.tab.id)": geo.frame(in: .named("onboardingAllSoundsScroll")).minY]
+                        )
+                    }
+                )
+                .id("all-section-\(section.tab.id)")
+            }
+        } else if viewModel.selectedCategory == .cloud {
             cloudSoundList
         } else if viewModel.selectedCategory == .favorites && viewModel.soundsForSelectedCategory().isEmpty {
             // Empty favorites placeholder
@@ -410,6 +529,115 @@ struct OnboardingSoundSelectionView: View {
         Divider()
             .background(Colors.cardStroke)
             .padding(.leading, 16)
+    }
+
+    @ViewBuilder
+    private func soundRow(for sound: SoundAsset) -> some View {
+        let isRemote = !sound.fileURL.isFileURL
+        if isRemote {
+            let remoteSound = RemoteSound(
+                id: sound.id,
+                filename: sound.fileURL.lastPathComponent,
+                title: sound.title,
+                category: sound.category.title,
+                url: sound.fileURL,
+                isPremium: false
+            )
+
+            RemoteSoundRow(
+                remoteSound: remoteSound,
+                isSelected: viewModel.selectedSoundId == sound.id,
+                isPlaying: isSoundPlaying(named: sound.title),
+                isBuffering: isSoundBuffering(named: sound.title),
+                isStarred: sound.isStarred,
+                onSelect: {
+                    if let url = AssetManager.shared.localURL(for: sound.fileURL.lastPathComponent) {
+                        let asset = SoundAsset(id: sound.id, title: sound.title, fileURL: url, category: sound.category)
+                        viewModel.tapSound(asset, volume: onboardingViewModel.state.selectedVolume)
+                        onboardingViewModel.setSelectedSound(asset)
+                    } else {
+                        Task {
+                            do {
+                                let localURL = try await AssetManager.shared.downloadAsset(
+                                    from: sound.fileURL,
+                                    filename: sound.fileURL.lastPathComponent
+                                )
+                                await MainActor.run {
+                                    let asset = SoundAsset(id: sound.id, title: sound.title, fileURL: localURL, category: .downloads)
+                                    viewModel.tapSound(asset, volume: onboardingViewModel.state.selectedVolume)
+                                    onboardingViewModel.setSelectedSound(asset)
+                                }
+                            } catch {
+                                print("❌ Onboarding cloud sound download failed: \(error)")
+                            }
+                        }
+                    }
+                },
+                onPreview: {
+                    if isSoundPlaying(named: sound.title) {
+                        soundPlayer.stop()
+                    } else {
+                        soundPlayer.playStreamURL(sound.fileURL, resourceName: sound.title, volume: onboardingViewModel.state.selectedVolume)
+                    }
+                },
+                onToggleStar: {
+                    viewModel.toggleStar(sound)
+                }
+            )
+        } else {
+            SoundRow(
+                sound: sound,
+                isSelected: viewModel.selectedSoundId == sound.id,
+                isPlaying: isSoundPlaying(named: sound.title),
+                isBuffering: isSoundBuffering(named: sound.title)
+            ) { action in
+                switch action {
+                case .select:
+                    viewModel.selectSoundOnly(sound)
+                    onboardingViewModel.setSelectedSound(sound)
+                case .play:
+                    viewModel.tapSound(sound, volume: onboardingViewModel.state.selectedVolume)
+                    onboardingViewModel.setSelectedSound(sound)
+                case .toggleStar:
+                    viewModel.toggleStar(sound)
+                }
+            }
+        }
+
+        Divider()
+            .background(Colors.cardStroke)
+            .padding(.leading, 56)
+    }
+
+    private func scrollToAllSection(for tab: TopTab, proxy: ScrollViewProxy) {
+        showAllSounds = true
+        activeAllSectionTab = tab
+        suppressAutoSectionSync = true
+        withAnimation(.easeInOut(duration: 0.25)) {
+            proxy.scrollTo("all-section-\(tab.id)", anchor: .top)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            suppressAutoSectionSync = false
+        }
+    }
+
+    private func currentlyVisibleAllSectionTab(offsets: [String: CGFloat]) -> TopTab? {
+        let sections = allSoundSectionsWithTabs.map { ($0.tab, "all-section-\($0.tab.id)") }
+        let candidates = sections.compactMap { tab, id -> (tab: TopTab, y: CGFloat)? in
+            guard let y = offsets[id] else { return nil }
+            return (tab, y)
+        }
+        let visible = candidates
+            .filter { $0.y <= 120 }
+            .max(by: { $0.y < $1.y }) ?? candidates.min(by: { $0.y < $1.y })
+        return visible?.tab
+    }
+}
+
+private struct OnboardingAllSoundsSectionOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGFloat] = [:]
+    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
 

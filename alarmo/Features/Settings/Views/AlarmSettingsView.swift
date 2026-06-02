@@ -6,6 +6,7 @@ struct AlarmSettingsView: View {
     @State private var showClockStylePicker = false
     @State private var showThemePicker = false
     @State private var permissionMessage: String?
+    private let availableAlarmThemes: [AlarmThemeStyle] = [.default, .lilacCalm]
 
     var body: some View {
         ZStack {
@@ -177,7 +178,7 @@ struct AlarmSettingsView: View {
             isPresented: $showThemePicker,
             titleVisibility: .visible
         ) {
-            ForEach(AlarmThemeStyle.allCases) { theme in
+            ForEach(availableAlarmThemes) { theme in
                 Button {
                     store.alarmThemeStyle = theme
                 } label: {

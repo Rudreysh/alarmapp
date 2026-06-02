@@ -59,7 +59,7 @@ enum AlarmThemeStyle: String, Codable, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .default: return "Default"
-        case .lilacCalm: return "Lilac Calm"
+        case .lilacCalm: return "Tiimo"
         }
     }
 
