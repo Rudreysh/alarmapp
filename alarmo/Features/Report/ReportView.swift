@@ -1882,7 +1882,7 @@ private struct ReportMoodLoggingsView: View {
             let parts = key.split(separator: "|")
             guard parts.count == 2,
                   let date = parseDate(String(parts[0])),
-                  let mood = MoodType(rawValue: rawMood) else {
+                  let mood = ReportMoodType(rawValue: rawMood) else {
                 return nil
             }
             return ReportMoodEntry(key: key, date: date, segment: String(parts[1]), mood: mood)
@@ -1981,7 +1981,7 @@ private struct ReportMoodLoggingsView: View {
     }
 }
 
-private enum MoodType: String, CaseIterable {
+private enum ReportMoodType: String, CaseIterable {
     case bad
     case notGreat
     case okay
@@ -2013,7 +2013,7 @@ private struct ReportMoodEntry: Identifiable {
     let key: String
     let date: Date
     let segment: String
-    let mood: MoodType
+    let mood: ReportMoodType
     var id: String { key }
 }
 
@@ -2075,7 +2075,7 @@ private struct ReportMoodStats {
         currentStreak = streak
     }
 
-    private static func moodScore(for mood: MoodType) -> Double {
+    private static func moodScore(for mood: ReportMoodType) -> Double {
         switch mood {
         case .bad: return 1
         case .notGreat: return 2
