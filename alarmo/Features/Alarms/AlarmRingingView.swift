@@ -93,15 +93,19 @@ struct AlarmRingingView: View {
                 HStack(spacing: Spacing.m) {
                     if ringCoordinator.isPreviewMode {
                         stopActionButton(title: "Dismiss and start \(ringCoordinator.activeAlarm?.name ?? "alarm")") {
+                            print("🧭 [ALARMTRACE_ACTION] EVENT=PREVIEW_DISMISS_BUTTON_TAPPED ALARM_ID=\(ringCoordinator.activeAlarm?.id.uuidString ?? "nil")")
                             ringCoordinator.stopRinging()
                         }
                     } else {
                         snoozeActionButton
 
                         stopActionButton(title: "Stop") {
+                            let alarmId = ringCoordinator.activeAlarm?.id.uuidString ?? "nil"
                             if let mission = ringCoordinator.activeAlarm?.missions.first(where: { $0.type != .off }) {
+                                print("🧭 [ALARMTRACE_ACTION] EVENT=IN_APP_STOP_BUTTON_TAPPED RESULT=MISSION_REQUIRED ALARM_ID=\(alarmId) MISSION_ID=\(mission.id.uuidString) MISSION_TYPE=\(mission.type.rawValue)")
                                 currentMission = mission
                             } else {
+                                print("🧭 [ALARMTRACE_ACTION] EVENT=IN_APP_STOP_BUTTON_TAPPED RESULT=DISMISS_DIRECTLY ALARM_ID=\(alarmId)")
                                 ringCoordinator.dismissTapped()
                             }
                         }
@@ -115,7 +119,10 @@ struct AlarmRingingView: View {
                         Spacer()
                         HStack {
                             Spacer()
-                            Button(action: { ringCoordinator.stopRinging() }) {
+                            Button(action: {
+                                print("🧭 [ALARMTRACE_ACTION] EVENT=EXIT_PREVIEW_BUTTON_TAPPED ALARM_ID=\(ringCoordinator.activeAlarm?.id.uuidString ?? "nil")")
+                                ringCoordinator.stopRinging()
+                            }) {
                                 Text("EXIT PREVIEW")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(.white)
@@ -478,7 +485,10 @@ struct AlarmRingingView: View {
     }
 
     private var snoozeActionButton: some View {
-        Button(action: { ringCoordinator.snooze() }) {
+        Button(action: {
+            print("🧭 [ALARMTRACE_ACTION] EVENT=IN_APP_SNOOZE_BUTTON_TAPPED ALARM_ID=\(ringCoordinator.activeAlarm?.id.uuidString ?? "nil")")
+            ringCoordinator.snooze()
+        }) {
             Text("Snooze")
                 .font(.system(size: 22, weight: .bold))
                 .foregroundColor(.white.opacity(0.96))
@@ -511,7 +521,10 @@ struct AlarmRingingView: View {
         title: String,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
+        Button(action: {
+            print("🧭 [ALARMTRACE_ACTION] EVENT=STOP_ACTION_BUTTON_TAPPED TITLE=\"\(title)\" ALARM_ID=\(ringCoordinator.activeAlarm?.id.uuidString ?? "nil")")
+            action()
+        }) {
             Text(title)
                 .font(.system(size: 22, weight: .bold))
                 .minimumScaleFactor(0.7)

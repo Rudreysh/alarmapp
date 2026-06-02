@@ -517,21 +517,26 @@ extension AlarmSchedulerIOS26AlarmKit {
         print("[AlarmKitUI] title=\"\(alertTitle)\" stopButton=\"\(alarmKitStopButtonText)\" symbol=\"\(alarmKitStopButtonSymbol)\" tintColor=accentBlue")
         print("[AlarmKitUI] secondaryButton=\"Snooze\" enabled=\(alarmKitSecondaryButtonEnabled)")
 
-        // Always stage an audible sound for AlarmKit (ringer domain) as a safety net.
-        // If the engine also starts, they mix via .mixWithOthers for the fade-in window.
-        // If the engine fails, AlarmKit's ringer-domain sound ensures the alarm is heard
-        // even when media volume is zero or the engine's session cannot activate.
-        let effectiveSoundName = soundName ?? "Default Alarm"
+        // AlarmKit ALWAYS uses a silent sound. The app's AVAudioPlayer engine is the
+        // single source of alarm audio (it plays the user's selected sound, is immune
+        // to the mute switch via .playback, and is forced audible via the system output
+        // volume floor). Staging an audible sound here would put AlarmKit's ringer-domain
+        // sound on TOP of the engine's media-domain sound — the user hears two overlapping
+        // sounds. It would also make the side button / badge dismissal stop "a" sound,
+        // because dismissing the AlarmKit surface cuts its ringer audio. Keeping AlarmKit
+        // silent means the engine is the only thing the user ever hears, dismissing the
+        // AlarmKit surface has zero audio effect, and only the in-app Stop button can end
+        // the alarm. See ALARM_RELIABILITY_FIXES.md, Issue 20.
+        _ = soundName
         let alarmKitSound: AlertConfiguration.AlertSound
-        if let staged = stageNotificationSound(named: effectiveSoundName) {
-            alarmKitSound = .named(staged)
-            print("[Scheduler] ✅ AlarmKit sound: .named('\(staged)') — ringer domain active")
-        } else if let silentSoundFile = Self.ensureSilentAlertSoundStaged() {
+        if let silentSoundFile = Self.ensureSilentAlertSoundStaged() {
             alarmKitSound = .named(silentSoundFile)
-            print("[Scheduler] ⚠️ Sound staging failed for '\(effectiveSoundName)' — silent CAF, engine must succeed")
+            print("[Scheduler] ✅ AlarmKit sound: .named('\(silentSoundFile)') — silent, engine owns real audio")
         } else {
+            // Could not stage the silent CAF. .default would make AlarmKit audible and
+            // reintroduce dual sound, so this is a last-resort that should never happen.
             alarmKitSound = .default
-            print("[Scheduler] ⚠️ AlarmKit silent staging failed — using .default")
+            print("[Scheduler] ⚠️ Silent CAF staging failed — falling back to .default (dual-sound risk)")
         }
 
         return AlarmManager.AlarmConfiguration(
@@ -778,12 +783,6 @@ extension AlarmSchedulerIOS26AlarmKit {
 }
 
 @available(iOS 26.0, *)
-@inline(__always)
-private func swiftlog(_ message: String) {
-    print(message)
-}
-
-@available(iOS 26.0, *)
 struct StopAlarmIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Stop Alarm"
     // true: slide-to-stop immediately triggers iOS Face ID / passcode unlock.
@@ -814,11 +813,13 @@ struct StopAlarmIntent: LiveActivityIntent {
 
     func perform() async throws -> some IntentResult {
         guard let uuid = UUID(uuidString: alarmID) else {
+            print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_INTENT_INVALID_ALARM_ID RAW_ID=\(alarmID)")
             return .result()
         }
         
         let lookupUUIDString = originalAlarmID ?? alarmID
         guard let lookupUUID = UUID(uuidString: lookupUUIDString) else {
+            print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_INTENT_INVALID_ORIGINAL_ID RAW_ID=\(lookupUUIDString)")
             return .result()
         }
 
@@ -841,6 +842,9 @@ struct StopAlarmIntent: LiveActivityIntent {
             let state = UIApplication.shared.applicationState
             return state != .active || !UIApplication.shared.isProtectedDataAvailable
         }
+        let appStateRaw = await MainActor.run { UIApplication.shared.applicationState.rawValue }
+        let protectedDataAvailable = await MainActor.run { UIApplication.shared.isProtectedDataAvailable }
+        print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_INTENT_ENTRY SURFACE_ID=\(uuid.uuidString) SOURCE_ID=\(lookupUUID.uuidString) APP_STATE=\(appStateRaw) PROTECTED_DATA=\(protectedDataAvailable) LOCKED_HANDLING=\(shouldUseLockedHandling) SUPPRESS_UNLOCK_PROMPT=\(suppressUnlockPrompt)")
         let resolvedAlarmName = await MainActor.run {
             AlarmStore.shared.alarm(by: lookupUUID)?.name
         }
@@ -852,15 +856,16 @@ struct StopAlarmIntent: LiveActivityIntent {
             let outputVolume = AVAudioSession.sharedInstance().outputVolume
             let enginePlaying = AlarmContinuousAudioEngine.shared.confirmStillPlaying()
             if enginePlaying && outputVolume <= 0.01 {
-                swiftlog("[StopIntent] Engine playing with low outputVolume=\(String(format: "%.2f", outputVolume)) — preserving appEnginePrimary (no forced fallback)")
+                print("[StopIntent] Engine playing with low outputVolume=\(String(format: "%.2f", outputVolume)) — preserving appEnginePrimary (no forced fallback)")
             }
             let engineHealthy = AlarmContinuousAudioEngine.shared.isEngineActive &&
                 enginePlaying
-            swiftlog("[StopIntent] Engine health: active=\(AlarmContinuousAudioEngine.shared.isEngineActive) healthy=\(engineHealthy) outputVolume=\(String(format: "%.2f", outputVolume))")
+            print("[StopIntent] Engine health: active=\(AlarmContinuousAudioEngine.shared.isEngineActive) healthy=\(engineHealthy) outputVolume=\(String(format: "%.2f", outputVolume))")
             let respawnAppropriate = !engineHealthy &&
                 AlarmAudioStateController.shared.isEngineUnhealthinessAFailure()
 
             if engineHealthy {
+                print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_ENGINE_HEALTHY SURFACE_ID=\(uuid.uuidString) SOURCE_ID=\(lookupUUID.uuidString) SOUND_CONTINUES=true")
                 if !suppressUnlockPrompt {
                     NotificationManager.shared.scheduleAlarmAuthenticationPrompt(
                         sourceAlarmId: lookupUUID.uuidString,
@@ -872,12 +877,12 @@ struct StopAlarmIntent: LiveActivityIntent {
                 await MainActor.run {
                     let session = AVAudioSession.sharedInstance()
                     let route = session.currentRoute.outputs.map(\.portType.rawValue).joined(separator: ",")
-                    swiftlog("[StopIntent][Volume] before post-slide boost outputVolume=\(String(format: "%.2f", session.outputVolume)) playerVolume=\(String(format: "%.2f", AlarmContinuousAudioEngine.shared.currentPlayerVolume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) route=\(route) appState=\(UIApplication.shared.applicationState.rawValue)")
+                    print("[StopIntent][Volume] before post-slide boost outputVolume=\(String(format: "%.2f", session.outputVolume)) playerVolume=\(String(format: "%.2f", AlarmContinuousAudioEngine.shared.currentPlayerVolume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) route=\(route) appState=\(UIApplication.shared.applicationState.rawValue)")
                     SystemOutputVolumeFloorManager.shared.attemptRaiseOutputVolumeFloor(
                         minimumVolume: AlarmAudioStateController.postSlideMinimumOutputVolume,
                         reason: "post-slide-healthy"
                     )
-                    swiftlog("[StopIntent] Invoking post-slide volume boost for alarm \(lookupUUID.uuidString)")
+                    print("[StopIntent] Invoking post-slide volume boost for alarm \(lookupUUID.uuidString)")
                     AlarmContinuousAudioEngine.shared.applyPostSlideVolumeBoost(
                         reason: "stop-intent-healthy-slide",
                         minimumStartVolume: AlarmAudioStateController.postSlideMinimumVolume,
@@ -886,18 +891,20 @@ struct StopAlarmIntent: LiveActivityIntent {
                     )
                     AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-after-post-slide-boost-call")
                 }
-                swiftlog("[StopIntent] Engine healthy — engine continues, openAppWhenRun=true handles unlock")
+                print("[StopIntent] Engine healthy — engine continues, openAppWhenRun=true handles unlock")
                 AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-engine-healthy-return")
                 return .result()
             }
 
             if !respawnAppropriate {
-                swiftlog("[StopIntent] Engine not healthy but expected in phase \(AlarmAudioStateController.shared.phase.rawValue) — skipping respawn")
+                print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_RESPAWN_SKIPPED SOURCE_ID=\(lookupUUID.uuidString) PHASE=\(AlarmAudioStateController.shared.phase.rawValue) ENGINE_HEALTHY=false REASON=UNHEALTHINESS_NOT_FAILURE")
+                print("[StopIntent] Engine not healthy but expected in phase \(AlarmAudioStateController.shared.phase.rawValue) — skipping respawn")
                 AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-unhealthy-expected-return")
                 return .result()
             }
 
-            swiftlog("[StopIntent] Engine confirmed failed (phase=\(AlarmAudioStateController.shared.phase.rawValue)) — proceeding with AlarmKit respawn fallback")
+            print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_RESPAWN_REQUIRED SOURCE_ID=\(lookupUUID.uuidString) SURFACE_ID=\(uuid.uuidString) PHASE=\(AlarmAudioStateController.shared.phase.rawValue)")
+            print("[StopIntent] Engine confirmed failed (phase=\(AlarmAudioStateController.shared.phase.rawValue)) — proceeding with AlarmKit respawn fallback")
             AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-respawn-fallback")
             let originalAlarm = await MainActor.run { AlarmStore.shared.alarm(by: lookupUUID) }
             if !suppressUnlockPrompt {
@@ -930,7 +937,8 @@ struct StopAlarmIntent: LiveActivityIntent {
                     UIApplication.shared.applicationState == .active
                 }
                 guard !appIsActiveDuringZombieRespawn else {
-                    swiftlog("[StopIntent] Zombie respawn suppressed — app is active")
+                    print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_RESPAWN_SUPPRESSED SOURCE_ID=\(lookupUUID.uuidString) REASON=APP_ACTIVE")
+                    print("[StopIntent] Zombie respawn suppressed — app is active")
                     return .result()
                 }
 
@@ -967,6 +975,7 @@ struct StopAlarmIntent: LiveActivityIntent {
                     // Route custom UI using the ORIGINAL alarm id (for wallpaper/quotes/settings),
                     // while still tracking the current AlarmKit surface id to dismiss it on unlock.
                     AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: newUUID)
+                    print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_RESPAWN_SCHEDULED SOURCE_ID=\(lookupUUID.uuidString) NEW_SURFACE_ID=\(newUUID.uuidString) SOUND=\"\(originalAlarm.soundName)\"")
                     if !suppressUnlockPrompt {
                         NotificationCenter.default.post(
                             name: .alarmKitCustomUIHandoffRequested,
@@ -981,6 +990,7 @@ struct StopAlarmIntent: LiveActivityIntent {
                 }
 
                 print("[StopAlarmIntent] Zombie reschedule failed after \(respawnDelays.count) attempts: \(lastError?.localizedDescription ?? "unknown error")")
+                print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_RESPAWN_FAILED SOURCE_ID=\(lookupUUID.uuidString) LAST_ERROR=\"\(lastError?.localizedDescription ?? "unknown")\"")
                 await MainActor.run {
                     NotificationManager.shared.ensureAlarmKitSurfaceForLockedLoopIfNeeded(
                         sourceAlarmId: lookupUUID.uuidString,
@@ -1011,7 +1021,8 @@ struct StopAlarmIntent: LiveActivityIntent {
                 UIApplication.shared.applicationState == .active
             }
             guard !appIsActiveDuringFallbackRespawn else {
-                swiftlog("[StopIntent] Fallback respawn suppressed — app is active")
+                print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_FALLBACK_RESPAWN_SUPPRESSED SOURCE_ID=\(lookupUUID.uuidString) REASON=APP_ACTIVE")
+                print("[StopIntent] Fallback respawn suppressed — app is active")
                 return .result()
             }
             var didSchedule = false
@@ -1042,6 +1053,7 @@ struct StopAlarmIntent: LiveActivityIntent {
 
             if didSchedule {
                 AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: newUUID)
+                print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_FALLBACK_RESPAWN_SCHEDULED SOURCE_ID=\(lookupUUID.uuidString) NEW_SURFACE_ID=\(newUUID.uuidString)")
                 if !suppressUnlockPrompt {
                     NotificationCenter.default.post(
                         name: .alarmKitCustomUIHandoffRequested,
@@ -1058,6 +1070,7 @@ struct StopAlarmIntent: LiveActivityIntent {
 
         // Fallback or unlocked-device path.
         AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: uuid)
+        print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_UNLOCKED_OR_FALLBACK_PATH SOURCE_ID=\(lookupUUID.uuidString) SURFACE_ID=\(uuid.uuidString) SOUND_CONTINUES=\(AlarmContinuousAudioEngine.shared.isEngineActive)")
         if !suppressUnlockPrompt {
             NotificationManager.shared.scheduleAlarmKitUnlockPrompt(
                 sourceAlarmId: lookupUUID.uuidString,

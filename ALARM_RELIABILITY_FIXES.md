@@ -3,7 +3,7 @@
 **Project:** Awayk  
 **Date:** 2026-05-30  
 **Branch:** `sound-fix-issue`  
-**Status:** All issues resolved and verified working (volume control added 2026-05-30; stale handoff cleanup added 2026-05-31; side-button and badge-tap fixes added 2026-05-31)
+**Status:** All issues resolved and verified working (volume control added 2026-05-30; stale handoff cleanup added 2026-05-31; side-button and badge-tap fixes added 2026-05-31; dual-sound/silence loop fixed via single-source engine + silent AlarmKit added 2026-06-02 — see Issue 20)
 
 ---
 
@@ -669,6 +669,98 @@ if !shouldUseLockedHandling && AlarmAudioStateController.shared.isAlarmRinging {
     return .result()
 }
 ```
+
+---
+
+### Issue 20 — The Dual-Sound / Absolute-Silence Loop (Clean-Build Resets the Symptom)
+
+**Date added:** 2026-06-02  
+**Files:** `AlarmSchedulerIOS26AlarmKit.swift`, `NotificationManager.swift`, `AlarmContinuousAudioEngine.swift`
+
+#### The two symptoms (same root cause)
+
+| State | What rings | Press Side Button |
+|---|---|---|
+| **Fresh install / Xcode clean build** | **Two** overlapping sounds | One sound stops, **one keeps playing** |
+| **After hours of normal use (overnight)** | **One** sound | **All sound stops** (absolute silence) |
+
+The user reported being stuck in a loop: clean-building from Xcode "fixes" it into the dual-sound state; after using the phone a while it degrades back to the side-button-kills-sound state.
+
+#### Root cause: two audio sources in two different volume domains
+
+The alarm had **two** simultaneous audio sources:
+
+1. **AlarmKit alert** — plays in the **ringer domain**. Immune to the media volume slider and the mute switch, but **Apple stops it the instant its surface is dismissed** (side button, badge cross, slide-to-stop).
+2. **App AVAudioPlayer engine** — plays in the **media domain** (`.playback`, `.mixWithOthers`). The app fully controls it (the side button cannot stop it — background audio continues), **but its loudness follows the media volume**.
+
+Commit `4eab734` ("Finalize all alarm reliability fixes (Issues 1-15)") changed the AlarmKit sound policy in `makeConfiguration` from *"silent by default; engine owns audio"* to **"always stage an audible sound as a safety net."** That single change is the root cause. With AlarmKit audible **and** the engine playing the same sound, both domains produce audio at once.
+
+```
+                        [ALARM FIRES]
+             ┌────────────────┴────────────────┐
+   [AlarmKit alert — ringer domain]   [App engine — media domain]
+        always audible (4eab734)        loudness = media volume
+             └────────────────┬────────────────┘
+                      [DUAL SOUND]
+                   (press Side Button)
+                              │
+                 [AlarmKit dismissed → its sound stops]
+             ┌────────────────┴────────────────┐
+   media volume > 0 (clean install)   media volume = 0 (drifted overnight)
+        → engine still audible             → engine is silent
+        → "one sound continues"            → ABSOLUTE SILENCE
+```
+
+#### Why a clean build temporarily "fixes" it
+
+A clean build / reinstall makes iOS re-initialize the app container, which **resets the system media volume to a non-zero default (≈50–80%)**. Test immediately → media volume high → you hear the dual sound, and after the side button the media-domain engine remains audible. Use the phone normally (a video, a call, Control Center) → media volume drifts to 0 → the overnight alarm now has only the ringer-domain AlarmKit audible → press the side button → AlarmKit stops and the (silent, media-vol-0) engine is all that's left → **absolute silence**. The bug never changed; only the media volume did.
+
+#### Log-level proof (from the user's runs)
+
+Audible AlarmKit was staged:
+```
+[Scheduler] ✅ AlarmKit sound: .named('birdschirping.caf') — ringer domain active
+```
+The engine started concurrently (second source):
+```
+[Engine] prepareSilently: alarmId=AB90FFDC-… sound=Birds Chirping
+[Engine] startFadeIn: session activated
+🧭 [ALARMTRACE_AUDIO] EVENT=FADE_IN_PLAY_STARTED … INITIAL_VOLUME=0.15 TARGET_VOLUME=1.00
+```
+Media volume was high in the clean-build run (so the engine survived the side button):
+```
+[Volume] outputVolume=0.80 playerVolume=0.20 phase=appEngineFadingIn reason=ringing-view-onAppear
+```
+The two traces together confirm both sources were live simultaneously, and the `outputVolume` reading is the variable that flips the symptom between "one sound continues" and "absolute silence."
+
+#### Fix: one audio source — the engine — AlarmKit is always silent
+
+The app engine is made the **single source of truth** for alarm audio:
+
+1. **`makeConfiguration` always stages the silent CAF** (reverts the `4eab734` "audible safety net"). AlarmKit's surface becomes a purely visual/lifecycle anchor that produces no sound. This applies to *every* AlarmKit surface, including the locked-fallback respawns — see the trade-off note below.
+2. **Engine audibility is guaranteed without AlarmKit:**
+   - `.playback` category → immune to the hardware mute switch.
+   - `SystemOutputVolumeFloorManager` (enabled, `experimentalMPVolumeOutputFloor = true`) forces the **system output volume up to the user's configured `selectedSoundVolume`** at prepare and fade-in — so a drifted media volume of 0 is raised back up. This is what kills the "absolute silence" symptom permanently.
+   - `findSoundURL` already falls back to a bundled default tone (`findFallbackSound`) if the selected sound file is missing, so a bad sound name never means silence.
+   - Watchdog + recovery + background-audio bridge keep the engine alive across lock/background and the side button.
+3. **AlarmKit surface is kept alive in the foreground** (removed the foreground auto-dismiss in `processAlarmKitAlertingAlarm`, both the Early-Return-#1 coordinator branch and the Issue-19 foreground-stop). Because AlarmKit is now silent, keeping the badge present has no audio cost, and it satisfies the requirement that the badge stay visible and that **only the in-app Stop button ends the alarm**.
+
+#### Resulting behavior (matches the required spec)
+
+- **One uniform sound throughout** — always the engine, playing the user's selected sound (default tone if missing). No dual sound, ever.
+- **Side button never stops the sound** — it can only dismiss the silent AlarmKit surface; the engine is untouched and keeps playing in the background.
+- **Locked slide-to-stop** — requires Face ID / passcode; the engine keeps ringing until unlocked, then the in-app full-screen Stop/Snooze UI appears.
+- **Unlocked badge** — stays visible; tapping it (optionally) opens the full-screen UI and never stops the sound; its cross button never stops the sound; closing the UI never stops the sound.
+- **Only the in-app Stop button stops the alarm; Snooze snoozes** per the configured interval.
+
+#### Trade-off (intentional, documented)
+
+Silencing AlarmKit everywhere removes the ringer-domain "last resort" for the rare case where the engine genuinely cannot produce audio while the phone is locked. We deliberately accept this because:
+
+- An **audible fallback respawn is racy** and is what caused this very loop: the fallback AlarmKit surface is scheduled (1–2.6 s out) while the engine looks dead, but the engine's watchdog frequently revives it before the surface fires → the two overlap → dual sound returns.
+- The engine is hardened against that failure (volume floor, `.playback`, default-sound fallback, watchdog/recovery, background bridge), and the respawn surfaces still **re-enter `processAlarmKitAlertingAlarm` and re-attempt engine start** — silently — so a momentarily-failed engine gets repeated recovery chances without ever risking dual sound.
+
+The requirement "I always have to hear only one sound" takes precedence over the rare locked-engine-failure case, and the engine hardening makes that case unlikely.
 
 ---
 

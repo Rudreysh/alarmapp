@@ -1,4 +1,5 @@
 import Foundation
+import AVFoundation
 import Combine
 import SwiftData
 import UIKit
@@ -72,6 +73,9 @@ final class AlarmRingCoordinator: ObservableObject {
 
     @discardableResult
     func startRinging(alarmId: String, source: RingSource) -> Bool {
+        let phase = AlarmAudioStateController.shared.phase
+        let outputVolume = AVAudioSession.sharedInstance().outputVolume
+        print("🧭 [ALARMTRACE_COORD] EVENT=START_RINGING_REQUEST SOURCE=\(source) ALARM_ID=\(alarmId) PHASE=\(phase.rawValue) ENGINE_ACTIVE=\(AlarmContinuousAudioEngine.shared.isEngineActive) ENGINE_HEALTHY=\(AlarmContinuousAudioEngine.shared.cachedIsHealthy) OUTPUT_VOL=\(String(format: "%.2f", outputVolume))")
         guard let id = UUID(uuidString: alarmId) else {
              print("[AlarmRingCoordinator] ❌ Invalid UUID string: \(alarmId)")
              return false
@@ -80,6 +84,7 @@ final class AlarmRingCoordinator: ObservableObject {
         // Prevent duplicate ring starts from overlapping sources
         // (e.g. local notification + foreground timer callback).
         if isRinging, activeAlarm?.id == id {
+            print("🧭 [ALARMTRACE_COORD] EVENT=START_RINGING_DUPLICATE ALARM_ID=\(id.uuidString) SOURCE=\(source) ENGINE_ACTIVE=\(AlarmContinuousAudioEngine.shared.isEngineActive) ENGINE_HEALTHY=\(AlarmContinuousAudioEngine.shared.cachedIsHealthy)")
             print("[AlarmRingCoordinator] ⏭️ Ignoring duplicate START RINGING for \(id) (Source: \(source))")
             if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-duplicate-startRinging") {
                 AlarmContinuousAudioEngine.shared.start(
@@ -99,6 +104,7 @@ final class AlarmRingCoordinator: ObservableObject {
         }
         
         guard let alarm = alarmStore?.alarm(by: id) else {
+             print("🧭 [ALARMTRACE_COORD] EVENT=START_RINGING_FAILED REASON=ALARM_NOT_FOUND ALARM_ID=\(alarmId) SOURCE=\(source)")
              print("[AlarmRingCoordinator] ❌ Alarm not found in store: \(alarmId)")
              return false
         }
@@ -130,6 +136,7 @@ final class AlarmRingCoordinator: ObservableObject {
         scheduler.cancelRuntimeRingNotifications(for: alarm)
 
         print("[AlarmRingCoordinator] 🔔 START RINGING: \(alarm.name) (Source: \(source)) wallpaperId=\(alarm.wallpaperId) sound=\(alarm.soundName)")
+        print("🧭 [ALARMTRACE_COORD] EVENT=START_RINGING_ACCEPTED ALARM_ID=\(alarm.id.uuidString) SOURCE=\(source) SOUND=\"\(alarm.soundName)\" VOLUME=\(String(format: "%.2f", alarm.soundVolume)) SNOOZE_MIN=\(alarm.snoozeMinutes) SNOOZE_SEC=\(alarm.snoozeSeconds) MISSIONS=\(alarm.missions.filter { $0.type != .off }.count)")
         
         activeAlarm = alarm
         isRingingUIVisible = false
@@ -194,6 +201,7 @@ final class AlarmRingCoordinator: ObservableObject {
             if AlarmContinuousAudioEngine.shared.isEngineActive {
                 print("[Coordinator] Engine already active — attaching UI without restarting sound")
             } else if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-startRinging-primary") {
+                print("🧭 [ALARMTRACE_AUDIO] EVENT=COORDINATOR_REQUEST_ENGINE_START ALARM_ID=\(alarm.id.uuidString) SOURCE=\(source) SOUND=\"\(alarm.soundName)\"")
                 AlarmContinuousAudioEngine.shared.start(
                     soundName: alarm.soundName,
                     alarmId: alarm.id.uuidString,
@@ -295,12 +303,16 @@ final class AlarmRingCoordinator: ObservableObject {
            session.hasMissions,
            session.missionStatus != .completed {
             // Mission-based alarms cannot be dismissed until mission completion.
+            print("🧭 [ALARMTRACE_ACTION] EVENT=STOP_REQUEST_BLOCKED REASON=MISSION_NOT_COMPLETED ALARM_ID=\(activeAlarm?.id.uuidString ?? "nil") MISSION_STATUS=\(session.missionStatus.rawValue)")
             return
         }
+        print("🧭 [ALARMTRACE_ACTION] EVENT=STOP_REQUEST_ACCEPTED ALARM_ID=\(activeAlarm?.id.uuidString ?? "nil") PREVIEW=\(isPreviewMode)")
         stopRingingInternal(preserveSession: false, completed: true)
     }
 
     private func stopRingingInternal(preserveSession: Bool, completed: Bool = false) {
+        let stopReason = preserveSession ? "user-snooze" : "user-stop"
+        print("🧭 [ALARMTRACE_COORD] EVENT=STOP_RINGING_INTERNAL_ENTRY REASON=\(stopReason) COMPLETED=\(completed) ALARM_ID=\(activeAlarm?.id.uuidString ?? "nil") ENGINE_ACTIVE=\(AlarmContinuousAudioEngine.shared.isEngineActive) ENGINE_HEALTHY=\(AlarmContinuousAudioEngine.shared.cachedIsHealthy) PHASE=\(AlarmAudioStateController.shared.phase.rawValue) BRIDGE_SURFACE=\(AlarmBackgroundAudioBridge.shared.currentAlarmID ?? "nil")")
         missionTimeoutWorkItem?.cancel()
         missionTimeoutWorkItem = nil
         deferredBridgeStopWorkItem?.cancel()
@@ -319,7 +331,6 @@ final class AlarmRingCoordinator: ObservableObject {
                 AlarmContinuousAudioEngine.shared.isEngineActive,
                 "Stop called but engine was not active — possible double stop"
             )
-            let stopReason = preserveSession ? "user-snooze" : "user-stop"
             AlarmAudioStateController.shared.recordStopped(reason: stopReason)
             AlarmContinuousAudioEngine.shared.stop(reason: stopReason)
         } else {
@@ -453,6 +464,7 @@ final class AlarmRingCoordinator: ObservableObject {
             shieldEngine.sessionDidEnd(alarm: activeAlarm, reason: "Stopped Ringing", completed: completed)
         }
         foregroundScheduler?.scheduleNext()
+        print("🧭 [ALARMTRACE_COORD] EVENT=STOP_RINGING_INTERNAL_EXIT REASON=\(stopReason) PRESERVE_SESSION=\(preserveSession) COMPLETED=\(completed)")
     }
 
     func ensureLockPromptLoopAfterUnexpectedViewDismiss() {
@@ -483,6 +495,7 @@ final class AlarmRingCoordinator: ObservableObject {
 
     func dismissTapped() {
         guard let activeAlarm else { return }
+        print("🧭 [ALARMTRACE_ACTION] EVENT=DISMISS_TAPPED ALARM_ID=\(activeAlarm.id.uuidString) HAS_MISSIONS=\(activeAlarm.missions.contains { $0.type != .off })")
         if activeAlarm.missions.contains(where: { $0.type != .off }) {
             beginMissionMonitoring()
             return
@@ -520,10 +533,14 @@ final class AlarmRingCoordinator: ObservableObject {
 
     func snooze() {
         guard !snoozeTransitionInFlight else {
+            print("🧭 [ALARMTRACE_ACTION] EVENT=SNOOZE_REQUEST_IGNORED REASON=TRANSITION_IN_PROGRESS ALARM_ID=\(activeAlarm?.id.uuidString ?? "nil")")
             print("[AlarmRingCoordinator] Snooze ignored: transition already in progress")
             return
         }
-        guard let alarm = activeAlarm else { return }
+        guard let alarm = activeAlarm else {
+            print("🧭 [ALARMTRACE_ACTION] EVENT=SNOOZE_REQUEST_IGNORED REASON=NO_ACTIVE_ALARM")
+            return
+        }
         snoozeTransitionInFlight = true
         
         // Fetch fresh alarm to ensure penalty settings are up-to-date
@@ -556,6 +573,7 @@ final class AlarmRingCoordinator: ObservableObject {
         let configuredSeconds = max(0, currentAlarm.snoozeSeconds)
         let configuredMinutes = max(0, currentAlarm.snoozeMinutes)
         let totalSeconds = configuredSeconds > 0 ? (configuredMinutes * 60 + configuredSeconds) : (configuredMinutes > 0 ? configuredMinutes * 60 : 300)
+        print("🧭 [ALARMTRACE_ACTION] EVENT=SNOOZE_REQUEST_ACCEPTED ALARM_ID=\(currentAlarm.id.uuidString) COUNT=\(activeSnoozeCount) TOTAL_SECONDS=\(totalSeconds) PENALTY_ENABLED=\(currentAlarm.penaltyEnabled)")
 
         // Using Task for MainActor isolation
         let performSnoozeTransition = { @MainActor [weak self] in
@@ -587,6 +605,7 @@ final class AlarmRingCoordinator: ObservableObject {
             // the phone is locked and the snooze interval fires via the notification path.
             NotificationManager.shared.clearCompletedAlarmFlow(alarmId: currentAlarm.id.uuidString)
             self.scheduler.scheduleSnooze(alarm: currentAlarm, totalSeconds: totalSeconds)
+            print("🧭 [ALARMTRACE_COORD] EVENT=SNOOZE_SCHEDULED ALARM_ID=\(currentAlarm.id.uuidString) TOTAL_SECONDS=\(totalSeconds)")
             DispatchQueue.main.asyncAfter(deadline: .now() + TimeInterval(totalSeconds)) { [weak self] in
                 self?.startRinging(alarmId: currentAlarm.id.uuidString, source: .foregroundTimer)
             }
