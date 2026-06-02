@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct HomeView: View {
     @EnvironmentObject var ringCoordinator: AlarmRingCoordinator
@@ -12,6 +13,7 @@ struct HomeView: View {
     @State private var showQuickAlarm = false
     @State private var showCreateHabit = false
     @State private var showTimer = false
+    @State private var showAlarmExpandedPanel = false
     @State private var selectedAlarm: Alarm?
     @State private var selectedQuickAlarm: Alarm?
     @State private var selectedHabitAlarm: Alarm?
@@ -44,23 +46,6 @@ struct HomeView: View {
             
             addMenuOverlay
             
-            // This VStack was for "Remove all ads" button, moved to mainContent
-            VStack {
-                Spacer()
-                Button(action: viewModel.tapRemoveAds) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "nosign")
-                            .foregroundColor(Colors.textSecondary)
-                        Text("Remove all ads")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Colors.textSecondary)
-                    }
-                    .padding(.vertical, 10)
-                }
-                .accessibilityLabel(Text("Remove all ads"))
-                .padding(.bottom, AppConstants.tabBarHeight + Spacing.s)
-            }
-
             if viewModel.showCelebration {
                 CelebrationOverlayView {
                     viewModel.celebrationDidFinish()
@@ -225,7 +210,7 @@ struct HomeView: View {
     // MARK: - Subviews
     
     private var homeBackground: some View {
-        LinearGradient(colors: [Colors.bgSecondary, Colors.bgPrimary], startPoint: .top, endPoint: .bottom)
+        Colors.bgPrimary
             .ignoresSafeArea()
     }
     
@@ -520,36 +505,40 @@ struct HomeView: View {
             Spacer()
             HStack {
                 Spacer()
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showAddMenu.toggle()
+                VStack(alignment: .trailing, spacing: 8) {
+                    VStack(spacing: 10) {
+                        launcherCircleButton(icon: "plus", tint: Colors.accentRed) {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            withAnimation(.easeInOut(duration: 0.22)) {
+                                showAddMenu.toggle()
+                                showAlarmExpandedPanel = false
+                            }
+                        }
                     }
-                    if appPreferences.hasSeenAddAlarmTooltip == false {
-                        appPreferences.hasSeenAddAlarmTooltip = true
-                        showAddAlarmCoachMark = false // Changed from showCoachMark
-                    }
-                }) {
-                    Image(systemName: showAddMenu ? "xmark" : "plus")
-                        .font(.system(size: 26, weight: .bold))
-                        .foregroundColor(Colors.textPrimary)
-                        .frame(width: 62, height: 62)
-                        .background(Colors.accentTeal)
-                        .clipShape(Circle())
-                        .appShadow(Shadows.card)
-                        .coachMark(
-                            title: "Add Alarm",
-                            subtitle: "Tap to create.",
-                            isVisible: $showAddAlarmCoachMark, // Changed from $showCoachMark
-                            alignment: .topTrailing,
-                            pointDirection: .bottom,
-                            arrowAlignment: .trailing,
-                            arrowOffsetX: -24,
-                            bubbleOffsetX: 0,
-                            bubbleOffsetY: -80,
-                            color: .red
-                        )
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 8)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(Colors.accentTeal)
+                    )
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(Colors.cardStroke.opacity(0.35), lineWidth: 1)
+                    )
+                    .appShadow(alarmLauncherShadow)
+                    .coachMark(
+                        title: "Add Alarm",
+                        subtitle: "Tap icon to create.",
+                        isVisible: $showAddAlarmCoachMark,
+                        alignment: .topTrailing,
+                        pointDirection: .bottom,
+                        arrowAlignment: .trailing,
+                        arrowOffsetX: -24,
+                        bubbleOffsetX: 0,
+                        bubbleOffsetY: -88,
+                        color: .red
+                    )
                 }
-                .accessibilityLabel(Text("Add alarm"))
                 .padding(.trailing, Spacing.l)
                 .padding(.bottom, AppConstants.tabBarHeight + Spacing.l)
                 .onAppear {
@@ -620,12 +609,31 @@ struct HomeView: View {
 
     private func openCreateAlarm() {
         showAddMenu = false
+        sortOrder = 3
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showAlarmExpandedPanel = false
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             showCreateAlarm = true
         }
     }
+
+    private func openEditAlarmFromLauncher() {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showAlarmExpandedPanel = false
+        }
+        if let existing = alarmStore.alarms.sorted(by: { lhs, rhs in
+            (lhs.hour * 60 + lhs.minute) < (rhs.hour * 60 + rhs.minute)
+        }).first {
+            selectedAlarm = existing
+        } else {
+            openCreateAlarm()
+        }
+    }
     
     private func openQuickAlarm() {
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
         showAddMenu = false
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             showQuickAlarm = true
@@ -689,6 +697,109 @@ struct HomeView: View {
             sortOrder = 3
         }
         return true
+    }
+}
+
+private extension HomeView {
+    var alarmLauncherShadow: AppShadow {
+        SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch
+            ? AppShadow(
+                color: Colors.shadow.opacity(0.5),
+                radius: Shadows.card.radius * 0.5,
+                x: Shadows.card.x,
+                y: Shadows.card.y * 0.5
+            )
+            : Shadows.card
+    }
+
+    func launcherCircleButton(icon: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .fill(.white.opacity(0.18))
+                    .frame(width: 48, height: 48)
+                Image(systemName: icon)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(.white)
+            }
+        }
+        .buttonStyle(PressedScaleButtonStyle())
+    }
+
+    var alarmExpandedPanel: some View {
+        ZStack(alignment: .bottomTrailing) {
+            VStack(spacing: 12) {
+                alarmExpandedRow(
+                    icon: "alarm.fill",
+                    title: "New Alarm",
+                    tint: Colors.accentRed,
+                    action: { openCreateAlarm() }
+                )
+
+                alarmExpandedRow(
+                    icon: "bolt.fill",
+                    title: "Quick Alarm",
+                    tint: Colors.accentBlue,
+                    action: { openQuickAlarm() }
+                )
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 11)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Colors.cardSurface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(Colors.cardStroke, lineWidth: 1.2)
+            )
+            .appShadow(Shadows.card)
+
+            AlarmPanelPointer()
+                .fill(Colors.cardSurface)
+                .frame(width: 14, height: 18)
+                .overlay(
+                    AlarmPanelPointer()
+                        .stroke(Colors.cardStroke, lineWidth: 1)
+                )
+                .rotationEffect(.degrees(-90))
+                .offset(x: 18, y: 56)
+        }
+    }
+
+    func alarmExpandedRow(
+        icon: String,
+        title: String,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(tint.opacity(0.16))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(tint)
+                }
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Colors.textPrimary)
+            }
+        }
+        .buttonStyle(PressedScaleButtonStyle())
+    }
+}
+
+private struct AlarmPanelPointer: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.midY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.closeSubpath()
+        return path
     }
 }
 

@@ -2,10 +2,15 @@ import SwiftUI
 import SwiftData
 
 @main
-struct AlarmoApp: App {
+struct AwaykApp: App {
     @UIApplicationDelegateAdaptor(AlarmAppDelegate.self) private var appDelegate
     
     private var sharedModelContainer: ModelContainer = Self.buildModelContainer()
+
+    init() {
+        AlarmCustomUIHandoffStore.pruneOrphanedMappings()
+        AlarmContinuousAudioEngine.verifyBundledAlarmAssetsOnLaunch()
+    }
 
     private static func buildModelContainer() -> ModelContainer {
         let schema = Schema([PlanItem.self, CompletionLog.self, ActivityEvent.self, AppList.self])

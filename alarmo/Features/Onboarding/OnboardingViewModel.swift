@@ -4,6 +4,9 @@ import Combine
 final class OnboardingViewModel: ObservableObject {
     @Published private(set) var state = OnboardingState()
     @Published var navigationPath: [OnboardingStep] = []
+    @Published var snoozesPerMorning: Int = 3
+    @Published var userAge: Int = 25
+    @Published var animationTrigger: Bool = false
 
     private let permissionService: NotificationPermissionService
     private let wallpaperLoader: WallpaperCatalogLoader
@@ -42,6 +45,15 @@ final class OnboardingViewModel: ObservableObject {
         set { state.selectedHour = newValue }
     }
 
+    var firstName: String {
+        state.firstName
+    }
+
+    var displayFirstName: String {
+        let trimmed = state.firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "there" : trimmed
+    }
+
     var selectedMinute: Int {
         get { state.selectedMinute }
         set { state.selectedMinute = newValue }
@@ -74,10 +86,23 @@ final class OnboardingViewModel: ObservableObject {
         UserDefaults.standard.set(step.rawValue, forKey: recoveryKey)
     }
 
+    func setFirstName(_ name: String) {
+        state.firstName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     func startSetupFlowFromIntroCTA() {
-        state.currentStep = .setTime
-        navigationPath = [.setTime]
-        UserDefaults.standard.set(OnboardingStep.setTime.rawValue, forKey: recoveryKey)
+        state.currentStep = .namePrompt
+        navigationPath = [.namePrompt]
+        UserDefaults.standard.set(OnboardingStep.namePrompt.rawValue, forKey: recoveryKey)
+    }
+
+    var snoozeCalculator: SnoozeCalculator {
+        SnoozeCalculator(snoozesPerMorning: snoozesPerMorning, userAge: userAge)
+    }
+
+    func persistSnoozeOnboardingInputs() {
+        UserDefaults.standard.set(snoozesPerMorning, forKey: "onboarding_snoozeCount")
+        UserDefaults.standard.set(userAge, forKey: "onboarding_age")
     }
 
     private var cancellables = Set<AnyCancellable>()

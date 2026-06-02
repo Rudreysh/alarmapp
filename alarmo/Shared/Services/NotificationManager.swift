@@ -133,6 +133,20 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         // Clean up stale ring-fallback notifications from a previous session
         // that may have been killed without going through stopRinging.
         cancelAllAlarmRingingFallbackChains()
+        // Store-aware cleanup of stale AlarmKit→custom-UI handoff state, now that
+        // AlarmStore is available. Runs before recovery/observation so a stale
+        // pending request cannot ghost-start a ring via handlePendingCustomAlarmUIHandoff.
+        let runtimeIsActive =
+            ringCoordinator.isRinging ||
+            AlarmBackgroundAudioBridge.shared.currentAlarmID != nil ||
+            AlarmContinuousAudioEngine.shared.isEngineActive ||
+            AlarmAudioStateController.shared.phase != .stopped
+        let appIsForeground = UIApplication.shared.applicationState != .background
+        AlarmCustomUIHandoffStore.pruneWithAlarmStore(
+            alarmStore,
+            runtimeIsActive: runtimeIsActive,
+            appIsForeground: appIsForeground
+        )
         checkStatus()
         drainPendingAlarmStarts()
         startAlarmKitObservation()
@@ -178,12 +192,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     /// **Sound continuity strategy:**
     /// When an alarm enters `.alerting`, we ALWAYS start the app-owned
     /// background audio bridge immediately – regardless of app state.
-    /// This means Alarmo's own AVAudioPlayer is looping the alarm sound
+    /// This means Awayk's own AVAudioPlayer is looping the alarm sound
     /// *in parallel* with the system AlarmKit alert sound.
     ///
     /// When the user swipes "Stop" on the lock-screen AlarmKit UI:
     /// - AlarmKit stops its own system-managed sound
-    /// - Alarmo's background audio bridge **continues** because it is
+    /// - Awayk's background audio bridge **continues** because it is
     ///   an independent AVAudioPlayer in `.playback` mode with the
     ///   `audio` background capability
     /// - The sound therefore never stops from the user's perspective
@@ -1284,6 +1298,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         let action = response.actionIdentifier
+        let request = response.notification.request
+        let alarmIdForLog = (request.content.userInfo["alarmId"] as? String)
+            ?? (request.content.userInfo[AlarmAuthenticationPrompt.userInfoSourceAlarmIDKey] as? String)
+            ?? (request.content.userInfo[AlarmKitUnlockPrompt.userInfoSourceAlarmIDKey] as? String)
+            ?? request.identifier
+        print("🧭 [ALARMTRACE_ACTION] EVENT=NOTIFICATION_ACTION_RECEIVED ACTION=\(action) CATEGORY=\(request.content.categoryIdentifier) REQUEST_ID=\(request.identifier) ALARM_ID=\(alarmIdForLog) APP_STATE=\(UIApplication.shared.applicationState.rawValue)")
 
         // If user tapped the alarm notification from lock screen, configure audio immediately
         if response.notification.request.content.userInfo["alarmId"] != nil {
@@ -1335,6 +1355,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     }
 
     func handleNotificationStopAction(alarmId: String) {
+        print("🧭 [ALARMTRACE_ACTION] EVENT=NOTIFICATION_STOP_ACTION_HANDLING ALARM_ID=\(alarmId) PHASE=\(AlarmAudioStateController.shared.phase.rawValue) IS_RINGING=\(ringCoordinator?.isRinging == true)")
         print("[NotificationManager] Stop action from notification card — alarmId: \(alarmId)")
         guard AlarmAudioStateController.shared.phase != .stopped else { return }
 
@@ -1366,6 +1387,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     private func handle(notification: UNNotification) {
         let userInfo = notification.request.content.userInfo
         if let alarmId = userInfo["alarmId"] as? String {
+            print("🧭 [ALARMTRACE_ACTION] EVENT=NOTIFICATION_TAP_HANDLING ALARM_ID=\(alarmId) REQUEST_ID=\(notification.request.identifier) CATEGORY=\(notification.request.content.categoryIdentifier)")
             // If the user already explicitly dismissed via Stop/Snooze, don't
             // re-start the ring just because a stale fallback notification got
             // tapped from the tray. Also prune any leftover fallback chain.
@@ -1384,11 +1406,14 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             startOrQueueAlarm(alarmId: alarmId)
         } else if let sourceAlarmId = userInfo[AlarmKitUnlockPrompt.userInfoSourceAlarmIDKey] as? String {
             let surfaceAlarmId = userInfo[AlarmKitUnlockPrompt.userInfoSurfaceAlarmIDKey] as? String
+            print("🧭 [ALARMTRACE_ACTION] EVENT=NOTIFICATION_TAP_ALARMKIT_UNLOCK SOURCE_ID=\(sourceAlarmId) SURFACE_ID=\(surfaceAlarmId ?? "nil")")
             requestCustomUIHandoff(sourceAlarmId: sourceAlarmId, surfaceAlarmId: surfaceAlarmId)
         } else if let sourceAlarmId = userInfo[AlarmAuthenticationPrompt.userInfoSourceAlarmIDKey] as? String {
             let surfaceAlarmId = userInfo[AlarmAuthenticationPrompt.userInfoSurfaceAlarmIDKey] as? String
+            print("🧭 [ALARMTRACE_ACTION] EVENT=NOTIFICATION_TAP_AUTH_PROMPT SOURCE_ID=\(sourceAlarmId) SURFACE_ID=\(surfaceAlarmId ?? "nil")")
             requestCustomUIHandoff(sourceAlarmId: sourceAlarmId, surfaceAlarmId: surfaceAlarmId)
         } else if let legacyAlarmId = userInfo[AlarmKitUnlockPrompt.legacyUserInfoAlarmIDKey] as? String {
+            print("🧭 [ALARMTRACE_ACTION] EVENT=NOTIFICATION_TAP_LEGACY_ALARMKIT_UNLOCK ALARM_ID=\(legacyAlarmId)")
             requestCustomUIHandoff(sourceAlarmId: legacyAlarmId, surfaceAlarmId: legacyAlarmId)
         }
     }
@@ -1399,6 +1424,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             return
         }
         let surfaceAlarmId = notification.request.content.userInfo[AlarmKitUnlockPrompt.userInfoSurfaceAlarmIDKey] as? String
+        print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_UNLOCK_PROMPT_ACTION SOURCE_ID=\(sourceAlarmId) SURFACE_ID=\(surfaceAlarmId ?? "nil")")
         requestCustomUIHandoff(sourceAlarmId: sourceAlarmId, surfaceAlarmId: surfaceAlarmId)
         startOrQueueAlarm(alarmId: sourceAlarmId)
     }
@@ -1408,6 +1434,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             return
         }
         let surfaceAlarmId = notification.request.content.userInfo[AlarmAuthenticationPrompt.userInfoSurfaceAlarmIDKey] as? String
+        print("🧭 [ALARMTRACE_ACTION] EVENT=ALARM_AUTH_PROMPT_ACTION SOURCE_ID=\(sourceAlarmId) SURFACE_ID=\(surfaceAlarmId ?? "nil")")
         requestCustomUIHandoff(sourceAlarmId: sourceAlarmId, surfaceAlarmId: surfaceAlarmId)
         startOrQueueAlarm(alarmId: sourceAlarmId)
     }
@@ -1533,20 +1560,39 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         alarmName: String?,
         reason: String
     ) {
+        print("🧭 [ALARMTRACE_ACTION] EVENT=HARDWARE_BUTTON_RESPAWN_CHECK SOURCE_ID=\(sourceAlarmId) REASON=\"\(reason)\" APP_STATE=\(UIApplication.shared.applicationState.rawValue) PHASE=\(AlarmAudioStateController.shared.phase.rawValue) ENGINE_ACTIVE=\(AlarmContinuousAudioEngine.shared.isEngineActive) ENGINE_HEALTHY=\(AlarmContinuousAudioEngine.shared.cachedIsHealthy)")
         guard UIApplication.shared.applicationState != .active else {
+            print("🧭 [ALARMTRACE_ACTION] EVENT=HARDWARE_BUTTON_RESPAWN_SUPPRESSED SOURCE_ID=\(sourceAlarmId) REASON=APP_ACTIVE")
             print("[NotificationManager] Side button respawn suppressed — app is active, engine primary")
             return
         }
         let phase = AlarmAudioStateController.shared.phase
         if phase == .appEnginePrimary || phase == .appEngineFadingIn {
             let outputVolume = AVAudioSession.sharedInstance().outputVolume
-            if AlarmContinuousAudioEngine.shared.confirmStillPlaying() && outputVolume > 0.01 {
+            let isPlaying = AlarmContinuousAudioEngine.shared.confirmStillPlaying()
+            if isPlaying && outputVolume > 0.01 {
+                print("🧭 [ALARMTRACE_ACTION] EVENT=HARDWARE_BUTTON_RESPAWN_SUPPRESSED SOURCE_ID=\(sourceAlarmId) REASON=ENGINE_PLAYING OUTPUT_VOL=\(String(format: "%.2f", outputVolume))")
                 print("[NotificationManager] Side button respawn suppressed — phase=\(phase.rawValue), engine playing, outputVolume=\(String(format: "%.2f", outputVolume))")
                 return
             }
-            print("[NotificationManager] Side button respawn recovery allowed — phase=\(phase.rawValue), enginePlaying=\(AlarmContinuousAudioEngine.shared.confirmStillPlaying()) outputVolume=\(String(format: "%.2f", outputVolume))")
+            // Guard: if the engine was playing within the last 2 seconds, the "not playing"
+            // reading is likely a transient false-negative at the foreground→background scene
+            // transition (player.isPlaying briefly reads false). Calling recordFallback here
+            // would stop AlarmKit and schedule a respawn, creating a 2-second silence.
+            // Screen lock on a .playback session does not interrupt audio — the engine will
+            // naturally resume. Let the interruption-retry path handle real failures.
+            if AlarmContinuousAudioEngine.shared.wasConfirmedPlayingRecently(within: 2.0)
+                || AlarmContinuousAudioEngine.shared.isCurrentlyInterrupted
+                || AlarmContinuousAudioEngine.shared.isInInterruptionRecoveryWindow {
+                print("🧭 [ALARMTRACE_ACTION] EVENT=HARDWARE_BUTTON_RESPAWN_DEFERRED SOURCE_ID=\(sourceAlarmId) REASON=RECENT_OR_INTERRUPTION PHASE=\(phase.rawValue)")
+                print("[NotificationManager] Side button respawn deferred — engine recently playing or in interruption window (phase=\(phase.rawValue))")
+                return
+            }
+            print("🧭 [ALARMTRACE_ACTION] EVENT=HARDWARE_BUTTON_RESPAWN_RECOVERY_ALLOWED SOURCE_ID=\(sourceAlarmId) PHASE=\(phase.rawValue) ENGINE_PLAYING=\(isPlaying) OUTPUT_VOL=\(String(format: "%.2f", outputVolume))")
+            print("[NotificationManager] Side button respawn recovery allowed — phase=\(phase.rawValue), enginePlaying=\(isPlaying) outputVolume=\(String(format: "%.2f", outputVolume))")
             AlarmAudioStateController.shared.recordFallback(reason: "hardware-button-engine-not-playing-recovery")
         } else if !AlarmAudioStateController.shared.shouldAllowAlarmKitRespawn() {
+            print("🧭 [ALARMTRACE_ACTION] EVENT=HARDWARE_BUTTON_RESPAWN_SUPPRESSED SOURCE_ID=\(sourceAlarmId) REASON=PHASE_NOT_ELIGIBLE PHASE=\(phase.rawValue)")
             print("[NotificationManager] Side button respawn suppressed — phase \(phase.rawValue) not eligible for AlarmKit respawn")
             return
         }
@@ -1560,12 +1606,14 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         guard AlarmManagerFacade.shared.selectedPath == .alarmKit else { return }
         guard #available(iOS 26.0, *) else { return }
         guard !isAlarmFlowSuppressed(sourceAlarmId) else {
+            print("🧭 [ALARMTRACE_ACTION] EVENT=HARDWARE_BUTTON_RESPAWN_SUPPRESSED SOURCE_ID=\(sourceAlarmId) REASON=FLOW_SUPPRESSED")
             print("[PostSlideNotification] side-button schedule suppressed source=\(sourceAlarmId) reason=alarm-flow-suppressed")
             return
         }
         let now = Date()
         if let last = lastRespawnScheduledAt[sourceAlarmId],
            now.timeIntervalSince(last) < 3.0 {
+            print("🧭 [ALARMTRACE_ACTION] EVENT=HARDWARE_BUTTON_RESPAWN_THROTTLED SOURCE_ID=\(sourceAlarmId) DELTA=\(String(format: "%.2f", now.timeIntervalSince(last)))")
             print("[PostSlideNotification] side-button schedule throttled source=\(sourceAlarmId) delta=\(String(format: "%.2f", now.timeIntervalSince(last)))")
             return
         }
@@ -1612,6 +1660,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                         preferredSoundName: sourceAlarm?.soundName
                     )
                     AlarmCustomUIHandoffStore.request(alarmID: sourceUUID, surfaceAlarmID: newUUID)
+                    print("🧭 [ALARMTRACE_ACTION] EVENT=HARDWARE_BUTTON_RESPAWN_SCHEDULED SOURCE_ID=\(sourceAlarmId) NEW_SURFACE_ID=\(newUUID.uuidString) DELAY=\(String(format: "%.1f", delay))")
                     print("[NotificationManager] \(reason) — respawning AlarmKit in 2s (source=\(sourceAlarmId), delay=\(delay))")
                     return
                 } catch {
@@ -1693,13 +1742,17 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         let surfaceAlarmId = alarm.id.uuidString
         let sourceAlarmId = AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceAlarmId)
         let phase = AlarmAudioStateController.shared.phase
-        let appIsActive = UIApplication.shared.applicationState == .active
-        if appIsActive && (phase == .appEnginePrimary || phase == .appEngineFadingIn) {
-            print("[NotificationManager] AlarmKit surface auto-dismissed — app active phase=\(phase.rawValue) surface=\(surfaceAlarmId)")
-            try? AlarmManager.shared.stop(id: alarm.id)
-            try? AlarmManager.shared.cancel(id: alarm.id)
-            return
-        }
+        // NOTE: We intentionally do NOT auto-dismiss the AlarmKit surface here, even
+        // when the app is foreground and the engine is already primary. AlarmKit is
+        // staged SILENT (see makeConfiguration / Issue 20), so its surface produces no
+        // audio — keeping it alive cannot cause dual sound. The surface is the badge the
+        // user taps to reach the in-app ring UI, and the user requirement is that ONLY
+        // the in-app Stop button ends the alarm. Tapping the badge, the badge's cross
+        // button, or the side button must never stop the sound — and since the engine is
+        // the sole audio source, dismissing the surface has no audio effect regardless.
+        // (A previous version auto-dismissed here to suppress dual sound; that is no
+        // longer needed once AlarmKit is silent, and it wrongly removed the badge.)
+        _ = phase
         logAlarmTrace(
             event: "process-alerting-entry",
             sourceAlarmId: sourceAlarmId,
@@ -1723,13 +1776,18 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
                 surfaceAlarmId: surfaceAlarmId,
                 extra: "keeping-surface-alive=true"
             )
-            // Keep AlarmKit surface alive when engine is already healthy.
-            // Aggressive stop/cancel here can cut audio ownership at the wrong time.
+            // Engine is already the live audio source. Keep the AlarmKit surface alive
+            // in BOTH foreground and background: it is silent (Issue 20), so it never
+            // competes with the engine, and it is the badge the user taps to reach the
+            // in-app Stop/Snooze UI. Only the in-app Stop button ends the alarm; tapping
+            // or dismissing this surface has no audio effect.
             AlarmBackgroundAudioBridge.shared.start(
                 surfaceAlarmId: surfaceAlarmId,
                 sourceAlarmId: sourceAlarmId
             )
             if UIApplication.shared.applicationState != .active {
+                // Phone is locked/background: drive the unlock prompt so the user can
+                // reach Face ID / passcode and then the in-app Stop/Snooze UI.
                 startAlarmKitUnlockPromptLoop(
                     sourceAlarmId: sourceAlarmId,
                     surfaceAlarmId: surfaceAlarmId,
@@ -1871,8 +1929,18 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 #endif
 
     private func handleAlarmStopAction(notification: UNNotification) {
+        print("🧭 [ALARMTRACE_ACTION] EVENT=LEGACY_ALARM_STOP_ACTION_RECEIVED REQUEST_ID=\(notification.request.identifier) IS_RINGING=\(ringCoordinator?.isRinging == true)")
         if ringCoordinator?.isRinging == true {
-            ringCoordinator?.stopRinging()
+            // PRD: the alarm stops ONLY via the Stop button in the custom in-app
+            // ringing UI (after mission completion). A notification Stop action must
+            // bring the user into that UI — it must never stop the alarm directly.
+            print("[NotificationManager] alarmStop tapped while ringing — redirecting to custom UI (not stopping)")
+            let sourceAlarmId = (notification.request.content.userInfo["alarmId"] as? String)
+                ?? ringCoordinator?.activeAlarm?.id.uuidString
+            if let sourceAlarmId {
+                requestCustomUIHandoff(sourceAlarmId: sourceAlarmId, surfaceAlarmId: nil)
+                startOrQueueAlarm(alarmId: sourceAlarmId)
+            }
             return
         }
 
@@ -1889,6 +1957,7 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     }
 
     private func handleAlarmSnoozeAction(notification: UNNotification) {
+        print("🧭 [ALARMTRACE_ACTION] EVENT=LEGACY_ALARM_SNOOZE_ACTION_RECEIVED REQUEST_ID=\(notification.request.identifier) IS_RINGING=\(ringCoordinator?.isRinging == true)")
         if ringCoordinator?.isRinging == true {
             ringCoordinator?.snooze()
             return

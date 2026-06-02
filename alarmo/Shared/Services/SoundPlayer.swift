@@ -55,7 +55,7 @@ final class SoundPlayer {
         if let trackUri = spotifyInfo.trackUri {
             // --- SPOTIFY TRACK ---
             // Strategy: Try Web API playback + always play fallback alarm as safety net.
-            // User NEVER leaves the Alarmo app.
+            // User NEVER leaves the Awayk app.
             print("[SoundPlayer] 🎵 Spotify alarm: \(resourceName) → \(trackUri)")
             spotifyTrackUri = trackUri
             spotifyPlaybackActive = true

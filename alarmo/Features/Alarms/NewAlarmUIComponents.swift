@@ -111,6 +111,7 @@ private struct FocusDialAlarmTimePickerView: View {
     private let ringSize: CGFloat = 186
     private let ringWidth: CGFloat = 36
     private let alarmRingBlue = Color(red: 0.08, green: 0.78, blue: 0.92)
+    private var tiimoWeekdayPurple: Color { Colors.accentBlue }
 
     private var progress: Double {
         min(max(currentMinutesInCycle / totalMinutesInCycle, 0), 1)
@@ -164,13 +165,44 @@ private struct FocusDialAlarmTimePickerView: View {
         }
     }
 
+    private var isTiimo: Bool {
+        settingsStore.alarmThemeStyle.usesTiimoLayoutBranch
+    }
+
+    private var ringAccentColor: Color {
+        isTiimo ? tiimoWeekdayPurple : alarmRingBlue
+    }
+
     private var ringGradientColors: [Color] {
         [
-            alarmRingBlue.opacity(0.62),
-            alarmRingBlue.opacity(0.96),
-            alarmRingBlue.opacity(0.78),
-            alarmRingBlue.opacity(0.80)
+            ringAccentColor.opacity(0.62),
+            ringAccentColor.opacity(0.96),
+            ringAccentColor.opacity(0.78),
+            ringAccentColor.opacity(0.80)
         ]
+    }
+
+    private var innerCircleGradientColors: [Color] {
+        if isTiimo {
+            return [
+                Colors.saleBadgeEnd.opacity(0.98),
+                Colors.accentBlue.opacity(0.96),
+                Colors.accentTeal.opacity(0.95)
+            ]
+        }
+        return [
+            (isLightMode ? Color(hex: "#F4F2FF") : Color(hex: "#C7C4F8")).opacity(0.98),
+            (isLightMode ? Color(hex: "#B7B3EE") : Color(hex: "#8E8BC3")).opacity(0.92),
+            (isLightMode ? Color(hex: "#807EA8") : Color(hex: "#5B5A86")).opacity(0.90)
+        ]
+    }
+
+    private var centerAlarmIconColor: Color {
+        isTiimo ? .white : Colors.textSecondary
+    }
+
+    private var centerTimeTextColor: Color {
+        isTiimo ? .white : Colors.textPrimary
     }
 
     private var topReferenceLabel: String {
@@ -220,13 +252,10 @@ private struct FocusDialAlarmTimePickerView: View {
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [
-                                (isLightMode ? Color.white : Color(red: 0.72, green: 0.74, blue: 0.96)).opacity(0.95),
-                                (isLightMode ? Colors.cardSurface : Color.black).opacity(0.95)
-                            ],
+                            colors: innerCircleGradientColors,
                             center: .center,
-                            startRadius: 20,
-                            endRadius: 100
+                            startRadius: 16,
+                            endRadius: 110
                         )
                     )
                     .frame(width: ringSize * 0.62, height: ringSize * 0.62)
@@ -238,10 +267,10 @@ private struct FocusDialAlarmTimePickerView: View {
                         VStack(spacing: 6) {
                             Image(systemName: "alarm.fill")
                                 .font(.system(size: 20, weight: .semibold))
-                                .foregroundColor(Colors.textSecondary)
+                                .foregroundColor(centerAlarmIconColor)
                             Text(centerTimeLabel)
                                 .font(.system(size: is12HourFormat ? 34 : 31, weight: .black, design: .monospaced))
-                                .foregroundColor(Colors.textPrimary)
+                                .foregroundColor(centerTimeTextColor)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.78)
                                 .frame(maxWidth: ringSize * 0.46)
@@ -271,18 +300,25 @@ private struct FocusDialAlarmTimePickerView: View {
                 }
                 .frame(width: ringSize + 160)
             }
-            .frame(width: ringSize + 20, height: ringSize + 20)
-            .contentShape(Circle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        isDragging = true
-                        updateFromDrag(location: value.location)
-                    }
-                    .onEnded { _ in
-                        isDragging = false
-                    }
-            )
+            // Keep frame wide enough so side format buttons remain fully tappable.
+            .frame(width: ringSize + 170, height: ringSize + 20)
+            .overlay {
+                // Restrict drag gesture hit-testing to a ring band (not the center)
+                // so the center time remains tappable and side 12H/24H buttons work.
+                Circle()
+                    .stroke(Color.white.opacity(0.001), lineWidth: ringWidth + 28)
+                    .frame(width: ringSize + 20, height: ringSize + 20)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                isDragging = true
+                                updateFromDrag(location: value.location)
+                            }
+                            .onEnded { _ in
+                                isDragging = false
+                            }
+                    )
+            }
 
             Button {
                 showWheelPicker = true

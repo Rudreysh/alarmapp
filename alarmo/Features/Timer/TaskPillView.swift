@@ -9,7 +9,7 @@ struct TaskPillView: View {
         Button(action: onTap) {
             HStack(spacing: 8) {
                 Text(taskName)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: 14, weight: .medium))
                     .lineLimit(1)
                 
                 Image(systemName: "chevron.down")
@@ -17,7 +17,7 @@ struct TaskPillView: View {
             }
             .foregroundColor(theme.primaryText)
             .padding(.horizontal, 20)
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
             .background(
                 Capsule()
                     .fill(theme.pillBg)

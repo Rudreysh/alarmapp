@@ -9,7 +9,27 @@ struct OnboardingScreenTimeAccessView: View {
     @StateObject private var screenTimeManager = ScreenTimeAuthorizationManager.shared
     @State private var animateIn = false
 
-    var body: some View {
+    
+    private var isTiimoTheme: Bool {
+        AlarmThemeStyle.persisted.usesTiimoLayoutBranch
+    }
+
+    private var titleTextColor: Color {
+        isTiimoTheme ? Colors.textPrimary : .white
+    }
+
+    private var bodyTextColor: Color {
+        isTiimoTheme ? Colors.textSecondary : Color.white.opacity(0.82)
+    }
+
+    private var secondaryActionTextColor: Color {
+        isTiimoTheme ? Colors.textPrimary : .white
+    }
+
+    private var secondaryActionBackground: Color {
+        isTiimoTheme ? Colors.cardSurface : Color.white.opacity(0.15)
+    }
+var body: some View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
             
@@ -30,16 +50,16 @@ struct OnboardingScreenTimeAccessView: View {
                     
                     Text("Permission for Screen Time")
                         .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(Colors.textPrimary)
+                        .foregroundColor(titleTextColor)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
                         .fixedSize(horizontal: false, vertical: true)
                     
-                    Text("Screen Time permissions are required for the Accountability features, allowing Alarmo to block distracting apps while you focus.")
+                    Text("Screen Time permissions are required for the Accountability features, allowing Awayk to block distracting apps while you focus.")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Colors.textSecondary)
+                        .foregroundColor(bodyTextColor)
                         .lineSpacing(2)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
@@ -56,10 +76,10 @@ struct OnboardingScreenTimeAccessView: View {
                     Button(action: onNext) {
                         Text("Skip")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(secondaryActionTextColor)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(Color.white.opacity(0.15))
+                            .background(secondaryActionBackground)
                             .cornerRadius(32)
                     }
                     .disabled(isRequesting)
@@ -72,7 +92,8 @@ struct OnboardingScreenTimeAccessView: View {
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, 24)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .onboardingContentFrame()
 
             if isRequesting {
                 Color.black.opacity(0.40).ignoresSafeArea()
@@ -94,7 +115,7 @@ struct OnboardingScreenTimeAccessView: View {
                 }
             }
         } message: {
-            Text("Screen Time access is disabled. Please enable it in iOS Settings to use Alarmo's focus and accountability features.")
+            Text("Screen Time access is disabled. Please enable it in iOS Settings to use Awayk's focus and accountability features.")
         }
     }
     

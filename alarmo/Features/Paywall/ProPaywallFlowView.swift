@@ -72,6 +72,9 @@ struct ProPaywallFlowView: View {
 
 private struct PaywallHeader: View {
     let onClose: () -> Void
+    private var isTiimoTheme: Bool {
+        AlarmThemeStyle.persisted.usesTiimoLayoutBranch
+    }
 
     var body: some View {
         HStack {
@@ -87,12 +90,12 @@ private struct PaywallHeader: View {
                     )
                 Text("PRO")
                     .font(.system(size: 16, weight: .black))
-                    .foregroundColor(.white)
+                    .foregroundColor(isTiimoTheme ? .black : .white)
             }
             Spacer()
             Button(action: onClose) {
                 Image(systemName: "xmark")
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(isTiimoTheme ? .black : .white.opacity(0.6))
                     .padding(8)
             }
         }
@@ -109,7 +112,7 @@ private struct ProPaywallIntroView: View {
         VStack(spacing: Spacing.l) {
             PaywallHeader(onClose: onClose)
 
-            Text("One alarm is enough\nwith Alarmo PRO")
+            Text("One alarm is enough\nwith Awayk PRO")
                 .font(.system(size: 34, weight: .heavy, design: .rounded))
                 .foregroundColor(.white)
                 .multilineTextAlignment(.leading)
@@ -348,6 +351,9 @@ private struct ProPaywallPlanSelectionView: View {
     @Binding var selectedPlan: ProPlanOption
 
     @StateObject private var paywallViewModel = PaywallViewModel()
+    private var useDarkText: Bool {
+        AlarmThemeStyle.persisted.forcesLightColorScheme
+    }
 
     var body: some View {
         VStack(spacing: Spacing.l) {
@@ -356,10 +362,10 @@ private struct ProPaywallPlanSelectionView: View {
             VStack(spacing: Spacing.s) {
                 Text("Upgrade to Pro")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(useDarkText ? .black.opacity(0.65) : .white.opacity(0.7))
                 Text("Choose your plan")
                     .font(.system(size: 28, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(useDarkText ? .black : .white)
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, Spacing.l)
@@ -461,6 +467,9 @@ private struct ProPlanCard: View {
     let product: PaywallProduct?
     let selected: Bool
     let onTap: () -> Void
+    private var useDarkText: Bool {
+        AlarmThemeStyle.persisted.forcesLightColorScheme
+    }
 
     var body: some View {
         Button(action: onTap) {
@@ -477,19 +486,19 @@ private struct ProPlanCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(planTitle)
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(useDarkText ? .black : .white)
                     if let trial = product?.trialText, !trial.isEmpty {
                         Text(trial)
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(product?.isTrialAvailable == true ? Colors.accentTeal : .white.opacity(0.7))
+                            .foregroundColor(product?.isTrialAvailable == true ? Colors.accentTeal : (useDarkText ? .black.opacity(0.65) : .white.opacity(0.7)))
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
-                            .background((product?.isTrialAvailable == true ? Colors.accentTeal.opacity(0.2) : Color.white.opacity(0.08)))
+                            .background((product?.isTrialAvailable == true ? Colors.accentTeal.opacity(0.2) : (useDarkText ? Color.black.opacity(0.06) : Color.white.opacity(0.08))))
                             .clipShape(Capsule())
                     } else if plan == .lifetime {
                         Text("Pay once, use forever")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(useDarkText ? .black.opacity(0.55) : .white.opacity(0.6))
                     }
                 }
 
@@ -498,16 +507,16 @@ private struct ProPlanCard: View {
                 VStack(alignment: .trailing, spacing: 6) {
                     Text(planPrice)
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(useDarkText ? .black : .white)
                     if !planSubprice.isEmpty {
                         Text(planSubprice)
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(useDarkText ? .black.opacity(0.55) : .white.opacity(0.6))
                     }
                     if let oldPrice = product?.oldPriceString, !oldPrice.isEmpty {
                         Text(oldPrice)
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.4))
+                            .foregroundColor(useDarkText ? .black.opacity(0.4) : .white.opacity(0.4))
                             .strikethrough()
                     }
                 }

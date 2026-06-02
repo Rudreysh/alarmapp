@@ -485,7 +485,7 @@
 				INFOPLIST_FILE = /Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmo.AlarmoWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = ht.awayk.AlarmoWidget;
 				PRODUCT_NAME = AlarmoWidget;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
@@ -503,7 +503,7 @@
 				INFOPLIST_FILE = /Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoShieldUI/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmo.AlarmoShieldUI;
+				PRODUCT_BUNDLE_IDENTIFIER = ht.awayk.AlarmoShieldUI;
 				PRODUCT_NAME = AlarmoShieldUI;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
@@ -522,7 +522,7 @@
 				INFOPLIST_FILE = /Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmo.AlarmoWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = ht.awayk.AlarmoWidget;
 				PRODUCT_NAME = AlarmoWidget;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
@@ -542,7 +542,7 @@
 				INFOPLIST_FILE = /Users/rukesh/Documents/projects/alarmo/alarmo/AlarmoShieldUI/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmo.AlarmoShieldUI;
+				PRODUCT_BUNDLE_IDENTIFIER = ht.awayk.AlarmoShieldUI;
 				PRODUCT_NAME = AlarmoShieldUI;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
@@ -683,16 +683,16 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = alarmo/Info.plist;
-				INFOPLIST_KEY_NSAlarmKitUsageDescription = "Alarmo uses AlarmKit to schedule system-level alarms on supported iOS versions.";
-				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Alarmo needs access to your media library to import custom alarm sounds.";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Alarmo needs camera access to scan QR/Barcodes for missions.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Alarmo reads your Apple Health data, including steps, walking/running distance, cycling distance, sleep, hydration, standing time, and mindfulness minutes to keep health habits in sync.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Alarmo may update selected health records when you explicitly use health-write features.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Alarmo needs microphone access to record custom alarm sounds.";
-				INFOPLIST_KEY_NSMotionUsageDescription = "Alarmo mission needs your motion data.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Allow Alarmo to save prepared wallpapers to your Photos.";
+				INFOPLIST_KEY_NSAlarmKitUsageDescription = "Awayk uses AlarmKit to schedule system-level alarms on supported iOS versions.";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Awayk needs access to your media library to import custom alarm sounds.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Awayk needs camera access to scan QR/Barcodes for missions.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Awayk reads your Apple Health data, including steps, walking/running distance, cycling distance, sleep, hydration, standing time, and mindfulness minutes to keep health habits in sync.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Awayk may update selected health records when you explicitly use health-write features.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Awayk needs microphone access to record custom alarm sounds.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Awayk mission needs your motion data.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Allow Awayk to save prepared wallpapers to your Photos.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Allow access to select alarm wallpapers.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Alarmo needs speech recognition access to verify spoken wake-up missions.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Awayk needs speech recognition access to verify spoken wake-up missions.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSUserTrackingUsageDescription = "Allow tracking to improve ads and personalization.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -707,7 +707,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmo;
+				PRODUCT_BUNDLE_IDENTIFIER = ht.awayk;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -731,16 +731,16 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = alarmo/Info.plist;
-				INFOPLIST_KEY_NSAlarmKitUsageDescription = "Alarmo uses AlarmKit to schedule system-level alarms on supported iOS versions.";
-				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Alarmo needs access to your media library to import custom alarm sounds.";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Alarmo needs camera access to scan QR/Barcodes for missions.";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "Alarmo reads your Apple Health data, including steps, walking/running distance, cycling distance, sleep, hydration, standing time, and mindfulness minutes to keep health habits in sync.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Alarmo may update selected health records when you explicitly use health-write features.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Alarmo needs microphone access to record custom alarm sounds.";
-				INFOPLIST_KEY_NSMotionUsageDescription = "Alarmo mission needs your motion data.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Allow Alarmo to save prepared wallpapers to your Photos.";
+				INFOPLIST_KEY_NSAlarmKitUsageDescription = "Awayk uses AlarmKit to schedule system-level alarms on supported iOS versions.";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Awayk needs access to your media library to import custom alarm sounds.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Awayk needs camera access to scan QR/Barcodes for missions.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Awayk reads your Apple Health data, including steps, walking/running distance, cycling distance, sleep, hydration, standing time, and mindfulness minutes to keep health habits in sync.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Awayk may update selected health records when you explicitly use health-write features.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Awayk needs microphone access to record custom alarm sounds.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "Awayk mission needs your motion data.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Allow Awayk to save prepared wallpapers to your Photos.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Allow access to select alarm wallpapers.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Alarmo needs speech recognition access to verify spoken wake-up missions.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Awayk needs speech recognition access to verify spoken wake-up missions.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSUserTrackingUsageDescription = "Allow tracking to improve ads and personalization.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -755,7 +755,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = ht.alarmo;
+				PRODUCT_BUNDLE_IDENTIFIER = ht.awayk;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;

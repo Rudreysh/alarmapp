@@ -20,7 +20,11 @@ struct OnboardingCameraAccessView: View {
     @State private var permissionState: CameraPermissionStepState = .notDetermined
     @State private var animateIn = false
 
-    var body: some View {
+    
+    private var isTiimoTheme: Bool {
+        AlarmThemeStyle.persisted.usesTiimoLayoutBranch
+    }
+var body: some View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
 
@@ -42,7 +46,7 @@ struct OnboardingCameraAccessView: View {
                     Text("Permission to Access Camera")
                         .font(.system(size: 24, weight: .bold))
                         .foregroundColor(Colors.textPrimary)
-                        .lineLimit(2)
+                        .lineLimit(3)
                         .minimumScaleFactor(0.8)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
@@ -66,10 +70,10 @@ struct OnboardingCameraAccessView: View {
                     Button(action: onNext) {
                         Text("Skip")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(Color.white.opacity(0.15))
+                            .background(Colors.cardSurface)
                             .cornerRadius(32)
                     }
                     .disabled(isRequesting)
@@ -84,7 +88,8 @@ struct OnboardingCameraAccessView: View {
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, 24)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .onboardingContentFrame()
 
             if showCameraPrompt {
                 cameraPromptOverlay
@@ -123,12 +128,12 @@ struct OnboardingCameraAccessView: View {
             Color.black.opacity(0.52).ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 14) {
-                Text("\"Alarmo\" would like to access your Camera.")
+                Text("\"Awayk\" would like to access your Camera.")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(Colors.textPrimary)
+                    .foregroundColor(.white)
                     .lineSpacing(2)
 
-                Text("Camera access helps Alarmo run QR/barcode and object-hunt missions reliably when alarms ring.")
+                Text("Camera access helps Awayk run QR/barcode and object-hunt missions reliably when alarms ring.")
                     .font(.system(size: 15, weight: .medium))
                     .foregroundColor(Color.white.opacity(0.7))
                     .lineSpacing(3)

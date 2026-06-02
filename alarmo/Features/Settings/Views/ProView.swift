@@ -6,11 +6,9 @@ struct ProView: View {
 
     @ObservedObject private var subManager = SubscriptionManager.shared
     @ObservedObject private var alarmStore = AlarmStore.shared
-    @ObservedObject private var overlapStore = OverlapStore.shared
     @ObservedObject private var settings = SettingsStore.shared
     @StateObject private var preferences = AppPreferences()
 
-    @Query private var planItems: [PlanItem]
     @Query private var appLists: [AppList]
 
     @State private var showUsageBreakdown = false
@@ -30,14 +28,6 @@ struct ProView: View {
         let spotifyNames = Set(savedTracks.keys)
         guard !spotifyNames.isEmpty else { return 0 }
         return alarmStore.alarms.filter { spotifyNames.contains($0.soundName) }.count
-    }
-
-    private var habitCount: Int {
-        planItems.filter { $0.type == .habit && !$0.isArchived && $0.parentTask == nil }.count
-    }
-
-    private var overlapCityCount: Int {
-        overlapStore.cities.count
     }
 
     private var configuredBlockListCount: Int {
@@ -94,16 +84,6 @@ struct ProView: View {
                 suggestion: "Connect one Spotify track for your main alarm."
             ),
             ProUsageItem(
-                title: "Habit Expansion",
-                subtitle: "Active habit trackers in your Habit workspace",
-                icon: "checklist.checked",
-                tint: Colors.accentTeal,
-                usageText: "\(habitCount) habits",
-                progress: progress(habitCount, target: 5),
-                isActive: habitCount > 2,
-                suggestion: "Add more habits and turn reminders on for consistency."
-            ),
-            ProUsageItem(
                 title: "Focus Tuning",
                 subtitle: "Custom Pomodoro timings and auto-flow setup",
                 icon: "timer.circle.fill",
@@ -122,16 +102,6 @@ struct ProView: View {
                 progress: progress(configuredBlockListCount, target: 2),
                 isActive: configuredBlockListCount > 0 || settings.blockAppsEnabled,
                 suggestion: "Create a block list and assign it to an alarm or focus flow."
-            ),
-            ProUsageItem(
-                title: "Time Overlap Board",
-                subtitle: "Global city planning for distributed routines",
-                icon: "globe.europe.africa.fill",
-                tint: .cyan,
-                usageText: "\(overlapCityCount) cities",
-                progress: progress(overlapCityCount, target: 5),
-                isActive: overlapCityCount >= 2,
-                suggestion: "Add at least two cities to unlock meaningful overlap analysis."
             ),
             ProUsageItem(
                 title: "Penalty Shield",

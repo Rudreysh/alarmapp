@@ -9,7 +9,7 @@ import Foundation
 /// 4. If Spotify can't play (no device, not Premium), returns false → caller uses fallback
 ///
 /// IMPORTANT: This controller NEVER calls UIApplication.shared.open() or switches apps.
-/// The user always stays in Alarmo. If Spotify playback fails, the fallback alarm sounds.
+/// The user always stays in Awayk. If Spotify playback fails, the fallback alarm sounds.
 ///
 /// Requirements:
 /// - User must have Spotify Premium (Free accounts can't use playback control API)

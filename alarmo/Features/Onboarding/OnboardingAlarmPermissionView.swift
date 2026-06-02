@@ -27,7 +27,27 @@ struct OnboardingAlarmPermissionView: View {
     @State private var showNotificationsDeniedAlert = false
     @State private var animateIn = false
 
-    var body: some View {
+    
+    private var isTiimoTheme: Bool {
+        AlarmThemeStyle.persisted.usesTiimoLayoutBranch
+    }
+
+    private var titleTextColor: Color {
+        isTiimoTheme ? Colors.textPrimary : .white
+    }
+
+    private var bodyTextColor: Color {
+        isTiimoTheme ? Colors.textSecondary : Color.white.opacity(0.82)
+    }
+
+    private var secondaryActionTextColor: Color {
+        isTiimoTheme ? Colors.textPrimary : .white
+    }
+
+    private var secondaryActionBackground: Color {
+        isTiimoTheme ? Colors.cardSurface : Color.white.opacity(0.15)
+    }
+var body: some View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
 
@@ -49,7 +69,7 @@ struct OnboardingAlarmPermissionView: View {
 
                     Text("Allow Alarms to Ring on Lock Screen")
                         .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(Colors.textPrimary)
+                        .foregroundColor(titleTextColor)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
                         .multilineTextAlignment(.center)
@@ -58,7 +78,7 @@ struct OnboardingAlarmPermissionView: View {
 
                     Text("On iOS 26+, Alarm permission enables true system alarm behavior so alarms can ring while the phone is locked and in Silent mode.")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Colors.textSecondary)
+                        .foregroundColor(bodyTextColor)
                         .lineSpacing(2)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
@@ -75,10 +95,10 @@ struct OnboardingAlarmPermissionView: View {
                     Button(action: onNext) {
                         Text("Skip")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(secondaryActionTextColor)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(Color.white.opacity(0.15))
+                            .background(secondaryActionBackground)
                             .cornerRadius(32)
                     }
                     .disabled(isRequesting)
@@ -91,7 +111,8 @@ struct OnboardingAlarmPermissionView: View {
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, 24)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .onboardingContentFrame()
 
             if showAlarmPrompt {
                 alarmPromptOverlay
@@ -121,7 +142,7 @@ struct OnboardingAlarmPermissionView: View {
                 openAppSettings()
             }
         } message: {
-            Text("Alarm permission requires Notifications to be enabled first. Enable notifications for Alarmo, then try again.")
+            Text("Alarm permission requires Notifications to be enabled first. Enable notifications for Awayk, then try again.")
         }
         .alert("Alarm Permission Needed", isPresented: $showPermissionDeniedAlert) {
             Button("Continue", role: .cancel) {
@@ -131,7 +152,7 @@ struct OnboardingAlarmPermissionView: View {
                 openAppSettings()
             }
         } message: {
-            Text("To use system alarm behavior, enable Alarm permission for Alarmo in Settings.")
+            Text("To use system alarm behavior, enable Alarm permission for Awayk in Settings.")
         }
         .alert("Alarm Permission Request Failed", isPresented: $showPermissionErrorAlert) {
             Button("Continue", role: .cancel) {
@@ -150,12 +171,12 @@ struct OnboardingAlarmPermissionView: View {
             Color.black.opacity(0.52).ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 16) {
-                Text("Allow \"Alarmo\" to schedule alarms and timers?")
+                Text("Allow \"Awayk\" to schedule alarms and timers?")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(Colors.textPrimary)
+                    .foregroundColor(.white)
                     .lineSpacing(3)
 
-                Text("This lets Alarmo ring on Lock Screen and in Silent mode using iOS system alarm behavior.")
+                Text("This lets Awayk ring on Lock Screen and in Silent mode using iOS system alarm behavior.")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(Color.white.opacity(0.72))
                     .lineSpacing(3)

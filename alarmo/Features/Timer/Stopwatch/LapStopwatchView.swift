@@ -12,7 +12,7 @@ struct LapStopwatchView: View {
     @State private var isExporting = false
 
     var diameter: CGFloat {
-        min(UIScreen.main.bounds.width * 0.72, 280)
+        min(UIScreen.main.bounds.width * 0.72, 280) * 0.85
     }
 
     private var isLightMode: Bool {

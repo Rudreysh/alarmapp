@@ -16,6 +16,7 @@ struct AppRootView: View {
     @StateObject private var pomodoroEngine = PomodoroEngine()
     @StateObject private var navigationStore = NavigationStore()
     @ObservedObject private var settingsStore = SettingsStore.shared
+    @StateObject private var themeManager = ThemeManager.shared
     @Environment(\.modelContext) var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @State private var foregroundScheduler: AlarmForegroundScheduler?
@@ -34,6 +35,7 @@ struct AppRootView: View {
     @State private var customUIHandoffStartedAt: Date?
     @State private var customUIHandoffAttemptCount: Int = 0
     @AppStorage("settings.alarmThemeStyleRaw") private var appThemeStyleRaw: String = AlarmThemeStyle.default.rawValue
+    @State private var showLaunchLogo = true
 
     init() {
         let preferences = AppPreferences()
@@ -44,13 +46,29 @@ struct AppRootView: View {
     }
 
     var body: some View {
-        return Group {
-            if showingMainTab {
-                MainTabContainerView(preferences: appPreferences, alarmStore: alarmStore)
-            } else {
-                OnboardingFlowView(viewModel: onboardingViewModel, appPreferences: appPreferences, alarmStore: alarmStore)
+        return ZStack {
+            Group {
+                if showingMainTab {
+                    MainTabContainerView(preferences: appPreferences, alarmStore: alarmStore)
+                } else {
+                    OnboardingFlowView(viewModel: onboardingViewModel, appPreferences: appPreferences, alarmStore: alarmStore)
+                }
+            }
+
+            if showLaunchLogo {
+                LaunchLogoView(isTiimoTheme: isTiimoTheme)
+                    .transition(.opacity)
+                    .zIndex(999)
             }
         }
+        .animation(.easeInOut(duration: 0.24), value: showLaunchLogo)
+        .onAppear {
+            let dismissDelay: TimeInterval = UIAccessibility.isReduceMotionEnabled ? 0.55 : 1.0
+            DispatchQueue.main.asyncAfter(deadline: .now() + dismissDelay) {
+                showLaunchLogo = false
+            }
+        }
+        .environmentObject(themeManager)
         .preferredColorScheme(resolvedColorScheme)
         .onAppear {
             // Configure remote assets from GitHub
@@ -174,6 +192,7 @@ struct AppRootView: View {
                 pomodoroEngine.handleSceneDidEnterBackground()
                 stopAlarmKitSurfaceTask?.cancel()
                 stopAlarmKitSurfaceTask = nil
+                print("🧭 [ALARMTRACE_ACTION] EVENT=SCENE_LEFT_FOREGROUND POSSIBLE_SIDE_BUTTON=true SCENE_PHASE=\(String(describing: newPhase).uppercased()) APP_STATE=\(UIApplication.shared.applicationState.rawValue) IS_RINGING=\(ringCoordinator.isRinging) ENGINE_ACTIVE=\(AlarmContinuousAudioEngine.shared.isEngineActive) ENGINE_HEALTHY=\(AlarmContinuousAudioEngine.shared.cachedIsHealthy) PHASE=\(AlarmAudioStateController.shared.phase.rawValue) BRIDGE_SURFACE=\(AlarmBackgroundAudioBridge.shared.currentAlarmID ?? "nil")")
                 // CRITICAL: cancel any in-flight AlarmKit dismissal. If the user
                 // re-locks during a deferred dismissal window, we must NOT stop
                 // AlarmKit — its lock-screen surface is the most reliable audio
@@ -181,6 +200,7 @@ struct AppRootView: View {
                 notificationManager.cancelPendingAlarmKitDismissals(reason: "scene-inactive-background")
                 ringCoordinator.cancelDeferredBridgeStop(reason: "scene-inactive-background")
                 if ringCoordinator.isRinging, let alarm = ringCoordinator.activeAlarm {
+                    print("🧭 [ALARMTRACE_ACTION] EVENT=SIDE_BUTTON_OR_BACKGROUND_DURING_RINGING ALARM_ID=\(alarm.id.uuidString) SOUND=\"\(alarm.soundName)\" ENGINE_ACTIVE=\(AlarmContinuousAudioEngine.shared.isEngineActive) ENGINE_HEALTHY=\(AlarmContinuousAudioEngine.shared.cachedIsHealthy)")
                     ringCoordinator.reassertRingingAudio(reason: "scene-inactive-background")
                     notificationManager.scheduleHardwareButtonRespawnIfNeeded(
                         sourceAlarmId: alarm.id.uuidString,
@@ -228,6 +248,7 @@ struct AppRootView: View {
                 } else if let surfaceAlarmId = AlarmBackgroundAudioBridge.shared.currentAlarmID {
                     let sourceAlarmId = AlarmBackgroundAudioBridge.shared.currentSourceAlarmID
                         ?? AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceAlarmId)
+                    print("🧭 [ALARMTRACE_ACTION] EVENT=SIDE_BUTTON_OR_BACKGROUND_DURING_BRIDGE_ONLY SOURCE_ID=\(sourceAlarmId) SURFACE_ID=\(surfaceAlarmId) ENGINE_ACTIVE=\(AlarmContinuousAudioEngine.shared.isEngineActive) ENGINE_HEALTHY=\(AlarmContinuousAudioEngine.shared.cachedIsHealthy)")
                     notificationManager.scheduleHardwareButtonRespawnIfNeeded(
                         sourceAlarmId: sourceAlarmId,
                         alarmName: nil,
@@ -261,6 +282,7 @@ struct AppRootView: View {
             handlePendingCustomAlarmUIHandoff(trigger: "customUIHandoffRequested")
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            print("🧭 [ALARMTRACE_ACTION] EVENT=WILL_ENTER_FOREGROUND IS_RINGING=\(ringCoordinator.isRinging) ENGINE_ACTIVE=\(AlarmContinuousAudioEngine.shared.isEngineActive) ENGINE_HEALTHY=\(AlarmContinuousAudioEngine.shared.cachedIsHealthy) PHASE=\(AlarmAudioStateController.shared.phase.rawValue) BRIDGE_PLAYING=\(AlarmBackgroundAudioBridge.shared.isPlaying)")
             // Fires BEFORE scenePhase becomes .active and BEFORE
             // protectedDataDidBecomeAvailable. Force-reset the audio session
             // to clear any stuck state from AlarmKit's interference, then
@@ -282,6 +304,7 @@ struct AppRootView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            print("🧭 [ALARMTRACE_ACTION] EVENT=DID_BECOME_ACTIVE IS_RINGING=\(ringCoordinator.isRinging) ENGINE_ACTIVE=\(AlarmContinuousAudioEngine.shared.isEngineActive) ENGINE_HEALTHY=\(AlarmContinuousAudioEngine.shared.cachedIsHealthy) PHASE=\(AlarmAudioStateController.shared.phase.rawValue)")
             AlarmAudioStateController.shared.handleAppBecameActive()
             AlarmContinuousAudioEngine.shared.recoverIfNeeded()
             print("[AppRoot] Engine recovery check on active — isEngineActive: \(AlarmContinuousAudioEngine.shared.isEngineActive)")
@@ -291,6 +314,7 @@ struct AppRootView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
             let appState = UIApplication.shared.applicationState
+            print("🧭 [ALARMTRACE_ACTION] EVENT=PROTECTED_DATA_AVAILABLE APP_STATE=\(appState.rawValue) IS_RINGING=\(ringCoordinator.isRinging) ENGINE_ACTIVE=\(AlarmContinuousAudioEngine.shared.isEngineActive) ENGINE_HEALTHY=\(AlarmContinuousAudioEngine.shared.cachedIsHealthy) PHASE=\(AlarmAudioStateController.shared.phase.rawValue)")
             // Earliest moment after FaceID/Touch ID auth. Force-reset the
             // audio session to clear AlarmKit's audio session interference,
             // then reassert audio. This minimizes the silence window the
@@ -544,8 +568,7 @@ struct AppRootView: View {
             print("📲 [ALARMTRACE_ROOT] EVENT=DEFERRED_DISMISS_SURFACE_SCHEDULED SOURCE=\(sourceAlarmId) SURFACE=\(alarmId)")
             try? await Task.sleep(nanoseconds: 350_000_000)
             guard ringCoordinator.isRinging else { return }
-            print("📲 [ALARMTRACE_ROOT] EVENT=DEFERRED_DISMISS_SURFACE_EXECUTING SOURCE=\(sourceAlarmId) SURFACE=\(alarmId)")
-            notificationManager.dismissLinkedAlarmKitSurfaces(sourceAlarmId: sourceAlarmId)
+            print("📲 [ALARMTRACE_ROOT] EVENT=DEFERRED_DISMISS_SURFACE_SKIPPED_ACTIVE_RING SOURCE=\(sourceAlarmId) SURFACE=\(alarmId)")
             _ = alarmId
         }
     }
@@ -584,7 +607,13 @@ struct AppRootView: View {
     }
 
     private var resolvedColorScheme: ColorScheme? {
-        appThemeStyleRaw == AlarmThemeStyle.lilacCalm.rawValue ? .light : settingsStore.themeMode.colorScheme
+        let style = AlarmThemeStyle(rawValue: appThemeStyleRaw) ?? .default
+        return style.forcesLightColorScheme ? .light : settingsStore.themeMode.colorScheme
+    }
+
+    private var isTiimoTheme: Bool {
+        let style = AlarmThemeStyle(rawValue: appThemeStyleRaw) ?? .default
+        return style.usesTiimoLayoutBranch
     }
 
     private func handlePlanNotificationMarkDone(userInfo: [AnyHashable: Any]?) {
@@ -663,6 +692,24 @@ struct AppRootView: View {
             checkDate = previous
         }
         return streak
+    }
+}
+
+private struct LaunchLogoView: View {
+    let isTiimoTheme: Bool
+
+    var body: some View {
+        ZStack {
+            (isTiimoTheme ? Color.white : Color.black)
+                .ignoresSafeArea()
+
+            Text("Awayk")
+                .font(.system(size: 44, weight: .bold, design: .rounded))
+                .foregroundColor(isTiimoTheme ? .black : .white)
+                .kerning(0.4)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Awayk")
     }
 }
 

@@ -31,9 +31,9 @@ struct PomoTimerView: View {
     private let settingsStore = SettingsStore.shared
 
     private enum Layout {
-        static let selectorItemSpacing: CGFloat = 7
-        static let selectorHorizontalPadding: CGFloat = 12
-        static let selectorVerticalPadding: CGFloat = 7
+        static let selectorItemSpacing: CGFloat = 5.6
+        static let selectorHorizontalPadding: CGFloat = 9.6
+        static let selectorVerticalPadding: CGFloat = 5.6
 
         static let timerReadoutScale: CGFloat = 0.60
         static let timerReadoutBaseFactor: CGFloat = 0.22
@@ -100,7 +100,7 @@ struct PomoTimerView: View {
             let topSectionSpacer = isDenseLayout ? CGFloat(6) : CGFloat(16)
             let controlsTopSpacer = isDenseLayout ? CGFloat(2) : CGFloat(8)
             let diameter = min(availableWidth * 0.75, availableHeight * 0.45)
-            let middleDialDiameter = diameter * 0.60 // 20% smaller than previous center dial size
+            let middleDialDiameter = diameter * 0.72 // 20% larger circumference than the previous Pomodoro circle
             let ringSectionSpacing = isDenseLayout ? CGFloat(18) : CGFloat(24)
             let timerReadoutSize = max(Layout.timerReadoutMinimumSize, diameter * Layout.timerReadoutBaseFactor * Layout.timerReadoutScale)
             let resetIconSize = Layout.resetBaseSize * Layout.resetScale
@@ -113,17 +113,17 @@ struct PomoTimerView: View {
                         Button(action: { showTaskSelection = true }) {
                             HStack(spacing: Layout.selectorItemSpacing) {
                                 Text(activeTaskDisplayName())
-                                    .font(.system(size: 20, weight: .semibold))
+                                    .font(.system(size: 16, weight: .semibold))
                                     .lineLimit(1)
                                     .truncationMode(.tail)
                                     .minimumScaleFactor(0.85)
                                 
                                 Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 16))
+                                    .font(.system(size: 12.8))
                                     .foregroundColor(TimerPalette.accent)
                                 
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 14, weight: .bold))
+                                    .font(.system(size: 11.2, weight: .bold))
                                     .foregroundColor(Colors.textSecondary)
                             }
                             .foregroundColor(Colors.textPrimary)
@@ -151,7 +151,8 @@ struct PomoTimerView: View {
                         .fixedSize(horizontal: true, vertical: false)
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.top, topInset)
+                    .padding(.top, topInset + 12)
+                    .padding(.bottom, 12)
                     
                     HStack(spacing: 16) {
                         // Interval Settings Shortcut
@@ -198,10 +199,29 @@ struct PomoTimerView: View {
                                 triggerNextTimerStep()
                             }
                         }) {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 8) {
                                 if viewModel.ambientSoundName.isEmpty {
-                                    Image(systemName: "plus.circle.fill")
-                                        .font(.system(size: 13, weight: .bold))
+                                    ZStack(alignment: .bottomTrailing) {
+                                        Image(systemName: "music.note")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(isLightMode ? Colors.textPrimary : TimerPalette.accent)
+                                        
+                                        Circle()
+                                            .fill(LinearGradient(
+                                                colors: [Colors.accentTeal, Colors.accentBlue],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ))
+                                            .frame(width: 8, height: 8)
+                                            .overlay(
+                                                Image(systemName: "plus")
+                                                    .font(.system(size: 5, weight: .black))
+                                                    .foregroundColor(.white)
+                                            )
+                                            .offset(x: 4, y: 3)
+                                    }
+                                    .frame(width: 14, height: 14)
+                                    
                                     Text("Add Music")
                                         .font(.system(size: 13, weight: .bold))
                                 } else {
@@ -388,15 +408,15 @@ struct PomoTimerView: View {
                                     }
                                 }
                                 label: {
-                                    HStack(spacing: 10) {
+                                    HStack(spacing: 13) {
                                         Text("Start")
-                                            .font(.system(size: 14, weight: .black))
+                                            .font(.system(size: 18, weight: .black))
                                         Image(systemName: "play.fill")
-                                            .font(.system(size: 12, weight: .bold))
+                                            .font(.system(size: 16, weight: .bold))
                                     }
                                     .foregroundColor(.black)
-                                    .frame(width: 160)
-                                    .padding(.vertical, 8)
+                                    .frame(width: 208)
+                                    .padding(.vertical, 10.5)
                                     .background(
                                         Capsule()
                                             .fill(TimerPalette.accent)

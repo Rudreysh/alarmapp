@@ -1,10 +1,13 @@
 import SwiftUI
+import Combine
 
 struct TrackingExplainerView: View {
     @StateObject private var viewModel = TrackingExplainerViewModel()
     let onNext: () -> Void
     @State private var isRequesting = false
     @State private var animateItems = false
+    @State private var activeFeatureIndex = 0
+    private let featureTimer = Timer.publish(every: 1.8, on: .main, in: .common).autoconnect()
 
     var body: some View {
         ZStack {
@@ -32,11 +35,11 @@ struct TrackingExplainerView: View {
 
             VStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Personalized Experience.")
+                    Text("Build Your Perfect Wake Flow.")
                         .font(.system(size: 27, weight: .bold))
                         .foregroundColor(Colors.textPrimary)
 
-                    Text("Alarmo can securely tailor ads to your interests.")
+                    Text("Alarm, focus, and app blocking in one setup.")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
                         .lineSpacing(2)
@@ -56,24 +59,37 @@ struct TrackingExplainerView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: Spacing.m) {
                         TrackingFeatureCard(
-                            icon: "megaphone.fill",
-                            color: Colors.accentTeal,
-                            title: "Relevant Advertisements",
-                            subtitle: "Display ads that actually match your interests."
+                            icon: "alarm.fill",
+                            color: Color(hex: "#FF4D57"),
+                            title: "Smart Alarm",
+                            subtitle: "Reliable alarms with stronger fallback wake behavior.",
+                            isActive: activeFeatureIndex == 0
                         )
                         .opacity(animateItems ? 1 : 0)
                         .offset(y: animateItems ? 0 : 20)
                         .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.2), value: animateItems)
 
                         TrackingFeatureCard(
-                            icon: "checkmark.shield.fill",
-                            color: Colors.accentBlue,
-                            title: "Improve Alarmo",
-                            subtitle: "Help us understand usage to build better features."
+                            icon: "timer",
+                            color: Color(hex: "#F39C35"),
+                            title: "Pomodoro Focus",
+                            subtitle: "Stay locked in with clean focus sessions and breaks.",
+                            isActive: activeFeatureIndex == 1
                         )
                         .opacity(animateItems ? 1 : 0)
                         .offset(y: animateItems ? 0 : 20)
                         .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.3), value: animateItems)
+
+                        TrackingFeatureCard(
+                            icon: "shield.lefthalf.filled",
+                            color: Color(hex: "#35B6FF"),
+                            title: "Block Apps",
+                            subtitle: "Reduce distractions while you sleep or focus.",
+                            isActive: activeFeatureIndex == 2
+                        )
+                        .opacity(animateItems ? 1 : 0)
+                        .offset(y: animateItems ? 0 : 20)
+                        .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.4), value: animateItems)
                     }
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.m)
@@ -93,6 +109,11 @@ struct TrackingExplainerView: View {
         }
         .onAppear {
             animateItems = true
+        }
+        .onReceive(featureTimer) { _ in
+            withAnimation(.easeInOut(duration: 0.45)) {
+                activeFeatureIndex = (activeFeatureIndex + 1) % 3
+            }
         }
     }
     
@@ -115,16 +136,19 @@ private struct TrackingFeatureCard: View {
     let color: Color
     let title: String
     let subtitle: String
+    let isActive: Bool
     
     var body: some View {
         HStack(alignment: .top, spacing: Spacing.s) {
             ZStack {
                 Circle()
-                    .fill(color.opacity(0.15))
+                    .fill(color.opacity(isActive ? 0.22 : 0.15))
                     .frame(width: 40, height: 40)
                 Image(systemName: icon)
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(color)
+                    .scaleEffect(isActive ? 1.08 : 1.0)
+                    .animation(.easeInOut(duration: 0.35), value: isActive)
             }
             
             VStack(alignment: .leading, spacing: 2) {
@@ -150,8 +174,10 @@ private struct TrackingFeatureCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Colors.cardStroke, lineWidth: 1)
+                .stroke(isActive ? color.opacity(0.55) : Colors.cardStroke, lineWidth: isActive ? 1.5 : 1)
         )
         .appShadow(Shadows.card)
+        .scaleEffect(isActive ? 1.01 : 1.0)
+        .animation(.easeInOut(duration: 0.35), value: isActive)
     }
 }

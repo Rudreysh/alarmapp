@@ -3,13 +3,13 @@ import WidgetKit
 import SwiftUI
 
 @main
-struct AlarmoWidgetBundle: WidgetBundle {
+struct AwaykWidgetBundle: WidgetBundle {
     var body: some Widget {
-        AlarmoWidgetLiveActivity()
+        AwaykWidgetLiveActivity()
     }
 }
 
-struct AlarmoWidgetLiveActivity: Widget {
+struct AwaykWidgetLiveActivity: Widget {
     private enum RowDensity {
         case regular
         case compact

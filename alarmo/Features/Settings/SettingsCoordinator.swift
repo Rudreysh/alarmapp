@@ -9,7 +9,6 @@ enum SettingsRoute: Hashable {
     case preventAppUninstall
     case preventPowerOff
     case alarm
-    case habit
     case timer
     case advanced
     case theme

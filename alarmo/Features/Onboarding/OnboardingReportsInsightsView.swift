@@ -19,7 +19,19 @@ struct OnboardingReportsInsightsView: View {
     @State private var showNotificationPrompt = false
     @State private var animateIn = false
 
-    var body: some View {
+    
+    private var isTiimoTheme: Bool {
+        AlarmThemeStyle.persisted.usesTiimoLayoutBranch
+    }
+
+    private var secondaryActionTextColor: Color {
+        isTiimoTheme ? Colors.textPrimary : .white
+    }
+
+    private var secondaryActionBackground: Color {
+        isTiimoTheme ? Colors.cardSurface : Color.white.opacity(0.15)
+    }
+var body: some View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
 
@@ -48,7 +60,7 @@ struct OnboardingReportsInsightsView: View {
                         .frame(maxWidth: .infinity)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Text("Enable notifications so Alarmo can alert you for reports, reminders, and alarm events.")
+                    Text("Enable notifications so Awayk can alert you for reports, reminders, and alarm events.")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
                         .lineSpacing(2)
@@ -67,10 +79,10 @@ struct OnboardingReportsInsightsView: View {
                     Button(action: onNext) {
                         Text("Skip")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(secondaryActionTextColor)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(Color.white.opacity(0.15))
+                            .background(secondaryActionBackground)
                             .cornerRadius(32)
                     }
                     .disabled(isRequesting)
@@ -83,7 +95,8 @@ struct OnboardingReportsInsightsView: View {
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, 24)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .onboardingContentFrame()
 
             if showNotificationPrompt {
                 notificationPromptOverlay
@@ -113,7 +126,7 @@ struct OnboardingReportsInsightsView: View {
                 openAppSettings()
             }
         } message: {
-            Text("Notifications are currently disabled for Alarmo. Enable notifications in Settings for reliable alarm and report alerts.")
+            Text("Notifications are currently disabled for Awayk. Enable notifications in Settings for reliable alarm and report alerts.")
         }
     }
 
@@ -122,9 +135,9 @@ struct OnboardingReportsInsightsView: View {
             Color.black.opacity(0.52).ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 16) {
-                Text("\"Alarmo\" would like to send you notifications")
+                Text("\"Awayk\" would like to send you notifications")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(Colors.textPrimary)
+                    .foregroundColor(.white)
                     .lineSpacing(3)
 
                 Text("Notifications may include alerts, sounds, and badges. These can be configured in Settings.")

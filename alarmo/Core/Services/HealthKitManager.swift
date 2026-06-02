@@ -122,7 +122,7 @@ class HealthKitManager: ObservableObject {
         guard !readTypes.isEmpty else { return true }
 
         do {
-            // Read-only authorization is enough for Alarmo onboarding and avoids
+            // Read-only authorization is enough for Awayk onboarding and avoids
             // write-capability mismatches that can destabilize certain health types.
             try await healthStore.requestAuthorization(toShare: [], read: readTypes)
             

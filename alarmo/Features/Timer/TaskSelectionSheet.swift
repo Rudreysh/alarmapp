@@ -287,7 +287,7 @@ struct TaskRowCard: View {
                 // Play button indicator (decorative/functional selection)
                 Image(systemName: "play.circle.fill")
                     .font(.system(size: 24))
-                    .foregroundColor(isSelected ? TimerPalette.accent : Colors.textTertiary.opacity(0.3))
+                    .foregroundColor(playButtonColor)
             }
             .padding()
             .background(Colors.cardSurface.opacity(0.6))
@@ -330,6 +330,13 @@ struct TaskRowCard: View {
         }
         return ("pencil.and.outline", Colors.textTertiary)
     }
+
+    private var playButtonColor: Color {
+        if SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch {
+            return Colors.accentBlue.opacity(isSelected ? 1.0 : 0.55)
+        }
+        return isSelected ? TimerPalette.accent : Colors.textTertiary.opacity(0.3)
+    }
 }
 
 struct PlanTaskRowCard: View {
@@ -360,7 +367,7 @@ struct PlanTaskRowCard: View {
                 // Play button indicator
                 Image(systemName: "play.circle.fill")
                     .font(.system(size: 24))
-                    .foregroundColor(isSelected ? TimerPalette.accent : Colors.textTertiary.opacity(0.3))
+                    .foregroundColor(playButtonColor)
             }
             .padding()
             .background(Colors.cardSurface.opacity(0.6))
@@ -382,5 +389,12 @@ struct PlanTaskRowCard: View {
         case "pink": return .pink
         default: return TimerPalette.accent
         }
+    }
+
+    private var playButtonColor: Color {
+        if SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch {
+            return Colors.accentBlue.opacity(isSelected ? 1.0 : 0.55)
+        }
+        return isSelected ? TimerPalette.accent : Colors.textTertiary.opacity(0.3)
     }
 }

@@ -52,21 +52,46 @@ enum AlarmFocusRingGradient: String, Codable, CaseIterable, Identifiable {
 
 enum AlarmThemeStyle: String, Codable, CaseIterable, Identifiable {
     case `default` = "default"
-    case lilacCalm = "lilac_calm"
+    case tiimo = "tiimo"
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .default: return "Default"
-        case .lilacCalm: return "Tiimo"
+        case .tiimo: return "Tiimo"
         }
     }
 
     var iconSystemName: String {
         switch self {
         case .default: return "circle.lefthalf.filled"
-        case .lilacCalm: return "sparkles"
+        case .tiimo: return "square.on.square"
+        }
+    }
+}
+
+extension AlarmThemeStyle {
+    static var persisted: AlarmThemeStyle {
+        let rawValue = UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw")
+        return AlarmThemeStyle(rawValue: rawValue ?? AlarmThemeStyle.default.rawValue) ?? .default
+    }
+
+    var forcesLightColorScheme: Bool {
+        switch self {
+        case .tiimo:
+            return true
+        case .default:
+            return false
+        }
+    }
+
+    var usesTiimoLayoutBranch: Bool {
+        switch self {
+        case .tiimo:
+            return true
+        case .default:
+            return false
         }
     }
 }
@@ -163,7 +188,10 @@ class SettingsStore: ObservableObject {
     @AppStorage(Keys.points) var points: Int = 13
     
     @Published var themeMode: ThemeMode {
-        didSet { saveToDefaults(themeMode, key: Keys.themeMode) }
+        didSet {
+            saveToDefaults(themeMode, key: Keys.themeMode)
+            ThemeManager.shared.updateTheme()
+        }
     }
     
     @Published var soundOutputMode: SoundOutputMode {
@@ -280,6 +308,7 @@ class SettingsStore: ObservableObject {
         if perCheatAmountCents > 0 && penaltyAmountEuro == 1 {
             penaltyAmountEuro = min(10, max(1, perCheatAmountCents / 100))
         }
+        ThemeManager.shared.updateTheme()
     }
 
     var enforcementMode: EnforcementMode {
@@ -355,7 +384,10 @@ class SettingsStore: ObservableObject {
 
     var alarmThemeStyle: AlarmThemeStyle {
         get { AlarmThemeStyle(rawValue: alarmThemeStyleRaw) ?? .default }
-        set { alarmThemeStyleRaw = newValue.rawValue }
+        set {
+            alarmThemeStyleRaw = newValue.rawValue
+            ThemeManager.shared.updateTheme()
+        }
     }
 
     var habitDistanceUnitSystem: HabitDistanceUnitSystem {

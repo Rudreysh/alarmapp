@@ -7,13 +7,13 @@ enum SoundConfig {
     }
     
     static let sounds: [SoundDefinition] = [
-        SoundDefinition(filename: "Addams Family.mp3"),
-        SoundDefinition(filename: "Alan Jackson Remix.mp3"),
-        SoundDefinition(filename: "Batman Beyond.mp3"),
-        SoundDefinition(filename: "Beverly Hillbillies.mp3"),
-        SoundDefinition(filename: "Fantasmic Ending.mp3"),
-        SoundDefinition(filename: "Om Devotional.mp3"),
-        SoundDefinition(filename: "Om Namah Shivay Mantra.mp3"),
-        SoundDefinition(filename: "On Me.mp3")
+        // Guaranteed bundled alarm tones — always available, no download required.
+        // The previous list referenced cloud-only MP3s that are not in the bundle,
+        // causing "Loaded 0 sounds" and missing-file warnings on every launch.
+        SoundDefinition(filename: "Default Alarm.caf"),
+        SoundDefinition(filename: "Clock Alarm.caf"),
+        SoundDefinition(filename: "Cockpit Alert.caf"),
+        SoundDefinition(filename: "Alarm.caf"),
+        SoundDefinition(filename: "bbc_electronic.caf"),
     ]
 }

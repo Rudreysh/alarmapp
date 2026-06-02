@@ -14,7 +14,7 @@ struct PreventAppUninstallView: View {
 
                 ProtectionToggleCard(
                     title: "Prevent uninstall",
-                    subtitle: "You can't uninstall Alarmo while alarm/mission is active.",
+                    subtitle: "You can't uninstall Awayk while alarm/mission is active.",
                     isOn: Binding(
                         get: { settings.triggerUninstallTamperEnabled },
                         set: { isOn in

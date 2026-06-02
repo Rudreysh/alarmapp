@@ -51,6 +51,7 @@ struct OnboardingVolumeSettingsView: View {
                     .padding(.bottom, 120) // keep bottom cards fully visible above Next button
                 }
             }
+            .onboardingContentFrame()
             .safeAreaInset(edge: .bottom) {
                 PrimaryButton(title: "Next", style: .blueGlass) {
                     onboardingViewModel.setVolume(viewModel.volume)
@@ -58,7 +59,7 @@ struct OnboardingVolumeSettingsView: View {
                     onNext()
                 }
                 .padding(.horizontal, Spacing.l)
-                .padding(.bottom, 48) // Raised next button higher as requested
+                .padding(.bottom, Spacing.m)
             }
             .onDisappear {
                 viewModel.stopPlayback()

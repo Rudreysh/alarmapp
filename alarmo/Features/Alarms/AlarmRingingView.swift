@@ -93,15 +93,19 @@ struct AlarmRingingView: View {
                 HStack(spacing: Spacing.m) {
                     if ringCoordinator.isPreviewMode {
                         stopActionButton(title: "Dismiss and start \(ringCoordinator.activeAlarm?.name ?? "alarm")") {
+                            print("🧭 [ALARMTRACE_ACTION] EVENT=PREVIEW_DISMISS_BUTTON_TAPPED ALARM_ID=\(ringCoordinator.activeAlarm?.id.uuidString ?? "nil")")
                             ringCoordinator.stopRinging()
                         }
                     } else {
                         snoozeActionButton
 
                         stopActionButton(title: "Stop") {
+                            let alarmId = ringCoordinator.activeAlarm?.id.uuidString ?? "nil"
                             if let mission = ringCoordinator.activeAlarm?.missions.first(where: { $0.type != .off }) {
+                                print("🧭 [ALARMTRACE_ACTION] EVENT=IN_APP_STOP_BUTTON_TAPPED RESULT=MISSION_REQUIRED ALARM_ID=\(alarmId) MISSION_ID=\(mission.id.uuidString) MISSION_TYPE=\(mission.type.rawValue)")
                                 currentMission = mission
                             } else {
+                                print("🧭 [ALARMTRACE_ACTION] EVENT=IN_APP_STOP_BUTTON_TAPPED RESULT=DISMISS_DIRECTLY ALARM_ID=\(alarmId)")
                                 ringCoordinator.dismissTapped()
                             }
                         }
@@ -115,7 +119,10 @@ struct AlarmRingingView: View {
                         Spacer()
                         HStack {
                             Spacer()
-                            Button(action: { ringCoordinator.stopRinging() }) {
+                            Button(action: {
+                                print("🧭 [ALARMTRACE_ACTION] EVENT=EXIT_PREVIEW_BUTTON_TAPPED ALARM_ID=\(ringCoordinator.activeAlarm?.id.uuidString ?? "nil")")
+                                ringCoordinator.stopRinging()
+                            }) {
                                 Text("EXIT PREVIEW")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(.white)
@@ -390,9 +397,12 @@ struct AlarmRingingView: View {
             let phase = AlarmAudioStateController.shared.phase
             if ringCoordinator.isRinging &&
                 (phase == .alarmKitSettling || phase == .appEnginePreparing || phase == .appEngineFadingIn || phase == .appEnginePrimary) {
+                let floorVolume = ringCoordinator.activeAlarm
+                    .map { max(0.01, min(1.0, $0.soundVolume)) }
+                    ?? AlarmAudioStateController.preAlarmMinimumOutputVolume
                 Task { @MainActor in
                     SystemOutputVolumeFloorManager.shared.attemptRaiseOutputVolumeFloor(
-                        minimumVolume: AlarmAudioStateController.preAlarmMinimumOutputVolume,
+                        minimumVolume: floorVolume,
                         reason: "ringing-view-onappear"
                     )
                 }
@@ -402,6 +412,17 @@ struct AlarmRingingView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: systemVolumeDidChange)) { _ in
             logVolumeSnapshot(reason: "ringing-view-system-volume-change")
+            // Re-enforce the volume floor whenever system volume changes while the
+            // ringing UI is visible (app is foreground). This is the Alarmy-style
+            // "volume goes back up" behavior: user presses volume-down → we immediately
+            // raise it back to the alarm's configured level via MPVolumeView.
+            guard ringCoordinator.isRinging else { return }
+            let floorVolume = ringCoordinator.activeAlarm
+                .map { max(0.01, min(1.0, $0.soundVolume)) }
+                ?? AlarmAudioStateController.preAlarmMinimumOutputVolume
+            // Use immediate (rate-limit-free) enforcement so every volume-button press
+            // is countered instantly, not just the first one in a 1.5s window.
+            SystemOutputVolumeFloorManager.shared.enforceFloorImmediately(minimumVolume: floorVolume)
         }
         .onReceive(NotificationCenter.default.publisher(for: .alarmVolumeFloorHint)) { notification in
             let message = (notification.userInfo?["message"] as? String) ?? "Increase iPhone volume for louder alarm."
@@ -464,7 +485,10 @@ struct AlarmRingingView: View {
     }
 
     private var snoozeActionButton: some View {
-        Button(action: { ringCoordinator.snooze() }) {
+        Button(action: {
+            print("🧭 [ALARMTRACE_ACTION] EVENT=IN_APP_SNOOZE_BUTTON_TAPPED ALARM_ID=\(ringCoordinator.activeAlarm?.id.uuidString ?? "nil")")
+            ringCoordinator.snooze()
+        }) {
             Text("Snooze")
                 .font(.system(size: 22, weight: .bold))
                 .foregroundColor(.white.opacity(0.96))
@@ -497,7 +521,10 @@ struct AlarmRingingView: View {
         title: String,
         action: @escaping () -> Void
     ) -> some View {
-        Button(action: action) {
+        Button(action: {
+            print("🧭 [ALARMTRACE_ACTION] EVENT=STOP_ACTION_BUTTON_TAPPED TITLE=\"\(title)\" ALARM_ID=\(ringCoordinator.activeAlarm?.id.uuidString ?? "nil")")
+            action()
+        }) {
             Text(title)
                 .font(.system(size: 22, weight: .bold))
                 .minimumScaleFactor(0.7)

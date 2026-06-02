@@ -8,6 +8,7 @@ struct QuickSettingsPanel: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var alarmStore: AlarmStore
+    @ObservedObject private var settingsStore = SettingsStore.shared
 
     // Persisted quick settings
     @AppStorage("qs_globalSnoozeEnabled") private var globalSnoozeEnabled = true
@@ -44,6 +45,14 @@ struct QuickSettingsPanel: View {
 
     private var isLightMode: Bool {
         colorScheme == .light
+    }
+
+    private var isTiimoTheme: Bool {
+        settingsStore.alarmThemeStyle.usesTiimoLayoutBranch
+    }
+
+    private var isClassicTiimoTheme: Bool {
+        settingsStore.alarmThemeStyle == .tiimo
     }
 
     var body: some View {
@@ -144,7 +153,11 @@ struct QuickSettingsPanel: View {
                             Text(tab.title)
                                 .font(.system(size: 13, weight: .bold))
                         }
-                        .foregroundColor(isSelected ? Colors.textPrimary : Colors.textSecondary)
+                        .foregroundColor(
+                            isSelected
+                                ? (isTiimoTheme ? (isClassicTiimoTheme ? .white : Colors.textPrimary) : Colors.textPrimary)
+                                : (isTiimoTheme ? Colors.textTertiary : Colors.textSecondary)
+                        )
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
                         .background(
@@ -152,16 +165,22 @@ struct QuickSettingsPanel: View {
                                 .fill(
                                     isSelected
                                         ? LinearGradient(
-                                            colors: isLightMode
-                                                ? [Color.white, Color(red: 0.90, green: 0.96, blue: 1.0)]
-                                                : [Colors.accentTeal.opacity(0.9), Colors.accentTeal.opacity(0.75)],
+                                            colors: isTiimoTheme
+                                                ? [Colors.saleBadgeStart, Colors.saleBadgeEnd]
+                                                : (isLightMode
+                                                    ? [Color.white, Color(red: 0.90, green: 0.96, blue: 1.0)]
+                                                    : [Colors.accentTeal.opacity(0.9), Colors.accentTeal.opacity(0.75)]),
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
                                         )
                                         : LinearGradient(
                                             colors: [
-                                                isLightMode ? Color(red: 0.93, green: 0.94, blue: 0.97) : Colors.cardSurface,
-                                                isLightMode ? Color(red: 0.88, green: 0.90, blue: 0.94) : Colors.cardSurface.opacity(0.95)
+                                                isTiimoTheme
+                                                    ? Colors.pillGreen
+                                                    : (isLightMode ? Color(red: 0.93, green: 0.94, blue: 0.97) : Colors.cardSurface),
+                                                isTiimoTheme
+                                                    ? Colors.cardSurface
+                                                    : (isLightMode ? Color(red: 0.88, green: 0.90, blue: 0.94) : Colors.cardSurface.opacity(0.95))
                                             ],
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
@@ -172,11 +191,14 @@ struct QuickSettingsPanel: View {
                             Capsule()
                                 .stroke(
                                     isSelected
-                                        ? (isLightMode ? Color(red: 0.55, green: 0.76, blue: 0.96).opacity(0.7) : Color.white.opacity(0.18))
-                                        : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.08)),
-                                    lineWidth: 1
+                                        ? (isTiimoTheme
+                                            ? Colors.accentBlue
+                                            : (isLightMode ? Color(red: 0.55, green: 0.76, blue: 0.96).opacity(0.7) : Color.white.opacity(0.18)))
+                                        : (isTiimoTheme ? Colors.cardStroke : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.08))),
+                                    lineWidth: isTiimoTheme && isSelected ? 1.5 : 1
                                 )
                         )
+                        .shadow(color: isTiimoTheme && isSelected ? Colors.accentBlue.opacity(0.28) : .clear, radius: 8, x: 0, y: 3)
                     }
                     .buttonStyle(.plain)
                 }
@@ -415,10 +437,10 @@ struct QuickSettingsPanel: View {
                             Text("\(sleepGoalHours)")
                                 .font(.system(size: 32, weight: .black, design: .monospaced))
                                 .foregroundColor(Colors.accentTeal)
-                            Text("h")
-                                .font(.system(size: 18, weight: .bold))
+                            Text("H")
+                                .font(.system(size: 20, weight: .black))
                                 .foregroundColor(Colors.textSecondary)
-                                .padding(.top, 8)
+                                .padding(.leading, 1)
                         }
                     }
 
@@ -671,7 +693,7 @@ struct QuickSettingsPanel: View {
                             Text("DND / Focus Setup")
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundColor(Colors.textPrimary)
-                            Text("Silence others, keep Alarmo loud.")
+                            Text("Silence others, keep Awayk loud.")
                                 .font(.system(size: 12))
                                 .foregroundColor(Colors.textTertiary)
                         }
@@ -702,7 +724,7 @@ struct QuickSettingsPanel: View {
                         
                         setupStep(icon: "1.circle.fill", text: "Tap **Setup** to open iOS Focus settings.")
                         setupStep(icon: "2.circle.fill", text: "Select **Do Not Disturb** or a custom Focus.")
-                        setupStep(icon: "3.circle.fill", text: "Under **Apps**, add **Alarmo** to Allowed.")
+                        setupStep(icon: "3.circle.fill", text: "Under **Apps**, add **Awayk** to Allowed.")
                         setupStep(icon: "4.circle.fill", text: "Ensure **Time Sensitive** togggle is ON.")
                     }
                     
@@ -710,7 +732,7 @@ struct QuickSettingsPanel: View {
                         Image(systemName: "checkmark.shield.fill")
                             .font(.system(size: 14))
                             .foregroundColor(.green)
-                        Text("Alarmo uses **Time Sensitive** alerts to break through DND automatically.")
+                        Text("Awayk uses **Time Sensitive** alerts to break through DND automatically.")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(Colors.textTertiary)
                             .lineLimit(2)

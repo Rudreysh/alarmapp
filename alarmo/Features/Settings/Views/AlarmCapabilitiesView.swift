@@ -56,7 +56,7 @@ struct AlarmCapabilitiesView: View {
 
                 capabilityRow(
                     title: "Foreground sound",
-                    body: "When Alarmo is open, AVAudioSession can play alarm audio."
+                    body: "When Awayk is open, AVAudioSession can play alarm audio."
                 )
                 capabilityRow(
                     title: "iOS 26+",
@@ -375,7 +375,7 @@ struct AlarmCapabilitiesView: View {
         let notificationsGranted = await NotificationManager.shared.ensureAuthorization()
         if !notificationsGranted {
             await refresh()
-            statusMessage = "Notifications are disabled. Enable notifications for Alarmo first, then request Alarm permission."
+            statusMessage = "Notifications are disabled. Enable notifications for Awayk first, then request Alarm permission."
             return
         }
 
@@ -386,7 +386,7 @@ struct AlarmCapabilitiesView: View {
             statusMessage = "Alarm permission granted."
         } else {
             let details = AlarmKitSchedulingMessenger.shared.latestMessage()
-            statusMessage = "\(details)\n\nIf Settings > Alarmo has no 'Alarms' row, reinstall the app on a real iPhone/iPad running iOS 26+ and request permission again."
+            statusMessage = "\(details)\n\nIf Settings > Awayk has no 'Alarms' row, reinstall the app on a real iPhone/iPad running iOS 26+ and request permission again."
         }
     }
 

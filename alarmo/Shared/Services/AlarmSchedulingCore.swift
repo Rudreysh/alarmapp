@@ -91,7 +91,6 @@ enum AlarmCustomUIHandoffStore {
     nonisolated private static let surfaceAlarmIDKey = "alarmo.alarmKit.pendingCustomUISurfaceAlarmId"
     nonisolated private static let timestampKey = "alarmo.alarmKit.pendingCustomUITimestamp"
     nonisolated private static let surfaceSourceMapKey = "alarmo.alarmKit.surfaceSourceMap"
-    nonisolated private static let maxAge: TimeInterval = 10 * 60
     nonisolated static let urlScheme = "alarmo"
     nonisolated static let urlHost = "alarm-ringing"
 
@@ -117,7 +116,19 @@ enum AlarmCustomUIHandoffStore {
         guard let sourceAlarmID = UserDefaults.standard.string(forKey: sourceAlarmIDKey) else { return nil }
         let timestamp = UserDefaults.standard.double(forKey: timestampKey)
 
-        guard timestamp > 0, now.timeIntervalSince1970 - timestamp <= maxAge else {
+        // Hard 24h ceiling only. Short TTLs are forbidden here: a healthy locked
+        // alarm may never refresh this timestamp (the engineLiveHealthy path in
+        // processAlarmKitAlertingAlarm skips request()), and a <=10min cap
+        // reintroduced the multi-snooze silence bug. We also reject future-dated
+        // timestamps from a device clock change, which would otherwise keep stale
+        // state alive forever.
+        guard timestamp > 0 else {
+            clear()
+            return nil
+        }
+        let age = now.timeIntervalSince1970 - timestamp
+        guard age >= 0, age < 24 * 60 * 60 else {
+            print("[AlarmHandoffStore] cleared pending reason=\(age < 0 ? "future-timestamp" : "hard-expiry") ageSeconds=\(Int(age))")
             clear()
             return nil
         }
@@ -143,14 +154,14 @@ enum AlarmCustomUIHandoffStore {
         if let pending = pendingRequest(), pending.surfaceAlarmID == surfaceAlarmID {
             return pending.sourceAlarmID
         }
-        var map = loadSurfaceSourceMap()
+        let map = loadSurfaceSourceMap()
         if let mapped = map[surfaceAlarmID] {
-            let age = Date().timeIntervalSince1970 - mapped.timestamp
-            if age <= maxAge {
-                return mapped.sourceAlarmID
-            }
-            map[surfaceAlarmID] = nil
-            persistSurfaceSourceMap(map)
+            // Lifecycle-based: the mapping is valid as long as it exists. Removing
+            // the time-based expiry fixes surface→source resolution on later
+            // snoozes (e.g. two 9-min snoozes exceeded the old 10-min cap, the
+            // lookup fell back to the surface UUID, the source alarm was not found,
+            // and the engine never started → silent alarm).
+            return mapped.sourceAlarmID
         }
         return surfaceAlarmID
     }
@@ -178,6 +189,87 @@ enum AlarmCustomUIHandoffStore {
         UserDefaults.standard.removeObject(forKey: sourceAlarmIDKey)
         UserDefaults.standard.removeObject(forKey: surfaceAlarmIDKey)
         UserDefaults.standard.removeObject(forKey: timestampKey)
+    }
+
+    // Compatibility helper expected by newer app bootstrap code.
+    nonisolated static func pruneOrphanedMappings(now: Date = Date()) {
+        // Called at app init (before the live alarm store is available), so a
+        // lifecycle check is not possible here. Use a generous 48h safety net to
+        // drop only genuinely abandoned mappings; valid same-day/overnight snooze
+        // mappings are preserved. The old 10-min cap silenced repeated snoozes.
+        let safetyNetAge: TimeInterval = 48 * 60 * 60
+        let cutoff = now.timeIntervalSince1970 - safetyNetAge
+        var map = loadSurfaceSourceMap()
+        let before = map.count
+        map = map.filter { $0.value.timestamp >= cutoff }
+        if map.count != before {
+            persistSurfaceSourceMap(map)
+        }
+
+        if let pendingTimestamp = UserDefaults.standard.object(forKey: timestampKey) as? TimeInterval,
+           pendingTimestamp < cutoff {
+            clear()
+        }
+    }
+
+    /// Store-aware cleanup run once at startup (from `NotificationManager.configure`)
+    /// after the live `AlarmStore` is available — something `pruneOrphanedMappings()`
+    /// cannot do because it runs pre-AlarmStore at app init. Removes stale handoff
+    /// state that would otherwise ghost-start a ring via
+    /// `AppRootView.handlePendingCustomAlarmUIHandoff` on a normal foreground launch.
+    nonisolated static func pruneWithAlarmStore(
+        _ alarmStore: AlarmStore,
+        now: Date = Date(),
+        runtimeIsActive: Bool = false,
+        appIsForeground: Bool = false
+    ) {
+        let nowTs = now.timeIntervalSince1970
+
+        // --- Pending scalar keys ---
+        if let sourceStr = UserDefaults.standard.string(forKey: sourceAlarmIDKey) {
+            let ts = UserDefaults.standard.double(forKey: timestampKey)
+            let age = nowTs - ts
+            let sourceExists = UUID(uuidString: sourceStr).flatMap { alarmStore.alarm(by: $0) } != nil
+
+            let reason: String?
+            if ts <= 0 { reason = "invalid-timestamp" }
+            else if age < 0 { reason = "future-timestamp" }
+            else if age >= 24 * 60 * 60 { reason = "hard-expiry" }
+            else if !sourceExists && age >= 30 * 60 { reason = "missing-source" }
+            // Aggressive case: stale pending for a still-existing (recurring) alarm.
+            // Safety = NOT runtime-active AND a normal foreground launch (never the
+            // .background alarm-recovery launch). No map-presence requirement — that
+            // would leave the ghost bug unfixed when the map entry is missing.
+            // Threshold is 6h, not 60m: the "Awayk persists until reinstall" state is
+            // hours/days old, while a genuine same-night alarm can ring 1-3h with
+            // runtimeIsActive still false at configure() time (observation/recovery
+            // run AFTER configure). 6h fixes the stale-state bug without risking a
+            // real long-ringing alarm. missing-source stays at 30m because a deleted
+            // alarm can never be a live source.
+            else if sourceExists && age >= 6 * 60 * 60 && !runtimeIsActive && appIsForeground {
+                reason = "inactive-existing-source"
+            } else { reason = nil }
+
+            if let reason {
+                print("[AlarmHandoffStore] cleared pending reason=\(reason) ageSeconds=\(Int(age))")
+                clear()
+            }
+        }
+
+        // --- Surface map ---
+        var map = loadSurfaceSourceMap()
+        let before = map.count
+        map = map.filter { _, entry in
+            let age = nowTs - entry.timestamp
+            if age < 0 { return false }                 // future-dated → remove
+            if age < 60 * 60 { return true }            // keep recent unconditionally (active/snooze)
+            if age >= 48 * 60 * 60 { return false }     // 48h safety net
+            return UUID(uuidString: entry.sourceAlarmID).flatMap { alarmStore.alarm(by: $0) } != nil
+        }
+        if map.count != before {
+            print("[AlarmHandoffStore] pruned surface mappings removed=\(before - map.count) remaining=\(map.count)")
+            persistSurfaceSourceMap(map)
+        }
     }
 
     nonisolated private static func loadSurfaceSourceMap() -> [String: SurfaceSourceEntry] {
@@ -688,14 +780,14 @@ final class AlarmManagerFacade: AlarmScheduler, AlarmSchedulerProtocol {
             #if targetEnvironment(simulator)
             return "AlarmKit authorization is unreliable in the iOS simulator. Test alarm authorization and lock-screen ringing on a real iPhone or iPad running iOS 26+."
             #else
-            return "Alarm permission request failed. Open Settings > Alarmo and enable Alarms, then try again. If the Alarms option is missing, reinstall the app and request permission again on iOS 26+."
+            return "Alarm permission request failed. Open Settings > Awayk and enable Alarms, then try again. If the Alarms option is missing, reinstall the app and request permission again on iOS 26+."
             #endif
         }
 
         if let schedulingError = error as? AlarmSchedulingError {
             switch schedulingError {
             case .alarmKitPermissionDenied:
-                return "AlarmKit permission is denied. Enable Alarm permissions for Alarmo in Settings and try again."
+                return "AlarmKit permission is denied. Enable Alarm permissions for Awayk in Settings and try again."
             case .unsupportedAlarmKit:
                 return "AlarmKit is unavailable on this iOS version. Use iOS 26+ for system alarm behavior."
             default:

@@ -2,17 +2,39 @@ import SwiftUI
 import Charts
 
 enum ReportPalette {
-    static let accent = Color(red: 0.08, green: 0.78, blue: 0.92)
-    static let accentDark = Color(red: 0.05, green: 0.34, blue: 0.52)
-    static let glow = Color(red: 0.28, green: 0.88, blue: 0.98)
-    static let cardStart = Colors.cardSurface
-    static let cardEnd = Colors.bgSecondary.opacity(0.9)
-    static let accentGradient = LinearGradient(
-        colors: [accent, glow.opacity(0.82), accentDark],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
+    static var accent: Color {
+        if SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch {
+            return Colors.accentBlue
+        }
+        return Color(red: 0.08, green: 0.78, blue: 0.92)
+    }
+    
+    static var accentDark: Color {
+        if SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch {
+            return Colors.textPrimary
+        }
+        return Color(red: 0.05, green: 0.34, blue: 0.52)
+    }
+    
+    static var glow: Color {
+        if SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch {
+            return Colors.saleBadgeStart
+        }
+        return Color(red: 0.28, green: 0.88, blue: 0.98)
+    }
+    
+    static var cardStart: Color { Colors.cardSurface }
+    static var cardEnd: Color { Colors.bgSecondary.opacity(0.9) }
+    
+    static var accentGradient: LinearGradient {
+        LinearGradient(
+            colors: [accent, glow.opacity(0.82), accentDark],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
 }
+
 
 private enum ConsistencyRangeOption: Int, CaseIterable, Identifiable {
     case days7 = 7
@@ -896,6 +918,10 @@ struct OverallMonthCalendarView: View {
     private let monthColumns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
     private let yearColumns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 2)
     
+    private var isTiimo: Bool {
+        SettingsStore.shared.alarmThemeStyle.usesTiimoLayoutBranch
+    }
+    
     var body: some View {
         VStack(spacing: 20) {
             // Period Navigation Header
@@ -928,8 +954,8 @@ struct OverallMonthCalendarView: View {
                     HStack(spacing: 0) {
                         ForEach(Array(orderedWeekdaySymbols.enumerated()), id: \.offset) { _, day in
                             Text(day)
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(Colors.textPrimary)
+                                .font(.system(size: 12, weight: isTiimo ? .regular : .bold))
+                                .foregroundColor(isTiimo ? Colors.textTertiary : Colors.textPrimary)
                                 .frame(maxWidth: .infinity)
                         }
                     }
@@ -942,35 +968,58 @@ struct OverallMonthCalendarView: View {
                             let progress = min(max(value, 0), 1.0)
 
                             VStack(spacing: 4) {
-                                ZStack {
-                                    Circle()
-                                        .stroke(Colors.textTertiary.opacity(0.2), lineWidth: 2)
-                                        .frame(width: 44, height: 44)
-
-                                    if progress > 0 {
+                                if isTiimo {
+                                    ZStack {
                                         Circle()
-                                            .trim(from: 0, to: progress)
-                                            .stroke(
-                                                ReportPalette.accent,
-                                                style: StrokeStyle(lineWidth: 3, lineCap: .round)
-                                            )
-                                            .frame(width: 44, height: 44)
-                                            .rotationEffect(.degrees(-90))
+                                            .fill(isSelected ? Colors.pillGreen : Colors.cardSurface)
+                                            .frame(width: 40, height: 40)
+                                        
+                                        if isToday || isSelected {
+                                            Circle()
+                                                .stroke(Colors.accentBlue, lineWidth: 2)
+                                                .frame(width: 40, height: 40)
+                                        }
+                                        
+                                        Text("\(calendar.component(.day, from: date))")
+                                            .font(.system(size: 15, weight: (isToday || isSelected) ? .bold : .regular))
+                                            .foregroundColor((isToday || isSelected) ? Colors.textPrimary : Colors.textPrimary)
                                     }
-
-                                    if isSelected {
+                                    .onTapGesture {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            selectedDate = date
+                                        }
+                                    }
+                                } else {
+                                    ZStack {
                                         Circle()
-                                            .fill(ReportPalette.accent.opacity(0.14))
+                                            .stroke(Colors.textTertiary.opacity(0.2), lineWidth: 2)
                                             .frame(width: 44, height: 44)
-                                    }
 
-                                    Text("\(calendar.component(.day, from: date))")
-                                        .font(.system(size: 16, weight: isToday ? .bold : .medium))
-                                        .foregroundColor(Colors.textPrimary)
-                                }
-                                .onTapGesture {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        selectedDate = date
+                                        if progress > 0 {
+                                            Circle()
+                                                .trim(from: 0, to: progress)
+                                                .stroke(
+                                                    ReportPalette.accent,
+                                                    style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                                                )
+                                                .frame(width: 44, height: 44)
+                                                .rotationEffect(.degrees(-90))
+                                        }
+
+                                        if isSelected {
+                                            Circle()
+                                                .fill(ReportPalette.accent.opacity(0.14))
+                                                .frame(width: 44, height: 44)
+                                        }
+
+                                        Text("\(calendar.component(.day, from: date))")
+                                            .font(.system(size: 16, weight: isToday ? .bold : .medium))
+                                            .foregroundColor(Colors.textPrimary)
+                                    }
+                                    .onTapGesture {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            selectedDate = date
+                                        }
                                     }
                                 }
                             }
@@ -983,8 +1032,8 @@ struct OverallMonthCalendarView: View {
                     HStack(spacing: 0) {
                         ForEach(Array(orderedWeekdaySymbols.enumerated()), id: \.offset) { _, symbol in
                             Text(symbol)
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(Colors.textPrimary)
+                                .font(.system(size: 12, weight: isTiimo ? .regular : .bold))
+                                .foregroundColor(isTiimo ? Colors.textTertiary : Colors.textPrimary)
                                 .frame(maxWidth: .infinity)
                         }
                     }
@@ -1003,19 +1052,19 @@ struct OverallMonthCalendarView: View {
 
                                     if isToday {
                                         RoundedRectangle(cornerRadius: 10)
-                                            .stroke(ReportPalette.accent.opacity(0.65), lineWidth: 1.2)
+                                            .stroke(isTiimo ? Colors.accentBlue : ReportPalette.accent.opacity(0.65), lineWidth: isTiimo ? 2.0 : 1.2)
                                             .frame(height: 36)
                                     }
 
                                     if isSelected {
                                         RoundedRectangle(cornerRadius: 10)
-                                            .stroke(Color.white.opacity(0.85), lineWidth: 1.6)
+                                            .stroke(isTiimo ? Colors.accentBlue : Color.white.opacity(0.85), lineWidth: isTiimo ? 2.0 : 1.6)
                                             .frame(height: 36)
                                     }
 
                                     Text("\(calendar.component(.day, from: date))")
-                                        .font(.system(size: 14, weight: isToday ? .bold : .medium))
-                                        .foregroundColor(Colors.textPrimary)
+                                        .font(.system(size: 14, weight: (isToday || isSelected) ? .bold : .medium))
+                                        .foregroundColor(isTiimo ? (isSelected || isToday ? Colors.textPrimary : Colors.textPrimary) : Colors.textPrimary)
                                 }
                                 .onTapGesture {
                                     withAnimation(.easeInOut(duration: 0.2)) {
@@ -1049,9 +1098,9 @@ struct OverallMonthCalendarView: View {
                             GeometryReader { proxy in
                                 ZStack(alignment: .leading) {
                                     Capsule()
-                                        .fill(Colors.textTertiary.opacity(0.18))
+                                        .fill(isTiimo ? Colors.pillGreen : Colors.textTertiary.opacity(0.18))
                                     Capsule()
-                                        .fill(ReportPalette.accentGradient)
+                                        .fill(isTiimo ? LinearGradient(colors: [Colors.saleBadgeStart, Colors.accentBlue], startPoint: .leading, endPoint: .trailing) : ReportPalette.accentGradient)
                                         .frame(width: proxy.size.width * min(max(rate, 0), 1))
                                 }
                             }
@@ -1062,11 +1111,11 @@ struct OverallMonthCalendarView: View {
                                 .foregroundColor(Colors.textSecondary)
                         }
                         .padding(12)
-                        .background(Colors.bgPrimary.opacity(0.45))
+                        .background(isTiimo ? Color.white : Colors.bgPrimary.opacity(0.45))
                         .cornerRadius(14)
                         .overlay(
                             RoundedRectangle(cornerRadius: 14)
-                                .stroke(Colors.cardStroke, lineWidth: 1)
+                                .stroke(isTiimo ? Colors.pillGreen : Colors.cardStroke, lineWidth: 1)
                         )
                     }
                 }
@@ -1074,8 +1123,8 @@ struct OverallMonthCalendarView: View {
         }
         .padding(24)
         .background(Colors.cardSurface)
-        .cornerRadius(32)
-        .overlay(RoundedRectangle(cornerRadius: 32).stroke(Colors.cardStroke, lineWidth: 1))
+        .cornerRadius(isTiimo ? 20 : 32)
+        .overlay(RoundedRectangle(cornerRadius: isTiimo ? 20 : 32).stroke(isTiimo ? Colors.pillGreen : Colors.cardStroke, lineWidth: 1))
     }
     
     private var periodTitle: String {
@@ -1171,7 +1220,14 @@ struct OverallMonthCalendarView: View {
     }
 
     private func colorForValue(_ value: Double) -> Color {
-        if value <= 0 { return Color.white.opacity(0.06) }
+        if value <= 0 { 
+            return isTiimo ? Colors.cardSurface : Color.white.opacity(0.06) 
+        }
+        if isTiimo {
+            if value < 0.34 { return Colors.accentBlue.opacity(0.25) }
+            if value < 0.67 { return Colors.accentBlue.opacity(0.55) }
+            return Colors.accentBlue.opacity(0.85)
+        }
         if value < 0.34 { return ReportPalette.accent.opacity(0.28) }
         if value < 0.67 { return ReportPalette.accent.opacity(0.55) }
         return ReportPalette.accent.opacity(0.85)

@@ -4,8 +4,6 @@ import SwiftData
 enum MainTab: String, CaseIterable {
     case alarm
     case timer
-    case plan
-    case overlap
     case report
     case setting
 }
@@ -27,10 +25,6 @@ struct MainTabContainerView: View {
                     HomeView(viewModel: HomeViewModel(preferences: preferences), alarmStore: alarmStore)
                 case .timer:
                     TimerRootView(preferences: preferences, onClose: { navStore.selectedTab = .alarm })
-                case .plan:
-                    PlanView(preferences: preferences)
-                case .overlap:
-                    OverlapView(preferences: preferences)
                 case .report:
                     ReportView(modelContext: modelContext, alarmStore: alarmStore)
                 case .setting:
@@ -42,8 +36,6 @@ struct MainTabContainerView: View {
                 tabs: [
                     TabBarItem(id: MainTab.alarm, title: "Alarm", systemImage: "alarm"),
                     TabBarItem(id: MainTab.timer, title: "Timer", systemImage: "timer"),
-                    TabBarItem(id: MainTab.plan, title: "Habit", systemImage: "calendar"),
-                    TabBarItem(id: MainTab.overlap, title: "Overlap", systemImage: "globe.americas"),
                     TabBarItem(id: MainTab.report, title: "Report", systemImage: "doc.text"),
                     TabBarItem(id: MainTab.setting, title: "Setting", systemImage: "gearshape")
                 ],

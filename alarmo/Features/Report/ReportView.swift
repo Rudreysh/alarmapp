@@ -49,9 +49,124 @@ struct ReportView: View {
         }
     }
     
+    private var isTiimo: Bool {
+        settingsStore.alarmThemeStyle.usesTiimoLayoutBranch
+    }
+    
+    private func domainButtonForegroundColor(domain: ReportDomain, isSelected: Bool) -> Color {
+        if isTiimo {
+            return isSelected ? Colors.accentBlue : Colors.textTertiary
+        } else {
+            return isSelected ? Colors.textPrimary : Colors.textSecondary
+        }
+    }
+    
+    @ViewBuilder
+    private func domainButtonBackground(isSelected: Bool) -> some View {
+        if isTiimo {
+            if isSelected {
+                Color.white
+            } else {
+                Color.clear
+            }
+        } else {
+            if isSelected {
+                LinearGradient(
+                    colors: isLightMode
+                        ? [Color.white, Color(red: 0.90, green: 0.96, blue: 1.0)]
+                        : [Color(red: 0.18, green: 0.21, blue: 0.28).opacity(0.95), Color(red: 0.12, green: 0.15, blue: 0.21).opacity(0.95)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            } else {
+                LinearGradient(
+                    colors: [
+                        isLightMode ? Color(red: 0.93, green: 0.94, blue: 0.97) : Color.white.opacity(0.06),
+                        isLightMode ? Color(red: 0.88, green: 0.90, blue: 0.94) : Color.white.opacity(0.03)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var domainContainerBackground: some View {
+        if isTiimo {
+            Colors.pillGreen
+        } else {
+            LinearGradient(
+                colors: [
+                    isLightMode ? Color.white.opacity(0.96) : Color(red: 0.12, green: 0.15, blue: 0.20).opacity(0.92),
+                    isLightMode ? Color(red: 0.95, green: 0.96, blue: 0.98).opacity(0.96) : Color(red: 0.09, green: 0.12, blue: 0.17).opacity(0.92)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
+    
+    private func periodButtonForegroundColor(isSelected: Bool) -> Color {
+        if isTiimo {
+            // Keep Week/Month/Year labels readable in Tiimo-style themes even
+            // after state switches by avoiding low-contrast tertiary text.
+            return isSelected ? Colors.accentBlue : Colors.textPrimary.opacity(0.78)
+        } else {
+            // Deselect state still needs strong contrast on darker containers.
+            return isSelected ? Colors.textPrimary : Colors.textPrimary.opacity(0.72)
+        }
+    }
+    
+    @ViewBuilder
+    private func periodButtonBackground(isSelected: Bool) -> some View {
+        if isTiimo {
+            if isSelected {
+                Color.white
+            } else {
+                Color.clear
+            }
+        } else {
+            if isSelected {
+                LinearGradient(
+                    colors: isLightMode
+                        ? [Color.white, Color(red: 0.90, green: 0.96, blue: 1.0)]
+                        : [Color(red: 0.18, green: 0.21, blue: 0.28).opacity(0.95), Color(red: 0.12, green: 0.15, blue: 0.21).opacity(0.95)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            } else {
+                LinearGradient(
+                    colors: [
+                        isLightMode ? Color(red: 0.93, green: 0.94, blue: 0.97) : Color.white.opacity(0.05),
+                        isLightMode ? Color(red: 0.88, green: 0.90, blue: 0.94) : Color.white.opacity(0.03)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var periodContainerBackground: some View {
+        if isTiimo {
+            Colors.pillGreen
+        } else {
+            LinearGradient(
+                colors: [
+                    isLightMode ? Color.white.opacity(0.98) : Color(red: 0.10, green: 0.13, blue: 0.18).opacity(0.9),
+                    isLightMode ? Color(red: 0.94, green: 0.95, blue: 0.98).opacity(0.98) : Color(red: 0.07, green: 0.10, blue: 0.15).opacity(0.9)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
+    
     var body: some View {
         ZStack {
-            TimerGlassBackground()
+            Colors.bgPrimary.ignoresSafeArea()
             
             VStack(spacing: 0) {
                 // Header (Domain & Period Selection)
@@ -115,14 +230,7 @@ struct ReportView: View {
         VStack(spacing: 24) {
             calendarSection
             moodLoggingsSection
-            if viewModel.selectedDomain == .habits {
-                allHabitsOverviewSection
-                habitSignalSection
-            }
             trendSection
-            if viewModel.selectedDomain == .habits {
-                habitConsistencySection
-            }
             selectedDayMetricsCard
             rateRingSection
             overallKPIs
@@ -182,20 +290,12 @@ struct ReportView: View {
                     referenceDate: viewModel.referenceDate
                 )
             }
-
-            if viewModel.selectedDomain == .habits {
-                selectedHabitOverviewSection
-                habitSignalSection
-                trendSection
-                habitConsistencySection
-            }
+            trendSection
 
             if viewModel.selectedDomain == .alarms {
                 alarmSpecificKPIs
-            } else if viewModel.selectedDomain == .pomodoro {
-                pomodoroSpecificKPIs
             } else {
-                habitSpecificKPIs
+                pomodoroSpecificKPIs
             }
         }
     }
@@ -246,205 +346,190 @@ struct ReportView: View {
                 KPICard(icon: "play.circle.fill", iconColor: .blue, value: "\(viewModel.metrics.startedCount)", unit: "Start", label: "Started")
                 KPICard(icon: "pause.circle.fill", iconColor: .orange, value: "\(viewModel.metrics.interruptedCount)", unit: "Break", label: "Interrupted")
                 KPICard(icon: "clock.fill", iconColor: .purple, value: String(format: "%.0f", viewModel.metrics.focusMinutes), unit: "min", label: "Focus Time")
-            } else {
-                KPICard(icon: "medal.fill", iconColor: .orange, value: "\(viewModel.metrics.currentStreak)", unit: "Day", label: "Best Streaks")
-                KPICard(icon: "calendar.badge.checkmark", iconColor: ReportPalette.accent, value: "\(viewModel.metrics.perfectDays)", unit: "Day", label: "Perfect Days")
-                KPICard(icon: "checkmark.circle.fill", iconColor: .green, value: "\(viewModel.metrics.totalDone)", unit: "Done", label: "Habits Done")
-                KPICard(icon: "chart.line.uptrend.xyaxis", iconColor: .purple, value: String(format: "%.1f", viewModel.metrics.dailyAverage), unit: "Avg", label: "Daily Average")
             }
         }
     }
-    
-    private var reportHeader: some View {
-        VStack(spacing: 16) {
-            // Domain Segment — Capsule style matching Timer tabs
-            HStack(spacing: 6) {
-                ForEach(ReportDomain.allCases) { domain in
-                    let isSelected = viewModel.selectedDomain == domain
-                    Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                            viewModel.selectedDomain = domain
-                            viewModel.selectedItemId = nil
-                            selectedTrendPoint = nil
+    @ViewBuilder
+    private func domainButtonBackgroundView(isSelected: Bool) -> some View {
+        domainButtonBackground(isSelected: isSelected)
+            .matchedGeometryEffect(id: "domain_bg", in: domainNamespace)
+            .overlay(
+                Group {
+                    if !isTiimo {
+                        Capsule()
+                            .stroke(
+                                isSelected
+                                    ? (isLightMode ? Color(red: 0.55, green: 0.76, blue: 0.96).opacity(0.7) : Color.white.opacity(0.2))
+                                    : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.1)),
+                                lineWidth: 1
+                            )
+                    }
+                }
+            )
+            .clipShape(Capsule())
+    }
+
+    private var domainSegmentPicker: some View {
+        HStack(spacing: 6) {
+            ForEach(ReportDomain.allCases) { domain in
+                let isSelected = viewModel.selectedDomain == domain
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        viewModel.selectedDomain = domain
+                        viewModel.selectedItemId = nil
+                        selectedTrendPoint = nil
+                    }
+                    selectedReportDate = Calendar.current.startOfDay(for: viewModel.referenceDate)
+                    Task { await viewModel.refresh() }
+                } label: {
+                    HStack(spacing: domain == .pomodoro ? 0 : 6) {
+                        if domain != .pomodoro {
+                            Image(systemName: isSelected ? domain.icon + ".fill" : domain.icon)
+                                .font(.system(size: 13, weight: .semibold))
                         }
+                        Text(domain.rawValue)
+                            .font(.system(size: 14, weight: .bold))
+                    }
+                    .foregroundColor(domainButtonForegroundColor(domain: domain, isSelected: isSelected))
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 18)
+                    .background(
+                        domainButtonBackgroundView(isSelected: isSelected)
+                    )
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(4)
+        .background(
+            domainContainerBackground
+        )
+        .overlay(
+            Group {
+                if !isTiimo {
+                    Capsule()
+                        .stroke(Colors.cardStroke, lineWidth: 1)
+                }
+            }
+        )
+        .clipShape(Capsule())
+        .padding(.horizontal)
+    }
+
+    private func periodButtonBackgroundView(isSelected: Bool) -> some View {
+        let radius: CGFloat = isTiimo ? 100 : 10
+        let base = periodButtonBackground(isSelected: isSelected)
+            .clipShape(RoundedRectangle(cornerRadius: radius))
+
+        let animatedBackground: AnyView
+        if isSelected {
+            animatedBackground = AnyView(
+                base.matchedGeometryEffect(id: "period_bg", in: periodNamespace)
+            )
+        } else {
+            animatedBackground = AnyView(base)
+        }
+
+        return animatedBackground
+            .overlay(
+                Group {
+                    if !isTiimo {
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(
+                                isSelected
+                                    ? (isLightMode ? Color(red: 0.55, green: 0.76, blue: 0.96).opacity(0.7) : Color.white.opacity(0.2))
+                                    : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.08)),
+                                lineWidth: 1
+                            )
+                    }
+                }
+            )
+            .shadow(color: (isSelected && !isTiimo) ? Color.black.opacity(isLightMode ? 0.08 : 0.15) : .clear, radius: 2, y: 1)
+    }
+
+    private var periodSegmentPicker: some View {
+        HStack {
+            HStack(spacing: 4) {
+                ForEach(ReportPeriod.allCases) { period in
+                    let isSelected = viewModel.selectedPeriod == period
+                    Button {
+                        viewModel.syncPeriod(period)
                         selectedReportDate = Calendar.current.startOfDay(for: viewModel.referenceDate)
                         Task { await viewModel.refresh() }
                     } label: {
-                        HStack(spacing: domain == .pomodoro ? 0 : 6) {
-                            if domain != .pomodoro {
-                                Image(systemName: isSelected ? domain.icon + ".fill" : domain.icon)
-                                    .font(.system(size: 13, weight: .semibold))
-                            }
-                            Text(domain.rawValue)
-                                .font(.system(size: 14, weight: .bold))
-                        }
-                        .foregroundColor(isSelected ? Colors.textPrimary : Colors.textSecondary)
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 18)
-                        .background(
-                            Capsule()
-                                .fill(
-                                    isSelected
-                                        ? LinearGradient(
-                                            colors: isLightMode
-                                                ? [Color.white, Color(red: 0.90, green: 0.96, blue: 1.0)]
-                                                : [Color(red: 0.18, green: 0.21, blue: 0.28).opacity(0.95), Color(red: 0.12, green: 0.15, blue: 0.21).opacity(0.95)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                        : LinearGradient(
-                                            colors: [
-                                                isLightMode ? Color(red: 0.93, green: 0.94, blue: 0.97) : Color.white.opacity(0.06),
-                                                isLightMode ? Color(red: 0.88, green: 0.90, blue: 0.94) : Color.white.opacity(0.03)
-                                            ],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                )
-                                .matchedGeometryEffect(id: "domain_bg", in: domainNamespace)
-                        )
-                        .overlay(
-                            Capsule()
-                                .stroke(
-                                    isSelected
-                                        ? (isLightMode ? Color(red: 0.55, green: 0.76, blue: 0.96).opacity(0.7) : Color.white.opacity(0.2))
-                                        : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.1)),
-                                    lineWidth: 1
-                                )
-                        )
-                        .clipShape(Capsule())
+                        Text(period.rawValue)
+                            .font(.system(size: 12, weight: isSelected ? .bold : .medium))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                            .allowsTightening(true)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .background(
+                                periodButtonBackgroundView(isSelected: isSelected)
+                            )
+                            .foregroundColor(periodButtonForegroundColor(isSelected: isSelected))
                     }
-                    .frame(maxWidth: .infinity)
                 }
             }
             .padding(4)
+            .layoutPriority(1)
             .background(
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                isLightMode ? Color.white.opacity(0.96) : Color(red: 0.12, green: 0.15, blue: 0.20).opacity(0.92),
-                                isLightMode ? Color(red: 0.95, green: 0.96, blue: 0.98).opacity(0.96) : Color(red: 0.09, green: 0.12, blue: 0.17).opacity(0.92)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                periodContainerBackground
             )
             .overlay(
-                Capsule()
-                    .stroke(Colors.cardStroke, lineWidth: 1)
-            )
-            .clipShape(Capsule())
-            .padding(.horizontal)
-            
-            // Period Selection & Navigation
-            HStack {
-                HStack(spacing: 4) {
-                    ForEach(ReportPeriod.allCases) { period in
-                        let isSelected = viewModel.selectedPeriod == period
-                        Button {
-                            viewModel.syncPeriod(period)
-                            selectedReportDate = Calendar.current.startOfDay(for: viewModel.referenceDate)
-                            Task { await viewModel.refresh() }
-                        } label: {
-                            Text(period.rawValue)
-                                .font(.system(size: 12, weight: isSelected ? .bold : .medium))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .fill(
-                                            isSelected
-                                                ? LinearGradient(
-                                                    colors: isLightMode
-                                                        ? [Color.white, Color(red: 0.90, green: 0.96, blue: 1.0)]
-                                                        : [Color(red: 0.18, green: 0.21, blue: 0.28).opacity(0.95), Color(red: 0.12, green: 0.15, blue: 0.21).opacity(0.95)],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                                : LinearGradient(
-                                                    colors: [
-                                                        isLightMode ? Color(red: 0.93, green: 0.94, blue: 0.97) : Color.white.opacity(0.05),
-                                                        isLightMode ? Color(red: 0.88, green: 0.90, blue: 0.94) : Color.white.opacity(0.03)
-                                                    ],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                        )
-                                        .matchedGeometryEffect(id: "period_bg", in: periodNamespace)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 10)
-                                                .stroke(
-                                                    isSelected
-                                                        ? (isLightMode ? Color(red: 0.55, green: 0.76, blue: 0.96).opacity(0.7) : Color.white.opacity(0.2))
-                                                        : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.08)),
-                                                    lineWidth: 1
-                                                )
-                                        )
-                                        .shadow(color: isSelected ? Color.black.opacity(isLightMode ? 0.08 : 0.15) : .clear, radius: 2, y: 1)
-                                )
-                                .foregroundColor(isSelected ? Colors.textPrimary : Colors.textSecondary)
-                        }
+                Group {
+                    if !isTiimo {
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(isLightMode ? Colors.cardStroke : Color.white.opacity(0.08), lineWidth: 1)
                     }
                 }
-                .padding(4)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    isLightMode ? Color.white.opacity(0.98) : Color(red: 0.10, green: 0.13, blue: 0.18).opacity(0.9),
-                                    isLightMode ? Color(red: 0.94, green: 0.95, blue: 0.98).opacity(0.98) : Color(red: 0.07, green: 0.10, blue: 0.15).opacity(0.9)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
+            )
+            .cornerRadius(isTiimo ? 100 : 12)
+            
+            Spacer()
+            
+            HStack(spacing: 12) {
+                Button { 
+                    withAnimation { viewModel.movePeriod(by: -1) }
+                    selectedReportDate = Calendar.current.startOfDay(for: viewModel.referenceDate)
+                } label: {
+                    Image(systemName: "chevron.left.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(Colors.cardSurface)
+                        .overlay(
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(ReportPalette.accent)
                         )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(isLightMode ? Colors.cardStroke : Color.white.opacity(0.08), lineWidth: 1)
-                )
-                .cornerRadius(12)
+                }
                 
-                Spacer()
+                Text(viewModel.periodLabel)
+                    .font(.system(size: 13, weight: .heavy))
+                    .foregroundColor(Colors.textPrimary)
                 
-                HStack(spacing: 12) {
-                    Button { 
-                        withAnimation { viewModel.movePeriod(by: -1) }
-                        selectedReportDate = Calendar.current.startOfDay(for: viewModel.referenceDate)
-                    } label: {
-                        Image(systemName: "chevron.left.circle.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(Colors.cardSurface)
-                            .overlay(
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(ReportPalette.accent)
-                            )
-                    }
-                    
-                    Text(viewModel.periodLabel)
-                        .font(.system(size: 13, weight: .heavy))
-                        .foregroundColor(Colors.textPrimary)
-                    
-                    Button { 
-                        withAnimation { viewModel.movePeriod(by: 1) }
-                        selectedReportDate = Calendar.current.startOfDay(for: viewModel.referenceDate)
-                    } label: {
-                        Image(systemName: "chevron.right.circle.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(Colors.cardSurface)
-                            .overlay(
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(ReportPalette.accent)
-                            )
-                    }
+                Button { 
+                    withAnimation { viewModel.movePeriod(by: 1) }
+                    selectedReportDate = Calendar.current.startOfDay(for: viewModel.referenceDate)
+                } label: {
+                    Image(systemName: "chevron.right.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(Colors.cardSurface)
+                        .overlay(
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(ReportPalette.accent)
+                        )
                 }
             }
-            .padding(.horizontal)
+        }
+        .padding(.horizontal)
+    }
+
+    private var reportHeader: some View {
+        VStack(spacing: 16) {
+            domainSegmentPicker
+            periodSegmentPicker
         }
         .padding(.vertical, 16)
         .background(Colors.bgPrimary)
@@ -1893,6 +1978,34 @@ private struct ReportMoodLoggingsView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.date(from: value)
+    }
+}
+
+private enum MoodType: String, CaseIterable {
+    case bad
+    case notGreat
+    case okay
+    case good
+    case great
+
+    var title: String {
+        switch self {
+        case .bad: return "Bad"
+        case .notGreat: return "Not Great"
+        case .okay: return "Okay"
+        case .good: return "Good"
+        case .great: return "Great"
+        }
+    }
+
+    var emoji: String {
+        switch self {
+        case .bad: return "😞"
+        case .notGreat: return "🙁"
+        case .okay: return "😐"
+        case .good: return "🙂"
+        case .great: return "😄"
+        }
     }
 }
 

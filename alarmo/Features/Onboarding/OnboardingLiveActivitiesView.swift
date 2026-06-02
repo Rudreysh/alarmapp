@@ -7,7 +7,11 @@ struct OnboardingLiveActivitiesView: View {
     @State private var isRequesting = false
     @State private var animateIn = false
 
-    var body: some View {
+    
+    private var isTiimoTheme: Bool {
+        AlarmThemeStyle.persisted.usesTiimoLayoutBranch
+    }
+var body: some View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
             
@@ -29,7 +33,7 @@ struct OnboardingLiveActivitiesView: View {
                     Text("Live Habit Tracking")
                         .font(.system(size: 24, weight: .bold))
                         .foregroundColor(Colors.textPrimary)
-                        .lineLimit(2)
+                        .lineLimit(3)
                         .minimumScaleFactor(0.8)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
@@ -54,10 +58,10 @@ struct OnboardingLiveActivitiesView: View {
                     Button(action: onNext) {
                         Text("Skip")
                             .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(Color.white.opacity(0.15))
+                            .background(Colors.cardSurface)
                             .cornerRadius(32)
                     }
                     .disabled(isRequesting)
@@ -70,7 +74,8 @@ struct OnboardingLiveActivitiesView: View {
                 .padding(.horizontal, Spacing.l)
                 .padding(.bottom, 24)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .onboardingContentFrame()
         }
         .onAppear {
             animateIn = true

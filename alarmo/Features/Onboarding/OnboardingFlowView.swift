@@ -7,22 +7,111 @@ struct OnboardingFlowView: View {
     @EnvironmentObject private var navStore: NavigationStore
 
     var body: some View {
-                NavigationStack(path: $viewModel.navigationPath) {
-            OnboardingIntroView(onNext: {
-                withAnimation(.easeInOut) {
-                    viewModel.startSetupFlowFromIntroCTA()
+        NavigationStack(path: $viewModel.navigationPath) {
+            Group {
+                if AlarmThemeStyle.persisted.usesTiimoLayoutBranch {
+                    OnboardingIntroView(onNext: startSetupFlow, onSkip: skipOnboarding)
+                } else {
+                    WelcomeView(onContinue: startSetupFlow, onSkip: skipOnboarding)
                 }
-            }, onSkip: {
-                // Skip onboarding entirely and go straight to main alarm UI.
-                withAnimation(.easeInOut) {
-                    appPreferences.devAlwaysShowOnboarding = false
-                    appPreferences.forceShowOnboardingNextLaunch = false
-                    appPreferences.onboardingCompleted = true
-                    viewModel.completeOnboarding()
-                }
-            })
+            }
             .navigationDestination(for: OnboardingStep.self) { step in
                 switch step {
+                case .namePrompt:
+                    OnboardingNameView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.nameWelcome)
+                            viewModel.navigationPath.append(.nameWelcome)
+                        }
+                    }
+                case .nameWelcome:
+                    OnboardingNameWelcomeView(viewModel: viewModel) {
+                        beginNameWelcomeMascotFlight()
+                    }
+                case .chronotypeQuestion:
+                    OnboardingChronotypeQuestionView {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.struggleQuestion)
+                            viewModel.navigationPath.append(.struggleQuestion)
+                        }
+                    }
+                case .struggleQuestion:
+                    OnboardingStruggleQuestionView {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.wakeLateImpactQuestion)
+                            viewModel.navigationPath.append(.wakeLateImpactQuestion)
+                        }
+                    }
+                case .wakeLateImpactQuestion:
+                    OnboardingWakeLateImpactQuestionView {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.wakeFeelQuestion)
+                            viewModel.navigationPath.append(.wakeFeelQuestion)
+                        }
+                    }
+                case .wakeFeelQuestion:
+                    OnboardingWakeFeelQuestionView {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.morningHardestQuestion)
+                            viewModel.navigationPath.append(.morningHardestQuestion)
+                        }
+                    }
+                case .morningHardestQuestion:
+                    OnboardingMorningHardestQuestionView {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.halfAsleepQuestion)
+                            viewModel.navigationPath.append(.halfAsleepQuestion)
+                        }
+                    }
+                case .halfAsleepQuestion:
+                    OnboardingHalfAsleepQuestionView {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.snoozeCountQuestion)
+                            viewModel.navigationPath.append(.snoozeCountQuestion)
+                        }
+                    }
+                case .snoozeCountQuestion:
+                    OnboardingSnoozeCountQuestionView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.snoozeAgeQuestion)
+                            viewModel.navigationPath.append(.snoozeAgeQuestion)
+                        }
+                    }
+                case .snoozeAgeQuestion:
+                    OnboardingSnoozeAgeQuestionView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.snoozeDailyDrain)
+                            viewModel.navigationPath.append(.snoozeDailyDrain)
+                        }
+                    }
+                case .snoozeDailyDrain:
+                    OnboardingSnoozeDailyDrainView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.snoozeYearGrid)
+                            viewModel.navigationPath.append(.snoozeYearGrid)
+                        }
+                    }
+                case .snoozeYearGrid:
+                    OnboardingSnoozeYearGridView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.snoozeLifetimeTotal)
+                            viewModel.navigationPath.append(.snoozeLifetimeTotal)
+                        }
+                    }
+                case .snoozeLifetimeTotal:
+                    OnboardingSnoozeLifetimeTotalView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.snoozePayoff)
+                            viewModel.navigationPath.append(.snoozePayoff)
+                        }
+                    }
+                case .snoozePayoff:
+                    OnboardingSnoozePayoffView(viewModel: viewModel) {
+                        withAnimation(.easeInOut) {
+                            viewModel.setStep(.setTime)
+                            viewModel.navigationPath.append(.setTime)
+                        }
+                    }
                 case .setTime:
                     OnboardingSetTimeView(viewModel: viewModel) {
                         withAnimation(.easeInOut) {
@@ -79,38 +168,50 @@ struct OnboardingFlowView: View {
                 case .screenTimeAccess:
                     OnboardingScreenTimeAccessView(viewModel: viewModel) {
                         withAnimation(.easeInOut) {
-                            viewModel.setStep(.motionAccess)
-                            viewModel.navigationPath.append(.motionAccess)
-                        }
-                    }
-                case .motionAccess:
-                    OnboardingMotionAccessView(viewModel: viewModel) {
-                        withAnimation(.easeInOut) {
                             viewModel.setStep(.cameraAccess)
                             viewModel.navigationPath.append(.cameraAccess)
                         }
                     }
+                case .motionAccess:
+                    Color.clear
+                        .onAppear {
+                            withAnimation(.easeInOut) {
+                                if !viewModel.navigationPath.isEmpty {
+                                    viewModel.navigationPath.removeLast()
+                                }
+                                viewModel.setStep(.cameraAccess)
+                                viewModel.navigationPath.append(.cameraAccess)
+                            }
+                        }
                 case .cameraAccess:
                     OnboardingCameraAccessView(viewModel: viewModel) {
-                        withAnimation(.easeInOut) {
-                            viewModel.setStep(.liveActivities)
-                            viewModel.navigationPath.append(.liveActivities)
-                        }
-                    }
-                case .liveActivities:
-                    OnboardingLiveActivitiesView(viewModel: viewModel) {
-                        withAnimation(.easeInOut) {
-                            viewModel.setStep(.healthAccess)
-                            viewModel.navigationPath.append(.healthAccess)
-                        }
-                    }
-                case .healthAccess:
-                    OnboardingHealthAccessView(viewModel: viewModel) {
                         withAnimation(.easeInOut) {
                             viewModel.setStep(.soundSelection)
                             viewModel.navigationPath.append(.soundSelection)
                         }
                     }
+                case .liveActivities:
+                    Color.clear
+                        .onAppear {
+                            withAnimation(.easeInOut) {
+                                if !viewModel.navigationPath.isEmpty {
+                                    viewModel.navigationPath.removeLast()
+                                }
+                                viewModel.setStep(.healthAccess)
+                                viewModel.navigationPath.append(.healthAccess)
+                            }
+                        }
+                case .healthAccess:
+                    Color.clear
+                        .onAppear {
+                            withAnimation(.easeInOut) {
+                                if !viewModel.navigationPath.isEmpty {
+                                    viewModel.navigationPath.removeLast()
+                                }
+                                viewModel.setStep(.soundSelection)
+                                viewModel.navigationPath.append(.soundSelection)
+                            }
+                        }
                 case .soundSelection:
                     OnboardingSoundSelectionView(onboardingViewModel: viewModel) {
                         withAnimation(.easeInOut) {
@@ -247,9 +348,35 @@ struct OnboardingFlowView: View {
                     .navigationBarBackButtonHidden(true)
                 case .intro:
                     EmptyView()
-                }
             }
         }
+    }
+
+                .environment(\.usesOnboardingDefaultWhiteButton, true)
         .tint(Colors.accentTeal)
+    }
+
+    private func startSetupFlow() {
+        withAnimation(.easeInOut) {
+            viewModel.startSetupFlowFromIntroCTA()
+        }
+    }
+
+    private func skipOnboarding() {
+        withAnimation(.easeInOut) {
+            appPreferences.devAlwaysShowOnboarding = false
+            appPreferences.forceShowOnboardingNextLaunch = false
+            appPreferences.onboardingCompleted = true
+            viewModel.completeOnboarding()
+        }
+    }
+
+    private func beginNameWelcomeMascotFlight() {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            viewModel.setStep(.chronotypeQuestion)
+            viewModel.navigationPath.append(.chronotypeQuestion)
+        }
     }
 }

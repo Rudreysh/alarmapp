@@ -6,6 +6,10 @@ struct CustomTabBar<Tab: Hashable>: View {
     let tabs: [TabBarItem<Tab>]
     @Binding var selected: Tab
     
+    private var usesTiimoLayoutTheme: Bool {
+        settingsStore.alarmThemeStyle.usesTiimoLayoutBranch
+    }
+
     private var isLightMode: Bool {
         switch settingsStore.themeMode {
         case .light:
@@ -18,22 +22,22 @@ struct CustomTabBar<Tab: Hashable>: View {
     }
     
     private var tabBackground: Color {
-        isLightMode ? Color.white : Colors.tabBarBackground
+        usesTiimoLayoutTheme ? Colors.tabBarBackground : (isLightMode ? Color.white : Colors.tabBarBackground)
     }
     
     private var selectedTextColor: Color {
-        isLightMode ? Colors.textPrimary : Colors.textPrimary
+        usesTiimoLayoutTheme ? Colors.accentBlue : Colors.textPrimary
     }
     
     private var unselectedTextColor: Color {
-        isLightMode ? Colors.tabBarInactive : Colors.tabBarInactive
+        Colors.tabBarInactive
     }
 
     var body: some View {
         VStack(spacing: 0) {
             Rectangle()
                 .fill(Colors.cardStroke)
-                .frame(height: 1)
+                .frame(height: usesTiimoLayoutTheme ? 0.5 : 1)
 
             let totalWidth = UIScreen.main.bounds.width
             let itemWidth = totalWidth / CGFloat(tabs.count)

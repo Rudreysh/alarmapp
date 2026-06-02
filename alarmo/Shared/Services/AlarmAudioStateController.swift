@@ -29,8 +29,8 @@ final class AlarmAudioStateController {
     static let postSlideMinimumVolume: Float = 0.30
     static let postSlideRampDuration: TimeInterval = 2.5
     static let postSlideTargetVolume: Float = 1.0
-    static let postSlideMinimumOutputVolume: Float = 0.25
-    static let preAlarmMinimumOutputVolume: Float = 0.25
+    static let postSlideMinimumOutputVolume: Float = 0.70
+    static let preAlarmMinimumOutputVolume: Float = 0.70
     static let mpVolumeFloorAttemptDelay: TimeInterval = 0.15
     static let mpVolumeFloorVerificationDelay: TimeInterval = 0.35
 
@@ -40,6 +40,7 @@ final class AlarmAudioStateController {
     private(set) var currentAlarmRunId: UUID?
     private(set) var selectedSoundName: String?
     private(set) var selectedSoundURL: URL?
+    private(set) var selectedSoundVolume: Float = 1.0
 
     private(set) var alarmKitAlertingReceivedAt: Date?
     private(set) var appEnginePreparedAt: Date?
@@ -115,6 +116,12 @@ final class AlarmAudioStateController {
         currentAlarmRunId = UUID()
         selectedSoundName = soundName
         selectedSoundURL = nil
+        selectedSoundVolume = 1.0
+        if let uuid = UUID(uuidString: alarmId),
+           let alarm = AlarmStore.shared.alarm(by: uuid),
+           alarm.soundVolume > 0, alarm.soundVolume <= 1.0 {
+            selectedSoundVolume = alarm.soundVolume
+        }
         terminalActionRecorded = false
         alarmKitAlertingReceivedAt = nil
         appEnginePreparedAt = nil
@@ -281,11 +288,30 @@ final class AlarmAudioStateController {
             return
         }
         log("[StateController] Takeover proceeding — calling startFadeIn")
+        // Player always fades to 1.0 to maximise headroom.
+        // Gentle wake-up duration comes from the alarm's gentleWakeUpSeconds setting.
+        // System output volume floor is enforced separately via selectedSoundVolume.
+        var fadeInDuration = Self.appEngineFadeInDuration
+        if let alarmIdStr = currentAlarmId,
+           let uuid = UUID(uuidString: alarmIdStr),
+           let alarm = AlarmStore.shared.alarm(by: uuid),
+           alarm.gentleWakeUpSeconds > 0 {
+            fadeInDuration = TimeInterval(alarm.gentleWakeUpSeconds)
+        }
         AlarmContinuousAudioEngine.shared.startFadeIn(
             alarmRunId: alarmRunId,
-            fadeInDuration: Self.appEngineFadeInDuration,
+            fadeInDuration: fadeInDuration,
             targetVolume: Self.appEngineFinalTargetVolume
         )
+        // Raise system output volume to the user's configured level now that
+        // the engine is starting. selectedSoundVolume was set in beginAlarmSession.
+        let floorVolume = selectedSoundVolume
+        Task { @MainActor in
+            SystemOutputVolumeFloorManager.shared.attemptRaiseOutputVolumeFloor(
+                minimumVolume: floorVolume,
+                reason: "engine-takeover-floor"
+            )
+        }
     }
 
     private func scheduleDelayedTakeover(alarmRunId: UUID, delay: TimeInterval) {

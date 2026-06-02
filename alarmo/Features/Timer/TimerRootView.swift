@@ -36,7 +36,7 @@ struct TimerRootView: View {
     
     var body: some View {
         ZStack {
-            TimerGlassBackground()
+            Colors.bgPrimary.ignoresSafeArea()
             
             VStack(spacing: 0) {
                 // Header row + mode row
@@ -221,6 +221,14 @@ struct TimerRootView: View {
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(Colors.textPrimary)
                 .frame(width: 40, height: 40)
+                .background(
+                    Circle()
+                        .fill(isLightMode ? Color.black.opacity(0.10) : Color.white.opacity(0.16))
+                )
+                .overlay(
+                    Circle()
+                        .stroke(isLightMode ? Colors.cardStroke.opacity(0.95) : Color.white.opacity(0.20), lineWidth: 1)
+                )
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("Timer settings"))
