@@ -5,6 +5,7 @@ struct AlarmSettingsView: View {
     @State private var showWallpaperQuotes = false
     @State private var showClockStylePicker = false
     @State private var showThemePicker = false
+    @State private var showTimeLimitPicker = false
     @State private var permissionMessage: String?
 
     var body: some View {
@@ -95,7 +96,7 @@ struct AlarmSettingsView: View {
                         showThemePicker = true
                     } label: {
                         row(
-                            icon: "square.3.layers.3d.fill",
+                            icon: "paintpalette.fill",
                             title: "Themes",
                             trailing: store.alarmThemeStyle.title
                         )
@@ -117,12 +118,11 @@ struct AlarmSettingsView: View {
 
                     Divider().padding(.leading, 56).opacity(0.35)
 
-                    NavigationLink {
-                        AdvancedSettingsView()
-                    } label: {
+                    Button(action: { showTimeLimitPicker = true }) {
                         row(
-                            icon: "slider.horizontal.3",
-                            title: "Advanced Alarm Options"
+                            icon: "hourglass",
+                            title: "Mission time limit",
+                            trailing: store.missionTimeLimitLabel
                         )
                     }
                     .buttonStyle(.plain)
@@ -188,6 +188,9 @@ struct AlarmSettingsView: View {
         } message: {
             Text("Choose the alarm appearance theme.")
         }
+        .sheet(isPresented: $showTimeLimitPicker) {
+            MissionTimeLimitSheet()
+        }
     }
 
     private func requestSilentModePermission() {
@@ -199,11 +202,11 @@ struct AlarmSettingsView: View {
                 let diagnostics = await diagnosticsTask
                 await MainActor.run {
                     if !status.notificationsAuthorized {
-                        permissionMessage = "Enable notifications for Alarmo in iPhone Settings to ring alarms."
+                        permissionMessage = "Enable notifications for Awayk in iPhone Settings to ring alarms."
                         return
                     }
                     if !status.alertEnabled || !status.lockScreenEnabled {
-                        permissionMessage = "Enable Alerts and Lock Screen notifications for Alarmo so alarms appear while your phone is locked."
+                        permissionMessage = "Enable Alerts and Lock Screen notifications for Awayk so alarms appear while your phone is locked."
                         return
                     }
                     if status.scheduledDeliveryEnabled && !status.timeSensitiveEnabled {
@@ -211,13 +214,13 @@ struct AlarmSettingsView: View {
                         return
                     }
                     if !diagnostics.alarmKitSupported {
-                        permissionMessage = "AlarmKit is unavailable on this iPhone/iOS (\(diagnostics.iOSVersion)). Alarmo uses notification fallback here, and silent-mode override may be limited."
+                        permissionMessage = "AlarmKit is unavailable on this iPhone/iOS (\(diagnostics.iOSVersion)). Awayk uses notification fallback here, and silent-mode override may be limited."
                         return
                     }
                     if EntitlementInspector.hasCriticalAlertsAccess {
                         permissionMessage = status.criticalEnabled
                             ? "Critical Alerts are enabled. Alarms can ring over silent mode."
-                            : "Enable Critical Alerts for Alarmo in iPhone Settings to ring over silent mode."
+                            : "Enable Critical Alerts for Awayk in iPhone Settings to ring over silent mode."
                     } else {
                         permissionMessage = "Notifications are enabled. On older iOS without AlarmKit/Critical Alerts, alarms may not play sound in Silent mode."
                     }

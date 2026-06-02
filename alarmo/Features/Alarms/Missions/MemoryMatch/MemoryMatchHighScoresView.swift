@@ -31,7 +31,7 @@ struct MemoryMatchHighScoresView: View {
 
 struct HighScoreCard: View {
     let difficulty: MemoryDifficulty
-    
+
     private var highScore: MemoryMatchHighScore? {
         let key = "memoryMatch.highscore.\(difficulty.rawValue)"
         if let data = UserDefaults.standard.data(forKey: key),
@@ -40,12 +40,12 @@ struct HighScoreCard: View {
         }
         return nil
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(difficulty.rawValue)
                 .font(.system(size: 20, weight: .bold))
-                .foregroundColor(.orange)
+                .foregroundColor(Colors.accentTeal)
             
             if let score = highScore {
                 HStack {
@@ -88,7 +88,7 @@ struct ScoreStat: View {
                 .foregroundColor(Colors.textSecondary)
             Text(value)
                 .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
         }
     }
 }

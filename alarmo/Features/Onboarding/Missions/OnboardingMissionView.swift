@@ -40,8 +40,9 @@ struct OnboardingMissionView: View {
                     .font(.system(size: 21, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
                     .multilineTextAlignment(.leading)
-                    .lineLimit(1)
+                    .lineLimit(2)
                     .minimumScaleFactor(0.8)
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, Spacing.l)
                     .padding(.top, Spacing.xs)
@@ -83,6 +84,7 @@ struct OnboardingMissionView: View {
                     .padding(.bottom, 28)
                 }
             }
+            .onboardingContentFrame()
             .safeAreaInset(edge: .bottom) {
                 PrimaryButton(title: "Done", style: .blueGlass) {
                     onboardingViewModel.completeOnboarding()
@@ -234,7 +236,7 @@ private struct MissionAnimationView: View {
                 .background(Colors.cardSurface)
                 .cornerRadius(12)
             case .typing:
-                let words = ["|", "W|", "Wa|", "Wak|", "Wake|", "Wake |", "Wake u|", "Wake up", "Wake up", "Wake up"]
+                let words = ["|", "W|", "Wa|", "Wak|", "Wake|", "Wake |", "Wake u|", "Wake up|", "Wake up|", "Wake up|"]
                 let text = words[tick % words.count]
                 Text(text)
                     .font(.system(size: 16, weight: .bold, design: .monospaced))
@@ -439,7 +441,7 @@ private struct MissionAnimationView: View {
                 .background(Colors.cardSurface)
                 .cornerRadius(12)
             case .typing:
-                let words = ["|", "W|", "Wk|", "Wka|", "Wkae|", "Wkae |", "Wkae u|", "Wkae up", "Wkae up", "Wkae up"]
+                let words = ["|", "W|", "Wk|", "Wka|", "Wkae|", "Wkae |", "Wkae u|", "Wkae up|", "Wkae up|", "Wkae up|"]
                 let text = words[tick % words.count]
                 Text(text)
                     .font(.system(size: 16, weight: .bold, design: .monospaced))

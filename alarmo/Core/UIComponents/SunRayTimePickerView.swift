@@ -192,7 +192,7 @@ struct SunRayTimePickerView: View {
                                     startAngle: .degrees(0),
                                     endAngle: .degrees(360)
                                 ),
-                                style: StrokeStyle(lineWidth: 5.2, lineCap: .round)
+                                style: StrokeStyle(lineWidth: 6.24, lineCap: .round)
                             )
                             .frame(width: size + 10, height: size + 10)
                             .rotationEffect(.degrees(-90))
@@ -213,7 +213,7 @@ struct SunRayTimePickerView: View {
                                     startAngle: .degrees(0),
                                     endAngle: .degrees(360 * activeProgress())
                                 ),
-                                style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
+                                style: StrokeStyle(lineWidth: 4.2, lineCap: .round)
                             )
                             .frame(width: size + 10, height: size + 10)
                             .rotationEffect(.degrees(-90))
@@ -590,7 +590,7 @@ struct SunRayTimePickerView: View {
         impactFeedback.impactOccurred(intensity: 0.7)
         let now = CFAbsoluteTimeGetCurrent()
         if now - lastTickSoundAt > 0.02 {
-            AudioServicesPlaySystemSound(1157) // Native iOS picker wheel tick sound
+            AudioServicesPlaySystemSound(1104) // Smooth keyboard click sound
             lastTickSoundAt = now
         }
     }

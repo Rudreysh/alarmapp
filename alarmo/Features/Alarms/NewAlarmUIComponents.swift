@@ -1,4 +1,5 @@
 import SwiftUI
+import AudioToolbox
 
 // MARK: - Menu Row
 struct MenuRow: View {
@@ -105,6 +106,7 @@ private struct FocusDialAlarmTimePickerView: View {
     @AppStorage("is12HourFormat") private var is12HourFormat: Bool = true
     @State private var isDragging = false
     @State private var showWheelPicker = false
+    @State private var lastTickSoundAt: CFAbsoluteTime = 0
 
     private let selectionFeedback = UISelectionFeedbackGenerator()
     private let impactFeedback = UIImpactFeedbackGenerator(style: .rigid)
@@ -561,6 +563,11 @@ private struct FocusDialAlarmTimePickerView: View {
     private func triggerFeedback() {
         selectionFeedback.selectionChanged()
         impactFeedback.impactOccurred(intensity: 0.6)
+        let now = CFAbsoluteTimeGetCurrent()
+        if now - lastTickSoundAt > 0.02 {
+            AudioServicesPlaySystemSound(1104)
+            lastTickSoundAt = now
+        }
     }
 
     private var hour12Binding: Binding<Int> {
@@ -593,12 +600,34 @@ private struct FocusDialAlarmTimePickerView: View {
 
 // MARK: - Sub-Editors (Sheets)
 
+let defaultAlarmEmoji = "🌞"
+
+private extension Character {
+    var isAlarmEmojiCandidate: Bool {
+        unicodeScalars.contains { scalar in
+            scalar.properties.isEmojiPresentation ||
+            (scalar.properties.isEmoji && scalar.value > 0x238C)
+        }
+    }
+}
+
+func normalizedAlarmEmojiInput(_ value: String, fallback: String = "") -> String {
+    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return fallback }
+
+    if let lastEmoji = trimmed.last(where: { $0.isAlarmEmojiCandidate }) {
+        return String(lastEmoji)
+    }
+
+    return fallback
+}
+
 struct LabelSettingsView: View {
     @Binding var name: String
     @Binding var emoji: String
     @Binding var showEmojiPicker: Bool
     @Environment(\.dismiss) var dismiss
-    private let suggestedEmojis = ["🌞", "⏰", "🔥", "💪", "🚀", "🎯", "⭐️", "😴"]
+    @FocusState private var isNameFieldFocused: Bool
     
     var body: some View {
         NavigationView {
@@ -606,7 +635,7 @@ struct LabelSettingsView: View {
                 Colors.bgPrimary.ignoresSafeArea()
                 VStack(spacing: 24) {
                     Button(action: { showEmojiPicker = true }) {
-                        Text(emoji)
+                        Text(emoji.isEmpty ? defaultAlarmEmoji : emoji)
                             .font(.system(size: 48))
                             .frame(width: 100, height: 100)
                             .background(Colors.cardSurface)
@@ -623,34 +652,48 @@ struct LabelSettingsView: View {
                         .cornerRadius(12)
                         .foregroundColor(Colors.textPrimary)
                         .padding(.horizontal)
+                        .focused($isNameFieldFocused)
 
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Emoji (multiple supported)")
+                        Text("Emoji")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(Colors.textSecondary)
 
-                        TextField("🌞⏰", text: $emoji)
-                            .font(.system(size: 22))
+                        Button {
+                            showEmojiPicker = true
+                        } label: {
+                            HStack(spacing: 12) {
+                                Text(emoji.isEmpty ? defaultAlarmEmoji : emoji)
+                                    .font(.system(size: 24))
+                                    .frame(width: 28)
+
+                                Text("Choose with emoji keyboard")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(Colors.textPrimary)
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(Colors.textSecondary)
+                            }
                             .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
+                            .padding(.vertical, 14)
                             .background(Colors.cardSurface)
                             .cornerRadius(12)
-                            .foregroundColor(Colors.textPrimary)
-
-                        HStack(spacing: 10) {
-                            ForEach(suggestedEmojis, id: \.self) { item in
-                                Button(item) {
-                                    emoji += item
-                                }
-                                .font(.system(size: 26))
-                            }
                         }
+                        .buttonStyle(.plain)
+                        Text("The emoji keyboard opens automatically when you choose emoji.")
+                            .font(.system(size: 13, weight: .regular))
+                            .foregroundColor(Colors.textSecondary)
 
-                        Button("Remove Emoji") {
-                            emoji = ""
+                        Button {
+                            emoji = defaultAlarmEmoji
+                        } label: {
+                            Text("Reset to Sun")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(Colors.accentTeal)
                         }
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.red)
                     }
                     .padding(.horizontal)
                     
@@ -661,6 +704,14 @@ struct LabelSettingsView: View {
                 .toolbar {
                     Button("Done") { dismiss() }
                 }
+            }
+        }
+        .onAppear {
+            if emoji.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                emoji = defaultAlarmEmoji
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                isNameFieldFocused = true
             }
         }
     }
@@ -910,54 +961,55 @@ struct MissionSlotItem: View {
     let state: MissionSlotState
     let onTap: () -> Void
     let onRemove: () -> Void
+
+    private let slotDiameter: CGFloat = 72
+    private let labelWidth: CGFloat = 78
     
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            // Main Container
             VStack(spacing: 8) {
                 ZStack {
-                    // Background
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(state == .filled ? Colors.cardSurface : Color.clear)
-                        .frame(width: 68, height: 68)
+                    Circle()
+                        .fill(slotFill)
+                        .frame(width: slotDiameter, height: slotDiameter)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(state == .filled ? Colors.accentTeal.opacity(0.3) : Colors.textTertiary.opacity(0.2), lineWidth: 1.5)
+                            Circle()
+                                .strokeBorder(slotBorderColor, lineWidth: state == .filled ? 1.5 : 1.25)
                         )
-                        // Dashed border for empty state
-                         .overlay(
+                        .overlay(
                             Group {
                                 if state == .empty {
-                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                        .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [6]))
+                                    Circle()
+                                        .inset(by: 1)
+                                        .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
                                         .foregroundColor(Colors.textTertiary.opacity(0.4))
                                 }
                             }
                         )
 
-                    // Icon
                     if let mission = mission {
-                        Image(systemName: mission.iconName) 
-                            .font(.system(size: 26))
+                        Image(systemName: mission.iconName)
+                            .font(.system(size: 24, weight: .semibold))
                             .foregroundColor(Colors.accentTeal)
+                            .frame(width: 30, height: 30)
                     } else {
                         Image(systemName: "plus")
-                            .font(.system(size: 26, weight: .regular))
+                            .font(.system(size: 24, weight: .medium))
                             .foregroundColor(Colors.textTertiary)
+                            .frame(width: 30, height: 30)
                     }
                 }
                 
-                // Label
                 Text(state == .filled && mission != nil ? mission!.title : "Add")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(state == .filled ? Colors.textPrimary : Colors.textTertiary)
                     .lineLimit(1)
-                    .frame(width: 68)
+                    .minimumScaleFactor(0.82)
+                    .frame(width: labelWidth)
             }
             .contentShape(Rectangle())
             .onTapGesture(perform: onTap)
             
-            // Remove Button (Badge)
             if state == .filled {
                 Button(action: onRemove) {
                     Image(systemName: "xmark.circle.fill")
@@ -970,5 +1022,13 @@ struct MissionSlotItem: View {
         }
         .padding(.top, 8)
         .padding(.trailing, 8)
+    }
+
+    private var slotFill: Color {
+        state == .filled ? Colors.cardSurface : Colors.bgSecondary.opacity(0.28)
+    }
+
+    private var slotBorderColor: Color {
+        state == .filled ? Colors.accentTeal.opacity(0.32) : Colors.textTertiary.opacity(0.18)
     }
 }

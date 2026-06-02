@@ -780,14 +780,14 @@ final class AlarmManagerFacade: AlarmScheduler, AlarmSchedulerProtocol {
             #if targetEnvironment(simulator)
             return "AlarmKit authorization is unreliable in the iOS simulator. Test alarm authorization and lock-screen ringing on a real iPhone or iPad running iOS 26+."
             #else
-            return "Alarm permission request failed. Open Settings > Alarmo and enable Alarms, then try again. If the Alarms option is missing, reinstall the app and request permission again on iOS 26+."
+            return "Alarm permission request failed. Open Settings > Awayk and enable Alarms, then try again. If the Alarms option is missing, reinstall the app and request permission again on iOS 26+."
             #endif
         }
 
         if let schedulingError = error as? AlarmSchedulingError {
             switch schedulingError {
             case .alarmKitPermissionDenied:
-                return "AlarmKit permission is denied. Enable Alarm permissions for Alarmo in Settings and try again."
+                return "AlarmKit permission is denied. Enable Alarm permissions for Awayk in Settings and try again."
             case .unsupportedAlarmKit:
                 return "AlarmKit is unavailable on this iOS version. Use iOS 26+ for system alarm behavior."
             default:

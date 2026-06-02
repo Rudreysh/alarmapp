@@ -15,17 +15,17 @@ struct FindColorTilesMissionView: View {
                     Button(action: { dismiss() }) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                     }
                     Spacer()
                     Text("\(viewModel.roundIndex)/\(viewModel.totalRounds)")
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                     Spacer()
                     Button(action: { viewModel.soundEnabled.toggle() }) {
                         Image(systemName: viewModel.soundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -42,7 +42,7 @@ struct FindColorTilesMissionView: View {
                         
                         Text("\(viewModel.remainingTargets) left")
                             .font(.system(size: 24, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                     }
                     Text("Find the color tiles")
                         .font(.system(size: 16))
@@ -91,7 +91,7 @@ struct FindColorTilesMissionView: View {
                     Text("PREVIEW MODE")
                         .captionText()
                         .fontWeight(.black)
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(MissionTheme.backgroundSubtleText)
                         .padding(.bottom, 20)
                 }
             }
@@ -141,24 +141,19 @@ struct ActualMissionTileView: View {
 
 struct MissionSuccessOverlay: View {
     let roundIndex: Int
-    
+
     var body: some View {
         ZStack {
-            Color.black.opacity(0.85).ignoresSafeArea()
-            
-            VStack(spacing: 40) {
+            MissionEmojiConfettiBackground()
+
+            VStack(spacing: 20) {
+                Text("Completed!")
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundColor(Colors.textPrimary)
+
                 Text("Round \(roundIndex)")
-                    .heroTitle()
-                    .foregroundColor(.white)
-                
-                ZStack {
-                    Circle()
-                        .fill(Color.green)
-                        .frame(width: 120, height: 120)
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 60, weight: .bold))
-                        .foregroundColor(.white)
-                }
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(Colors.textSecondary)
             }
         }
     }

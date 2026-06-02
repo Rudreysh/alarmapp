@@ -66,17 +66,17 @@ struct MemoryMatchSettingsView: View {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
             Spacer()
             Text("Memory Match")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
             Spacer()
             Button(action: { dismiss() }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
         }
         .padding(.horizontal, 24)
@@ -90,8 +90,8 @@ struct MemoryMatchSettingsView: View {
                 .font(.system(size: 12, weight: .bold))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
-                .background(Color.blue)
-                .foregroundColor(.white)
+                .background(MissionTheme.exampleBadgeFill)
+                .foregroundColor(MissionTheme.exampleBadgeText)
                 .clipShape(Capsule())
             
             // Mock Grid Preview
@@ -100,19 +100,19 @@ struct MemoryMatchSettingsView: View {
                     HStack(spacing: 8) {
                         ForEach(0..<3, id: \.self) { c in
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.white.opacity(0.1))
+                                .fill(MissionTheme.softFill)
                                 .frame(width: 44, height: 44)
                                 .overlay(
                                     Image(systemName: r == 0 && c == 1 ? "leaf.fill" : (r == 1 && c == 2 ? "leaf.fill" : "questionmark"))
                                         .font(.system(size: 16, weight: .bold))
-                                        .foregroundColor(r == 0 && c == 1 || r == 1 && c == 2 ? .green : .white.opacity(0.3))
+                                        .foregroundColor(r == 0 && c == 1 || r == 1 && c == 2 ? .green : MissionTheme.backgroundSubtleText)
                                 )
                         }
                     }
                 }
             }
             .padding(16)
-            .background(Color.white.opacity(0.05))
+            .background(MissionTheme.segmentedTrackFill)
             .cornerRadius(16)
         }
     }
@@ -122,27 +122,34 @@ struct MemoryMatchSettingsView: View {
             VStack(spacing: 8) {
                 Text(selectedDifficulty.rawValue)
                     .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                 
                 // Difficulty Slider style
                 HStack(spacing: 0) {
                     ForEach(MemoryDifficulty.allCases) { diff in
-                        Rectangle()
-                            .fill(selectedDifficulty == diff ? Color.white : Color.white.opacity(0.2))
-                            .frame(height: 4)
-                            .frame(maxWidth: .infinity)
-                            .overlay(
-                                Circle()
-                                    .fill(selectedDifficulty == diff ? Color.white : Color.clear)
-                                    .frame(width: 12, height: 12)
-                            )
-                            .onTapGesture {
-                                selectedDifficulty = diff
-                            }
+                        VStack(spacing: 8) {
+                            Rectangle()
+                                .fill(selectedDifficulty == diff ? MissionTheme.selectedControlFill : MissionTheme.unselectedControlFill)
+                                .frame(height: 4)
+                                .frame(maxWidth: .infinity)
+                                .overlay(
+                                    Circle()
+                                        .fill(selectedDifficulty == diff ? MissionTheme.selectedControlFill : Color.clear)
+                                        .frame(width: 12, height: 12)
+                                )
+                                .onTapGesture {
+                                    selectedDifficulty = diff
+                                }
+
+                            Text(diff.rawValue)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(Colors.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity)
                     }
                 }
                 .padding(.horizontal, 10)
-                
+
                 HStack {
                     Text("Very easy").font(.system(size: 12)).foregroundColor(Colors.textSecondary)
                     Spacer()
@@ -150,7 +157,7 @@ struct MemoryMatchSettingsView: View {
                 }
             }
             
-            Divider().background(Color.white.opacity(0.1))
+            Divider().background(MissionTheme.softStroke)
             
             Text(selectedDifficulty.hasBonus ? "Includes 1 Bonus Star" : "Pure Pairs")
                 .font(.system(size: 16, weight: .medium))
@@ -169,7 +176,7 @@ struct MemoryMatchSettingsView: View {
                     HStack(alignment: .lastTextBaseline, spacing: 8) {
                         Text("\(i)")
                             .font(.system(size: 32, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                         if i == rounds {
                             Text("rounds")
                                 .font(.system(size: 18, weight: .bold))
@@ -193,10 +200,10 @@ struct MemoryMatchSettingsView: View {
                 Button(action: { showAlarmPreview = true }) {
                     Text("Preview")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(MissionTheme.secondaryButtonText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
-                        .background(Color.white.opacity(0.12))
+                        .background(MissionTheme.secondaryButtonFill)
                         .cornerRadius(32)
                 }
                 
@@ -206,21 +213,12 @@ struct MemoryMatchSettingsView: View {
                 }) {
                     Text("Done")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
-                        .background(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.08, green: 0.78, blue: 0.92),
-                                    Color(red: 0.05, green: 0.66, blue: 0.84)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .background(MissionTheme.primaryButtonGradient)
                         .cornerRadius(32)
-                        .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3), radius: 15, x: 0, y: 10)
+                        .shadow(color: MissionTheme.primaryButtonShadow, radius: 15, x: 0, y: 10)
                 }
             }
             .padding(.horizontal, 20)

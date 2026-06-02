@@ -77,17 +77,17 @@ struct MathMissionSettingsView: View {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
             Spacer()
             Text("Math")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
             Spacer()
             Button(action: { dismiss() }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
         }
         .padding(.horizontal, 24)
@@ -101,25 +101,25 @@ struct MathMissionSettingsView: View {
                 .font(.system(size: 12, weight: .bold))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
-                .background(Color.blue)
-                .foregroundColor(.white)
+                .background(MissionTheme.exampleBadgeFill)
+                .foregroundColor(MissionTheme.exampleBadgeText)
                 .clipShape(Capsule())
             
             HStack(spacing: 12) {
                 Text("\(viewModel.exampleProblem.displayExpression) =")
                     .font(.system(size: 40, weight: .heavy))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                     .multilineTextAlignment(.center)
                 
                 // ? Box
                 ZStack {
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.white.opacity(0.1))
+                        .fill(MissionTheme.softFill)
                         .frame(width: 60, height: 60)
                     
                     Image(systemName: "questionmark")
                         .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(Color.white.opacity(0.3))
+                        .foregroundColor(MissionTheme.backgroundSubtleText)
                 }
             }
             .padding(.vertical, 20)
@@ -133,7 +133,7 @@ struct MathMissionSettingsView: View {
                     HStack(alignment: .lastTextBaseline, spacing: 8) {
                         Text("\(i)")
                             .font(.system(size: 32, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                         if i == viewModel.config.repeatCount {
                             Text("times")
                                 .font(.system(size: 18, weight: .bold))
@@ -157,10 +157,10 @@ struct MathMissionSettingsView: View {
                 Button(action: { showAlarmPreview = true }) {
                     Text("Preview")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(MissionTheme.secondaryButtonText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
-                        .background(Color.white.opacity(0.12))
+                        .background(MissionTheme.secondaryButtonFill)
                         .cornerRadius(32)
                 }
                 
@@ -173,18 +173,9 @@ struct MathMissionSettingsView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
-                        .background(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.08, green: 0.78, blue: 0.92),
-                                    Color(red: 0.05, green: 0.66, blue: 0.84)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .background(MissionTheme.primaryButtonGradient)
                         .cornerRadius(32)
-                        .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3), radius: 15, x: 0, y: 10)
+                        .shadow(color: MissionTheme.primaryButtonShadow, radius: 15, x: 0, y: 10)
                 }
             }
             .padding(.horizontal, 20)

@@ -172,23 +172,22 @@ struct CreateWakeUpAlarmView: View {
 
                         // 2. Name & Emoji (Moved Below Time)
                         HStack(spacing: Spacing.m) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Colors.cardSurface.opacity(0.45))
-                                    .frame(width: 44, height: 44)
+                            Button(action: { showEmojiPicker = true }) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(Colors.cardSurface.opacity(0.45))
+                                        .frame(width: 44, height: 44)
 
-                                TextField("🙂", text: $viewModel.draft.emoji)
-                                    .font(.system(size: 30))
-                                    .multilineTextAlignment(.center)
-                                    .textInputAutocapitalization(.never)
-                                    .autocorrectionDisabled(true)
-                                    .frame(width: 40, height: 40)
-                                    .onChange(of: viewModel.draft.emoji) { _, newValue in
-                                        viewModel.draft.emoji = normalizedEmojiInput(newValue)
-                                    }
+                                    Text(viewModel.draft.emoji.isEmpty ? defaultAlarmEmoji : viewModel.draft.emoji)
+                                        .font(.system(size: 30))
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.5)
+                                        .frame(width: 40, height: 40)
+                                }
                             }
+                            .buttonStyle(.plain)
 
-                            TextField("Please fill in the alarm name", text: $viewModel.draft.name)
+                            TextField("Alarm name", text: $viewModel.draft.name)
                                 .font(.system(size: 20, weight: .semibold))
                                 .foregroundColor(Colors.textPrimary)
                                 .focused($nameFocused)
@@ -553,7 +552,7 @@ struct CreateWakeUpAlarmView: View {
         }
         // Sheets calling Sub-Views
         .sheet(isPresented: $showEmojiPicker) {
-            EmojiPickerView { emoji in
+            EmojiPickerView(initialEmoji: viewModel.draft.emoji) { emoji in
                 viewModel.draft.emoji = emoji
                 showEmojiPicker = false
             }
@@ -873,12 +872,6 @@ struct CreateWakeUpAlarmView: View {
         isClassicSunrayStyle ? -8 : -28
     }
 
-    private func normalizedEmojiInput(_ value: String) -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let first = trimmed.first else { return "" }
-        return String(first)
-    }
-
     private var repeatText: String {
         if viewModel.draft.isDaily { return "Daily" }
         if viewModel.draft.selectedWeekdays.isEmpty { return "Once" }
@@ -927,6 +920,7 @@ private extension CreateWakeUpAlarmView {
         guard !isSaving else { return }
         isSaving = true
         let alarmName = viewModel.draft.name.isEmpty ? "Alarm" : viewModel.draft.name
+        let alarmEmoji = normalizedAlarmEmojiInput(viewModel.draft.emoji, fallback: defaultAlarmEmoji)
         let alarmId = existingAlarm?.id ?? UUID()
         let blockAppsEnabled = viewModel.draft.blockAppsEnabled
         let enforcementMode: EnforcementMode = blockAppsEnabled ? .blockApps : .none
@@ -934,7 +928,7 @@ private extension CreateWakeUpAlarmView {
         let alarm = Alarm(
             id: alarmId,
             name: alarmName,
-            emoji: viewModel.draft.emoji,
+            emoji: alarmEmoji,
             hour: viewModel.draft.hour,
             minute: viewModel.draft.minute,
             second: viewModel.draft.second,
@@ -1006,25 +1000,25 @@ private extension CreateWakeUpAlarmView {
             let delivery = await notificationManager.currentAlarmDeliveryStatus()
             if !granted || !delivery.notificationsAuthorized {
                 isSaving = false
-                alarmAccessAlertMessage = "Alarm notifications are not authorized. Turn on notifications for Alarmo."
+                alarmAccessAlertMessage = "Alarm notifications are not authorized. Turn on notifications for Awayk."
                 showAlarmAccessAlert = true
                 return
             }
             if !delivery.soundEnabled {
                 isSaving = false
-                alarmAccessAlertMessage = "Notification sounds are turned off for Alarmo. Turn sounds on so alarms ring audibly."
+                alarmAccessAlertMessage = "Notification sounds are turned off for Awayk. Turn sounds on so alarms ring audibly."
                 showAlarmAccessAlert = true
                 return
             }
             if !delivery.alertEnabled {
                 isSaving = false
-                alarmAccessAlertMessage = "Alert notifications are turned off for Alarmo. Enable Alerts so alarms appear on screen."
+                alarmAccessAlertMessage = "Alert notifications are turned off for Awayk. Enable Alerts so alarms appear on screen."
                 showAlarmAccessAlert = true
                 return
             }
             if !delivery.lockScreenEnabled {
                 isSaving = false
-                alarmAccessAlertMessage = "Lock Screen alerts are off for Alarmo. Enable Lock Screen notifications so alarms are visible while your phone is locked."
+                alarmAccessAlertMessage = "Lock Screen alerts are off for Awayk. Enable Lock Screen notifications so alarms are visible while your phone is locked."
                 showAlarmAccessAlert = true
                 return
             }

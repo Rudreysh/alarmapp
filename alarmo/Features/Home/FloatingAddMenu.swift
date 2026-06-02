@@ -1,51 +1,71 @@
 import SwiftUI
 
 struct FloatingAddMenu: View {
+    let onSelectTimer: () -> Void
     let onSelectHabit: () -> Void
     let onSelectQuick: () -> Void
     let onSelectAlarm: () -> Void
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 10) {
-            VStack(spacing: 14) {
-                FloatingMenuIconButton(icon: "alarm.fill", tint: Colors.accentRed, action: onSelectAlarm)
-                FloatingMenuIconButton(icon: "bolt.fill", tint: Colors.accentTeal, action: onSelectQuick)
-                FloatingMenuIconButton(icon: "clock.fill", tint: Color.purple, action: onSelectHabit)
+        VStack(alignment: .trailing, spacing: 12) {
+            VStack(spacing: 0) {
+                MenuRow(icon: "timer", title: "Timer", tint: Color.orange) {
+                    onSelectTimer()
+                }
             }
-            .padding(.vertical, 18)
-            .padding(.horizontal, 14)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(Colors.cardSurface)
-            )
-            .overlay(
-                Capsule(style: .continuous)
-                    .stroke(Colors.cardStroke, lineWidth: 1.2)
-            )
-            .shadow(color: Colors.shadow.opacity(0.35), radius: 12, x: 0, y: 6)
+            .background(Color.white)
+            .cornerRadius(18)
+            .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 6)
+
+            VStack(spacing: 0) {
+                MenuRow(icon: "calendar", title: "Habit alarm", tint: Color.purple) {
+                    onSelectHabit()
+                }
+                Divider().background(Color.black.opacity(0.1))
+                MenuRow(icon: "bolt.fill", title: "Quick alarm", tint: Color.blue) {
+                    onSelectQuick()
+                }
+            }
+            .background(Color.white)
+            .cornerRadius(18)
+            .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 6)
+
+            VStack(spacing: 0) {
+                MenuRow(icon: "alarm", title: "Alarm", tint: Colors.accentRed) {
+                    onSelectAlarm()
+                }
+            }
+            .background(Color.white)
+            .cornerRadius(18)
+            .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 6)
         }
-        .frame(width: 88)
+        .padding(.trailing, Spacing.l)
+        .padding(.bottom, AppConstants.tabBarHeight + 80)
     }
 }
 
-private struct FloatingMenuIconButton: View {
+private struct MenuRow: View {
     let icon: String
+    let title: String
     let tint: Color
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            ZStack {
-                Circle()
-                    .fill(tint.opacity(0.14))
-                    .frame(width: 52, height: 52)
+            HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(tint)
+                    .frame(width: 28)
+                Text(title)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.black)
+                Spacer()
             }
-            .frame(width: 56, height: 56)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(minWidth: 200)
         }
         .buttonStyle(PressedScaleButtonStyle())
-        .accessibilityLabel(Text(icon))
     }
 }

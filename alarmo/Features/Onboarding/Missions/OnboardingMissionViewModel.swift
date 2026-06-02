@@ -14,7 +14,9 @@ final class OnboardingMissionViewModel: ObservableObject {
             MissionOption(id: .math, title: "Math", icon: "x.squareroot", iconBackground: Colors.accentTeal.opacity(0.2)),
             MissionOption(id: .typing, title: "Typing", icon: "character.textbox", iconBackground: Colors.accentTeal.opacity(0.2)),
             MissionOption(id: .findColorTiles, title: "Memory", icon: "square.grid.3x3.fill", iconBackground: Colors.accentTeal.opacity(0.2)),
-            MissionOption(id: .shake, title: "Shake", icon: "iphone.radiowaves.left.and.right", iconBackground: Colors.accentTeal.opacity(0.2))
+            MissionOption(id: .shake, title: "Shake", icon: "iphone.radiowaves.left.and.right", iconBackground: Colors.accentTeal.opacity(0.2)),
+            MissionOption(id: .affirmation, title: "Affirmations", icon: "quote.bubble", iconBackground: Colors.accentTeal.opacity(0.2)),
+            MissionOption(id: .bibleVerse, title: "Bible Verses", icon: "book.closed", iconBackground: Colors.accentTeal.opacity(0.2))
         ] + [
             MissionOption(id: .off, title: "No Mission", icon: "moon.zzz.fill", iconBackground: Colors.cardSurface)
         ]

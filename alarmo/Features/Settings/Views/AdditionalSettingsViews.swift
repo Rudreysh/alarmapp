@@ -73,39 +73,72 @@ struct MissionTimeLimitSheet: View {
 
 struct ThemeSettingsView: View {
     @ObservedObject var store = SettingsStore.shared
-    
+
     var body: some View {
         ZStack {
             SettingsGlassBackground()
-            
+
             VStack(spacing: 24) {
-                SettingsCard {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Theme")
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding([.top, .leading], 16)
-                        
-                        VStack(spacing: 0) {
-                            ForEach(ThemeMode.allCases, id: \.self) { mode in
-                                SettingsRadioRow(
-                                    title: mode.rawValue,
-                                    isSelected: store.themeMode == mode,
-                                    isLast: mode == ThemeMode.allCases.last
-                                ) {
-                                    store.themeMode = mode
-                                }
-                            }
-                        }
+                VStack(spacing: 16) {
+                    themeOptionButton(
+                        title: "Light",
+                        icon: "sun.max.fill",
+                        iconColor: Color(red: 0.98, green: 0.84, blue: 0.30),
+                        isSelected: store.alarmThemeStyle == .tiimo
+                    ) {
+                        store.alarmThemeStyle = .tiimo
+                    }
+
+                    themeOptionButton(
+                        title: "Dark",
+                        icon: "moon.stars.fill",
+                        iconColor: Color(red: 0.4, green: 0.4, blue: 0.5),
+                        isSelected: store.alarmThemeStyle == .default
+                    ) {
+                        store.alarmThemeStyle = .default
                     }
                 }
-                
+
                 Spacer()
             }
             .padding(.top, 20)
+            .padding(.horizontal, 20)
         }
-        .navigationTitle("Theme")
+        .navigationTitle("Themes")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func themeOptionButton(title: String, icon: String, iconColor: Color, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                Image(systemName: icon)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundColor(iconColor)
+                    .frame(width: 44, height: 44)
+                    .background(iconColor.opacity(0.2))
+                    .cornerRadius(12)
+
+                Text(title)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(Colors.textPrimary)
+
+                Spacer()
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(Colors.accentTeal)
+                }
+            }
+            .padding(16)
+            .background(Colors.cardSurface)
+            .cornerRadius(16)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(isSelected ? Colors.accentTeal.opacity(0.5) : Colors.cardStroke, lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 

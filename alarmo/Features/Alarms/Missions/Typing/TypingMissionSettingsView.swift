@@ -119,17 +119,17 @@ struct TypingMissionSettingsView: View {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
             Spacer()
             Text("Typing")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
             Spacer()
             Button(action: { dismiss() }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
         }
         .padding(.horizontal, 24)
@@ -145,14 +145,14 @@ struct TypingMissionSettingsView: View {
                     .font(.system(size: 12, weight: .bold))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
-                    .background(Color.blue)
-                    .foregroundColor(.white)
+                    .background(MissionTheme.exampleBadgeFill)
+                    .foregroundColor(MissionTheme.exampleBadgeText)
                     .clipShape(Capsule())
             }
             
             Text(viewModel.previewPhrase)
                 .font(.system(size: 28, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
                 .multilineTextAlignment(.center)
                 .frame(height: 80)
                 .padding(.horizontal, 24)
@@ -166,7 +166,7 @@ struct TypingMissionSettingsView: View {
                     HStack(alignment: .lastTextBaseline, spacing: 8) {
                         Text("\(i)")
                             .font(.system(size: 32, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                         if i == viewModel.settings.repeatCount {
                             Text("times")
                                 .font(.system(size: 18, weight: .bold))
@@ -189,7 +189,7 @@ struct TypingMissionSettingsView: View {
             HStack {
                 Text("Select phrase")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                 Spacer()
                 Text("\(viewModel.settings.selectedPhraseIDs.count) phrase")
                     .font(.system(size: 16, weight: .semibold))
@@ -211,10 +211,10 @@ struct TypingMissionSettingsView: View {
                 Button(action: { showAlarmPreview = true }) {
                     Text("Preview")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(MissionTheme.secondaryButtonText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
-                        .background(Color.white.opacity(0.12))
+                        .background(MissionTheme.secondaryButtonFill)
                         .cornerRadius(32)
                 }
                 
@@ -228,18 +228,9 @@ struct TypingMissionSettingsView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
-                        .background(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.08, green: 0.78, blue: 0.92),
-                                    Color(red: 0.05, green: 0.66, blue: 0.84)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .background(MissionTheme.primaryButtonGradient)
                         .cornerRadius(32)
-                        .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3), radius: 15, x: 0, y: 10)
+                        .shadow(color: MissionTheme.primaryButtonShadow, radius: 15, x: 0, y: 10)
                 }
             }
             .padding(.horizontal, 20)

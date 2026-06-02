@@ -16,13 +16,31 @@ struct MissionSelectionView: View {
     }
 
     @Environment(\.dismiss) var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var subManager = SubscriptionManager.shared
+    @ObservedObject private var settingsStore = SettingsStore.shared
     @State private var showUpsell = false
     @State private var selectedCategoryId: String = "all"
     @State private var activeAllSectionCategoryId: String = "brain"
     @State private var suppressAutoSectionSync = false
     @State private var lockAllTabHighlight = false
     let onSelect: (AlarmMission) -> Void
+
+    private var isTiimo: Bool {
+        settingsStore.alarmThemeStyle.usesTiimoLayoutBranch
+    }
+
+    private var brainMissionIconBg: Color {
+        isTiimo ? Color(red: 0.1, green: 0.5, blue: 0.95).opacity(0.5) : Color.cyan.opacity(0.3)
+    }
+
+    private var bodyMissionIconBg: Color {
+        isTiimo ? Color(red: 0.2, green: 0.7, blue: 0.2).opacity(0.5) : Color.green.opacity(0.3)
+    }
+
+    private var religionMissionIconBg: Color {
+        isTiimo ? Color(red: 1.0, green: 0.6, blue: 0.0).opacity(0.5) : Color.orange.opacity(0.25)
+    }
 
     private var categories: [MissionCategory] {
         [
@@ -42,33 +60,33 @@ struct MissionSelectionView: View {
                 id: "brain",
                 title: "Wake your brain",
                 items: [
-                    .init(id: "findColorTiles", title: "Find Color Tiles", subtitle: nil, icon: "square.grid.2x2.fill", iconBg: Color.cyan.opacity(0.3), type: .findColorTiles),
-                    .init(id: "memoryMatch", title: "Memory Match", subtitle: nil, icon: "brain.head.profile", iconBg: Color.cyan.opacity(0.3), type: .memoryMatch),
-                    .init(id: "ticTacToe", title: "Tic Tac Toe", subtitle: nil, icon: "xmark.square.fill", iconBg: Color.cyan.opacity(0.3), type: .ticTacToe),
-                    .init(id: "typing", title: "Typing", subtitle: nil, icon: "keyboard.fill", iconBg: Color.cyan.opacity(0.3), type: .typing),
-                    .init(id: "math", title: "Math", subtitle: nil, icon: "plus.forwardslash.minus", iconBg: Color.cyan.opacity(0.3), type: .math)
+                    .init(id: "findColorTiles", title: "Find Color Tiles", subtitle: nil, icon: "square.grid.2x2.fill", iconBg: brainMissionIconBg, type: .findColorTiles),
+                    .init(id: "memoryMatch", title: "Memory Match", subtitle: nil, icon: "brain.head.profile", iconBg: brainMissionIconBg, type: .memoryMatch),
+                    .init(id: "ticTacToe", title: "Tic Tac Toe", subtitle: nil, icon: "xmark.square.fill", iconBg: brainMissionIconBg, type: .ticTacToe),
+                    .init(id: "typing", title: "Typing", subtitle: nil, icon: "keyboard.fill", iconBg: brainMissionIconBg, type: .typing),
+                    .init(id: "math", title: "Math", subtitle: nil, icon: "plus.forwardslash.minus", iconBg: brainMissionIconBg, type: .math)
                 ]
             ),
             (
                 id: "body",
                 title: "Wake your body",
                 items: [
-                    .init(id: "householdItemHunt", title: "Household Item Hunt", subtitle: "AI", icon: "magnifyingglass", iconBg: Color.green.opacity(0.3), type: .householdItemHunt),
-                    .init(id: "step", title: "Step", subtitle: nil, icon: "figure.walk", iconBg: Color.green.opacity(0.3), type: .step),
-                    .init(id: "qrBarcode", title: "QR/Barcode", subtitle: nil, icon: "barcode.viewfinder", iconBg: Color.green.opacity(0.3), type: .qrBarcode),
-                    .init(id: "shake", title: "Shake", subtitle: nil, icon: "iphone.radiowaves.left.and.right", iconBg: Color.green.opacity(0.3), type: .shake),
-                    .init(id: "squat", title: "Squat", subtitle: nil, icon: "figure.strengthtraining.traditional", iconBg: Color.green.opacity(0.3), type: .squat),
-                    .init(id: "pushups", title: "Push-ups", subtitle: nil, icon: "figure.strengthtraining.functional", iconBg: Color.green.opacity(0.3), type: .pushups)
+                    .init(id: "householdItemHunt", title: "Household Item Hunt", subtitle: "AI", icon: "magnifyingglass", iconBg: bodyMissionIconBg, type: .householdItemHunt),
+                    .init(id: "step", title: "Step", subtitle: nil, icon: "figure.walk", iconBg: bodyMissionIconBg, type: .step),
+                    .init(id: "qrBarcode", title: "QR/Barcode", subtitle: nil, icon: "barcode.viewfinder", iconBg: bodyMissionIconBg, type: .qrBarcode),
+                    .init(id: "shake", title: "Shake", subtitle: nil, icon: "iphone.radiowaves.left.and.right", iconBg: bodyMissionIconBg, type: .shake),
+                    .init(id: "squat", title: "Squat", subtitle: nil, icon: "figure.strengthtraining.traditional", iconBg: bodyMissionIconBg, type: .squat),
+                    .init(id: "pushups", title: "Push-ups", subtitle: nil, icon: "figure.strengthtraining.functional", iconBg: bodyMissionIconBg, type: .pushups)
                 ]
             ),
             (
                 id: "religion",
                 title: "Religion",
                 items: [
-                    .init(id: "bibleVerse", title: "Bible Verse", subtitle: nil, icon: "book.closed", iconBg: Color.orange.opacity(0.25), type: .bibleVerse),
-                    .init(id: "quranVerse", title: "Quran Verse", subtitle: nil, icon: "moon.stars", iconBg: Color.green.opacity(0.25), type: .quranVerse),
-                    .init(id: "bhagavadGitaVerse", title: "Bhagavad Gita Verse", subtitle: nil, icon: "book.pages", iconBg: Color.indigo.opacity(0.25), type: .bhagavadGitaVerse),
-                    .init(id: "affirmation", title: "Affirmation", subtitle: nil, icon: "quote.bubble", iconBg: Color.pink.opacity(0.25), type: .affirmation)
+                    .init(id: "bibleVerse", title: "Bible Verse", subtitle: nil, icon: "book.closed", iconBg: religionMissionIconBg, type: .bibleVerse),
+                    .init(id: "quranVerse", title: "Quran Verse", subtitle: nil, icon: "moon.stars", iconBg: religionMissionIconBg, type: .quranVerse),
+                    .init(id: "bhagavadGitaVerse", title: "Bhagavad Gita Verse", subtitle: nil, icon: "book.pages", iconBg: religionMissionIconBg, type: .bhagavadGitaVerse),
+                    .init(id: "affirmation", title: "Affirmation", subtitle: nil, icon: "quote.bubble", iconBg: religionMissionIconBg, type: .affirmation)
                 ]
             )
         ]
@@ -223,12 +241,7 @@ struct MissionSelectionView: View {
     private func missionRow(title: String, subtitle: String? = nil, icon: String, iconBg: Color, type: WakeUpMissionType) -> some View {
         Button(action: {
             if type != .off {
-                if type.isProFeature && !subManager.isPro {
-                    showUpsell = true
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                } else {
-                    onSelect(AlarmMission(type: type))
-                }
+                onSelect(AlarmMission(type: type))
             }
         }) {
             HStack(spacing: 16) {
