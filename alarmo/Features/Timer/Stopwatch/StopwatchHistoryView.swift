@@ -177,7 +177,7 @@ struct SessionRow: View {
     }
     
     private func generateShareText() -> String {
-        var text = "⏱️ Awayk Stopwatch Session\n"
+        var text = "⏱️ Alarmo Stopwatch Session\n"
         text += "Label: \(session.label)\n"
         text += "Date: \(session.startedAt.formatted())\n"
         text += "Duration: \(swFormatTime(session.totalDuration, showHundredths: false))\n"
@@ -185,7 +185,7 @@ struct SessionRow: View {
         if let best = session.bestLap {
             text += "Best Lap: \(swFormatTime(best, showHundredths: true))\n"
         }
-        text += "\nTracked with Awayk"
+        text += "\nTracked with Alarmo"
         return text
     }
 

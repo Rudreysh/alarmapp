@@ -57,7 +57,7 @@ var body: some View {
                         .frame(maxWidth: .infinity)
                         .fixedSize(horizontal: false, vertical: true)
                     
-                    Text("Screen Time permissions are required for the Accountability features, allowing Awayk to block distracting apps while you focus.")
+                    Text("Screen Time permissions are required for the Accountability features, allowing Alarmo to block distracting apps while you focus.")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(bodyTextColor)
                         .lineSpacing(2)
@@ -115,7 +115,7 @@ var body: some View {
                 }
             }
         } message: {
-            Text("Screen Time access is disabled. Please enable it in iOS Settings to use Awayk's focus and accountability features.")
+            Text("Screen Time access is disabled. Please enable it in iOS Settings to use Alarmo's focus and accountability features.")
         }
     }
     

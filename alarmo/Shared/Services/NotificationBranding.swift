@@ -104,7 +104,7 @@ enum NotificationBranding {
                 .foregroundColor: UIColor(red: 0.61, green: 0.95, blue: 1.0, alpha: 1.0)
             ]
 
-            NSString(string: "Awayk Ringing").draw(at: CGPoint(x: 190, y: 72), withAttributes: titleAttrs)
+            NSString(string: "Alarmo Ringing").draw(at: CGPoint(x: 190, y: 72), withAttributes: titleAttrs)
             NSString(string: "Snooze or Stop from lock screen").draw(at: CGPoint(x: 190, y: 128), withAttributes: subAttrs)
         }
     }

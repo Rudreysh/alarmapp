@@ -142,7 +142,7 @@ var body: some View {
                 openAppSettings()
             }
         } message: {
-            Text("Alarm permission requires Notifications to be enabled first. Enable notifications for Awayk, then try again.")
+            Text("Alarm permission requires Notifications to be enabled first. Enable notifications for Alarmo, then try again.")
         }
         .alert("Alarm Permission Needed", isPresented: $showPermissionDeniedAlert) {
             Button("Continue", role: .cancel) {
@@ -152,7 +152,7 @@ var body: some View {
                 openAppSettings()
             }
         } message: {
-            Text("To use system alarm behavior, enable Alarm permission for Awayk in Settings.")
+            Text("To use system alarm behavior, enable Alarm permission for Alarmo in Settings.")
         }
         .alert("Alarm Permission Request Failed", isPresented: $showPermissionErrorAlert) {
             Button("Continue", role: .cancel) {
@@ -171,12 +171,12 @@ var body: some View {
             Color.black.opacity(0.52).ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 16) {
-                Text("Allow \"Awayk\" to schedule alarms and timers?")
+                Text("Allow \"Alarmo\" to schedule alarms and timers?")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                     .lineSpacing(3)
 
-                Text("This lets Awayk ring on Lock Screen and in Silent mode using iOS system alarm behavior.")
+                Text("This lets Alarmo ring on Lock Screen and in Silent mode using iOS system alarm behavior.")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(Color.white.opacity(0.72))
                     .lineSpacing(3)

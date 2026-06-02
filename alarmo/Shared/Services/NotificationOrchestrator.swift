@@ -263,7 +263,7 @@ final class NotificationOrchestrator {
             let name = (context.itemName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             return name.isEmpty ? fallback : name
         default:
-            return "Awayk"
+            return "Alarmo"
         }
     }
 }

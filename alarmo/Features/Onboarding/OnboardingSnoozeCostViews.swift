@@ -388,7 +388,7 @@ struct OnboardingSnoozePayoffView: View {
             VStack(spacing: 8) {
                 ProgressHeader(step: 12, total: 30, showsBadge: false)
                 Text("The good news is...").font(.system(size: 16, weight: .semibold)).foregroundColor(.black)
-                Text("Awayk can give you")
+                Text("Alarmo can give you")
                     .font(.system(size: 26, weight: .bold, design: .rounded))
                     .foregroundColor(isTiimoTheme ? .awGreen : Colors.textPrimary)
                 Text("\(yearsCount, specifier: "%.1f")").font(.system(size: 72, weight: .bold, design: .rounded)).foregroundColor(.awGreen)
@@ -397,7 +397,7 @@ struct OnboardingSnoozePayoffView: View {
                 PayoffBarRow(title: "Books you could read", value: calc.booksCouldRead, progress: bar1)
                 PayoffBarRow(title: "Workouts you could do", value: calc.workoutsCouldDo, progress: bar2)
                 PayoffBarRow(title: "Calm mornings", value: calc.calmMornings, progress: bar3)
-                Text("Starting tomorrow, Awayk wakes you at the right moment in your sleep cycle — so you never waste another minute.")
+                Text("Starting tomorrow, Alarmo wakes you at the right moment in your sleep cycle — so you never waste another minute.")
                     .font(.system(size: 15, weight: .medium)).foregroundColor(.awGreen)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)

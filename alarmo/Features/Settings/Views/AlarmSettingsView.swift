@@ -199,11 +199,11 @@ struct AlarmSettingsView: View {
                 let diagnostics = await diagnosticsTask
                 await MainActor.run {
                     if !status.notificationsAuthorized {
-                        permissionMessage = "Enable notifications for Awayk in iPhone Settings to ring alarms."
+                        permissionMessage = "Enable notifications for Alarmo in iPhone Settings to ring alarms."
                         return
                     }
                     if !status.alertEnabled || !status.lockScreenEnabled {
-                        permissionMessage = "Enable Alerts and Lock Screen notifications for Awayk so alarms appear while your phone is locked."
+                        permissionMessage = "Enable Alerts and Lock Screen notifications for Alarmo so alarms appear while your phone is locked."
                         return
                     }
                     if status.scheduledDeliveryEnabled && !status.timeSensitiveEnabled {
@@ -211,13 +211,13 @@ struct AlarmSettingsView: View {
                         return
                     }
                     if !diagnostics.alarmKitSupported {
-                        permissionMessage = "AlarmKit is unavailable on this iPhone/iOS (\(diagnostics.iOSVersion)). Awayk uses notification fallback here, and silent-mode override may be limited."
+                        permissionMessage = "AlarmKit is unavailable on this iPhone/iOS (\(diagnostics.iOSVersion)). Alarmo uses notification fallback here, and silent-mode override may be limited."
                         return
                     }
                     if EntitlementInspector.hasCriticalAlertsAccess {
                         permissionMessage = status.criticalEnabled
                             ? "Critical Alerts are enabled. Alarms can ring over silent mode."
-                            : "Enable Critical Alerts for Awayk in iPhone Settings to ring over silent mode."
+                            : "Enable Critical Alerts for Alarmo in iPhone Settings to ring over silent mode."
                     } else {
                         permissionMessage = "Notifications are enabled. On older iOS without AlarmKit/Critical Alerts, alarms may not play sound in Silent mode."
                     }

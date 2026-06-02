@@ -112,7 +112,7 @@ private struct ProPaywallIntroView: View {
         VStack(spacing: Spacing.l) {
             PaywallHeader(onClose: onClose)
 
-            Text("One alarm is enough\nwith Awayk PRO")
+            Text("One alarm is enough\nwith Alarmo PRO")
                 .font(.system(size: 34, weight: .heavy, design: .rounded))
                 .foregroundColor(.white)
                 .multilineTextAlignment(.leading)
