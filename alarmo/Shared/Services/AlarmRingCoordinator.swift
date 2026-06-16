@@ -315,6 +315,15 @@ final class AlarmRingCoordinator: ObservableObject {
         print("[AlarmRingCoordinator] 🔁 Reasserting ringing audio (\(trimmedReason)) for \(alarm.id)")
         AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "coordinator-reassert-before-\(trimmedReason)")
         if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-reassert-\(trimmedReason)") {
+            // If the engine is already playing or was confirmed playing within the last
+            // 1.5 seconds (covers background→foreground transition window), skip start()
+            // entirely. Calling start() on an already-playing engine triggers
+            // configureSession() + enforceBuiltInSpeakerOutput which overrides the audio
+            // port and causes a brief audible stop+restart when the UI foregrounds.
+            if AlarmContinuousAudioEngine.shared.isPlayingOrRecentlyConfirmed(alarmId: alarm.id.uuidString) {
+                print("[AlarmRingCoordinator] engine confirmed playing — skipping start() to preserve continuous audio source=\(trimmedReason)")
+                return
+            }
             AlarmContinuousAudioEngine.shared.start(
                 soundName: alarm.soundName,
                 alarmId: alarm.id.uuidString,

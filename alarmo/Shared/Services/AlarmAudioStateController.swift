@@ -806,7 +806,11 @@ final class AlarmAudioStateController {
             return
         }
         if #available(iOS 26.0, *) {
-            selectedSoundURL = AlarmSchedulerIOS26AlarmKit().resolvedSoundURL(for: soundName)
+            // Converge on the EXACT file AlarmKit plays (the staged file), so AppEngine
+            // never diverges onto the full untrimmed original. Fall back to the resolved
+            // source only if staging fails.
+            let scheduler = AlarmSchedulerIOS26AlarmKit()
+            selectedSoundURL = scheduler.stagedSoundURL(for: soundName) ?? scheduler.resolvedSoundURL(for: soundName)
         }
         AlarmContinuousAudioEngine.shared.prewarmForInstantHandoff(
             soundName: soundName,
@@ -922,7 +926,11 @@ final class AlarmAudioStateController {
         }
         log("[StateController] handleAlarmKitAlerting: using runId=\(runId.uuidString)")
         if #available(iOS 26.0, *) {
-            selectedSoundURL = AlarmSchedulerIOS26AlarmKit().resolvedSoundURL(for: soundName)
+            // Converge on the EXACT file AlarmKit plays (the staged file), so AppEngine
+            // never diverges onto the full untrimmed original. Fall back to the resolved
+            // source only if staging fails.
+            let scheduler = AlarmSchedulerIOS26AlarmKit()
+            selectedSoundURL = scheduler.stagedSoundURL(for: soundName) ?? scheduler.resolvedSoundURL(for: soundName)
         } else {
             selectedSoundURL = nil
         }

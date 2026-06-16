@@ -759,21 +759,42 @@ extension AlarmSchedulerIOS26AlarmKit {
         let finalBase = safeBase.isEmpty ? "alarmo_alarm" : safeBase
         let supportedExtensions = ["caf", "m4a", "mp3", "wav", "aiff"]
 
-        // Return an already-staged file immediately, without needing the source URL.
-        // Handles alarm-time calls where staging already succeeded at schedule time.
+        // Resolve the source up-front so we can detect a STALE staged file. When the
+        // user re-records or replaces a custom sound under the same name, the staged
+        // copy ("{key}_alarmkit.m4a" / "{key}.{ext}") would otherwise be served forever
+        // — the "previous selected sound" symptom. If the source is newer than the
+        // staged file, the staged file is removed and re-created below.
+        let resolvedSource = resolveSoundURL(for: rawName)
+        let sourceModified = resolvedSource.flatMap { modificationDate(of: $0) }
+        func stagedIsFresh(_ stagedURL: URL) -> Bool {
+            // Without a resolvable source/date we cannot prove staleness — keep the
+            // existing staged file rather than risk discarding a good one.
+            guard let sourceModified, let stagedModified = modificationDate(of: stagedURL) else { return true }
+            return stagedModified >= sourceModified
+        }
+
+        // Return an already-staged file immediately (when still fresh), without needing
+        // the source URL. Handles alarm-time calls where staging already succeeded at
+        // schedule time.
         let trimmedName = "\(finalBase)_alarmkit.m4a"
-        if fileManager.fileExists(atPath: soundsDir.appendingPathComponent(trimmedName).path) {
-            return trimmedName
+        let stagedTrimmedURL = soundsDir.appendingPathComponent(trimmedName)
+        if fileManager.fileExists(atPath: stagedTrimmedURL.path) {
+            if stagedIsFresh(stagedTrimmedURL) { return trimmedName }
+            print("[AlarmKitSound] staged file stale, re-staging: \(trimmedName)")
+            try? fileManager.removeItem(at: stagedTrimmedURL)
         }
         for ext in supportedExtensions {
             let candidateName = "\(finalBase).\(ext)"
-            if fileManager.fileExists(atPath: soundsDir.appendingPathComponent(candidateName).path) {
-                return candidateName
+            let candidateURL = soundsDir.appendingPathComponent(candidateName)
+            if fileManager.fileExists(atPath: candidateURL.path) {
+                if stagedIsFresh(candidateURL) { return candidateName }
+                print("[AlarmKitSound] staged file stale, re-staging: \(candidateName)")
+                try? fileManager.removeItem(at: candidateURL)
             }
         }
 
-        // Not yet staged — resolve source URL and stage it now.
-        guard let sourceURL = resolveSoundURL(for: rawName) else { return nil }
+        // Not yet staged (or stale and removed) — resolve source URL and stage it now.
+        guard let sourceURL = resolvedSource else { return nil }
         let ext = sourceURL.pathExtension.lowercased()
         guard supportedExtensions.contains(ext) else { return nil }
 
@@ -877,11 +898,27 @@ extension AlarmSchedulerIOS26AlarmKit {
         resolveSoundURL(for: rawName)
     }
 
+    /// Returns the URL of the file AlarmKit will actually play for `rawName` — the
+    /// staged file in Library/Sounds (`{key}_alarmkit.m4a` when trimmed, otherwise
+    /// the `{key}.{ext}` copy). This is the single source of truth that the app
+    /// audio engine must converge on so AlarmKit and AppEngine never diverge onto
+    /// different audio. Returns nil only when staging fails entirely.
+    func stagedSoundURL(for rawName: String) -> URL? {
+        guard let staged = stageNotificationSound(named: rawName) else { return nil }
+        guard let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else { return nil }
+        let url = library.appendingPathComponent("Sounds", isDirectory: true).appendingPathComponent(staged, isDirectory: false)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
     private func audioDuration(of url: URL) -> TimeInterval {
         let asset = AVURLAsset(url: url)
         let seconds = CMTimeGetSeconds(asset.duration)
         guard seconds.isFinite, seconds > 0 else { return 0 }
         return seconds
+    }
+
+    private func modificationDate(of url: URL) -> Date? {
+        (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date
     }
 
     private func exportTrimmedSound(

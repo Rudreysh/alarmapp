@@ -236,6 +236,16 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         currentAlarmId == alarmId && player?.isPlaying == true
     }
 
+    // Returns true if the engine is playing this alarm OR was playing it within
+    // a 1.5-second grace window. Used by the ring coordinator to skip start()
+    // calls during the brief background→foreground session transition when
+    // player.isPlaying can temporarily return false.
+    func isPlayingOrRecentlyConfirmed(alarmId: String) -> Bool {
+        guard currentAlarmId == alarmId, player != nil else { return false }
+        if player?.isPlaying == true { return true }
+        return lastConfirmedPlayingAt.map { Date().timeIntervalSince($0) < 1.5 } ?? false
+    }
+
     // Compatibility API used by diagnostics in newer UI branches.
     func resolvedSoundURLForDiagnostics(soundName: String) -> URL? {
         findSoundURL(for: soundName)
@@ -263,6 +273,28 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             return
         }
 
+        // Grace window: during background→foreground session transition iOS can briefly
+        // make player.isPlaying return false while the audio is still active.
+        // If this alarm's player was confirmed playing within the last 1.5 seconds,
+        // skip configureSession() + enforceBuiltInSpeakerOutput (which calls
+        // overrideOutputAudioPort and can cause an audible glitch) and only do a
+        // lightweight resume to avoid the stop+restart heard by the user.
+        let recentlyPlaying = lastConfirmedPlayingAt.map { Date().timeIntervalSince($0) < 1.5 } ?? false
+        if currentAlarmId == alarmId, player != nil, recentlyPlaying {
+            let agoMs = lastConfirmedPlayingAt.map { Int(Date().timeIntervalSince($0) * 1000) } ?? -1
+            swiftlog("🧭 [ALARMTRACE_AUDIO] EVENT=ENGINE_START_GRACE_WINDOW ALARM_ID=\(alarmId) LAST_CONFIRMED_MS_AGO=\(agoMs)")
+            swiftlog("[Engine] start: recently confirmed playing — lightweight resume, skipping configureSession")
+            let resumed = player?.play() ?? false
+            isPlaying = player?.isPlaying == true
+            cachedIsHealthy = isPlaying
+            if isPlaying { lastConfirmedPlayingAt = Date() }
+            startMeteringIfNeeded()
+            Task { @MainActor in AlarmBackgroundAudioBridge.shared.resetWatchdogBackoff() }
+            persistEngineState()
+            startWatchdogIfNeeded()
+            return
+        }
+
         do {
             try configureSession()
         } catch {
@@ -281,7 +313,22 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             player?.stop()
             player = nil
 
-            guard let url = findSoundURL(for: soundName) else {
+            // Resolve identically to the takeover path (preparePlayerIfNeeded): prefer the
+            // EXACT file AlarmKit plays (selectedSoundURL → staged file), so the cold
+            // start() path (unlock / foreground / watchdog recovery) never resolves a
+            // different file than the prepared takeover player. Falls back to the engine's
+            // own search (which now checks the staged file first) otherwise.
+            let resolved: URL? = {
+                if let authoritative = AlarmAudioStateController.shared.selectedSoundURL,
+                   FileManager.default.fileExists(atPath: authoritative.path),
+                   canonicalSoundKey(authoritative.deletingPathExtension().lastPathComponent)
+                       == canonicalSoundKey(soundName) {
+                    swiftlog("[Engine] start: using scheduler-resolved sound URL '\(authoritative.lastPathComponent)' (AlarmKit-converged)")
+                    return authoritative
+                }
+                return findSoundURL(for: soundName)
+            }()
+            guard let url = resolved else {
                 swiftlog("🧭 [ALARMTRACE_AUDIO] EVENT=ENGINE_START_FAILED REASON=SOUND_URL_NOT_FOUND ALARM_ID=\(alarmId) SOUND=\"\(soundName)\"")
                 swiftlog("[Engine] Failed to resolve sound URL for \(soundName)")
                 isPlaying = false
@@ -1032,8 +1079,8 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         let resolvedURL: URL? = {
             if let authoritative = AlarmAudioStateController.shared.selectedSoundURL,
                FileManager.default.fileExists(atPath: authoritative.path),
-               normalizedSoundKey(authoritative.deletingPathExtension().lastPathComponent)
-                   == normalizedSoundKey(soundName) {
+               canonicalSoundKey(authoritative.deletingPathExtension().lastPathComponent)
+                   == canonicalSoundKey(soundName) {
                 log("[Engine] \(label): using scheduler-resolved sound URL '\(authoritative.lastPathComponent)' (AlarmKit-converged)")
                 return authoritative
             }
@@ -1636,6 +1683,35 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         let bundleURL = Bundle.main.bundleURL
         let extensions = ["mp3", "wav", "m4a", "caf"]
 
+        // CONVERGENCE WITH ALARMKIT (single source of truth): AlarmKit plays the file the
+        // scheduler stages into Library/Sounds ("{key}_alarmkit.m4a" when trimmed to
+        // ≤29.5s, otherwise "{key}.{ext}"). Prefer that EXACT file before any other
+        // location so the engine and AlarmKit never diverge onto different audio (the
+        // full untrimmed original vs the trimmed staged loop). This MUST run first —
+        // before the CustomSounds/Assets/Bundle scans below — because those would
+        // otherwise return the full original for long sounds while AlarmKit plays the
+        // trimmed staged file. Staleness is handled at staging time (the scheduler
+        // re-stages when the source is newer), so the staged file is authoritative here.
+        if !normalizedRequested.isEmpty,
+           let library = fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first {
+            let soundsDir = library.appendingPathComponent("Sounds", isDirectory: true)
+            let stagedCandidates = [
+                "\(normalizedRequested)_alarmkit.m4a",
+                "\(normalizedRequested).caf",
+                "\(normalizedRequested).m4a",
+                "\(normalizedRequested).mp3",
+                "\(normalizedRequested).wav",
+                "\(normalizedRequested).aiff"
+            ]
+            for candidate in stagedCandidates {
+                let url = soundsDir.appendingPathComponent(candidate, isDirectory: false)
+                if fileManager.fileExists(atPath: url.path) {
+                    print("[findSoundURL] AlarmKit-staged MATCH (priority): '\(candidate)' (converged with AlarmKit) for '\(name)'")
+                    return url
+                }
+            }
+        }
+
         if let docsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
             let customDir = docsURL.appendingPathComponent("CustomSounds")
             let files = (try? fileManager.contentsOfDirectory(atPath: customDir.path)) ?? []
@@ -1725,34 +1801,6 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             }
         }
 
-        // CONVERGENCE WITH ALARMKIT (sound-mismatch fix): AlarmKit plays the file the
-        // scheduler stages into Library/Sounds. For sounds longer than ~29.5s that file
-        // is "{key}_alarmkit.m4a" (a trimmed export) whose normalized key contains
-        // "alarmkit", so the Path3 enumeration above misses it — and we would otherwise
-        // return a DIFFERENT bundled tone via findFallbackSound(), producing the exact
-        // "selected sound while unlocked but another app sound while locked / both at
-        // once" symptom. Match the staged file explicitly so both audio sources play the
-        // same sound before any bundled fallback.
-        if !normalizedRequested.isEmpty,
-           let library = fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first {
-            let soundsDir = library.appendingPathComponent("Sounds", isDirectory: true)
-            let stagedCandidates = [
-                "\(normalizedRequested)_alarmkit.m4a",
-                "\(normalizedRequested).caf",
-                "\(normalizedRequested).m4a",
-                "\(normalizedRequested).mp3",
-                "\(normalizedRequested).wav",
-                "\(normalizedRequested).aiff"
-            ]
-            for candidate in stagedCandidates {
-                let url = soundsDir.appendingPathComponent(candidate, isDirectory: false)
-                if fileManager.fileExists(atPath: url.path) {
-                    print("[findSoundURL] AlarmKit-staged MATCH: '\(candidate)' (converged with AlarmKit) for '\(name)'")
-                    return url
-                }
-            }
-        }
-
         return findFallbackSound()
     }
 
@@ -1819,7 +1867,21 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             .lowercased()
             .filter { $0.isLetter || $0.isNumber }
     }
-    
+
+    // Like normalizedSoundKey, but strips AlarmKit's staging suffix so the staged
+    // file "{key}_alarmkit.m4a" compares equal to the requested sound "{key}". The
+    // scheduler stages the file AlarmKit plays under this suffix; the engine must
+    // recognise it as the SAME sound to converge on it instead of falling back to
+    // the full untrimmed original.
+    private func canonicalSoundKey(_ raw: String) -> String {
+        var key = normalizedSoundKey(raw)
+        let suffix = "alarmkit"
+        if key.hasSuffix(suffix) {
+            key = String(key.dropLast(suffix.count))
+        }
+        return key
+    }
+
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         Task { @MainActor [weak self] in
             guard let self else { return }
