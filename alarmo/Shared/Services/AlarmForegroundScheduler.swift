@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UIKit
 
 final class AlarmForegroundScheduler: ObservableObject {
     private var timer: Timer?
@@ -32,10 +33,7 @@ final class AlarmForegroundScheduler: ObservableObject {
         // 1. Check if any alarm is due NOW
         if let due = dueAlarm(at: now) {
             AlarmDebug.logFire(alarmId: due.id.uuidString, source: "ForegroundCheck")
-            Task { @MainActor in
-                self.lastTriggered[due.id] = now
-                self.ringCoordinator.startRinging(alarmId: due.id.uuidString, source: .foregroundTimer)
-            }
+            triggerRingIfAllowed(alarm: due, at: now, sourceLabel: "scheduleNext")
             // If we found one, we stop scheduling new timers to avoid conflict, 
             // the ring flow will re-schedule when stopped.
             return
@@ -49,6 +47,36 @@ final class AlarmForegroundScheduler: ObservableObject {
         
         timer = Timer.scheduledTimer(withTimeInterval: interval + 0.5, repeats: false) { [weak self] _ in
             self?.scheduleNext()
+        }
+    }
+
+    /// Phase 2 gate — when AlarmKit is the active scheduler path AND the app is
+    /// not in the foreground, do NOT start the ring via the foreground timer
+    /// (which would put the AppEngine in charge with no AlarmKit lock-screen
+    /// UI). Instead, defer to AlarmKit's `.alerting` observation so the user
+    /// always sees the system alarm UI on first ring.
+    private func shouldDeferToAlarmKit() -> Bool {
+        guard AlarmManagerFacade.shared.selectedPath == .alarmKit else { return false }
+        return UIApplication.shared.applicationState != .active
+    }
+
+    @MainActor
+    private func triggerRingNow(alarm: Alarm, at now: Date, sourceLabel: String) {
+        self.lastTriggered[alarm.id] = now
+        self.ringCoordinator.startRinging(alarmId: alarm.id.uuidString, source: .foregroundTimer)
+        _ = sourceLabel
+    }
+
+    private func triggerRingIfAllowed(alarm: Alarm, at now: Date, sourceLabel: String) {
+        if shouldDeferToAlarmKit() {
+            // Mark debounce so we don't keep flooding logs every poll, and let
+            // AlarmKit drive the ring session via its alerting callback.
+            lastTriggered[alarm.id] = now
+            print("[AlarmForegroundScheduler] deferring to AlarmKit (app not active, AlarmKit path) source=\(sourceLabel) alarm=\(alarm.id) — ring will start when AlarmKit alerts")
+            return
+        }
+        Task { @MainActor in
+            self.triggerRingNow(alarm: alarm, at: now, sourceLabel: sourceLabel)
         }
     }
     
@@ -92,10 +120,7 @@ final class AlarmForegroundScheduler: ObservableObject {
             let now = Date()
             if let due = self.dueAlarm(at: now) {
                 self.log("poll due alarm: \(due.id)")
-                Task { @MainActor in
-                    self.lastTriggered[due.id] = now
-                    self.ringCoordinator.startRinging(alarmId: due.id.uuidString, source: .foregroundTimer)
-                }
+                self.triggerRingIfAllowed(alarm: due, at: now, sourceLabel: "poll")
             }
         }
     }

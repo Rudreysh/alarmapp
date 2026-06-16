@@ -7,6 +7,8 @@ final class AlarmAppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         _ = NotificationManager.shared
+        DiagnosticsLog.shared.log("app launched", category: "Lifecycle")
+        AppExitDiagnostics.shared.start()
 
         // Pre-configure audio session to .playback so alarm sounds override the silent switch.
         // This must be done early so the session is ready before any notification triggers playback.
@@ -36,10 +38,17 @@ final class AlarmAppDelegate: NSObject, UIApplicationDelegate {
 
     func applicationWillTerminate(_ application: UIApplication) {
         // If the user explicitly swipes up to kill the app while it's active or finishing tasks,
-        // applicationWillTerminate is fired. In this case, we wipe the onboarding recovery step 
-        // to ensure the app starts fresh. 
+        // applicationWillTerminate is fired. In this case, we wipe the onboarding recovery step
+        // to ensure the app starts fresh.
         // Note: iOS Privacy-switch kills do not trigger this, keeping those safe!
         UserDefaults.standard.removeObject(forKey: "alarmo.onboarding.recoveryStepRaw")
-        UserDefaults.standard.set(true, forKey: "alarmo.onboarding.forceShowNextLaunch")
+
+        print("[Lifecycle] applicationWillTerminate fired")
+        // Best-effort force-quit warning only. Do not rely on this for correctness —
+        // iOS often does not call willTerminate on swipe-up force-quit. AlarmKit
+        // remains the reliable wake-up fallback.
+        NotificationManager.shared.scheduleBestEffortForceQuitWarningOnTerminate(
+            alarms: AlarmStore.shared.alarms
+        )
     }
 }

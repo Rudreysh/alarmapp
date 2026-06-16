@@ -91,6 +91,10 @@ enum AlarmCustomUIHandoffStore {
     nonisolated private static let surfaceAlarmIDKey = "alarmo.alarmKit.pendingCustomUISurfaceAlarmId"
     nonisolated private static let timestampKey = "alarmo.alarmKit.pendingCustomUITimestamp"
     nonisolated private static let surfaceSourceMapKey = "alarmo.alarmKit.surfaceSourceMap"
+    nonisolated private static let uiShellSurfaceIDsKey = "alarmo.alarmKit.uiShellSurfaceIDs"
+    /// Surfaces the user consumed via Slide/Open-to-Stop — no longer valid live owners.
+    nonisolated private static let consumedBySlideToStopKey = "alarmo.alarmKit.consumedBySlideToStop"
+    nonisolated private static let lastSlideToStopAtBySourceKey = "alarmo.alarmKit.lastSlideToStopAtBySource"
     nonisolated static let urlScheme = "alarmo"
     nonisolated static let urlHost = "alarm-ringing"
 
@@ -150,6 +154,123 @@ enum AlarmCustomUIHandoffStore {
         return alarmID
     }
 
+    /// Surfaces scheduled with silent AlarmKit audio so the lock-screen UI (slide-to-stop
+    /// + snooze) is visible while the app engine owns audible output.
+    nonisolated static func markUIShellSurface(_ surfaceAlarmID: String) {
+        var ids = Set(UserDefaults.standard.stringArray(forKey: uiShellSurfaceIDsKey) ?? [])
+        ids.insert(surfaceAlarmID)
+        UserDefaults.standard.set(Array(ids), forKey: uiShellSurfaceIDsKey)
+    }
+
+    nonisolated static func isUIShellSurface(_ surfaceAlarmID: String) -> Bool {
+        Set(UserDefaults.standard.stringArray(forKey: uiShellSurfaceIDsKey) ?? []).contains(surfaceAlarmID)
+    }
+
+    nonisolated static func removeUIShellSurface(_ surfaceAlarmID: String) {
+        var ids = Set(UserDefaults.standard.stringArray(forKey: uiShellSurfaceIDsKey) ?? [])
+        ids.remove(surfaceAlarmID)
+        UserDefaults.standard.set(Array(ids), forKey: uiShellSurfaceIDsKey)
+    }
+
+    nonisolated static func clearUIShellSurfaces() {
+        UserDefaults.standard.removeObject(forKey: uiShellSurfaceIDsKey)
+    }
+
+    nonisolated static func markSurfaceConsumedBySlideToStop(
+        sourceAlarmId: String,
+        surfaceAlarmId: String,
+        now: Date = Date()
+    ) {
+        var consumed = Set(UserDefaults.standard.stringArray(forKey: consumedBySlideToStopKey) ?? [])
+        consumed.insert(surfaceAlarmId)
+        UserDefaults.standard.set(Array(consumed), forKey: consumedBySlideToStopKey)
+
+        var lastAt = loadLastSlideToStopAtBySource()
+        lastAt[sourceAlarmId] = now.timeIntervalSince1970
+        persistLastSlideToStopAtBySource(lastAt)
+        print("[SlideToStop] surface consumed source=\(sourceAlarmId) surface=\(surfaceAlarmId)")
+    }
+
+    nonisolated static func isSurfaceConsumedBySlideToStop(_ surfaceAlarmId: String) -> Bool {
+        Set(UserDefaults.standard.stringArray(forKey: consumedBySlideToStopKey) ?? [])
+            .contains(surfaceAlarmId)
+    }
+
+    nonisolated static func lastSlideToStopAt(for sourceAlarmId: String) -> Date? {
+        let map = loadLastSlideToStopAtBySource()
+        guard let ts = map[sourceAlarmId], ts > 0 else { return nil }
+        return Date(timeIntervalSince1970: ts)
+    }
+
+    nonisolated static func clearConsumedSurfaces(reason: String) {
+        UserDefaults.standard.removeObject(forKey: consumedBySlideToStopKey)
+        UserDefaults.standard.removeObject(forKey: lastSlideToStopAtBySourceKey)
+        print("[SlideToStop] cleared consumed surfaces reason=\(reason)")
+    }
+
+    // MARK: - Schedule-time locked continuity guard (survives force-close)
+
+    nonisolated private static let lockedContinuityGuardKey = "alarmo.alarmKit.lockedContinuityGuard"
+
+    nonisolated static func recordLockedContinuityGuard(sourceAlarmId: String, surfaceIds: [UUID]) {
+        var map = loadLockedContinuityGuardMap()
+        map[sourceAlarmId] = surfaceIds.map(\.uuidString)
+        persistLockedContinuityGuardMap(map)
+        print("[ContinuityGuard] recorded \(surfaceIds.count) surfaces source=\(sourceAlarmId)")
+    }
+
+    nonisolated static func lockedContinuityGuardSurfaceIds(sourceAlarmId: String) -> [UUID] {
+        let map = loadLockedContinuityGuardMap()
+        return (map[sourceAlarmId] ?? []).compactMap(UUID.init(uuidString:))
+    }
+
+    nonisolated static func allLockedContinuityGuardSurfaceIds() -> [UUID] {
+        let map = loadLockedContinuityGuardMap()
+        return map.values
+            .flatMap { $0 }
+            .compactMap(UUID.init(uuidString:))
+    }
+
+    nonisolated static func clearLockedContinuityGuard(sourceAlarmId: String, reason: String) {
+        var map = loadLockedContinuityGuardMap()
+        map.removeValue(forKey: sourceAlarmId)
+        persistLockedContinuityGuardMap(map)
+        print("[ContinuityGuard] cleared source=\(sourceAlarmId) reason=\(reason)")
+    }
+
+    nonisolated static func clearAllLockedContinuityGuards(reason: String) {
+        UserDefaults.standard.removeObject(forKey: lockedContinuityGuardKey)
+        print("[ContinuityGuard] cleared all reason=\(reason)")
+    }
+
+    nonisolated private static func loadLockedContinuityGuardMap() -> [String: [String]] {
+        guard let data = UserDefaults.standard.data(forKey: lockedContinuityGuardKey),
+              let decoded = try? JSONDecoder().decode([String: [String]].self, from: data) else {
+            return [:]
+        }
+        return decoded
+    }
+
+    nonisolated private static func persistLockedContinuityGuardMap(_ map: [String: [String]]) {
+        if let data = try? JSONEncoder().encode(map) {
+            UserDefaults.standard.set(data, forKey: lockedContinuityGuardKey)
+        }
+    }
+
+    nonisolated private static func loadLastSlideToStopAtBySource() -> [String: TimeInterval] {
+        guard let data = UserDefaults.standard.data(forKey: lastSlideToStopAtBySourceKey),
+              let decoded = try? JSONDecoder().decode([String: TimeInterval].self, from: data) else {
+            return [:]
+        }
+        return decoded
+    }
+
+    nonisolated private static func persistLastSlideToStopAtBySource(_ map: [String: TimeInterval]) {
+        if let data = try? JSONEncoder().encode(map) {
+            UserDefaults.standard.set(data, forKey: lastSlideToStopAtBySourceKey)
+        }
+    }
+
     nonisolated static func sourceAlarmID(forSurfaceAlarmID surfaceAlarmID: String) -> String {
         if let pending = pendingRequest(), pending.surfaceAlarmID == surfaceAlarmID {
             return pending.sourceAlarmID
@@ -189,6 +310,7 @@ enum AlarmCustomUIHandoffStore {
         UserDefaults.standard.removeObject(forKey: sourceAlarmIDKey)
         UserDefaults.standard.removeObject(forKey: surfaceAlarmIDKey)
         UserDefaults.standard.removeObject(forKey: timestampKey)
+        clearUIShellSurfaces()
     }
 
     // Compatibility helper expected by newer app bootstrap code.
@@ -223,6 +345,15 @@ enum AlarmCustomUIHandoffStore {
         runtimeIsActive: Bool = false,
         appIsForeground: Bool = false
     ) {
+        if AlarmAuthHandoffStore.shouldPreserveHandoffDuringPrune(
+            runtimeIsActive: runtimeIsActive,
+            appIsForeground: appIsForeground,
+            now: now
+        ) {
+            print("[AlarmHandoffStore] prune skipped — auth handoff must be preserved")
+            return
+        }
+
         let nowTs = now.timeIntervalSince1970
 
         // --- Pending scalar keys ---
@@ -240,7 +371,7 @@ enum AlarmCustomUIHandoffStore {
             // Safety = NOT runtime-active AND a normal foreground launch (never the
             // .background alarm-recovery launch). No map-presence requirement — that
             // would leave the ghost bug unfixed when the map entry is missing.
-            // Threshold is 6h, not 60m: the "Awayk persists until reinstall" state is
+            // Threshold is 6h, not 60m: the "Alarmo persists until reinstall" state is
             // hours/days old, while a genuine same-night alarm can ring 1-3h with
             // runtimeIsActive still false at configure() time (observation/recovery
             // run AFTER configure). 6h fixes the stale-state bug without risking a
@@ -283,6 +414,488 @@ enum AlarmCustomUIHandoffStore {
     nonisolated private static func persistSurfaceSourceMap(_ map: [String: SurfaceSourceEntry]) {
         guard let data = try? JSONEncoder().encode(map) else { return }
         UserDefaults.standard.set(data, forKey: surfaceSourceMapKey)
+    }
+}
+
+/// Persisted runtime state for slide-to-stop / Open-to-Stop → authentication → custom UI.
+/// Survives process death so failed auth and manual app-open can restore the alarm flow.
+enum AlarmAuthHandoffStore {
+    enum RuntimeAlarmState: String {
+        case ringing
+        case stopped
+        case snoozed
+    }
+
+    /// Which user-initiated path requested the open-to-stop handoff. Lets
+    /// downstream restore code know whether a handoff originated from an
+    /// AlarmKit slide-to-stop, the "Unlock to Stop" notification action, or a
+    /// recovery-prompt tap. Diagnostic only — never used to mark final stop.
+    enum HandoffSource: String {
+        case alarmKitOpenToStop
+        case unlockToStopNotification
+        case recoveryPromptTap
+    }
+
+    private static let activeRingingAlarmIdKey = "alarmo.authHandoff.activeRingingAlarmId"
+    private static let activeRunIdKey = "alarmo.authHandoff.activeRunId"
+    private static let surfaceAlarmIdKey = "alarmo.authHandoff.surfaceAlarmId"
+    private static let alarmStateKey = "alarmo.authHandoff.alarmState"
+    private static let pendingCustomUIHandoffKey = "alarmo.authHandoff.pendingCustomUIHandoff"
+    private static let handoffRequestedAtKey = "alarmo.authHandoff.handoffRequestedAt"
+    private static let handoffSourceKey = "alarmo.authHandoff.handoffSource"
+    private static let handoffReasonKey = "alarmo.authHandoff.handoffReason"
+    private static let waitingForAuthenticationKey = "alarmo.authHandoff.waitingForAuthentication"
+    private static let finalStopOrSnoozePressedKey = "alarmo.authHandoff.finalStopOrSnoozePressed"
+    private static let missionCompletedKey = "alarmo.authHandoff.missionCompleted"
+    private static let authRecoveryPendingKey = "alarmo.authHandoff.authRecoveryPending"
+    private static let ringSessionSnoozeAlarmIdKey = "alarmo.authHandoff.ringSessionSnoozeAlarmId"
+    private static let ringSessionSnoozeCountKey = "alarmo.authHandoff.ringSessionSnoozeCount"
+
+    static let handoffHardExpiry: TimeInterval = 24 * 60 * 60
+
+    /// Shared persistence for every user-initiated "open to stop" handoff path
+    /// (AlarmKit slide-to-stop / Open-to-Stop, the blue "Unlock to Stop"
+    /// notification action, and the recovery-prompt tap). This NEVER marks the
+    /// alarm as finally stopped — it only records that the alarm is still
+    /// ringing and that the app should foreground into the custom UI. The real
+    /// final stop happens only from Stop/Snooze inside AlarmRingingView (or
+    /// mission-complete).
+    ///
+    /// Writes:
+    /// - activeRingingAlarmId, activeRunId
+    /// - alarmState = ringing
+    /// - pendingCustomAlarmUIHandoff = true
+    /// - waitingForAuthentication = true
+    /// - handoffRequestedAt = now
+    /// - finalStopOrSnoozePressed = false
+    /// - handoffSource = <source>
+    nonisolated static func persistOpenToStopHandoff(
+        sourceAlarmId: String,
+        surfaceAlarmId: String? = nil,
+        runId: String? = nil,
+        handoffSource: HandoffSource,
+        reason: String,
+        now: Date = Date()
+    ) {
+        UserDefaults.standard.set(sourceAlarmId, forKey: activeRingingAlarmIdKey)
+        if let runId {
+            UserDefaults.standard.set(runId, forKey: activeRunIdKey)
+        }
+        if let surfaceAlarmId {
+            UserDefaults.standard.set(surfaceAlarmId, forKey: surfaceAlarmIdKey)
+        }
+        UserDefaults.standard.set(RuntimeAlarmState.ringing.rawValue, forKey: alarmStateKey)
+        UserDefaults.standard.set(true, forKey: pendingCustomUIHandoffKey)
+        UserDefaults.standard.set(now.timeIntervalSince1970, forKey: handoffRequestedAtKey)
+        UserDefaults.standard.set(true, forKey: waitingForAuthenticationKey)
+        UserDefaults.standard.set(false, forKey: finalStopOrSnoozePressedKey)
+        UserDefaults.standard.set(false, forKey: authRecoveryPendingKey)
+        UserDefaults.standard.set(handoffSource.rawValue, forKey: handoffSourceKey)
+        UserDefaults.standard.set(reason, forKey: handoffReasonKey)
+
+        let hasIncompleteMission: Bool = {
+            guard let uuid = UUID(uuidString: sourceAlarmId),
+                  let alarm = AlarmStore.shared.alarm(by: uuid) else { return false }
+            return alarm.missions.contains(where: { $0.type != .off })
+        }()
+        UserDefaults.standard.set(!hasIncompleteMission, forKey: missionCompletedKey)
+
+        print("[HandoffStore] persisted open-to-stop handoff source=\(sourceAlarmId) runId=\(runId ?? "nil") reason=\(reason)")
+        print("[FinalStop] SET false reason=open-to-stop-handoff source=\(sourceAlarmId)")
+    }
+
+    nonisolated static func activeRunId() -> String? {
+        UserDefaults.standard.string(forKey: activeRunIdKey)
+    }
+
+    nonisolated static func handoffSource() -> HandoffSource? {
+        guard let raw = UserDefaults.standard.string(forKey: handoffSourceKey) else { return nil }
+        return HandoffSource(rawValue: raw)
+    }
+
+    nonisolated static func handoffReason() -> String? {
+        UserDefaults.standard.string(forKey: handoffReasonKey)
+    }
+
+    nonisolated static func persistStopIntentHandoff(
+        sourceAlarmId: UUID,
+        surfaceAlarmId: UUID,
+        runId: String? = nil,
+        handoffSource: HandoffSource = .alarmKitOpenToStop,
+        now: Date = Date()
+    ) {
+        let source = sourceAlarmId.uuidString
+        let surface = surfaceAlarmId.uuidString
+        print("[AuthHandoff] StopIntent invoked source=\(source)")
+
+        // Core state write shared by all open-to-stop paths.
+        persistOpenToStopHandoff(
+            sourceAlarmId: source,
+            surfaceAlarmId: surface,
+            runId: runId,
+            handoffSource: handoffSource,
+            reason: "stop-intent",
+            now: now
+        )
+
+        AlarmCustomUIHandoffStore.request(alarmID: sourceAlarmId, surfaceAlarmID: surfaceAlarmId, now: now)
+        AlarmCustomUIHandoffStore.markSurfaceConsumedBySlideToStop(
+            sourceAlarmId: source,
+            surfaceAlarmId: surface,
+            now: now
+        )
+        print("[AuthHandoff] persisted pending handoff before authentication source=\(source)")
+        print("[AuthHandoff] finalStop=false; waiting for app unlock source=\(source)")
+        print("[AuthHandoff] final stop NOT set because app handoff is pending source=\(source)")
+
+        // Pre-arm AlarmKit recovery (auth-timeout / not-unlocked fallback) so the
+        // alarm re-alerts audibly if the user never authenticates or opens the app.
+        NotificationManager.shared.scheduleAuthHandoffTimeout(sourceAlarmId: source)
+        NotificationManager.shared.recordHardwareSuppressionEvent(sourceAlarmId: source)
+    }
+
+    /// Establishes a clean "ringing" handoff state when a NEW alarm ring session
+    /// begins. CRITICAL: resets `finalStopOrSnoozePressed` to false — otherwise a
+    /// repeating alarm inherits the stale `true` left by the previous Stop, which
+    /// poisons every recovery path (engine takeover, AlarmKit re-alert, app-open
+    /// restore all bail on `isFinalStopOrSnoozePressed()`), leaving the alarm
+    /// audibly dead. Idempotent for the same source: only resets the final-stop
+    /// flag if it was set, so it won't clobber a live auth handoff.
+    /// Keeps recovery / continuity surfaces in a ringing session without resetting
+    /// slide-to-stop consumed-surface tracking.
+    nonisolated static func ensureRingingForRecovery(sourceAlarmId: String) {
+        guard alarmState() != .ringing else { return }
+        UserDefaults.standard.set(sourceAlarmId, forKey: activeRingingAlarmIdKey)
+        UserDefaults.standard.set(RuntimeAlarmState.ringing.rawValue, forKey: alarmStateKey)
+        UserDefaults.standard.set(false, forKey: finalStopOrSnoozePressedKey)
+        print("[AuthHandoff] ensureRingingForRecovery source=\(sourceAlarmId)")
+    }
+
+    nonisolated static func markRingingStarted(sourceAlarmId: String, now: Date = Date()) {
+        let wasFinalStop = UserDefaults.standard.bool(forKey: finalStopOrSnoozePressedKey)
+        let priorSource = UserDefaults.standard.string(forKey: activeRingingAlarmIdKey)
+        // Preserve an in-flight auth handoff for the SAME alarm (slide-to-stop
+        // waiting for unlock) — that path manages its own state and must not be
+        // reset out from under itself.
+        if priorSource == sourceAlarmId,
+           UserDefaults.standard.bool(forKey: waitingForAuthenticationKey),
+           !wasFinalStop {
+            print("[FinalStop] preserving live auth handoff; not re-initializing ringing state source=\(sourceAlarmId)")
+            return
+        }
+        let wasSnoozed = alarmState(now: now) == .snoozed
+        if !wasSnoozed {
+            resetRingSessionSnoozeCount(sourceAlarmId: sourceAlarmId)
+        }
+        if wasFinalStop {
+            print("[FinalStop] SET false reason=new-ring-session source=\(sourceAlarmId) (was true from previous stop/snooze)")
+        }
+        UserDefaults.standard.set(sourceAlarmId, forKey: activeRingingAlarmIdKey)
+        UserDefaults.standard.set(RuntimeAlarmState.ringing.rawValue, forKey: alarmStateKey)
+        UserDefaults.standard.set(now.timeIntervalSince1970, forKey: handoffRequestedAtKey)
+        UserDefaults.standard.set(false, forKey: finalStopOrSnoozePressedKey)
+        UserDefaults.standard.set(false, forKey: waitingForAuthenticationKey)
+        UserDefaults.standard.set(false, forKey: authRecoveryPendingKey)
+        UserDefaults.standard.set(false, forKey: pendingCustomUIHandoffKey)
+        let hasIncompleteMission: Bool = {
+            guard let uuid = UUID(uuidString: sourceAlarmId),
+                  let alarm = AlarmStore.shared.alarm(by: uuid) else { return false }
+            return alarm.missions.contains(where: { $0.type != .off })
+        }()
+        UserDefaults.standard.set(!hasIncompleteMission, forKey: missionCompletedKey)
+        AlarmCustomUIHandoffStore.clearConsumedSurfaces(reason: "new-ring-session")
+        print("[AuthHandoff] ringing state initialized source=\(sourceAlarmId) finalStop=false state=ringing")
+    }
+
+    nonisolated static func surfaceAlarmId() -> String? {
+        UserDefaults.standard.string(forKey: surfaceAlarmIdKey)
+    }
+
+    nonisolated static func updateSurfaceAlarmId(_ surfaceAlarmId: UUID) {
+        UserDefaults.standard.set(surfaceAlarmId.uuidString, forKey: surfaceAlarmIdKey)
+    }
+
+    nonisolated static func alarmState(now: Date = Date()) -> RuntimeAlarmState? {
+        guard let raw = UserDefaults.standard.string(forKey: alarmStateKey) else { return nil }
+        guard !isHandoffExpired(now: now) else { return nil }
+        return RuntimeAlarmState(rawValue: raw)
+    }
+
+    nonisolated static func isPendingCustomUIHandoff() -> Bool {
+        UserDefaults.standard.bool(forKey: pendingCustomUIHandoffKey)
+    }
+
+    nonisolated static func isWaitingForAuthentication() -> Bool {
+        UserDefaults.standard.bool(forKey: waitingForAuthenticationKey)
+    }
+
+    nonisolated static func isFinalStopOrSnoozePressed() -> Bool {
+        UserDefaults.standard.bool(forKey: finalStopOrSnoozePressedKey)
+    }
+
+    // MARK: - App heartbeat (force-close / aliveness detection)
+
+    private static let heartbeatAtKey = "alarmo.heartbeat.lastTimestamp"
+    private static let heartbeatRunIdKey = "alarmo.heartbeat.runId"
+    private static let heartbeatPlayingKey = "alarmo.heartbeat.isPlaying"
+
+    /// Heartbeats older than this are treated as "app likely not alive enough".
+    static let heartbeatStaleThreshold: TimeInterval = 90
+
+    nonisolated private static func heartbeatDefaults() -> UserDefaults {
+        UserDefaults(suiteName: "group.ht.alarmo") ?? .standard
+    }
+
+    /// Writes a liveness heartbeat. Call frequently (every ~30–60s, faster while an
+    /// alarm is upcoming/active) so recovery code can tell whether the app is alive.
+    nonisolated static func writeHeartbeat(runId: String?, isPlaying: Bool, now: Date = Date()) {
+        let defaults = heartbeatDefaults()
+        defaults.set(now.timeIntervalSince1970, forKey: heartbeatAtKey)
+        defaults.set(runId, forKey: heartbeatRunIdKey)
+        defaults.set(isPlaying, forKey: heartbeatPlayingKey)
+    }
+
+    nonisolated static func lastHeartbeatAt() -> Date? {
+        let ts = heartbeatDefaults().double(forKey: heartbeatAtKey)
+        return ts > 0 ? Date(timeIntervalSince1970: ts) : nil
+    }
+
+    /// True when no fresh heartbeat exists (app likely force-closed or suspended
+    /// long enough that the AppEngine cannot be trusted to ring).
+    nonisolated static func isHeartbeatStale(now: Date = Date()) -> Bool {
+        guard let last = lastHeartbeatAt() else { return true }
+        return now.timeIntervalSince(last) > heartbeatStaleThreshold
+    }
+
+    nonisolated static func isMissionCompleted() -> Bool {
+        UserDefaults.standard.bool(forKey: missionCompletedKey)
+    }
+
+    nonisolated static func isAuthRecoveryPending() -> Bool {
+        UserDefaults.standard.bool(forKey: authRecoveryPendingKey)
+    }
+
+    nonisolated static func setAuthRecoveryPending(_ pending: Bool) {
+        UserDefaults.standard.set(pending, forKey: authRecoveryPendingKey)
+    }
+
+    nonisolated static func setMissionCompleted(_ completed: Bool) {
+        UserDefaults.standard.set(completed, forKey: missionCompletedKey)
+    }
+
+    nonisolated static func activeRingingAlarmId(now: Date = Date()) -> String? {
+        guard !isFinalStopOrSnoozePressed() else { return nil }
+        guard alarmState(now: now) == .ringing else { return nil }
+        guard let source = UserDefaults.standard.string(forKey: activeRingingAlarmIdKey) else { return nil }
+        guard !isHandoffExpired(now: now) else {
+            clear(reason: "hard-expiry")
+            return nil
+        }
+        return source
+    }
+
+    /// True only when a genuine active ring session should restore the full-screen UI.
+    /// A lingering `activeRingingAlarmId` from a previous session, or a future-alarm
+    /// readiness notification tap, must NOT satisfy this check.
+    nonisolated static func isActivelyRinging(now: Date = Date()) -> Bool {
+        guard activeRingingAlarmId(now: now) != nil else { return false }
+        guard alarmState(now: now) == .ringing else { return false }
+        guard !isFinalStopOrSnoozePressed() else { return false }
+        return true
+    }
+
+    nonisolated static func shouldRestoreOnAppOpen(now: Date = Date()) -> Bool {
+        isActivelyRinging(now: now)
+    }
+
+    nonisolated static func shouldPreserveHandoffDuringPrune(
+        runtimeIsActive: Bool,
+        appIsForeground: Bool,
+        now: Date = Date()
+    ) -> Bool {
+        if shouldRestoreOnAppOpen(now: now) { return true }
+        if isWaitingForAuthentication() { return true }
+        if isAuthRecoveryPending() { return true }
+        if isPendingCustomUIHandoff(), !isFinalStopOrSnoozePressed() { return true }
+        _ = runtimeIsActive
+        _ = appIsForeground
+        return false
+    }
+
+    nonisolated static func markAppBecameActive(now: Date = Date()) {
+        guard let source = UserDefaults.standard.string(forKey: activeRingingAlarmIdKey) else { return }
+        UserDefaults.standard.set(false, forKey: waitingForAuthenticationKey)
+        UserDefaults.standard.set(false, forKey: authRecoveryPendingKey)
+        NotificationManager.shared.cancelAuthHandoffTimeout(sourceAlarmId: source)
+        NotificationManager.shared.cancelPendingAuthRecovery(sourceAlarmId: source)
+        _ = now
+    }
+
+    nonisolated static func ringSessionSnoozeCount(for sourceAlarmId: String) -> Int {
+        guard UserDefaults.standard.string(forKey: ringSessionSnoozeAlarmIdKey) == sourceAlarmId else {
+            return 0
+        }
+        return max(0, UserDefaults.standard.integer(forKey: ringSessionSnoozeCountKey))
+    }
+
+    @discardableResult
+    nonisolated static func recordRingSessionSnooze(sourceAlarmId: String) -> Int {
+        let prior = ringSessionSnoozeCount(for: sourceAlarmId)
+        let next = prior + 1
+        UserDefaults.standard.set(sourceAlarmId, forKey: ringSessionSnoozeAlarmIdKey)
+        UserDefaults.standard.set(next, forKey: ringSessionSnoozeCountKey)
+        return next
+    }
+
+    nonisolated static func syncRingSessionSnoozeCount(sourceAlarmId: String, count: Int) {
+        UserDefaults.standard.set(sourceAlarmId, forKey: ringSessionSnoozeAlarmIdKey)
+        UserDefaults.standard.set(max(0, count), forKey: ringSessionSnoozeCountKey)
+    }
+
+    nonisolated static func resetRingSessionSnoozeCount(sourceAlarmId: String? = nil) {
+        if let sourceAlarmId,
+           UserDefaults.standard.string(forKey: ringSessionSnoozeAlarmIdKey) != sourceAlarmId {
+            return
+        }
+        UserDefaults.standard.removeObject(forKey: ringSessionSnoozeAlarmIdKey)
+        UserDefaults.standard.removeObject(forKey: ringSessionSnoozeCountKey)
+    }
+
+    nonisolated static func clearOnFinalStop(preserveSnooze: Bool = false, reason: String = "final-stop") {
+        if let source = UserDefaults.standard.string(forKey: activeRingingAlarmIdKey) {
+            print("[AuthHandoff] final stop/snooze completed; cleared handoff state source=\(source) reason=\(reason)")
+            print("[FinalStop] cleared active ringing state source=\(source)")
+            NotificationManager.shared.cancelAllHardwareRecoveryState(sourceAlarmId: source)
+            AlarmCustomUIHandoffStore.clearConsumedSurfaces(reason: reason)
+        }
+        if !preserveSnooze {
+            resetRingSessionSnoozeCount()
+        }
+        print("[FinalStop] SET true reason=\(reason)")
+        UserDefaults.standard.set(true, forKey: finalStopOrSnoozePressedKey)
+        if preserveSnooze {
+            UserDefaults.standard.set(RuntimeAlarmState.snoozed.rawValue, forKey: alarmStateKey)
+        } else {
+            UserDefaults.standard.set(RuntimeAlarmState.stopped.rawValue, forKey: alarmStateKey)
+        }
+        UserDefaults.standard.set(false, forKey: pendingCustomUIHandoffKey)
+        UserDefaults.standard.set(false, forKey: waitingForAuthenticationKey)
+        UserDefaults.standard.set(false, forKey: authRecoveryPendingKey)
+        UserDefaults.standard.removeObject(forKey: activeRingingAlarmIdKey)
+        UserDefaults.standard.removeObject(forKey: activeRunIdKey)
+        UserDefaults.standard.removeObject(forKey: surfaceAlarmIdKey)
+        UserDefaults.standard.removeObject(forKey: handoffRequestedAtKey)
+        UserDefaults.standard.removeObject(forKey: handoffSourceKey)
+        UserDefaults.standard.removeObject(forKey: handoffReasonKey)
+    }
+
+    nonisolated static func clear(reason: String) {
+        if let source = UserDefaults.standard.string(forKey: activeRingingAlarmIdKey) {
+            NotificationManager.shared.cancelAuthHandoffTimeout(sourceAlarmId: source)
+            NotificationManager.shared.cancelPendingAuthRecovery(sourceAlarmId: source)
+            print("[AuthHandoff] cleared handoff state source=\(source) reason=\(reason)")
+        }
+        UserDefaults.standard.removeObject(forKey: activeRingingAlarmIdKey)
+        UserDefaults.standard.removeObject(forKey: activeRunIdKey)
+        UserDefaults.standard.removeObject(forKey: surfaceAlarmIdKey)
+        UserDefaults.standard.removeObject(forKey: alarmStateKey)
+        UserDefaults.standard.removeObject(forKey: pendingCustomUIHandoffKey)
+        UserDefaults.standard.removeObject(forKey: handoffRequestedAtKey)
+        UserDefaults.standard.removeObject(forKey: handoffSourceKey)
+        UserDefaults.standard.removeObject(forKey: handoffReasonKey)
+        UserDefaults.standard.removeObject(forKey: waitingForAuthenticationKey)
+        UserDefaults.standard.removeObject(forKey: finalStopOrSnoozePressedKey)
+        UserDefaults.standard.removeObject(forKey: missionCompletedKey)
+        UserDefaults.standard.removeObject(forKey: authRecoveryPendingKey)
+        resetRingSessionSnoozeCount()
+    }
+
+    nonisolated private static func isHandoffExpired(now: Date) -> Bool {
+        let ts = UserDefaults.standard.double(forKey: handoffRequestedAtKey)
+        guard ts > 0 else { return true }
+        let age = now.timeIntervalSince1970 - ts
+        return age < 0 || age >= handoffHardExpiry
+    }
+}
+
+/// Distinguishes AlarmKit ringer surfaces from custom local notifications and internal tracking.
+enum AlarmSurfaceKind: String {
+    case audibleAlarmKit
+    case silentAlarmKitShell
+    case customControlNotification
+    case internalTrackedOnly
+    case none
+}
+
+struct AlarmSurfaceStatus: Equatable {
+    let kind: AlarmSurfaceKind
+    let exists: Bool
+    /// True only when the surface is a trusted audible owner (not suppression-risk, not control-only).
+    let trustedAsAudible: Bool
+    let sourceAlarmId: String
+    let runId: String?
+
+    static func none(sourceAlarmId: String) -> AlarmSurfaceStatus {
+        AlarmSurfaceStatus(
+            kind: .none,
+            exists: false,
+            trustedAsAudible: false,
+            sourceAlarmId: sourceAlarmId,
+            runId: nil
+        )
+    }
+}
+
+enum AlarmSurfacePolicy {
+    /// Only a trusted audible AlarmKit alerting surface may suppress audible recovery.
+    static func canSurfaceSuppressAudibleRecovery(_ status: AlarmSurfaceStatus) -> Bool {
+        switch status.kind {
+        case .audibleAlarmKit:
+            return status.exists && status.trustedAsAudible
+        case .silentAlarmKitShell, .customControlNotification, .internalTrackedOnly, .none:
+            return false
+        }
+    }
+}
+
+/// Silence-risk when AppEngine is prepared but neither AppEngine nor AlarmKit is audible.
+enum ForbiddenAudioStateEvaluator {
+    static func isForbiddenSilentState(
+        phase: AlarmAudioPhase,
+        appInactive: Bool,
+        alarmStateRinging: Bool,
+        finalStop: Bool,
+        engineActuallyAudible: Bool,
+        alarmKitAlerting: Bool,
+        recoveryPending: Bool
+    ) -> Bool {
+        guard !finalStop, alarmStateRinging, appInactive else { return false }
+        guard !engineActuallyAudible else { return false }
+        guard !alarmKitAlerting else { return false }
+        guard !recoveryPending else { return false }
+        return phase == .appEnginePreparing
+    }
+}
+
+/// Pure dead-audio risk evaluation (unit-testable without UIApplication).
+enum DeadAudioRiskEvaluator {
+    static func isDeadAudioRisk(
+        phase: AlarmAudioPhase,
+        appInactive: Bool,
+        enginePlaying: Bool,
+        finalStop: Bool,
+        alarmStateRinging: Bool
+    ) -> Bool {
+        guard !finalStop, alarmStateRinging, appInactive, !enginePlaying else { return false }
+        switch phase {
+        case .appEnginePreparing, .alarmKitFallback, .alarmKitSettling:
+            // alarmKitSettling: AlarmKit owned audible output but iOS may have
+            // killed it on side-button / screen-off while the engine was still
+            // silently preparing — this is the primary "sound gone" failure mode.
+            return true
+        case .waitingForAlarmKit, .appEngineFadingIn, .appEnginePrimary, .stopped:
+            return false
+        }
     }
 }
 
@@ -618,6 +1231,21 @@ final class AlarmManagerFacade: AlarmScheduler, AlarmSchedulerProtocol {
             if let mapped = AlarmScheduleMapper.map(alarm: alarm) {
                 await requestStore.upsert(mapped)
             }
+
+            // Pre-arm the force-close warning so it surfaces even if the user
+            // swipes the app away before the alarm fires. Cancelled while the app
+            // is alive and the AppEngine is verified audible.
+            if let fireDate = AlarmStore.nextFireDate(for: alarm, from: Date()) {
+                let sourceId = alarm.id.uuidString
+                let alarmName = alarm.name
+                await MainActor.run {
+                    NotificationManager.shared.scheduleForceClosedWarning(
+                        sourceAlarmId: sourceId,
+                        fireDate: fireDate,
+                        alarmName: alarmName
+                    )
+                }
+            }
         }
     }
 
@@ -780,14 +1408,14 @@ final class AlarmManagerFacade: AlarmScheduler, AlarmSchedulerProtocol {
             #if targetEnvironment(simulator)
             return "AlarmKit authorization is unreliable in the iOS simulator. Test alarm authorization and lock-screen ringing on a real iPhone or iPad running iOS 26+."
             #else
-            return "Alarm permission request failed. Open Settings > Awayk and enable Alarms, then try again. If the Alarms option is missing, reinstall the app and request permission again on iOS 26+."
+            return "Alarm permission request failed. Open Settings > Alarmo and enable Alarms, then try again. If the Alarms option is missing, reinstall the app and request permission again on iOS 26+."
             #endif
         }
 
         if let schedulingError = error as? AlarmSchedulingError {
             switch schedulingError {
             case .alarmKitPermissionDenied:
-                return "AlarmKit permission is denied. Enable Alarm permissions for Awayk in Settings and try again."
+                return "AlarmKit permission is denied. Enable Alarm permissions for Alarmo in Settings and try again."
             case .unsupportedAlarmKit:
                 return "AlarmKit is unavailable on this iOS version. Use iOS 26+ for system alarm behavior."
             default:

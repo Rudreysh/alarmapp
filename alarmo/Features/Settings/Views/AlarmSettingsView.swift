@@ -126,6 +126,19 @@ struct AlarmSettingsView: View {
                         )
                     }
                     .buttonStyle(.plain)
+
+                    Divider().padding(.leading, 56).opacity(0.35)
+
+                    NavigationLink {
+                        LogsView()
+                    } label: {
+                        row(
+                            icon: "doc.text.magnifyingglass",
+                            title: "Logs",
+                            trailing: ""
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
                 .background(Colors.cardSurface)
                 .cornerRadius(24)

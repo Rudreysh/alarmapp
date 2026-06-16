@@ -7,6 +7,21 @@ private func swiftlog(_ message: String) {
     print(message)
 }
 
+/// Single-point snapshot used by strict audibility verification.
+struct EngineAudibilitySample {
+    let isPlaying: Bool
+    let currentTime: TimeInterval
+    let outputVolume: Float
+    let routeDescription: String
+    let hasValidRoute: Bool
+    let sessionIsActive: Bool
+    let categoryIsPlayback: Bool
+    let isInterrupted: Bool
+    let hasPlayer: Bool
+    let alarmId: String?
+    let runId: UUID?
+}
+
 final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
     static let shared = AlarmContinuousAudioEngine()
 
@@ -43,7 +58,19 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
     private(set) var isCurrentlyInterrupted: Bool = false
     private var wasHealthyBeforeInterruption: Bool = false
     private(set) var isProgressingNow: Bool = false
-    
+    /// Set when `setActive(true)` succeeds during a ring session.
+    private(set) var playbackSessionActivated: Bool = false
+
+    static let audibilitySampleDelay: TimeInterval = 0.4
+    static let audibilityTimeAdvanceMinimum: TimeInterval = 0.02
+
+    /// Latest audio meter readings (linear 0…1) and the time they were sampled.
+    /// Updated by `meterTick()` every `meterInterval`. Used by the audibility
+    /// probe to confirm the player is producing non-silent signal.
+    private(set) var lastMeterAvgLinear: Float = 0
+    private(set) var lastMeterPeakLinear: Float = 0
+    private(set) var lastMeterAt: Date?
+
     private func log(_ message: String) {
         swiftlog(message)
     }
@@ -52,6 +79,138 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         player?.currentTime ?? 0
     }
 
+    /// True when the current output route is a real audible destination
+    /// (built-in speaker, headphones, Bluetooth/AirPlay, etc.) rather than nothing.
+    var hasValidAudibleRoute: Bool {
+        let outputs = AVAudioSession.sharedInstance().currentRoute.outputs
+        guard !outputs.isEmpty else { return false }
+        let audibleTypes: Set<AVAudioSession.Port> = [
+            .builtInSpeaker, .builtInReceiver, .headphones, .bluetoothA2DP,
+            .bluetoothLE, .bluetoothHFP, .airPlay, .carAudio, .usbAudio, .HDMI
+        ]
+        return outputs.contains { audibleTypes.contains($0.portType) }
+    }
+
+    /// True when the meter sampled recently (within ~1s) and the signal is above
+    /// a silence floor. Returns nil when no fresh meter reading is available, so
+    /// callers can treat "unknown" differently from "proven silent".
+    func recentMeterIsAudible(silenceFloor: Float = 0.01, freshness: TimeInterval = 1.0) -> Bool? {
+        guard let last = lastMeterAt, Date().timeIntervalSince(last) <= freshness else {
+            return nil
+        }
+        return lastMeterPeakLinear > silenceFloor || lastMeterAvgLinear > silenceFloor
+    }
+
+    func captureAudibilitySample() -> EngineAudibilitySample {
+        let session = AVAudioSession.sharedInstance()
+        let route = session.currentRoute.outputs.map(\.portType.rawValue).joined(separator: ",")
+        return EngineAudibilitySample(
+            isPlaying: player?.isPlaying == true,
+            currentTime: player?.currentTime ?? 0,
+            outputVolume: session.outputVolume,
+            routeDescription: route.isEmpty ? "none" : route,
+            hasValidRoute: hasValidAudibleRoute,
+            sessionIsActive: playbackSessionActivated,
+            categoryIsPlayback: session.category == .playback,
+            isInterrupted: isCurrentlyInterrupted || isInInterruptionRecoveryWindow,
+            hasPlayer: player != nil,
+            alarmId: currentAlarmId,
+            runId: currentAlarmRunId
+        )
+    }
+
+    private func logEngineVerifySample(_ sample: EngineAudibilitySample, label: String, reason: String) {
+        log(
+            "[EngineVerify] \(label) isPlaying=\(sample.isPlaying) " +
+            "currentTime=\(String(format: "%.2f", sample.currentTime)) " +
+            "outputVolume=\(String(format: "%.2f", sample.outputVolume)) " +
+            "route=\(sample.routeDescription) reason=\(reason)"
+        )
+    }
+
+    /// Strict audibility: two samples with currentTime progression and full session checks.
+    func verifyAudibilityWithProgression(
+        reason: String,
+        sampleDelay: TimeInterval = audibilitySampleDelay
+    ) async -> Bool {
+        let sample1 = captureAudibilitySample()
+        logEngineVerifySample(sample1, label: "sample1", reason: reason)
+
+        guard sample1.hasPlayer else {
+            log("[EngineVerify] FAIL reason=no-player request=\(reason)")
+            return false
+        }
+        guard sample1.isPlaying else {
+            log("[EngineVerify] FAIL reason=not-playing request=\(reason)")
+            return false
+        }
+
+        try? await Task.sleep(nanoseconds: UInt64(sampleDelay * 1_000_000_000))
+
+        let sample2 = captureAudibilitySample()
+        logEngineVerifySample(sample2, label: "sample2", reason: reason)
+
+        guard sample2.hasPlayer else {
+            log("[EngineVerify] FAIL reason=no-player request=\(reason)")
+            return false
+        }
+        guard sample2.isPlaying else {
+            log("[EngineVerify] FAIL reason=not-playing request=\(reason)")
+            return false
+        }
+        guard sample2.currentTime > sample1.currentTime + Self.audibilityTimeAdvanceMinimum else {
+            log("[EngineVerify] FAIL reason=currentTime-not-advancing request=\(reason)")
+            return false
+        }
+        guard sample2.sessionIsActive else {
+            log("[EngineVerify] FAIL reason=session-not-active request=\(reason)")
+            return false
+        }
+        guard sample2.categoryIsPlayback else {
+            log("[EngineVerify] FAIL reason=category-not-playback request=\(reason)")
+            return false
+        }
+        guard sample2.hasValidRoute else {
+            log("[EngineVerify] FAIL reason=invalid-output-route request=\(reason)")
+            return false
+        }
+        guard sample2.outputVolume > AlarmAudioStateController.lowOutputVolumeThreshold else {
+            log("[EngineVerify] FAIL reason=output-volume-too-low outputVolume=\(String(format: "%.2f", sample2.outputVolume)) request=\(reason)")
+            return false
+        }
+        guard !sample2.isInterrupted else {
+            log("[EngineVerify] FAIL reason=audio-interrupted request=\(reason)")
+            return false
+        }
+        if let meterAudible = recentMeterIsAudible() {
+            guard meterAudible else {
+                log(
+                    "[EngineVerify] FAIL reason=meter-silent " +
+                    "avgLin=\(String(format: "%.3f", lastMeterAvgLinear)) " +
+                    "peakLin=\(String(format: "%.3f", lastMeterPeakLinear)) request=\(reason)"
+                )
+                return false
+            }
+        } else if UIApplication.shared.applicationState != .active {
+            log("[EngineVerify] FAIL reason=no-meter-data-while-background request=\(reason)")
+            return false
+        }
+
+        log("[EngineVerify] PASS reason=\(reason)")
+        return true
+    }
+
+    /// Session bound and player prepared (may be silent / not playing).
+    var isEnginePrepared: Bool {
+        currentAlarmId != nil && player != nil
+    }
+
+    /// Player is actively playing audio.
+    var isEnginePlaying: Bool {
+        player?.isPlaying == true
+    }
+
+    /// Legacy name: means prepared session exists, NOT that audio is playing.
     var isEngineActive: Bool {
         currentAlarmId != nil
     }
@@ -260,6 +419,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         player?.stop()
         player = nil
         isPlaying = false
+        playbackSessionActivated = false
         currentSoundName = nil
         currentAlarmId = nil
         currentAlarmRunId = nil
@@ -291,6 +451,16 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             swiftlog("[Engine] confirmStillPlaying → false: player exists but isPlaying=false")
         }
         return live
+    }
+
+    /// Keeps AppEngine player at full headroom when system volume is low (does not change system volume).
+    func ensurePlayerVolumeAtMaximum(reason: String) {
+        guard let player else { return }
+        let maxVol = max(targetVolume, 1.0)
+        if player.volume < maxVol - 0.01 {
+            player.volume = maxVol
+            log("[Volume] AppEngine player volume set to \(String(format: "%.2f", maxVol)) reason=\(reason)")
+        }
     }
 
     func recoverIfNeeded() {
@@ -351,7 +521,42 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         // (verified on device — do NOT remove .mixWithOthers).
         try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
         try session.setActive(true, options: [])
+        playbackSessionActivated = true
         enforceBuiltInSpeakerOutput(context: "session-configure")
+    }
+
+    /// Retries session activation after AlarmKit releases the ringer — side-button
+    /// suppression often needs a short delay before `.playback` can go active.
+    private func activatePlaybackSessionForRecovery(reason: String) -> Bool {
+        let session = AVAudioSession.sharedInstance()
+        let delays: [TimeInterval] = [0, 0.05, 0.12, 0.25, 0.5]
+        for (index, delay) in delays.enumerated() {
+            if delay > 0 {
+                Thread.sleep(forTimeInterval: delay)
+            }
+            do {
+                try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+                try session.setActive(true, options: [])
+                playbackSessionActivated = true
+                enforceBuiltInSpeakerOutput(context: "audible-recovery-\(reason)-\(index)")
+                log("[Engine][AudibleRecovery] session active attempt=\(index) reason=\(reason)")
+                return true
+            } catch {
+                log("[Engine][AudibleRecovery] setActive attempt=\(index) failed reason=\(reason) error=\(error.localizedDescription)")
+                if index >= 2 {
+                    do {
+                        try session.setActive(true, options: .notifyOthersOnDeactivation)
+                        playbackSessionActivated = true
+                        enforceBuiltInSpeakerOutput(context: "audible-recovery-notify-\(reason)")
+                        log("[Engine][AudibleRecovery] session active via notifyOthers attempt=\(index)")
+                        return true
+                    } catch {
+                        log("[Engine][AudibleRecovery] notifyOthers setActive failed attempt=\(index) error=\(error.localizedDescription)")
+                    }
+                }
+            }
+        }
+        return false
     }
 
     private func configureSessionCategoryOnly() throws {
@@ -468,37 +673,16 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             guard let self, self.volumeEnforcementActive, self.isEngineActive else { return }
             let newVol = change.newValue ?? session.outputVolume
             let oldVol = change.oldValue ?? newVol
-            guard newVol < oldVol else { return }
-            // Enforce the system output volume floor only when the app engine is the
-            // audio owner (appEnginePrimary / appEngineFadingIn). In other phases
-            // (alarmKitFallback, alarmKitSettling, etc.) the AlarmKit ringer provides
-            // sound via the ringer domain, which is immune to media-volume changes.
-            // Calling recordFallback from the else branch was a regression introduced
-            // with the per-button-press enforcement: any ringer-volume dip below
-            // selectedSoundVolume (e.g. 0.80) triggered a full stop+respawn cycle,
-            // causing a 2-second silence when the user pressed the side/volume button
-            // while the phone was locked.
-            let floor = AlarmAudioStateController.shared.selectedSoundVolume
-            if newVol < floor {
-                self.log("[Engine] Volume dropped to \(String(format: "%.2f", newVol)) below floor \(String(format: "%.2f", floor)) — enforcing")
-                DispatchQueue.main.async { [weak self] in
-                    guard let self, self.isEngineActive else { return }
-                    self.player?.volume = 1.0
-                    let phase = AlarmAudioStateController.shared.phase
-                    guard phase == .appEngineFadingIn || phase == .appEnginePrimary else {
-                        // Non-primary phase: ringer domain handles audio. Do not trigger
-                        // respawn just because media volume changed.
-                        self.log("[Engine] Volume drop below floor ignored — phase=\(phase.rawValue), ringer domain is audio owner")
-                        return
-                    }
-                    // Raise system output volume immediately (no respawn — engine is healthy).
-                    // enforceFloorImmediately bypasses rate limiting for per-button-press response.
-                    self.log("[Engine] Immediate system floor enforce: phase=\(phase.rawValue) target=\(String(format: "%.2f", floor))")
-                    Task { @MainActor in
-                        SystemOutputVolumeFloorManager.shared.enforceFloorImmediately(minimumVolume: floor)
-                    }
-                }
-            }
+            let appTarget = AlarmAudioStateController.shared.selectedSoundVolume
+            let playerVol = self.player?.volume ?? 0
+            let phase = AlarmAudioStateController.shared.phase.rawValue
+            let direction = newVol < oldVol ? "▼ DOWN" : newVol > oldVol ? "▲ UP" : "="
+            self.log("[VolumeButton] \(direction) system \(String(format: "%.2f", oldVol)) → \(String(format: "%.2f", newVol)) | appTarget=\(String(format: "%.2f", appTarget)) player=\(String(format: "%.2f", playerVol)) phase=\(phase)")
+            AlarmAudioStateController.shared.handleOutputVolumeChange(
+                oldVolume: oldVol,
+                newVolume: newVol,
+                sourceAlarmId: AlarmAudioStateController.shared.currentAlarmId
+            )
         }
         log("[Engine] Volume observer installed — floor enforcement active")
     }
@@ -521,22 +705,52 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         switch type {
         case .began:
             let phase = AlarmAudioStateController.shared.phase
+            let ringing = AlarmAuthHandoffStore.alarmState() == .ringing
+                || AlarmAudioStateController.shared.isAlarmRinging
             log("🧭 [ALARMTRACE_AUDIO] EVENT=AUDIO_INTERRUPTION_BEGAN PHASE=\(phase.rawValue) ENGINE_ACTIVE=\(isEngineActive) WAS_HEALTHY=\(cachedIsHealthy) CURRENT_TIME=\(String(format: "%.2f", player?.currentTime ?? -1))")
-            log("[Engine] Interruption began — phase=\(phase.rawValue)")
+            log("[AudioInterruption] began while ringing=\(ringing) phase=\(phase.rawValue)")
             debugVolumeSnapshot(context: "interruption-began")
             isCurrentlyInterrupted = true
             wasHealthyBeforeInterruption = cachedIsHealthy
+            cachedIsHealthy = false
+            isProgressingNow = false
 
-            if phase == .alarmKitSettling || phase == .appEnginePreparing {
-                log("[Engine] Interruption during settling/preparing — expected, not fighting")
-                cachedIsHealthy = false
-                isProgressingNow = false
-                return
+            if ringing, !AlarmAuthHandoffStore.isFinalStopOrSnoozePressed() {
+                let activeAlarmId = AlarmAudioStateController.shared.currentAlarmId
+                    ?? AlarmAuthHandoffStore.activeRingingAlarmId()
+                guard let activeAlarmId else { break }
+                log("[AudioInterruption] marking AlarmKit suppression risk source=\(activeAlarmId)")
+                DispatchQueue.main.async {
+                    AlarmAudioStateController.shared.markAlarmKitSurfaceSuppressionRisk(
+                        sourceAlarmId: activeAlarmId,
+                        reason: "audio-interruption-began-phase-\(phase.rawValue)"
+                    )
+                    AlarmAudioStateController.shared.markLockedEngineCandidateFailed(
+                        sourceAlarmId: activeAlarmId,
+                        reason: "audio-interruption-began"
+                    )
+                    NotificationManager.shared.evaluateNoAudibleOwnerRecoveryIfNeeded(
+                        sourceAlarmId: activeAlarmId,
+                        reason: "audio-interruption-began-phase-\(phase.rawValue)"
+                    )
+                    if AlarmFeatureFlags.appEngineTakesOverAfterAlarmKitSuppression {
+                        _ = NotificationManager.shared.startAppEngineAfterAlarmKitSuppression(
+                            sourceAlarmId: activeAlarmId,
+                            reason: "audio-interruption-began-phase-\(phase.rawValue)"
+                        )
+                    } else {
+                        NotificationManager.shared.preArmAudibleAlarmKitRecovery(
+                            sourceAlarmId: activeAlarmId,
+                            reason: "interruption-no-trusted-audible-owner",
+                            delay: 1.0,
+                            bypassCooldown: true,
+                            bypassLiveSurfaceCheck: true
+                        )
+                    }
+                }
             }
 
             if phase == .appEnginePrimary || phase == .appEngineFadingIn {
-                cachedIsHealthy = false
-                isProgressingNow = false
                 interruptionGraceUntil = Date().addingTimeInterval(4.0)
             }
         case .ended:
@@ -548,6 +762,19 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             isCurrentlyInterrupted = false
             interruptionGraceUntil = nil
             let phase = AlarmAudioStateController.shared.phase
+
+            if AlarmFeatureFlags.appEngineTakesOverAfterAlarmKitSuppression,
+               let activeAlarmId = AlarmAudioStateController.shared.currentAlarmId
+                    ?? AlarmAuthHandoffStore.activeRingingAlarmId(),
+               AlarmAuthHandoffStore.alarmState() == .ringing
+                    || AlarmAudioStateController.shared.isAlarmRinging {
+                DispatchQueue.main.async {
+                    _ = NotificationManager.shared.startAppEngineAfterAlarmKitSuppression(
+                        sourceAlarmId: activeAlarmId,
+                        reason: "audio-interruption-ended"
+                    )
+                }
+            }
 
             if phase == .alarmKitSettling || phase == .appEnginePreparing {
                 log("[Engine] Interruption ended during settling/preparing — scheduling takeover grace")
@@ -691,6 +918,12 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             stopWatchdog()
             return
         }
+        // Keep the app-liveness heartbeat fresh while an alarm is active so
+        // recovery/force-close logic can tell the app is still alive.
+        AlarmAuthHandoffStore.writeHeartbeat(
+            runId: currentAlarmRunId?.uuidString,
+            isPlaying: player?.isPlaying ?? false
+        )
         let phase = AlarmAudioStateController.shared.phase
         if phase == .alarmKitSettling || phase == .appEnginePreparing {
             return
@@ -726,13 +959,55 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + backoffDelay, execute: workItem)
     }
 
+    /// While AlarmKit owns the ringer, pre-create the player and warm the playback
+    /// session so `startAudibleRecovery` can call `play()` with minimal latency
+    /// after side-button / slide-to-stop / volume suppression.
+    /// Does not advance the audio phase — AlarmKit remains the declared owner.
+    func prewarmForInstantHandoff(soundName: String, alarmId: String, alarmRunId: UUID) {
+        guard preparePlayerIfNeeded(
+            soundName: soundName,
+            alarmId: alarmId,
+            alarmRunId: alarmRunId,
+            recordPreparedPhase: false
+        ) else { return }
+        // Do NOT call setActive here — AlarmKit still owns the ringer session and
+        // activation fails with cannotInterruptOthers (561015905). The player is
+        // prepared; session activates in startAudibleRecovery once AlarmKit stops.
+        log("[Engine] prewarmForInstantHandoff: player ready (session deferred) runId=\(alarmRunId.uuidString)")
+        if let alertingAt = AlarmAudioStateController.shared.alarmKitAlertingReceivedAt,
+           let p = player, p.duration > 0 {
+            let elapsed = Date().timeIntervalSince(alertingAt)
+            let syncPos = elapsed.truncatingRemainder(dividingBy: p.duration)
+            if syncPos > 0 {
+                p.currentTime = syncPos
+                log("[Engine] prewarmForInstantHandoff: seek to AlarmKit elapsed=\(String(format: "%.2f", syncPos))s")
+            }
+        }
+    }
+
     func prepareSilently(soundName: String, alarmId: String, alarmRunId: UUID) {
+        _ = preparePlayerIfNeeded(
+            soundName: soundName,
+            alarmId: alarmId,
+            alarmRunId: alarmRunId,
+            recordPreparedPhase: true
+        )
+    }
+
+    @discardableResult
+    private func preparePlayerIfNeeded(
+        soundName: String,
+        alarmId: String,
+        alarmRunId: UUID,
+        recordPreparedPhase: Bool
+    ) -> Bool {
         if currentAlarmRunId == alarmRunId, player != nil {
-            log("[Engine] prepareSilently: already prepared for runId \(alarmRunId.uuidString)")
-            return
+            log("[Engine] preparePlayerIfNeeded: already prepared for runId \(alarmRunId.uuidString)")
+            return true
         }
 
-        log("[Engine] prepareSilently: alarmId=\(alarmId) sound=\(soundName)")
+        let label = recordPreparedPhase ? "prepareSilently" : "prewarm"
+        log("[Engine] \(label): alarmId=\(alarmId) sound=\(soundName)")
         currentAlarmId = alarmId
         currentAlarmRunId = alarmRunId
         currentSoundName = soundName
@@ -744,16 +1019,33 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
 
         do {
             try configureSessionCategoryOnly()
-            log("[Engine] prepareSilently: session category configured (not activated)")
+            log("[Engine] \(label): session category configured")
         } catch {
-            log("[Engine] prepareSilently: setCategory failed: \(error.localizedDescription)")
+            log("[Engine] \(label): setCategory failed: \(error.localizedDescription)")
         }
 
-        guard let url = findSoundURL(for: soundName) else {
+        // Authoritative resolution (sound-mismatch fix): prefer the SAME URL the
+        // AlarmKit scheduler resolved/staged for this sound (`selectedSoundURL`) so the
+        // engine and AlarmKit never diverge onto different audio. Guarded by a key match
+        // so a stale URL from a previous alarm is never used. Falls back to the engine's
+        // own search (which now also recognises AlarmKit's staged file) otherwise.
+        let resolvedURL: URL? = {
+            if let authoritative = AlarmAudioStateController.shared.selectedSoundURL,
+               FileManager.default.fileExists(atPath: authoritative.path),
+               normalizedSoundKey(authoritative.deletingPathExtension().lastPathComponent)
+                   == normalizedSoundKey(soundName) {
+                log("[Engine] \(label): using scheduler-resolved sound URL '\(authoritative.lastPathComponent)' (AlarmKit-converged)")
+                return authoritative
+            }
+            return findSoundURL(for: soundName)
+        }()
+        guard let url = resolvedURL else {
             log("🧭 [ALARMTRACE_AUDIO] EVENT=PREPARE_SILENTLY_FAILED REASON=SOUND_URL_NOT_FOUND ALARM_ID=\(alarmId) SOUND=\"\(soundName)\"")
-            log("[Engine] prepareSilently: sound URL not found for '\(soundName)'")
-            AlarmAudioStateController.shared.recordFallback(reason: "sound-url-not-found")
-            return
+            log("[Engine] \(label): sound URL not found for '\(soundName)'")
+            if recordPreparedPhase {
+                AlarmAudioStateController.shared.recordFallback(reason: "sound-url-not-found")
+            }
+            return false
         }
 
         do {
@@ -763,19 +1055,19 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             newPlayer.delegate = self
             newPlayer.prepareToPlay()
             player = newPlayer
-            log("[Engine] prepareSilently: player created, prepareToPlay() called, volume=0.0")
-            log("[Engine] prepareSilently: duration=\(String(format: "%.2f", newPlayer.duration))s")
-            AlarmAudioStateController.shared.recordAppEnginePrepared()
-            Task { @MainActor in
-                SystemOutputVolumeFloorManager.shared.attemptRaiseOutputVolumeFloor(
-                    minimumVolume: AlarmAudioStateController.shared.selectedSoundVolume,
-                    reason: "prepare-silently-prewarm"
-                )
+            log("[Engine] \(label): player created, prepareToPlay() called, volume=0.0")
+            log("[Engine] \(label): duration=\(String(format: "%.2f", newPlayer.duration))s")
+            if recordPreparedPhase {
+                AlarmAudioStateController.shared.recordAppEnginePrepared()
             }
+            return true
         } catch {
             log("🧭 [ALARMTRACE_AUDIO] EVENT=PREPARE_SILENTLY_FAILED REASON=PLAYER_CREATION_FAILED ALARM_ID=\(alarmId) SOUND=\"\(soundName)\" ERROR=\"\(error.localizedDescription)\"")
-            log("[Engine] prepareSilently: player creation failed: \(error.localizedDescription)")
-            AlarmAudioStateController.shared.recordFallback(reason: "player-creation-failed")
+            log("[Engine] \(label): player creation failed: \(error.localizedDescription)")
+            if recordPreparedPhase {
+                AlarmAudioStateController.shared.recordFallback(reason: "player-creation-failed")
+            }
+            return false
         }
     }
 
@@ -798,6 +1090,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
 
         do {
             try AVAudioSession.sharedInstance().setActive(true, options: [])
+            playbackSessionActivated = true
             enforceBuiltInSpeakerOutput(context: "fade-in-activate")
             log("[Engine] startFadeIn: session activated")
             let activatedOutput = AVAudioSession.sharedInstance().outputVolume
@@ -817,8 +1110,10 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             return
         }
 
-        p.volume = AlarmAudioStateController.appEngineInitialVolume
-        log("[Engine] startFadeIn: starting at volume \(String(format: "%.2f", AlarmAudioStateController.appEngineInitialVolume))")
+        let immediateFullVolume = fadeInDuration <= 0
+        let startingVolume = immediateFullVolume ? targetVolume : AlarmAudioStateController.appEngineInitialVolume
+        p.volume = startingVolume
+        log("[Engine] startFadeIn: starting at volume \(String(format: "%.2f", startingVolume))")
         self.targetVolume = targetVolume
         let playResult = p.play()
         guard playResult && p.isPlaying else {
@@ -828,6 +1123,9 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             return
         }
         log("🧭 [ALARMTRACE_AUDIO] EVENT=FADE_IN_PLAY_STARTED RUN_ID=\(alarmRunId.uuidString) ALARM_ID=\(currentAlarmId ?? "nil") CURRENT_TIME=\(String(format: "%.2f", p.currentTime)) INITIAL_VOLUME=\(String(format: "%.2f", p.volume)) TARGET_VOLUME=\(String(format: "%.2f", targetVolume))")
+
+        // Do NOT dismiss AlarmKit here — play() alone does not prove audibility.
+        // Dismissal is gated behind strict verification after fade-in completes.
 
         // Sync engine playback position with AlarmKit's elapsed time so both sources
         // play the same track in phase. Without this, AlarmKit starts at T=0 and the
@@ -848,21 +1146,20 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         isProgressingNow = true
         startMeteringIfNeeded()
         AlarmAudioStateController.shared.recordFadeInStarted()
-        Task { @MainActor in
-            SystemOutputVolumeFloorManager.shared.attemptRaiseOutputVolumeFloor(
-                minimumVolume: AlarmAudioStateController.shared.selectedSoundVolume,
-                reason: "app-engine-fade-in-start"
-            )
-        }
         let firstTarget = min(max(AlarmAudioStateController.appEngineFirstFadeTargetVolume, 0), targetVolume)
-        let firstLeg = min(2.0, fadeInDuration)
-        let secondLeg = max(0.0, fadeInDuration - firstLeg)
-        p.setVolume(firstTarget, fadeDuration: firstLeg)
-        if secondLeg > 0 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + firstLeg) { [weak self] in
-                guard let self, self.currentAlarmRunId == alarmRunId, self.player?.isPlaying == true else { return }
-                self.player?.setVolume(targetVolume, fadeDuration: secondLeg)
-                self.debugVolumeSnapshot(context: "startFadeIn-second-leg")
+        if immediateFullVolume {
+            p.volume = targetVolume
+            log("[Engine] startFadeIn: immediate full-volume start target=\(targetVolume)")
+        } else {
+            let firstLeg = min(2.0, fadeInDuration)
+            let secondLeg = max(0.0, fadeInDuration - firstLeg)
+            p.setVolume(firstTarget, fadeDuration: firstLeg)
+            if secondLeg > 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + firstLeg) { [weak self] in
+                    guard let self, self.currentAlarmRunId == alarmRunId, self.player?.isPlaying == true else { return }
+                    self.player?.setVolume(targetVolume, fadeDuration: secondLeg)
+                    self.debugVolumeSnapshot(context: "startFadeIn-second-leg")
+                }
             }
         }
         log("[Engine] startFadeIn: fade started duration=\(String(format: "%.2f", fadeInDuration)) target=\(targetVolume) firstTarget=\(firstTarget)")
@@ -885,6 +1182,21 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             self.log("🧭 [ALARMTRACE_AUDIO] EVENT=FADE_IN_RAMP_COMPLETE RUN_ID=\(capturedRunId.uuidString) ALARM_ID=\(self.currentAlarmId ?? "nil") PLAYER_VOLUME=\(String(format: "%.2f", self.player?.volume ?? 0))")
             self.debugVolumeSnapshot(context: "startFadeIn-ramp-complete")
             AlarmAudioStateController.shared.recordEnginePrimary()
+            if let alarmId = self.currentAlarmId {
+                Task { @MainActor in
+                    if await AlarmAudioStateController.shared.isAppEngineActuallyAudible(
+                        reason: "fade-in-ramp-complete"
+                    ) {
+                        NotificationManager.shared.dismissLinkedAlarmKitSurfaces(
+                            sourceAlarmId: alarmId,
+                            reason: "fade-in-ramp-complete"
+                        )
+                        print("[AudioOwner] AlarmKit dismissed after strict engine verify alarmId=\(alarmId)")
+                    } else {
+                        print("[AudioOwner] AlarmKit kept — engine not strictly verified at fade-in complete alarmId=\(alarmId)")
+                    }
+                }
+            }
             Task { @MainActor in
                 AlarmBackgroundAudioBridge.shared.resetWatchdogBackoff()
             }
@@ -996,6 +1308,75 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         )
     }
 
+    /// Makes the engine AUDIBLE immediately (no gentle wake-up fade) for recovery
+    /// when AlarmKit's audible surface was lost while the phone is locked
+    /// (slide-to-stop / side-button). This is the only way to keep the alarm
+    /// ringing WITHOUT re-showing the AlarmKit system UI: the engine plays in the
+    /// `.playback` media domain (no system surface), which the app is entitled to
+    /// run while locked via the `audio` background mode.
+    ///
+    /// Unlike `startFadeIn`, this does NOT call `recordFallback` on failure — it
+    /// simply returns `false` so the caller can fall back to an audible AlarmKit
+    /// re-alert. This avoids a recovery→fallback→recovery loop.
+    ///
+    /// Returns `true` only if `play()` succeeds and the player is confirmed
+    /// playing. (Whether it is actually *audible* — i.e. system output volume is
+    /// above the floor — is verified separately on a short delay, because the
+    /// `outputVolume` reading is transiently unreliable right after `setActive`
+    /// while locked.)
+    @discardableResult
+    func startAudibleRecovery(
+        alarmRunId: UUID,
+        targetVolume: Float = AlarmAudioStateController.appEngineFinalTargetVolume,
+        rampDuration: TimeInterval = 0.3,
+        startFloor: Float = AlarmAudioStateController.postSlideMinimumVolume,
+        reason: String
+    ) -> Bool {
+        guard currentAlarmRunId == alarmRunId else {
+            log("[Engine][AudibleRecovery] blocked — runId mismatch current=\(currentAlarmRunId?.uuidString ?? "nil") requested=\(alarmRunId.uuidString) reason=\(reason)")
+            return false
+        }
+        guard let p = player else {
+            log("[Engine][AudibleRecovery] blocked — no prepared player reason=\(reason)")
+            return false
+        }
+        guard activatePlaybackSessionForRecovery(reason: reason) else {
+            return false
+        }
+
+        self.targetVolume = targetVolume
+        // Start at `startFloor` (default: never below the post-slide minimum) and
+        // ramp to target over `rampDuration`. The default 0.3s restores loudness
+        // almost instantly — the user is still asleep and the sound just cut. The
+        // volume-floor-ignoring takeover passes a lower startFloor + a gentle
+        // multi-second ramp for a soft fade from the current media volume to full.
+        p.volume = max(p.volume, startFloor)
+        let playResult = p.play()
+        guard playResult, p.isPlaying else {
+            log("🧭 [ALARMTRACE_AUDIO] EVENT=AUDIBLE_RECOVERY_PLAY_FAILED RUN_ID=\(alarmRunId.uuidString) REASON=\(reason) PLAY_RESULT=\(playResult) IS_PLAYING=\(p.isPlaying)")
+            return false
+        }
+        p.setVolume(targetVolume, fadeDuration: rampDuration)
+
+        isPlaying = true
+        isProgressingNow = true
+        cachedIsHealthy = true
+        lastConfirmedPlayingAt = Date()
+        startMeteringIfNeeded()
+        startWatchdogIfNeeded()
+
+        let output = AVAudioSession.sharedInstance().outputVolume
+        let route = AVAudioSession.sharedInstance().currentRoute.outputs.map(\.portType.rawValue).joined(separator: ",")
+        log("🧭 [ALARMTRACE_AUDIO] EVENT=AUDIBLE_RECOVERY_STARTED RUN_ID=\(alarmRunId.uuidString) ALARM_ID=\(currentAlarmId ?? "nil") REASON=\(reason) PLAYER_VOL=\(String(format: "%.2f", p.volume)) OUTPUT_VOL=\(String(format: "%.2f", output)) ROUTE=\(route)")
+        // Player-only parity here — media floor runs after verification (see confirmLockedEngineVerified).
+        AlarmAudioStateController.shared.enforceAlarmKitHandoffVolumeParity(
+            reason: reason,
+            applyMediaFloor: false
+        )
+        AppEngineVolumeResetMonitor.shared.syncWithCurrentState(reason: "audible-recovery-started")
+        return true
+    }
+
     private func verifyFadeInProgress(alarmRunId: UUID) {
         guard currentAlarmRunId == alarmRunId, let p = player else { return }
         if p.isPlaying && p.currentTime > 0 {
@@ -1095,6 +1476,9 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         let peakDb = p.peakPower(forChannel: 0)
         let avgLin = pow(10.0, avgDb / 20.0)
         let peakLin = pow(10.0, peakDb / 20.0)
+        lastMeterAvgLinear = Float(avgLin)
+        lastMeterPeakLinear = Float(peakLin)
+        lastMeterAt = Date()
         let output = AVAudioSession.sharedInstance().outputVolume
 
         swiftlog(
@@ -1337,6 +1721,34 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
                 if key == normalizedRequested {
                     print("[findSoundURL] Bundle MATCH: '\(fileURL.lastPathComponent)' key='\(key)'")
                     return fileURL
+                }
+            }
+        }
+
+        // CONVERGENCE WITH ALARMKIT (sound-mismatch fix): AlarmKit plays the file the
+        // scheduler stages into Library/Sounds. For sounds longer than ~29.5s that file
+        // is "{key}_alarmkit.m4a" (a trimmed export) whose normalized key contains
+        // "alarmkit", so the Path3 enumeration above misses it — and we would otherwise
+        // return a DIFFERENT bundled tone via findFallbackSound(), producing the exact
+        // "selected sound while unlocked but another app sound while locked / both at
+        // once" symptom. Match the staged file explicitly so both audio sources play the
+        // same sound before any bundled fallback.
+        if !normalizedRequested.isEmpty,
+           let library = fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first {
+            let soundsDir = library.appendingPathComponent("Sounds", isDirectory: true)
+            let stagedCandidates = [
+                "\(normalizedRequested)_alarmkit.m4a",
+                "\(normalizedRequested).caf",
+                "\(normalizedRequested).m4a",
+                "\(normalizedRequested).mp3",
+                "\(normalizedRequested).wav",
+                "\(normalizedRequested).aiff"
+            ]
+            for candidate in stagedCandidates {
+                let url = soundsDir.appendingPathComponent(candidate, isDirectory: false)
+                if fileManager.fileExists(atPath: url.path) {
+                    print("[findSoundURL] AlarmKit-staged MATCH: '\(candidate)' (converged with AlarmKit) for '\(name)'")
+                    return url
                 }
             }
         }

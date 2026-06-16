@@ -91,6 +91,12 @@ final class AlarmSchedulerIOS26AlarmKit: AlarmScheduler {
     func cancelAlarm(id: UUID) async {
 #if canImport(AlarmKit)
         if #available(iOS 26.0, *) {
+            let helper = AlarmSchedulerIOS26AlarmKit()
+            helper.cancelLockedContinuityGuard(
+                manager: AlarmManager.shared,
+                sourceAlarmId: id.uuidString,
+                reason: "cancel-alarm"
+            )
             do {
                 // Prefer cancellation for scheduled alarms; fallback to stop for currently alerting alarms.
                 try AlarmManager.shared.cancel(id: id)
@@ -187,7 +193,8 @@ final class AlarmSchedulerIOS26AlarmKit: AlarmScheduler {
                 schedule: schedule,
                 snoozeEnabled: snoozeEnabled,
                 snoozeInterval: snoozeInterval,
-                preferredSoundName: alarm.soundName
+                preferredSoundName: alarm.soundName,
+                sourceAlarm: alarm
             )
 
             let nextFireDate = AlarmStore.nextFireDate(for: alarm, from: Date()) ?? Date()
@@ -202,6 +209,19 @@ final class AlarmSchedulerIOS26AlarmKit: AlarmScheduler {
                 )
             )
             logger.log("Scheduled AlarmKit app alarm \(alarm.id.uuidString, privacy: .public) repeats=\(alarm.repeatMask > 0 || alarm.isDaily, privacy: .public)")
+            if AlarmFeatureFlags.alarmKitPrimaryOwnerNoRespawn {
+                cancelLockedContinuityGuard(
+                    manager: manager,
+                    sourceAlarmId: alarm.id.uuidString,
+                    reason: "respawn-disabled"
+                )
+            } else {
+                await armLockedContinuityGuard(
+                    manager: manager,
+                    sourceAlarm: alarm,
+                    fireDate: nextFireDate
+                )
+            }
             return
         }
 #endif
@@ -265,7 +285,7 @@ private actor AlarmKitStateStore {
 
 #if canImport(AlarmKit)
 @available(iOS 26.0, *)
-private struct AwaykAlarmMetadata: AlarmMetadata {
+private struct AlarmoAlarmMetadata: AlarmMetadata {
     let title: String
     let alarmName: String
     let soundName: String
@@ -293,8 +313,70 @@ extension AlarmSchedulerIOS26AlarmKit {
     var maxAlarmKitSoundDuration: TimeInterval { 29.5 }
     var alarmKitStopButtonText: String { "Open to Stop" }
     var alarmKitStopButtonSymbol: String { "alarm.fill" }
-    var alarmKitSecondaryButtonEnabled: Bool { false }
     var alarmKitTintColor: Color { Colors.accentBlue }
+
+    private func alarmKitSnoozeButtonLabel(interval: TimeInterval) -> String {
+        let total = max(1, Int(interval))
+        let minutes = total / 60
+        let seconds = total % 60
+        if minutes > 0, seconds > 0 {
+            return "Snooze \(minutes)m \(seconds)s"
+        }
+        if minutes > 0 {
+            return "Snooze \(minutes) min"
+        }
+        return "Snooze \(seconds)s"
+    }
+
+    private func makeAlarmKitSnoozeButton(interval: TimeInterval) -> AlarmButton {
+        AlarmButton(
+            text: LocalizedStringResource(stringLiteral: alarmKitSnoozeButtonLabel(interval: interval)),
+            textColor: .black,
+            systemImageName: "zzz"
+        )
+    }
+
+    private func makeAlarmKitUnlockToStopButton() -> AlarmButton {
+        AlarmButton(
+            text: LocalizedStringResource(stringLiteral: "Unlock to Stop"),
+            textColor: .black,
+            systemImageName: "lock.open.fill"
+        )
+    }
+
+    /// Shared lock-screen button policy for primary and recovery AlarmKit surfaces.
+    struct AlarmKitRingingButtonPolicy {
+        enum SecondaryKind: Equatable {
+            case none(reason: String)
+            case snooze(interval: TimeInterval)
+            case unlockToStop
+        }
+
+        let secondary: SecondaryKind
+
+        static func from(alarm: Alarm, snoozeInterval: TimeInterval?) -> AlarmKitRingingButtonPolicy {
+            _ = alarm
+            _ = snoozeInterval
+            return AlarmKitRingingButtonPolicy(secondary: .unlockToStop)
+        }
+
+        static func legacy(snoozeEnabled: Bool, snoozeInterval: TimeInterval?) -> AlarmKitRingingButtonPolicy {
+            _ = snoozeEnabled
+            _ = snoozeInterval
+            return AlarmKitRingingButtonPolicy(secondary: .unlockToStop)
+        }
+    }
+
+    private func logAlarmKitSecondaryButton(policy: AlarmKitRingingButtonPolicy, context: String) {
+        switch policy.secondary {
+        case .unlockToStop:
+            print("[AlarmKitUI] \(context) secondaryButton=\"Unlock to Stop\" behavior=custom openApp=true")
+        case .snooze(let interval):
+            print("[AlarmKitUI] \(context) secondaryButton=\"\(alarmKitSnoozeButtonLabel(interval: interval))\" behavior=custom openApp=false missionsRequired=false")
+        case .none(let reason):
+            print("[AlarmKitUI] \(context) secondaryButton=\"none\" enabled=false reason=\(reason)")
+        }
+    }
 
     private func alarmKitAlertTitle(for schedule: AlarmKit.Alarm.Schedule) -> String {
         let hour = resolvedAlarmHour(from: schedule) ?? Calendar.current.component(.hour, from: Date())
@@ -399,7 +481,8 @@ extension AlarmSchedulerIOS26AlarmKit {
         schedule: AlarmKit.Alarm.Schedule,
         snoozeEnabled: Bool,
         snoozeInterval: TimeInterval?,
-        preferredSoundName: String?
+        preferredSoundName: String?,
+        sourceAlarm: Alarm? = nil
     ) async throws -> String {
         // Replace prior schedule for the same id before creating a new one.
         // This avoids duplicate-schedule rejections on edits/reschedules.
@@ -414,14 +497,21 @@ extension AlarmSchedulerIOS26AlarmKit {
             return value
         }()
 
+        let buttonPolicy: AlarmKitRingingButtonPolicy = {
+            if let sourceAlarm {
+                return AlarmKitRingingButtonPolicy.from(alarm: sourceAlarm, snoozeInterval: snoozeInterval)
+            }
+            return AlarmKitRingingButtonPolicy.legacy(snoozeEnabled: snoozeEnabled, snoozeInterval: snoozeInterval)
+        }()
+        let missionType = sourceAlarm?.missions.first(where: { $0.type != .off })?.type.rawValue
         let preferredConfiguration = makeConfiguration(
             alarmID: id,
             originalAlarmID: originalAlarmID,
             title: title,
             schedule: schedule,
-            snoozeEnabled: snoozeEnabled,
-            snoozeInterval: snoozeInterval,
-            soundName: requestedSound
+            buttonPolicy: buttonPolicy,
+            soundName: requestedSound,
+            missionType: missionType
         )
 
         do {
@@ -440,9 +530,9 @@ extension AlarmSchedulerIOS26AlarmKit {
                     originalAlarmID: originalAlarmID,
                     title: title,
                     schedule: schedule,
-                    snoozeEnabled: snoozeEnabled,
-                    snoozeInterval: snoozeInterval,
-                    soundName: nil
+                    buttonPolicy: buttonPolicy,
+                    soundName: nil,
+                    missionType: missionType
                 )
                 do {
                     _ = try await manager.schedule(id: id, configuration: fallbackConfiguration)
@@ -459,10 +549,10 @@ extension AlarmSchedulerIOS26AlarmKit {
                 originalAlarmID: originalAlarmID,
                 title: title,
                 schedule: schedule,
-                snoozeEnabled: snoozeEnabled,
-                snoozeInterval: snoozeInterval,
+                buttonPolicy: buttonPolicy,
                 soundName: nil,
-                useSystemDefaultSound: true
+                useSystemDefaultSound: true,
+                missionType: missionType
             )
             _ = try await manager.schedule(id: id, configuration: systemDefaultConfiguration)
             return "default"
@@ -474,14 +564,30 @@ extension AlarmSchedulerIOS26AlarmKit {
         originalAlarmID: UUID? = nil,
         title: String,
         schedule: AlarmKit.Alarm.Schedule,
-        snoozeEnabled: Bool,
-        snoozeInterval: TimeInterval?,
+        buttonPolicy: AlarmKitRingingButtonPolicy,
         soundName: String? = nil,
-        useSystemDefaultSound: Bool = false
-    ) -> AlarmManager.AlarmConfiguration<AwaykAlarmMetadata> {
-        _ = useSystemDefaultSound
-        _ = Self.ensureSilentAlertSoundStaged()
+        useSystemDefaultSound: Bool = false,
+        uiShellOnly: Bool = false,
+        missionType: String? = nil
+    ) -> AlarmManager.AlarmConfiguration<AlarmoAlarmMetadata> {
         let alertTitle = alarmKitAlertTitle(for: schedule)
+        let secondaryButton: AlarmButton?
+        let resolvedSnoozeInterval: TimeInterval?
+        let secondaryButtonBehavior: AlarmPresentation.Alert.SecondaryButtonBehavior?
+        switch buttonPolicy.secondary {
+        case .unlockToStop:
+            secondaryButton = makeAlarmKitUnlockToStopButton()
+            secondaryButtonBehavior = .custom
+            resolvedSnoozeInterval = nil
+        case .snooze(let interval):
+            secondaryButton = makeAlarmKitSnoozeButton(interval: interval)
+            secondaryButtonBehavior = .custom
+            resolvedSnoozeInterval = interval
+        case .none:
+            secondaryButton = nil
+            secondaryButtonBehavior = nil
+            resolvedSnoozeInterval = nil
+        }
         let alertPresentation = AlarmPresentation.Alert(
             title: LocalizedStringResource(stringLiteral: alertTitle),
             stopButton: AlarmButton(
@@ -491,7 +597,9 @@ extension AlarmSchedulerIOS26AlarmKit {
                 text: LocalizedStringResource(stringLiteral: alarmKitStopButtonText),
                 textColor: .white,
                 systemImageName: alarmKitStopButtonSymbol
-            )
+            ),
+            secondaryButton: secondaryButton,
+            secondaryButtonBehavior: secondaryButtonBehavior
         )
 
         let countdownPresentation: AlarmPresentation.Countdown? = nil
@@ -505,65 +613,100 @@ extension AlarmSchedulerIOS26AlarmKit {
 
         let attributes = AlarmAttributes(
             presentation: presentation,
-            metadata: AwaykAlarmMetadata(
+            metadata: AlarmoAlarmMetadata(
                 title: alertTitle,
                 alarmName: title,
                 soundName: soundName ?? "default",
-                missionType: nil,
+                missionType: missionType,
                 sourceAlarmId: (originalAlarmID ?? alarmID).uuidString
             ),
             tintColor: alarmKitTintColor
         )
         print("[AlarmKitUI] title=\"\(alertTitle)\" stopButton=\"\(alarmKitStopButtonText)\" symbol=\"\(alarmKitStopButtonSymbol)\" tintColor=accentBlue")
-        print("[AlarmKitUI] secondaryButton=\"Snooze\" enabled=\(alarmKitSecondaryButtonEnabled)")
+        logAlarmKitSecondaryButton(policy: buttonPolicy, context: "primary")
 
-        // AlarmKit ALWAYS uses a silent sound. The app's AVAudioPlayer engine is the
-        // single source of alarm audio (it plays the user's selected sound, is immune
-        // to the mute switch via .playback, and is forced audible via the system output
-        // volume floor). Staging an audible sound here would put AlarmKit's ringer-domain
-        // sound on TOP of the engine's media-domain sound — the user hears two overlapping
-        // sounds. It would also make the side button / badge dismissal stop "a" sound,
-        // because dismissing the AlarmKit surface cuts its ringer audio. Keeping AlarmKit
-        // silent means the engine is the only thing the user ever hears, dismissing the
-        // AlarmKit surface has zero audio effect, and only the in-app Stop button can end
-        // the alarm. See ALARM_RELIABILITY_FIXES.md, Issue 20.
-        _ = soundName
-        let alarmKitSound: AlertConfiguration.AlertSound
-        if let silentSoundFile = Self.ensureSilentAlertSoundStaged() {
-            alarmKitSound = .named(silentSoundFile)
-            print("[Scheduler] ✅ AlarmKit sound: .named('\(silentSoundFile)') — silent, engine owns real audio")
-        } else {
-            // Could not stage the silent CAF. .default would make AlarmKit audible and
-            // reintroduce dual sound, so this is a last-resort that should never happen.
-            alarmKitSound = .default
-            print("[Scheduler] ⚠️ Silent CAF staging failed — falling back to .default (dual-sound risk)")
+        let alarmKitSound: AlertConfiguration.AlertSound = {
+            if uiShellOnly {
+                if let silent = Self.ensureSilentAlertSoundStaged() {
+                    print("[AlarmKitUIShell] using silent AlarmKit sound for UI-only surface id=\(alarmID.uuidString)")
+                    return .named(silent)
+                }
+                print("[AlarmKitUIShell] silent staging failed — falling back to audible for id=\(alarmID.uuidString)")
+            }
+            // Audible floor: AlarmKit plays the user's sound when the app is dead/locked
+            // and the engine cannot run. AppEngine reclaims when the app is active.
+            return resolveAlarmKitAudibleSound(
+                soundName: soundName,
+                useSystemDefault: useSystemDefaultSound
+            )
+        }()
+
+        let sourceAlarmId = (originalAlarmID ?? alarmID).uuidString
+        let stopIntent = StopAlarmIntent(alarmID: alarmID.uuidString, originalAlarmID: originalAlarmID?.uuidString)
+        let countdown = resolvedSnoozeInterval.map {
+            AlarmKit.Alarm.CountdownDuration(preAlert: nil, postAlert: $0)
         }
+        switch buttonPolicy.secondary {
+        case .snooze:
+            return AlarmManager.AlarmConfiguration(
+                countdownDuration: countdown,
+                schedule: schedule,
+                attributes: attributes,
+                stopIntent: stopIntent,
+                secondaryIntent: SnoozeAlarmIntent(alarmID: alarmID.uuidString, originalAlarmID: sourceAlarmId),
+                sound: alarmKitSound
+            )
+        case .unlockToStop:
+            let unlockIntent = UnlockToStopAlarmIntent(alarmID: alarmID.uuidString, originalAlarmID: sourceAlarmId)
+            print("[AlarmKitUI] configured Open-to-Stop action intent=StopAlarmIntent supportedModes=foreground(.immediate)")
+            print("[AlarmKitUI] configured Unlock to Stop action intent=UnlockToStopAlarmIntent supportedModes=foreground(.immediate)")
+            print("[AlarmKitUIValidation] Unlock to Stop action bound=true")
+            print("[AlarmKitUIValidation] Open-to-Stop action bound=true")
+            print("[AlarmKitUIValidation] sourceAlarmId payload present=\(!sourceAlarmId.isEmpty)")
+            return AlarmManager.AlarmConfiguration(
+                countdownDuration: countdown,
+                schedule: schedule,
+                attributes: attributes,
+                stopIntent: stopIntent,
+                secondaryIntent: unlockIntent,
+                sound: alarmKitSound
+            )
+        case .none:
+            return AlarmManager.AlarmConfiguration(
+                countdownDuration: countdown,
+                schedule: schedule,
+                attributes: attributes,
+                stopIntent: stopIntent,
+                secondaryIntent: nil,
+                sound: alarmKitSound
+            )
+        }
+    }
 
-        return AlarmManager.AlarmConfiguration(
-            countdownDuration: nil,
-            schedule: schedule,
-            attributes: attributes,
-            stopIntent: StopAlarmIntent(alarmID: alarmID.uuidString, originalAlarmID: originalAlarmID?.uuidString),
-            // AlarmKit's secondaryIntent can add a second button, but it does not
-            // replace lock-screen slide-to-stop handling or force immediate auth
-            // for that swipe path. Auth prompting is handled via notification action.
-            // TODO: add a real secondary snooze intent only after validating that
-            // it preserves the existing app snooze flow without behavior regressions.
-            secondaryIntent: nil,
-            sound: alarmKitSound
-        )
+    /// Resolves and stages the user's selected alarm sound for AlarmKit.
+    /// Returns `.named(stagedFile)` when the sound is valid, `.default` otherwise.
+    /// Never returns the silent CAF — that file is for legacy silent-mode only.
+    private func resolveAlarmKitAudibleSound(soundName: String?, useSystemDefault: Bool) -> AlertConfiguration.AlertSound {
+        if useSystemDefault {
+            print("[AlarmKitSound] system default sound requested, using .default")
+            return .default
+        }
+        guard let rawName = soundName?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawName.isEmpty, rawName.lowercased() != "default" else {
+            print("[AlarmKitSound] no custom sound specified, using .default")
+            return .default
+        }
+        print("[AlarmKitSound] resolving selected sound: '\(rawName)'")
+        guard let stagedFile = stageNotificationSound(named: rawName) else {
+            print("[AlarmKitSound] selected sound invalid, falling back to .default")
+            return .default
+        }
+        print("[AlarmKitSound] using selected AlarmKit sound: '\(stagedFile)'")
+        return .named(stagedFile)
     }
 
     func resolvedSnoozeInterval(for alarm: Alarm) -> TimeInterval? {
-        let minutes = max(0, alarm.snoozeMinutes)
-        let seconds = max(0, alarm.snoozeSeconds)
-        let totalSeconds: Int
-        if seconds > 0 {
-            totalSeconds = minutes * 60 + seconds
-        } else {
-            totalSeconds = minutes * 60
-        }
-        guard totalSeconds > 0 else { return nil }
+        guard let totalSeconds = alarm.resolvedSnoozeTotalSeconds else { return nil }
         return TimeInterval(totalSeconds)
     }
 
@@ -780,17 +923,301 @@ extension AlarmSchedulerIOS26AlarmKit {
             .lowercased()
             .filter { $0.isLetter || $0.isNumber }
     }
+
+    /// Schedules a **silent** AlarmKit surface with full lock-screen UI (slide-to-stop
+    /// + snooze) while the app engine remains the audible source.
+    func scheduleUIShellWithFallbackSound(
+        manager: AlarmManager,
+        id: UUID,
+        originalAlarmID: UUID,
+        title: String,
+        schedule: AlarmKit.Alarm.Schedule,
+        sourceAlarm: Alarm
+    ) async throws {
+        try? manager.cancel(id: id)
+        _ = Self.ensureSilentAlertSoundStaged()
+        let snoozeInterval = resolvedSnoozeInterval(for: sourceAlarm)
+        let buttonPolicy = AlarmKitRingingButtonPolicy.from(alarm: sourceAlarm, snoozeInterval: snoozeInterval)
+        let config = makeConfiguration(
+            alarmID: id,
+            originalAlarmID: originalAlarmID,
+            title: title,
+            schedule: schedule,
+            buttonPolicy: buttonPolicy,
+            soundName: nil,
+            useSystemDefaultSound: false,
+            uiShellOnly: true,
+            missionType: sourceAlarm.missions.first(where: { $0.type != .off })?.type.rawValue
+        )
+        logAlarmKitSecondaryButton(policy: buttonPolicy, context: "ui-shell")
+        _ = try await manager.schedule(id: id, configuration: config)
+        print("[AlarmKitUIShell] scheduled silent UI shell surface=\(id.uuidString) source=\(originalAlarmID.uuidString)")
+    }
+
+    // MARK: - Recovery alarm scheduling
+
+    /// Last-resort audible AlarmKit recovery uses the **same** lock-screen button
+    /// policy as the primary scheduled alarm (Snooze or Unlock to Stop).
+    func scheduleRecoveryWithFallbackSound(
+        manager: AlarmManager,
+        id: UUID,
+        originalAlarmID: UUID? = nil,
+        title: String,
+        schedule: AlarmKit.Alarm.Schedule,
+        preferredSoundName: String?,
+        sourceAlarm: Alarm
+    ) async throws -> String {
+        try? manager.cancel(id: id)
+
+        let requestedSound: String? = {
+            guard let value = preferredSoundName?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !value.isEmpty, value.lowercased() != "default" else { return nil }
+            return value
+        }()
+
+        let snoozeInterval = resolvedSnoozeInterval(for: sourceAlarm)
+        let buttonPolicy = AlarmKitRingingButtonPolicy.from(alarm: sourceAlarm, snoozeInterval: snoozeInterval)
+        let missionType = sourceAlarm.missions.first(where: { $0.type != .off })?.type.rawValue
+        print("[AlarmKitUI] recovery surface using same button policy as primary")
+
+        let preferredConfig = makeRecoveryConfiguration(
+            alarmID: id,
+            originalAlarmID: originalAlarmID,
+            title: title,
+            schedule: schedule,
+            buttonPolicy: buttonPolicy,
+            soundName: requestedSound,
+            missionType: missionType
+        )
+        logAlarmKitSecondaryButton(policy: buttonPolicy, context: "recovery")
+        do {
+            _ = try await manager.schedule(id: id, configuration: preferredConfig)
+            print("[AlarmKitRecovery] using selected sound source=\(originalAlarmID?.uuidString ?? id.uuidString) sound=\(requestedSound ?? "default")")
+            return requestedSound ?? "default"
+        } catch {
+            logger.error("Recovery schedule primary attempt failed for \(id.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            try? manager.cancel(id: id)
+        }
+
+        if requestedSound != nil {
+            let fallbackConfig = makeRecoveryConfiguration(
+                alarmID: id,
+                originalAlarmID: originalAlarmID,
+                title: title,
+                schedule: schedule,
+                buttonPolicy: buttonPolicy,
+                soundName: nil,
+                missionType: missionType
+            )
+            do {
+                _ = try await manager.schedule(id: id, configuration: fallbackConfig)
+                print("[AlarmKitRecovery] using default sound fallback source=\(originalAlarmID?.uuidString ?? id.uuidString)")
+                return "default"
+            } catch {
+                logger.error("Recovery schedule fallback failed for \(id.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                try? manager.cancel(id: id)
+            }
+        }
+
+        let systemConfig = makeRecoveryConfiguration(
+            alarmID: id,
+            originalAlarmID: originalAlarmID,
+            title: title,
+            schedule: schedule,
+            buttonPolicy: buttonPolicy,
+            soundName: nil,
+            useSystemDefaultSound: true,
+            missionType: missionType
+        )
+        _ = try await manager.schedule(id: id, configuration: systemConfig)
+        print("[AlarmKitRecovery] using system default sound fallback source=\(originalAlarmID?.uuidString ?? id.uuidString)")
+        return "default"
+    }
+
+    /// System-owned backstop surfaces scheduled at alarm time. Fire even when the app
+    /// is force-closed — covers side-button silence with no running process.
+    @available(iOS 26.0, *)
+    func armLockedContinuityGuard(
+        manager: AlarmManager,
+        sourceAlarm: Alarm,
+        fireDate: Date
+    ) async {
+        if AlarmFeatureFlags.alarmKitPrimaryOwnerNoRespawn {
+            cancelLockedContinuityGuard(
+                manager: manager,
+                sourceAlarmId: sourceAlarm.id.uuidString,
+                reason: "respawn-disabled"
+            )
+            return
+        }
+        let sourceId = sourceAlarm.id.uuidString
+        cancelLockedContinuityGuard(manager: manager, sourceAlarmId: sourceId, reason: "re-arm")
+
+        let delays: [TimeInterval] = [8, 20, 40, 75]
+        let now = Date()
+        let title = sourceAlarm.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "Alarm" : sourceAlarm.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        var scheduled: [UUID] = []
+
+        for delay in delays {
+            let trigger = fireDate.addingTimeInterval(delay)
+            guard trigger.timeIntervalSince(now) > 2 else { continue }
+            let surfaceId = UUID()
+            do {
+                _ = try await scheduleRecoveryWithFallbackSound(
+                    manager: manager,
+                    id: surfaceId,
+                    originalAlarmID: sourceAlarm.id,
+                    title: title,
+                    schedule: .fixed(trigger),
+                    preferredSoundName: sourceAlarm.soundName,
+                    sourceAlarm: sourceAlarm
+                )
+                AlarmCustomUIHandoffStore.request(alarmID: sourceAlarm.id, surfaceAlarmID: surfaceId)
+                scheduled.append(surfaceId)
+                print("[ContinuityGuard] armed surface=\(surfaceId.uuidString) source=\(sourceId) at=+\(Int(delay))s")
+            } catch {
+                print("[ContinuityGuard] arm failed surface=\(surfaceId.uuidString) error=\(error.localizedDescription)")
+            }
+        }
+        if !scheduled.isEmpty {
+            AlarmCustomUIHandoffStore.recordLockedContinuityGuard(sourceAlarmId: sourceId, surfaceIds: scheduled)
+        }
+    }
+
+    @available(iOS 26.0, *)
+    func cancelLockedContinuityGuard(
+        manager: AlarmManager,
+        sourceAlarmId: String,
+        reason: String
+    ) {
+        let ids = AlarmCustomUIHandoffStore.lockedContinuityGuardSurfaceIds(sourceAlarmId: sourceAlarmId)
+        for id in ids {
+            try? manager.cancel(id: id)
+        }
+        AlarmCustomUIHandoffStore.clearLockedContinuityGuard(sourceAlarmId: sourceAlarmId, reason: reason)
+    }
+
+    @available(iOS 26.0, *)
+    func cancelAllLockedContinuityGuards(manager: AlarmManager, reason: String) {
+        let ids = AlarmCustomUIHandoffStore.allLockedContinuityGuardSurfaceIds()
+        for id in ids {
+            try? manager.cancel(id: id)
+        }
+        AlarmCustomUIHandoffStore.clearAllLockedContinuityGuards(reason: reason)
+    }
+
+    /// Recovery surfaces use `RecoveryStopAlarmIntent` so slide-to-stop respawns without
+    /// Face ID and loops until the user unlocks and stops in-app.
+    fileprivate func makeRecoveryConfiguration(
+        alarmID: UUID,
+        originalAlarmID: UUID? = nil,
+        title: String,
+        schedule: AlarmKit.Alarm.Schedule,
+        buttonPolicy: AlarmKitRingingButtonPolicy,
+        soundName: String? = nil,
+        useSystemDefaultSound: Bool = false,
+        missionType: String? = nil
+    ) -> AlarmManager.AlarmConfiguration<AlarmoAlarmMetadata> {
+        let sourceAlarmId = (originalAlarmID ?? alarmID).uuidString
+        let recoveryStop = RecoveryStopAlarmIntent(
+            sourceAlarmID: sourceAlarmId,
+            surfaceAlarmID: alarmID.uuidString
+        )
+        let alertTitle = alarmKitAlertTitle(for: schedule)
+        let secondaryButton: AlarmButton?
+        let resolvedSnoozeInterval: TimeInterval?
+        let secondaryButtonBehavior: AlarmPresentation.Alert.SecondaryButtonBehavior?
+        switch buttonPolicy.secondary {
+        case .unlockToStop:
+            secondaryButton = makeAlarmKitUnlockToStopButton()
+            secondaryButtonBehavior = .custom
+            resolvedSnoozeInterval = nil
+        case .snooze(let interval):
+            secondaryButton = makeAlarmKitSnoozeButton(interval: interval)
+            secondaryButtonBehavior = .custom
+            resolvedSnoozeInterval = interval
+        case .none:
+            secondaryButton = nil
+            secondaryButtonBehavior = nil
+            resolvedSnoozeInterval = nil
+        }
+        let alertPresentation = AlarmPresentation.Alert(
+            title: LocalizedStringResource(stringLiteral: alertTitle),
+            stopButton: AlarmButton(
+                text: LocalizedStringResource(stringLiteral: alarmKitStopButtonText),
+                textColor: .white,
+                systemImageName: alarmKitStopButtonSymbol
+            ),
+            secondaryButton: secondaryButton,
+            secondaryButtonBehavior: secondaryButtonBehavior
+        )
+        let presentation = AlarmPresentation(
+            alert: alertPresentation,
+            countdown: nil,
+            paused: nil
+        )
+        let attributes = AlarmAttributes(
+            presentation: presentation,
+            metadata: AlarmoAlarmMetadata(
+                title: alertTitle,
+                alarmName: title,
+                soundName: soundName ?? "default",
+                missionType: missionType,
+                sourceAlarmId: sourceAlarmId
+            ),
+            tintColor: alarmKitTintColor
+        )
+        logAlarmKitSecondaryButton(policy: buttonPolicy, context: "recovery-stop-intent")
+        let alarmKitSound = resolveAlarmKitAudibleSound(
+            soundName: soundName,
+            useSystemDefault: useSystemDefaultSound
+        )
+        let countdown = resolvedSnoozeInterval.map {
+            AlarmKit.Alarm.CountdownDuration(preAlert: nil, postAlert: $0)
+        }
+        switch buttonPolicy.secondary {
+        case .snooze:
+            return AlarmManager.AlarmConfiguration(
+                countdownDuration: countdown,
+                schedule: schedule,
+                attributes: attributes,
+                stopIntent: recoveryStop,
+                secondaryIntent: SnoozeAlarmIntent(alarmID: alarmID.uuidString, originalAlarmID: sourceAlarmId),
+                sound: alarmKitSound
+            )
+        case .unlockToStop:
+            return AlarmManager.AlarmConfiguration(
+                countdownDuration: countdown,
+                schedule: schedule,
+                attributes: attributes,
+                stopIntent: recoveryStop,
+                secondaryIntent: UnlockToStopAlarmIntent(alarmID: alarmID.uuidString, originalAlarmID: sourceAlarmId),
+                sound: alarmKitSound
+            )
+        case .none:
+            return AlarmManager.AlarmConfiguration(
+                countdownDuration: countdown,
+                schedule: schedule,
+                attributes: attributes,
+                stopIntent: recoveryStop,
+                secondaryIntent: nil,
+                sound: alarmKitSound
+            )
+        }
+    }
 }
 
 @available(iOS 26.0, *)
 struct StopAlarmIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Stop Alarm"
-    // true: slide-to-stop immediately triggers iOS Face ID / passcode unlock.
-    // Once authenticated the app opens, the engine is already playing, and
-    // the full-screen alarm UI is shown for Stop / Snooze. The badge does NOT
-    // respawn because the intent runs with the app active (shouldUseLockedHandling
-    // is false), so no zombie re-schedule fires.
-    static var openAppWhenRun: Bool = true
+    // `.foreground(.immediate)` is the iOS 26 replacement for the deprecated
+    // `openAppWhenRun = true`. Slide-to-stop immediately triggers iOS Face ID /
+    // passcode unlock, then foregrounds the app so the engine (already playing)
+    // and the full-screen Stop / Snooze UI are shown. Without this explicit mode
+    // the lock-screen button can run the intent in the background and never open
+    // the app.
+    static var supportedModes: IntentModes { .foreground(.immediate) }
 
     @Parameter(title: "Alarm ID")
     var alarmID: String
@@ -849,227 +1276,116 @@ struct StopAlarmIntent: LiveActivityIntent {
             AlarmStore.shared.alarm(by: lookupUUID)?.name
         }
         let trimmedAlarmName = resolvedAlarmName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let slideSystemVol = AVAudioSession.sharedInstance().outputVolume
+        let slidePlayerVol = AlarmContinuousAudioEngine.shared.currentPlayerVolume
+        let slideAppTarget = AlarmAudioStateController.shared.selectedSoundVolume
+        let slidePhase = AlarmAudioStateController.shared.phase.rawValue
+        print("[SlideToStop] user swiped: system=\(String(format: "%.2f", slideSystemVol)) player=\(String(format: "%.2f", slidePlayerVol)) appTarget=\(String(format: "%.2f", slideAppTarget)) phase=\(slidePhase) lockedHandling=\(shouldUseLockedHandling) enginePlaying=\(AlarmContinuousAudioEngine.shared.confirmStillPlaying())")
         AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-entry")
 
-        if shouldUseLockedHandling {
-            AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-locked-handling")
-            let outputVolume = AVAudioSession.sharedInstance().outputVolume
-            let enginePlaying = AlarmContinuousAudioEngine.shared.confirmStillPlaying()
-            if enginePlaying && outputVolume <= 0.01 {
-                print("[StopIntent] Engine playing with low outputVolume=\(String(format: "%.2f", outputVolume)) — preserving appEnginePrimary (no forced fallback)")
-            }
-            let engineHealthy = AlarmContinuousAudioEngine.shared.isEngineActive &&
-                enginePlaying
-            print("[StopIntent] Engine health: active=\(AlarmContinuousAudioEngine.shared.isEngineActive) healthy=\(engineHealthy) outputVolume=\(String(format: "%.2f", outputVolume))")
-            let respawnAppropriate = !engineHealthy &&
-                AlarmAudioStateController.shared.isEngineUnhealthinessAFailure()
+        let resolvedRunId = await MainActor.run {
+            AlarmAudioStateController.shared.currentAlarmRunId?.uuidString
+        }
+        print("[OpenToStop] intent invoked source=\(lookupUUID.uuidString)")
+        print("[OpenToStop] supportedModes=foreground(.immediate)")
+        print("[AuthHandoff] AlarmKit Open-to-Stop invoked source=\(lookupUUID.uuidString) runId=\(resolvedRunId ?? "nil")")
+        print("[AuthHandoff] Open-to-Stop invoked source=\(lookupUUID.uuidString)")
+        print("[AuthHandoff] Open-to-Stop invoked; finalStop=false source=\(lookupUUID.uuidString)")
+        print("[AuthHandoff] final stop NOT set for Open-to-Stop source=\(lookupUUID.uuidString)")
+        // Persist ringing handoff BEFORE auth, engine checks, or async work.
+        // Never mark final stop — slide-to-stop only requests authenticate → open app → custom UI.
+        await MainActor.run {
+            AlarmAuthHandoffStore.persistStopIntentHandoff(
+                sourceAlarmId: lookupUUID,
+                surfaceAlarmId: uuid,
+                runId: resolvedRunId,
+                handoffSource: .alarmKitOpenToStop
+            )
+            AlarmAudioStateController.shared.clearAlarmKitPrimaryLocked(reason: "slide-to-stop-surface-consumed")
+            NotificationCenter.default.post(
+                name: .alarmKitCustomUIHandoffRequested,
+                object: nil,
+                userInfo: [
+                    "alarmId": lookupUUID.uuidString,
+                    "surfaceAlarmId": uuid.uuidString
+                ]
+            )
+        }
+        print("[AuthHandoff] persisted ringing handoff source=\(lookupUUID.uuidString)")
+        print("[AuthHandoff] persisted ringing state before auth source=\(lookupUUID.uuidString)")
+        print("[AlarmHandoff] StopIntent requested app open/auth source=\(lookupUUID.uuidString)")
 
-            if engineHealthy {
-                print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_ENGINE_HEALTHY SURFACE_ID=\(uuid.uuidString) SOURCE_ID=\(lookupUUID.uuidString) SOUND_CONTINUES=true")
-                if !suppressUnlockPrompt {
-                    NotificationManager.shared.scheduleAlarmAuthenticationPrompt(
-                        sourceAlarmId: lookupUUID.uuidString,
-                        surfaceAlarmId: uuid.uuidString,
-                        alarmName: trimmedAlarmName
-                    )
-                }
-                AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: uuid)
-                await MainActor.run {
-                    let session = AVAudioSession.sharedInstance()
-                    let route = session.currentRoute.outputs.map(\.portType.rawValue).joined(separator: ",")
-                    print("[StopIntent][Volume] before post-slide boost outputVolume=\(String(format: "%.2f", session.outputVolume)) playerVolume=\(String(format: "%.2f", AlarmContinuousAudioEngine.shared.currentPlayerVolume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) route=\(route) appState=\(UIApplication.shared.applicationState.rawValue)")
-                    SystemOutputVolumeFloorManager.shared.attemptRaiseOutputVolumeFloor(
-                        minimumVolume: AlarmAudioStateController.postSlideMinimumOutputVolume,
-                        reason: "post-slide-healthy"
-                    )
-                    print("[StopIntent] Invoking post-slide volume boost for alarm \(lookupUUID.uuidString)")
-                    AlarmContinuousAudioEngine.shared.applyPostSlideVolumeBoost(
-                        reason: "stop-intent-healthy-slide",
-                        minimumStartVolume: AlarmAudioStateController.postSlideMinimumVolume,
-                        targetVolume: AlarmAudioStateController.postSlideTargetVolume,
-                        duration: AlarmAudioStateController.postSlideRampDuration
-                    )
-                    AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-after-post-slide-boost-call")
-                }
-                print("[StopIntent] Engine healthy — engine continues, openAppWhenRun=true handles unlock")
-                AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-engine-healthy-return")
-                return .result()
-            }
-
-            if !respawnAppropriate {
-                print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_RESPAWN_SKIPPED SOURCE_ID=\(lookupUUID.uuidString) PHASE=\(AlarmAudioStateController.shared.phase.rawValue) ENGINE_HEALTHY=false REASON=UNHEALTHINESS_NOT_FAILURE")
-                print("[StopIntent] Engine not healthy but expected in phase \(AlarmAudioStateController.shared.phase.rawValue) — skipping respawn")
-                AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-unhealthy-expected-return")
-                return .result()
-            }
-
-            print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_RESPAWN_REQUIRED SOURCE_ID=\(lookupUUID.uuidString) SURFACE_ID=\(uuid.uuidString) PHASE=\(AlarmAudioStateController.shared.phase.rawValue)")
-            print("[StopIntent] Engine confirmed failed (phase=\(AlarmAudioStateController.shared.phase.rawValue)) — proceeding with AlarmKit respawn fallback")
-            AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-respawn-fallback")
-            let originalAlarm = await MainActor.run { AlarmStore.shared.alarm(by: lookupUUID) }
-            if !suppressUnlockPrompt {
-                let promptTitle = originalAlarm?.name ?? trimmedAlarmName
-                NotificationManager.shared.scheduleAlarmAuthenticationPrompt(
+        if shouldUseLockedHandling && !suppressUnlockPrompt {
+            await MainActor.run {
+                NotificationManager.shared.scheduleAlarmRecoveryOpenAppNotification(
                     sourceAlarmId: lookupUUID.uuidString,
-                    surfaceAlarmId: uuid.uuidString,
-                    alarmName: promptTitle
+                    reason: "slide-to-stop-no-unlock"
                 )
             }
-            if let originalAlarm = originalAlarm {
-                let helper = AlarmSchedulerIOS26AlarmKit()
-                let title = originalAlarm.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Alarm" : originalAlarm.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                // Explicitly cancel the surface the user just dismissed so
-                // AlarmKit does not keep stale lock-screen entries around.
-                try? AlarmManager.shared.cancel(id: uuid)
-
-                // Always spawn a deterministic replacement AlarmKit surface for
-                // locked Stop actions. Early-exit heuristics based on "recently
-                // audible" can leave the loop without a live system surface after
-                // quick unlock->relock or hardware-button interruptions.
-
-                // Use a new UUID so AlarmKit doesn't drop the request.
-                // 1.0s baseline keeps the gap imperceptible while giving AlarmKit
-                // enough scheduling lead time.
-                let respawnDelays: [TimeInterval] = [1.0, 1.2, 1.4, 1.6]
-                let snoozeInterval = helper.resolvedSnoozeInterval(for: originalAlarm)
-                let snoozeEnabled = snoozeInterval != nil
-                let appIsActiveDuringZombieRespawn = await MainActor.run {
-                    UIApplication.shared.applicationState == .active
-                }
-                guard !appIsActiveDuringZombieRespawn else {
-                    print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_RESPAWN_SUPPRESSED SOURCE_ID=\(lookupUUID.uuidString) REASON=APP_ACTIVE")
-                    print("[StopIntent] Zombie respawn suppressed — app is active")
-                    return .result()
-                }
-
-                var didSchedule = false
-                var lastError: Error?
-                var newUUID = UUID()
-
-                for (index, attemptDelay) in respawnDelays.enumerated() {
-                    do {
-                        newUUID = UUID()
-                        _ = try await helper.scheduleWithFallbackSound(
-                            manager: AlarmManager.shared,
-                            id: newUUID,
-                            originalAlarmID: lookupUUID,
-                            title: title,
-                            schedule: .fixed(Date().addingTimeInterval(attemptDelay)),
-                            snoozeEnabled: snoozeEnabled,
-                            snoozeInterval: snoozeInterval,
-                            preferredSoundName: originalAlarm.soundName
-                        )
-                        didSchedule = true
-                        break
-                    } catch {
-                        lastError = error
-                        let attempt = index + 1
-                        print("[StopAlarmIntent] Zombie reschedule attempt \(attempt)/\(respawnDelays.count) failed: \(error)")
-                        if attempt < respawnDelays.count {
-                            try? await Task.sleep(nanoseconds: 80_000_000)
-                        }
-                    }
-                }
-
-                if didSchedule {
-                    // Route custom UI using the ORIGINAL alarm id (for wallpaper/quotes/settings),
-                    // while still tracking the current AlarmKit surface id to dismiss it on unlock.
-                    AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: newUUID)
-                    print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_RESPAWN_SCHEDULED SOURCE_ID=\(lookupUUID.uuidString) NEW_SURFACE_ID=\(newUUID.uuidString) SOUND=\"\(originalAlarm.soundName)\"")
-                    if !suppressUnlockPrompt {
-                        NotificationCenter.default.post(
-                            name: .alarmKitCustomUIHandoffRequested,
-                            object: nil,
-                            userInfo: [
-                                "alarmId": lookupUUID.uuidString,
-                                "surfaceAlarmId": newUUID.uuidString
-                            ]
-                        )
-                    }
-                    return .result()
-                }
-
-                print("[StopAlarmIntent] Zombie reschedule failed after \(respawnDelays.count) attempts: \(lastError?.localizedDescription ?? "unknown error")")
-                print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_RESPAWN_FAILED SOURCE_ID=\(lookupUUID.uuidString) LAST_ERROR=\"\(lastError?.localizedDescription ?? "unknown")\"")
-                await MainActor.run {
-                    NotificationManager.shared.ensureAlarmKitSurfaceForLockedLoopIfNeeded(
-                        sourceAlarmId: lookupUUID.uuidString,
-                        force: true
-                    )
-                }
-                if !suppressUnlockPrompt {
-                    NotificationManager.shared.scheduleAlarmAuthenticationPrompt(
-                        sourceAlarmId: lookupUUID.uuidString,
-                        surfaceAlarmId: uuid.uuidString,
-                        alarmName: title
-                    )
-                }
-                return .result()
-            }
-
-            // Fallback: even if we cannot resolve the original Alarm model
-            // (for example during rapid lock/unlock churn with transient IDs),
-            // we must still respawn a lock-screen AlarmKit surface so the loop
-            // cannot die silently.
-            let helper = AlarmSchedulerIOS26AlarmKit()
-            let fallbackTitle: String = {
-                let candidate = trimmedAlarmName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                return candidate.isEmpty ? "Alarm" : candidate
-            }()
-            let respawnDelays: [TimeInterval] = [1.0, 1.2, 1.4, 1.6]
-            let appIsActiveDuringFallbackRespawn = await MainActor.run {
-                UIApplication.shared.applicationState == .active
-            }
-            guard !appIsActiveDuringFallbackRespawn else {
-                print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_FALLBACK_RESPAWN_SUPPRESSED SOURCE_ID=\(lookupUUID.uuidString) REASON=APP_ACTIVE")
-                print("[StopIntent] Fallback respawn suppressed — app is active")
-                return .result()
-            }
-            var didSchedule = false
-            var newUUID = UUID()
-            for (index, attemptDelay) in respawnDelays.enumerated() {
-                do {
-                    newUUID = UUID()
-                    _ = try await helper.scheduleWithFallbackSound(
-                        manager: AlarmManager.shared,
-                        id: newUUID,
-                        originalAlarmID: lookupUUID,
-                        title: fallbackTitle,
-                        schedule: .fixed(Date().addingTimeInterval(attemptDelay)),
-                        snoozeEnabled: false,
-                        snoozeInterval: nil,
-                        preferredSoundName: nil
-                    )
-                    didSchedule = true
-                    break
-                } catch {
-                    let attempt = index + 1
-                    print("[StopAlarmIntent] Fallback zombie reschedule attempt \(attempt)/\(respawnDelays.count) failed: \(error)")
-                    if attempt < respawnDelays.count {
-                        try? await Task.sleep(nanoseconds: 80_000_000)
-                    }
-                }
-            }
-
-            if didSchedule {
-                AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: newUUID)
-                print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_FALLBACK_RESPAWN_SCHEDULED SOURCE_ID=\(lookupUUID.uuidString) NEW_SURFACE_ID=\(newUUID.uuidString)")
-                if !suppressUnlockPrompt {
-                    NotificationCenter.default.post(
-                        name: .alarmKitCustomUIHandoffRequested,
-                        object: nil,
-                        userInfo: [
-                            "alarmId": lookupUUID.uuidString,
-                            "surfaceAlarmId": newUUID.uuidString
-                        ]
-                    )
-                }
-                return .result()
-            }
+            print("[AlarmKitRecovery] pre-armed reason=open-to-stop-auth-timeout source=\(lookupUUID.uuidString)")
+            print("[AlarmKitRecovery] pre-armed audible recovery reason=auth-timeout-not-unlocked source=\(lookupUUID.uuidString)")
+            print("[AuthHandoff] waiting for app activation source=\(lookupUUID.uuidString)")
         }
 
-        // Fallback or unlocked-device path.
-        AlarmCustomUIHandoffStore.request(alarmID: lookupUUID, surfaceAlarmID: uuid)
+        if shouldUseLockedHandling {
+            if AlarmFeatureFlags.alarmKitPrimaryOwnerNoRespawn {
+                await MainActor.run {
+                    _ = NotificationManager.shared.startAppEngineAfterAlarmKitSuppression(
+                        sourceAlarmId: lookupUUID.uuidString,
+                        surfaceAlarmId: uuid.uuidString,
+                        reason: "slide-to-stop"
+                    )
+                }
+                print("[AlarmKitRespawn] disabled — AppEngine takeover attempted after slide-to-stop source=\(lookupUUID.uuidString)")
+                return .result()
+            }
+            AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "stop-intent-locked-handling")
+
+            await MainActor.run {
+                _ = AlarmAudioStateController.shared.tryEngineAudibleWhileLocked(
+                    reason: "slide-to-stop"
+                )
+            }
+
+            let engineActuallyAudible = await AlarmAudioStateController.shared.isAppEngineActuallyAudible(
+                reason: "slide-to-stop"
+            )
+            if engineActuallyAudible {
+                await MainActor.run {
+                    NotificationManager.shared.scheduleRecoveryPromptNotification(sourceAlarmId: lookupUUID.uuidString)
+                    NotificationManager.shared.armEngineAudibleVerification(
+                        sourceAlarmId: lookupUUID.uuidString,
+                        reason: "slide-to-stop"
+                    )
+                    NotificationManager.shared.startLockedNoUIAudibleWatchdog(sourceAlarmId: lookupUUID.uuidString)
+                }
+                print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_ENGINE_AUDIBLE SOURCE_ID=\(lookupUUID.uuidString) SURFACE_ID=\(uuid.uuidString)")
+                print("[AlarmKitRespawn] slide-to-stop — AppEngine audible; no AlarmKit respawn source=\(lookupUUID.uuidString)")
+                return .result()
+            }
+
+            print("[AlarmKitRespawn] slide-to-stop — AlarmKit sound gone, AppEngine inaudible; respawning source=\(lookupUUID.uuidString)")
+            let scheduledCount = await NotificationManager.shared.scheduleSystemOwnedContinuityRecoveries(
+                sourceAlarmId: lookupUUID.uuidString,
+                dismissedSurfaceIds: [uuid.uuidString],
+                reason: "slide-to-stop",
+                delays: [1.0, 3.5, 8.0, 15.0]
+            )
+            await MainActor.run {
+                NotificationManager.shared.orchestrateAlarmKitRespawnWhenSoundGone(
+                    sourceAlarmId: lookupUUID.uuidString,
+                    reason: "slide-to-stop",
+                    dismissedSurfaceId: uuid.uuidString,
+                    forceAfterDismissal: true
+                )
+            }
+            if scheduledCount > 0 {
+                print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_RESPAWN_SCHEDULED SOURCE_ID=\(lookupUUID.uuidString) SURFACE_ID=\(uuid.uuidString) COUNT=\(scheduledCount)")
+            }
+            return .result()
+        }
+
+        // Fallback or unlocked-device path (handoff already persisted at entry).
         print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SLIDE_TO_STOP_UNLOCKED_OR_FALLBACK_PATH SOURCE_ID=\(lookupUUID.uuidString) SURFACE_ID=\(uuid.uuidString) SOUND_CONTINUES=\(AlarmContinuousAudioEngine.shared.isEngineActive)")
         if !suppressUnlockPrompt {
             NotificationManager.shared.scheduleAlarmKitUnlockPrompt(
@@ -1092,6 +1408,199 @@ struct StopAlarmIntent: LiveActivityIntent {
             )
         }
 
+        return .result()
+    }
+}
+
+/// Recovery stop intent used on 2nd+ AlarmKit surfaces spawned after a failed auth attempt.
+///
+/// `openAppWhenRun = false` means pressing the lock screen button requires NO Face ID /
+/// passcode. The intent immediately reschedules another recovery alarm so the alarm loop
+/// cannot be broken from the lock screen — the user must unlock and tap Stop in the
+/// custom full-screen UI.
+@available(iOS 26.0, *)
+struct UnlockToStopAlarmIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Unlock to Stop"
+    // `.foreground(.immediate)` (iOS 26 replacement for `openAppWhenRun = true`):
+    // tapping the secondary "Unlock to Stop" lock-screen button authenticates and
+    // foregrounds the app so AlarmRingingView + AppEngine takeover can run. The
+    // deprecated `openAppWhenRun` flag did not reliably open the app for AlarmKit
+    // secondary custom intents, which is why the button appeared to do nothing.
+    static var supportedModes: IntentModes { .foreground(.immediate) }
+
+    @Parameter(title: "Alarm ID")
+    var alarmID: String
+
+    @Parameter(title: "Original Alarm ID")
+    var originalAlarmID: String?
+
+    init() {}
+
+    init(alarmID: String, originalAlarmID: String? = nil) {
+        self.alarmID = alarmID
+        self.originalAlarmID = originalAlarmID
+    }
+
+    func perform() async throws -> some IntentResult {
+        guard let surfaceUUID = UUID(uuidString: alarmID) else { return .result() }
+        let lookupUUIDString = originalAlarmID ?? alarmID
+        guard let lookupUUID = UUID(uuidString: lookupUUIDString) else { return .result() }
+
+        let resolvedRunId = await MainActor.run {
+            AlarmAudioStateController.shared.currentAlarmRunId?.uuidString
+        }
+        print("[UnlockToStop] intent invoked source=\(lookupUUID.uuidString)")
+        print("[UnlockToStop] supportedModes=foreground(.immediate)")
+        print("[UnlockToStop] action tapped source=\(lookupUUID.uuidString) runId=\(resolvedRunId ?? "nil")")
+        print("[AuthHandoff] Unlock-to-Stop secondary tapped source=\(lookupUUID.uuidString)")
+        print("[AuthHandoff] Open-to-Stop invoked; finalStop=false source=\(lookupUUID.uuidString)")
+        await MainActor.run {
+            AlarmAuthHandoffStore.persistStopIntentHandoff(
+                sourceAlarmId: lookupUUID,
+                surfaceAlarmId: surfaceUUID,
+                runId: resolvedRunId,
+                handoffSource: .unlockToStopNotification
+            )
+            print("[UnlockToStop] persisted handoff state source=\(lookupUUID.uuidString)")
+            print("[AlarmKitRecovery] pre-armed reason=unlock-to-stop-auth-timeout source=\(lookupUUID.uuidString)")
+            NotificationManager.shared.scheduleAlarmRecoveryOpenAppNotification(
+                sourceAlarmId: lookupUUID.uuidString,
+                reason: "unlock-to-stop-secondary"
+            )
+            NotificationCenter.default.post(
+                name: .alarmKitCustomUIHandoffRequested,
+                object: nil,
+                userInfo: [
+                    "alarmId": lookupUUID.uuidString,
+                    "surfaceAlarmId": surfaceUUID.uuidString
+                ]
+            )
+        }
+        print("[UnlockToStop] requested foreground app open source=\(lookupUUID.uuidString)")
+        print("[UnlockToStop] final stop NOT set source=\(lookupUUID.uuidString)")
+        print("[AuthHandoff] persisted ringing handoff source=\(lookupUUID.uuidString)")
+        return .result()
+    }
+}
+
+@available(iOS 26.0, *)
+struct SnoozeAlarmIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Snooze Alarm"
+    // Snooze should work from the lock screen without forcing Face ID / passcode,
+    // so it runs in the background (iOS 26 replacement for openAppWhenRun = false).
+    static var supportedModes: IntentModes { .background }
+
+    @Parameter(title: "Alarm ID")
+    var alarmID: String
+
+    @Parameter(title: "Original Alarm ID")
+    var originalAlarmID: String?
+
+    init() {}
+
+    init(alarmID: String, originalAlarmID: String? = nil) {
+        self.alarmID = alarmID
+        self.originalAlarmID = originalAlarmID
+    }
+
+    func perform() async throws -> some IntentResult {
+        guard let surfaceUUID = UUID(uuidString: alarmID) else {
+            print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SNOOZE_INTENT_INVALID_ALARM_ID RAW_ID=\(alarmID)")
+            return .result()
+        }
+
+        let lookupUUIDString = originalAlarmID ?? alarmID
+        guard UUID(uuidString: lookupUUIDString) != nil else {
+            print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SNOOZE_INTENT_INVALID_ORIGINAL_ID RAW_ID=\(lookupUUIDString)")
+            return .result()
+        }
+
+        guard !AlarmAuthHandoffStore.isFinalStopOrSnoozePressed() else {
+            print("[AlarmKitSnooze] skipped — final stop/snooze already pressed source=\(lookupUUIDString)")
+            return .result()
+        }
+
+        let performed = await NotificationManager.shared.performAlarmKitSnooze(
+            sourceAlarmId: lookupUUIDString,
+            surfaceAlarmId: surfaceUUID.uuidString
+        )
+        print("🧭 [ALARMTRACE_ACTION] EVENT=ALARMKIT_SNOOZE_INTENT_COMPLETE SOURCE_ID=\(lookupUUIDString) SURFACE_ID=\(surfaceUUID.uuidString) PERFORMED=\(performed)")
+        return .result()
+    }
+}
+
+@available(iOS 26.0, *)
+struct RecoveryStopAlarmIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Open Alarm"
+    // No authentication prompt. Tapping the lock-screen button runs the intent
+    // immediately in the background so we can respawn a new recovery alarm
+    // before the silence gap becomes perceptible (iOS 26 replacement for
+    // openAppWhenRun = false).
+    static var supportedModes: IntentModes { .background }
+
+    @Parameter(title: "Source Alarm ID")
+    var sourceAlarmID: String
+
+    @Parameter(title: "Surface Alarm ID")
+    var surfaceAlarmID: String?
+
+    init() { self.sourceAlarmID = "" }
+    init(sourceAlarmID: String, surfaceAlarmID: String? = nil) {
+        self.sourceAlarmID = sourceAlarmID
+        self.surfaceAlarmID = surfaceAlarmID
+    }
+
+    func perform() async throws -> some IntentResult {
+        print("[RecoveryHandoff] recovery stop intent fired source=\(sourceAlarmID)")
+
+        guard !AlarmAuthHandoffStore.isFinalStopOrSnoozePressed() else {
+            print("[RecoveryHandoff] skipped recovery because final stop/snooze already pressed source=\(sourceAlarmID)")
+            return .result()
+        }
+
+        await MainActor.run {
+            AlarmAuthHandoffStore.ensureRingingForRecovery(sourceAlarmId: sourceAlarmID)
+        }
+
+        let appIsActive = await MainActor.run { UIApplication.shared.applicationState == .active }
+        if appIsActive {
+            print("[RecoveryHandoff] app active; routing to custom UI source=\(sourceAlarmID)")
+            await MainActor.run {
+                NotificationCenter.default.post(
+                    name: .alarmKitCustomUIHandoffRequested,
+                    object: nil,
+                    userInfo: [
+                        "alarmId": sourceAlarmID,
+                        "surfaceAlarmId": surfaceAlarmID ?? sourceAlarmID
+                    ]
+                )
+            }
+            return .result()
+        }
+
+        if AlarmFeatureFlags.alarmKitPrimaryOwnerNoRespawn {
+            print("[RecoveryHandoff] respawn disabled — no continuity surfaces scheduled source=\(sourceAlarmID)")
+            return .result()
+        }
+
+        // Locked loop: each slide-to-stop on a recovery surface schedules the next
+        // system-owned surfaces until the user unlocks and final-stops in-app.
+        let dismissed = surfaceAlarmID.map { [$0] } ?? []
+        let count = await NotificationManager.shared.scheduleSystemOwnedContinuityRecoveries(
+            sourceAlarmId: sourceAlarmID,
+            dismissedSurfaceIds: dismissed,
+            reason: "recovery-intent-respawn",
+            delays: [1.0, 3.5, 8.0, 15.0]
+        )
+        print("[RecoveryHandoff] continuity respawn scheduled count=\(count) source=\(sourceAlarmID)")
+        if count == 0 {
+            await MainActor.run {
+                NotificationManager.shared.scheduleAlarmRecoveryOpenAppNotification(
+                    sourceAlarmId: sourceAlarmID,
+                    reason: "recovery-intent-respawn-failed"
+                )
+            }
+        }
         return .result()
     }
 }

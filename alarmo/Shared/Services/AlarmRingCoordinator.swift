@@ -41,6 +41,12 @@ final class AlarmRingCoordinator: ObservableObject {
     private var watchdogLastRecoveryAt: Date = .distantPast
     private var watchdogRecoveryInProgress: Bool = false
     private let watchdogMaxAttempts: Int = 5
+
+    // Re-entrancy guard for reassertRingingAudio. The recovery cascade
+    // (reassert → immediate locked recovery → locked no-UI engine recovery)
+    // historically called back into reassertRingingAudio, producing the
+    // classic exponentially-growing reason string.
+    private var reassertInFlight: Bool = false
     private let watchdogBackoffSeconds: TimeInterval = 3.0
     
     func configure(alarmStore: AlarmStore, foregroundScheduler: AlarmForegroundScheduler?, modelContext: ModelContext) {
@@ -86,13 +92,15 @@ final class AlarmRingCoordinator: ObservableObject {
         if isRinging, activeAlarm?.id == id {
             print("🧭 [ALARMTRACE_COORD] EVENT=START_RINGING_DUPLICATE ALARM_ID=\(id.uuidString) SOURCE=\(source) ENGINE_ACTIVE=\(AlarmContinuousAudioEngine.shared.isEngineActive) ENGINE_HEALTHY=\(AlarmContinuousAudioEngine.shared.cachedIsHealthy)")
             print("[AlarmRingCoordinator] ⏭️ Ignoring duplicate START RINGING for \(id) (Source: \(source))")
-            if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-duplicate-startRinging") {
+            if AlarmContinuousAudioEngine.shared.isEnginePlaying {
+                print("[Coordinator] Engine already playing — attaching UI without restarting sound")
+            } else if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-duplicate-startRinging") {
                 AlarmContinuousAudioEngine.shared.start(
                     soundName: activeAlarm?.soundName ?? "",
                     alarmId: id.uuidString,
                     volume: 1.0
                 )
-                print("[Coordinator] Engine already active — attaching UI without restarting sound")
+                print("[Coordinator] Engine was prepared but not playing — started from duplicate path")
             } else {
                 print("[Coordinator] Audible start blocked by phase in duplicate path")
             }
@@ -154,13 +162,15 @@ final class AlarmRingCoordinator: ObservableObject {
             activeSnoozeCount = session.snoozeCount
             print("[AlarmRingCoordinator] Restored session for \(alarm.id). SnoozeCount=\(activeSnoozeCount)")
         } else {
-            activeSnoozeCount = 0
-            activeSession = AlarmSession(
+            activeSnoozeCount = AlarmAuthHandoffStore.ringSessionSnoozeCount(for: alarm.id.uuidString)
+            var session = AlarmSession(
                 alarmId: alarm.id,
                 hasMissions: alarm.missions.contains(where: { $0.type != .off }),
                 missionStatus: alarm.missions.contains(where: { $0.type != .off }) ? .inProgress : .completed,
                 status: .ringing
             )
+            session.snoozeCount = activeSnoozeCount
+            activeSession = session
             print("[AlarmRingCoordinator] Created new session for \(alarm.id)")
         }
         
@@ -198,9 +208,17 @@ final class AlarmRingCoordinator: ObservableObject {
                 reason: "coordinator-startRinging"
             )
 
-            if AlarmContinuousAudioEngine.shared.isEngineActive {
-                print("[Coordinator] Engine already active — attaching UI without restarting sound")
-            } else if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-startRinging-primary") {
+            let shouldPreserveAlarmKitOwner = NotificationManager.shared.shouldPreserveAlarmKitPrimaryOwner(
+                sourceAlarmId: alarm.id.uuidString
+            )
+
+            if AlarmContinuousAudioEngine.shared.isEnginePlaying {
+                print("[Coordinator] Engine already playing — attaching UI without restarting sound")
+            } else if AlarmContinuousAudioEngine.shared.isEnginePrepared {
+                print("[Coordinator] Engine prepared but not playing — will start or prepare silently")
+            }
+            if !AlarmContinuousAudioEngine.shared.isEnginePlaying,
+               AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-startRinging-primary") {
                 print("🧭 [ALARMTRACE_AUDIO] EVENT=COORDINATOR_REQUEST_ENGINE_START ALARM_ID=\(alarm.id.uuidString) SOURCE=\(source) SOUND=\"\(alarm.soundName)\"")
                 AlarmContinuousAudioEngine.shared.start(
                     soundName: alarm.soundName,
@@ -208,6 +226,8 @@ final class AlarmRingCoordinator: ObservableObject {
                     volume: 1.0
                 )
                 print("[Coordinator] Engine started from coordinator (fallback)")
+            } else if shouldPreserveAlarmKitOwner {
+                print("[Coordinator] Background AlarmKit alerting — preserving AlarmKit owner until explicit suppression")
             } else if let runId = AlarmAudioStateController.shared.currentAlarmRunId {
                 AlarmContinuousAudioEngine.shared.prepareSilently(
                     soundName: alarm.soundName,
@@ -260,25 +280,73 @@ final class AlarmRingCoordinator: ObservableObject {
 
     func reassertRingingAudio(reason: String = "manual") {
         guard isRinging, !isPreviewMode, let alarm = activeAlarm else { return }
+
+        // RE-ENTRANCY GUARD: prevent reassert from being called recursively
+        // (e.g. via attemptImmediateLockedRecovery → attemptLockedNoUIEngineRecovery
+        // → reassertRingingAudio). Past versions had this exact loop, which
+        // produced exponentially growing reason strings like
+        // "coordinator-reassert-locked-no-ui-coordinator-reassert-locked-no-ui-…".
+        if reassertInFlight {
+            print("[AlarmRingCoordinator] ⏭️  reassert skipped — already in flight (incoming reason=\(reason))")
+            return
+        }
+
+        // RUNAWAY-REASON GUARD: if some upstream caller managed to chain the
+        // reason far beyond a sensible length, truncate it so we keep logs
+        // readable and any string-based dedup keys bounded.
+        let trimmedReason: String
+        if reason.count > 80 {
+            trimmedReason = String(reason.prefix(60)) + "…[truncated]"
+            print("[AlarmRingCoordinator] reassert reason truncated original=\(reason.count) chars")
+        } else {
+            trimmedReason = reason
+        }
+
+        reassertInFlight = true
+        defer { reassertInFlight = false }
+
         watchdogConsecutiveFailures = 0
         watchdogRecoveryInProgress = false
         LogThrottler.log(
-            "[Coordinator] Watchdog state reset on reassert — reason: \(reason)",
-            key: "coordinator.watchdog.reassert.\(reason)",
+            "[Coordinator] Watchdog state reset on reassert — reason: \(trimmedReason)",
+            key: "coordinator.watchdog.reassert.\(trimmedReason)",
             interval: 2.0
         )
-        print("[AlarmRingCoordinator] 🔁 Reasserting ringing audio (\(reason)) for \(alarm.id)")
-        AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "coordinator-reassert-before-\(reason)")
-        if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-reassert-\(reason)") {
+        print("[AlarmRingCoordinator] 🔁 Reasserting ringing audio (\(trimmedReason)) for \(alarm.id)")
+        AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "coordinator-reassert-before-\(trimmedReason)")
+        if AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-reassert-\(trimmedReason)") {
             AlarmContinuousAudioEngine.shared.start(
                 soundName: alarm.soundName,
                 alarmId: alarm.id.uuidString,
                 volume: 1.0
             )
+        } else if UIApplication.shared.applicationState != .active {
+            // CRITICAL: do NOT loop into attemptImmediateLockedRecovery if the
+            // engine has already been proven inaudible while locked. Doing so
+            // re-enters a cascade that ends up calling back into reassert via
+            // attemptLockedNoUIEngineRecovery. Pre-arm an audible AlarmKit
+            // recovery instead and let it ring.
+            if AlarmAudioStateController.shared.engineInaudibleWhileLockedProven {
+                print("[Coordinator] Reassert blocked — engine proven inaudible while locked; pre-arming AlarmKit recovery")
+                NotificationManager.shared.preArmAudibleAlarmKitRecovery(
+                    sourceAlarmId: alarm.id.uuidString,
+                    reason: "reassert-engine-proven-inaudible-\(trimmedReason)",
+                    delay: 4.0
+                )
+            } else {
+                print("[Coordinator] Reassert audible start blocked by phase — trying locked no-UI recovery")
+                AlarmAudioStateController.shared.attemptImmediateLockedRecovery(
+                    sourceAlarmId: alarm.id.uuidString,
+                    reason: "coordinator-reassert-\(trimmedReason)"
+                )
+            }
+        } else if AlarmAudioStateController.shared.phase == .alarmKitFallback {
+            print("[Coordinator] Reassert — app active in alarmKitFallback; attempting foreground takeover")
+            AlarmAudioStateController.shared.handleAppBecameActive()
         } else {
             print("[Coordinator] Reassert audible start blocked by phase")
         }
-        AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "coordinator-reassert-after-\(reason)")
+        AlarmContinuousAudioEngine.shared.debugVolumeSnapshot(context: "coordinator-reassert-after-\(trimmedReason)")
         if alarm.vibrateEnabled {
             hapticsPlayer.startRepeating()
         }
@@ -373,8 +441,16 @@ final class AlarmRingCoordinator: ObservableObject {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 NotificationManager.shared.cancelAllAlarmKitUnlockPrompts()
             }
+            NotificationManager.shared.cancelAllHardwareRecoveryState(sourceAlarmId: alarm.id.uuidString)
+            AlarmAuthHandoffStore.clearOnFinalStop(
+                preserveSnooze: preserveSession,
+                reason: preserveSession ? "user-snooze" : "user-stop"
+            )
             AlarmCustomUIHandoffStore.clear()
-            NotificationManager.shared.dismissLinkedAlarmKitSurfaces(sourceAlarmId: alarm.id.uuidString)
+            NotificationManager.shared.dismissLinkedAlarmKitSurfaces(
+                sourceAlarmId: alarm.id.uuidString,
+                reason: preserveSession ? "user-snooze" : "user-stop"
+            )
             // Cancel the backup AlarmKit chain — user has explicitly stopped,
             // so no more "alarm rings every 30s" should happen.
             if #available(iOS 26.0, *) {
@@ -384,7 +460,9 @@ final class AlarmRingCoordinator: ObservableObject {
             // alarm. Catches zombie alarms whose handoff mapping was lost so
             // dismissLinkedAlarmKitSurfaces (which matches by sourceAlarmId)
             // would otherwise miss them.
-            NotificationManager.shared.nukeAllAlertingAlarmKitSurfaces()
+            NotificationManager.shared.nukeAllAlertingAlarmKitSurfaces(
+                reason: preserveSession ? "user-snooze" : "user-stop"
+            )
 
             if preserveSession, var session = activeSession {
                 session.status = .snoozed
@@ -503,8 +581,10 @@ final class AlarmRingCoordinator: ObservableObject {
         if var session = activeSession {
             session.status = .completed
             session.isActive = false
+            session.missionStatus = .completed
             activeSession = session
         }
+        AlarmAuthHandoffStore.setMissionCompleted(true)
         
         // Update wake-up streak: increment if no snooze was used
         let streakKey = "qs_streak"
@@ -547,6 +627,10 @@ final class AlarmRingCoordinator: ObservableObject {
         let currentAlarm = alarmStore?.alarm(by: alarm.id) ?? alarm
         
         activeSnoozeCount += 1
+        AlarmAuthHandoffStore.syncRingSessionSnoozeCount(
+            sourceAlarmId: currentAlarm.id.uuidString,
+            count: activeSnoozeCount
+        )
         print("[AlarmRingCoordinator] Snooze tapped. Count=\(activeSnoozeCount), Threshold=\(settings.snoozePenaltyThreshold), PenaltyEnabled=\(currentAlarm.penaltyEnabled)")
         
         var consumedPenalty = false
@@ -739,6 +823,17 @@ final class AlarmRingCoordinator: ObservableObject {
         watchdogRecoveryInProgress = false
     }
 
+    /// Ensures AlarmRingingView is visible whenever the alarm is actively ringing.
+    /// Call on every app-foreground event so re-lock → re-unlock always shows the
+    /// alarm UI immediately, without waiting for an async AlarmKit recovery task.
+    func ensureRingingUIVisible() {
+        guard isRinging, !isPreviewMode else { return }
+        if !isRingingUIVisible {
+            print("[AlarmRingCoordinator] ensureRingingUIVisible: alarm is ringing but UI was hidden — forcing presentation")
+            ensureRingingUIPresentation(afterAudioMaxWait: 0.1)
+        }
+    }
+
     private func ensureRingingUIPresentation(afterAudioMaxWait maxWait: TimeInterval) {
         ringingUIPresentationWorkItem?.cancel()
         ringingUIPresentationWorkItem = nil
@@ -764,6 +859,17 @@ final class AlarmRingCoordinator: ObservableObject {
         guard isRinging, !isPreviewMode, let alarm = activeAlarm else { return }
         if AlarmContinuousAudioEngine.shared.isInInterruptionRecoveryWindow {
             return
+        }
+        if NotificationManager.shared.shouldPreserveAlarmKitPrimaryOwner(sourceAlarmId: alarm.id.uuidString) {
+            let surface = NotificationManager.shared.currentAlarmSurfaceStatus(
+                sourceAlarmId: alarm.id.uuidString,
+                reason: "coordinator-watchdog"
+            )
+            if surface.kind == .audibleAlarmKit {
+                watchdogConsecutiveFailures = 0
+                watchdogRecoveryInProgress = false
+                return
+            }
         }
         if AlarmAudioStateController.shared.isSilenceExpected() {
             watchdogConsecutiveFailures = 0
@@ -792,7 +898,26 @@ final class AlarmRingCoordinator: ObservableObject {
         watchdogLastRecoveryAt = Date()
         watchdogRecoveryInProgress = true
         print("[Coordinator] ⚠️ Watchdog: NO audible audio — attempt \(watchdogConsecutiveFailures)/\(watchdogMaxAttempts)")
-        guard AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-watchdog-recovery") else {
+        if !AlarmAudioStateController.shared.canStartAudibleAppAudio(reason: "coordinator-watchdog-recovery") {
+            // CRITICAL: phase blocks `engine.start()` (e.g. alarmKitFallback was
+            // just suppressed by iOS). Without recovery action here we used to
+            // return → permanent silence. Now: (1) pre-arm a system-owned
+            // AlarmKit recovery so the alarm rings even if iOS suspends us, and
+            // (2) attempt `tryEngineAudibleWhileLocked` which bypasses the gate
+            // and explicitly handles the alarmKitFallback case.
+            if !AlarmAuthHandoffStore.isFinalStopOrSnoozePressed() {
+                NotificationManager.shared.preArmAudibleAlarmKitRecovery(
+                    sourceAlarmId: alarm.id.uuidString,
+                    reason: "watchdog-blocked-phase-\(AlarmAudioStateController.shared.phase.rawValue)",
+                    delay: 4.0
+                )
+                _ = AlarmAudioStateController.shared.tryEngineAudibleWhileLocked(
+                    reason: "coordinator-watchdog-blocked"
+                )
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                self?.watchdogRecoveryInProgress = false
+            }
             return
         }
         AlarmContinuousAudioEngine.shared.start(

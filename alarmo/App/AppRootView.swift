@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 import SwiftData
 import UIKit
+import AVFoundation
 #if canImport(AlarmKit)
 import AlarmKit
 #endif
@@ -16,6 +17,7 @@ struct AppRootView: View {
     @StateObject private var pomodoroEngine = PomodoroEngine()
     @StateObject private var navigationStore = NavigationStore()
     @ObservedObject private var settingsStore = SettingsStore.shared
+    @StateObject private var themeManager = ThemeManager.shared
     @Environment(\.modelContext) var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @State private var foregroundScheduler: AlarmForegroundScheduler?
@@ -25,15 +27,21 @@ struct AppRootView: View {
     @StateObject private var shutdownDetectionService = ShutdownDetectionService()
     @StateObject private var tamperDetectionService = TamperDetectionService.shared
     @State private var showLegacyAlarmModeNotice = false
+    @State private var showNotificationsDisabledWarning = false
+    @State private var didRequestAlarmNotificationPermission = false
     @State private var showAlarmKitFailureNotice = false
     @State private var alarmKitFailureMessage = "AlarmKit scheduling failed."
     @State private var customUIHandoffRetryWorkItem: DispatchWorkItem?
     @State private var stopAlarmKitSurfaceTask: Task<Void, Never>?
+    @State private var foregroundTakeoverVerificationTask: Task<Void, Never>?
     @State private var customUIHandoffInProgress = false
     @State private var customUIHandoffActiveRequestKey: String?
     @State private var customUIHandoffStartedAt: Date?
     @State private var customUIHandoffAttemptCount: Int = 0
     @AppStorage("settings.alarmThemeStyleRaw") private var appThemeStyleRaw: String = AlarmThemeStyle.default.rawValue
+    @State private var showLaunchLogo = true
+    @State private var forceCloseWarningHeartbeat: Timer?
+    @State private var showForceQuitEducationAlert = false
 
     init() {
         let preferences = AppPreferences()
@@ -44,13 +52,30 @@ struct AppRootView: View {
     }
 
     var body: some View {
-        return Group {
-            if showingMainTab {
-                MainTabContainerView(preferences: appPreferences, alarmStore: alarmStore)
-            } else {
-                OnboardingFlowView(viewModel: onboardingViewModel, appPreferences: appPreferences, alarmStore: alarmStore)
+        return ZStack {
+            Group {
+                if showingMainTab {
+                    MainTabContainerView(preferences: appPreferences, alarmStore: alarmStore)
+                } else {
+                    OnboardingFlowView(viewModel: onboardingViewModel, appPreferences: appPreferences, alarmStore: alarmStore)
+                }
+            }
+
+            if showLaunchLogo {
+                LaunchLogoView(isTiimoTheme: isTiimoTheme)
+                    .transition(.opacity)
+                    .zIndex(999)
             }
         }
+        .animation(.easeInOut(duration: 0.24), value: showLaunchLogo)
+        .onAppear {
+            let dismissDelay: TimeInterval = UIAccessibility.isReduceMotionEnabled ? 0.55 : 1.0
+            DispatchQueue.main.asyncAfter(deadline: .now() + dismissDelay) {
+                showLaunchLogo = false
+                applyOpenAlarmMenuNavigationIfPending(trigger: "post-launch-logo")
+            }
+        }
+        .environmentObject(themeManager)
         .preferredColorScheme(resolvedColorScheme)
         .onAppear {
             // Configure remote assets from GitHub
@@ -60,7 +85,9 @@ struct AppRootView: View {
                 await AssetManager.shared.fetchCatalog()
             }
             
+            clearStaleForceOnboardingFlagIfNeeded(trigger: "onAppear")
             updateViewState()
+            applyOpenAlarmMenuNavigationIfPending(trigger: "onAppear")
             if foregroundScheduler == nil {
                 let alarmScheduler = AlarmManagerFacade.shared
                 let scheduler = AlarmForegroundScheduler(alarmStore: alarmStore, ringCoordinator: ringCoordinator)
@@ -75,14 +102,35 @@ struct AppRootView: View {
                 notificationManager.recoverAlarmFromDeliveredNotificationsIfNeeded()
                 notificationManager.recoverAlarmKitAlertingIfNeeded()
                 alarmScheduler.reconcilePersistedAlarms(alarmStore.alarms)
+                // Launch may occur directly into the background (e.g. relaunched by
+                // the system) — start the keep-alive if an alarm is pending.
+                AlarmKeepAliveAudioService.shared.evaluate(reason: "launch")
             }
+            restoreAndTakeoverWhenAppActive(reason: "onAppear")
             handlePendingCustomAlarmUIHandoff(trigger: "onAppear")
+#if DEBUG
+            if AlarmRecoveryTestHarness.shouldSkipOnboarding {
+                UserDefaults.standard.set(true, forKey: "alarmo.onboarding.completed")
+            }
+            if let fireIn = AlarmRecoveryTestHarness.fireTestAlarmInSeconds {
+                AlarmRecoveryTestHarness.scheduleSimulatorTestAlarm(
+                    alarmStore: alarmStore,
+                    secondsFromNow: fireIn
+                )
+            }
+            if AlarmRecoveryTestHarness.isEnabled {
+                AlarmRecoveryTestHarness.runLoop(notificationManager: notificationManager)
+            }
+            if CommandLine.arguments.contains(NotificationManager.AppClosedWarning.debugLaunchArgument) {
+                notificationManager.debugForceScheduleAppClosedWarning(alarms: alarmStore.alarms)
+            }
+#endif
             NotificationOrchestrator.shared.reconcileAlarmLifecycleNotifications(alarms: alarmStore.alarms)
             shutdownDetectionService.startMonitoring(alarmStore: alarmStore, ringCoordinator: ringCoordinator, ringingAlarmId: ringCoordinator.activeAlarm?.id)
             accountabilityManager.ensureShieldRestoredOnLaunch()
             AccountabilityShieldEngine.shared.reconcileActiveSessionOnLaunch(ringingAlarmId: ringCoordinator.activeAlarm?.id, alarmStore: alarmStore)
             pomodoroEngine.configure(with: appPreferences)
-            if hasPendingLiveActivityOpenRequest() {
+            if hasPendingLiveActivityOpenRequest(), !notificationManager.hasPendingOpenAlarmMenuNavigation() {
                 navigationStore.selectedTab = .timer
                 navigationStore.requestedTimerMode = .pomo
             }
@@ -90,6 +138,18 @@ struct AppRootView: View {
                 AppListMigrationCoordinator.migrateLegacySelectionIfNeeded(context: modelContext, settings: settingsStore)
                 didRunAppListMigration = true
             }
+            SystemOutputVolumeFloorManager.shared.prepareVolumeViewIfNeeded()
+            notificationManager.logColdStartLifecycleInference()
+            notificationManager.markCleanForegroundSession(reason: "onAppear")
+            notificationManager.purgeAllOpenAlarmoAgainNotifications(reason: "onAppear")
+            notificationManager.purgeAllRecoveryOpenAppNotifications(reason: "onAppear")
+            notificationManager.cancelAppClosedWarning(reason: "onAppear")
+            notificationManager.cancelArmedAlarmCloseWarning(reason: "onAppear")
+            notificationManager.purgeAllArmedAlarmCloseWarningNotifications(reason: "onAppear")
+            notificationManager.cancelForceQuitWarning(reason: "onAppear")
+            notificationManager.reconcilePreAlarmReadinessReminders(alarms: alarmStore.alarms, reason: "onAppear")
+            notificationManager.runReadinessHealthCheckOnAppOpen(alarms: alarmStore.alarms)
+            ensureAlarmNotificationPermissionIfNeeded(reason: "onAppear-existing-alarm")
         }
         .environmentObject(ringCoordinator)
         .environmentObject(notificationManager)
@@ -97,7 +157,7 @@ struct AppRootView: View {
         .environmentObject(pomodoroEngine)
         .environmentObject(navigationStore)
         .fullScreenCover(isPresented: Binding(
-            get: { ringCoordinator.isRingingUIVisible },
+            get: { shouldPresentAlarmRingingFullScreen },
             set: { _ in }
         )) {
             AlarmRingingView(ringCoordinator: ringCoordinator)
@@ -105,6 +165,10 @@ struct AppRootView: View {
         .onReceive(alarmStore.$alarms) { _ in
             foregroundScheduler?.scheduleNext()
             NotificationOrchestrator.shared.reconcileAlarmLifecycleNotifications(alarms: alarmStore.alarms)
+            notificationManager.purgeAllOpenAlarmoAgainNotifications(reason: "alarms-updated")
+            notificationManager.reconcilePreAlarmReadinessReminders(alarms: alarmStore.alarms, reason: "alarms-updated")
+            ensureAlarmNotificationPermissionIfNeeded(reason: "first-alarm-enable")
+            applyOpenAlarmMenuNavigationIfPending(trigger: "alarms-updated")
         }
         .onChange(of: appPreferences.onboardingCompleted) { _, _ in
             updateViewState()
@@ -119,11 +183,37 @@ struct AppRootView: View {
             shutdownDetectionService.startMonitoring(alarmStore: alarmStore, ringCoordinator: ringCoordinator, ringingAlarmId: newAlarm?.id)
         }
         .onChange(of: scenePhase) { _, newPhase in
+            notificationManager.logLifecycleTransition("scenePhase=\(String(describing: newPhase))")
             if newPhase == .active {
+                // App is alive in foreground — the overnight keep-alive is no longer
+                // needed; stop it to save battery.
+                AlarmKeepAliveAudioService.shared.evaluate(reason: "scene-active")
+                applyOpenAlarmMenuNavigationIfPending(trigger: "scene-active")
+                SystemOutputVolumeFloorManager.shared.prepareVolumeViewIfNeeded()
+                notificationManager.markCleanForegroundSession(reason: "scene-active")
                 AlarmAudioStateController.shared.handleAppBecameActive()
+                restoreAndTakeoverWhenAppActive(reason: "scenePhase.active")
+                AlarmAuthHandoffStore.writeHeartbeat(
+                    runId: AlarmAudioStateController.shared.currentAlarmRunId?.uuidString,
+                    isPlaying: AlarmContinuousAudioEngine.shared.confirmStillPlaying()
+                )
+                if let sourceId = ringCoordinator.activeAlarm?.id.uuidString
+                    ?? AlarmAuthHandoffStore.activeRingingAlarmId() {
+                    notificationManager.cancelForegroundSoundReminderNotification(sourceAlarmId: sourceId)
+                }
+                notificationManager.cancelArmedAlarmCloseWarning(reason: "scene-active")
+                notificationManager.cancelAppClosedWarning(reason: "scene-active")
+                notificationManager.cancelForceQuitWarning(reason: "scene-active")
+                notificationManager.purgeAllRecoveryOpenAppNotifications(reason: "scene-active")
+                notificationManager.runReadinessHealthCheckOnAppOpen(alarms: alarmStore.alarms)
+                refreshSwipeAwayWarningStandbyIfNeeded(reason: "scene-active")
+                startForceCloseWarningHeartbeat()
+                if ringCoordinator.isRinging || AlarmAudioStateController.shared.isAlarmRinging {
+                    AlarmAudioStateController.shared.enforceForegroundVolumeControl(reason: "scene-active")
+                }
                 AlarmContinuousAudioEngine.shared.recoverIfNeeded()
                 print("[AppRoot] Engine recovery check on active — isEngineActive: \(AlarmContinuousAudioEngine.shared.isEngineActive)")
-                if hasPendingLiveActivityOpenRequest() {
+                if hasPendingLiveActivityOpenRequest(), !notificationManager.hasPendingOpenAlarmMenuNavigation() {
                     navigationStore.selectedTab = .timer
                     navigationStore.requestedTimerMode = .pomo
                 }
@@ -144,11 +234,17 @@ struct AppRootView: View {
                 // never accumulate.
                 if #available(iOS 26.0, *), ringCoordinator.isRinging,
                    let alarm = ringCoordinator.activeAlarm {
-                    notificationManager.nukeAllAlertingAlarmKitSurfaces()
-                    // Reschedule a fresh backup so re-lock has fast recovery.
-                    // Cancel the old (which we're about to dismiss anyway)
-                    // and schedule a new one.
-                    notificationManager.cancelAllBackupAlarmKitChains()
+                    Task {
+                        let appEngineAudible = await AlarmAudioStateController.shared.isAppEngineActuallyAudible(
+                            reason: "scene-active-dismiss-alarmkit"
+                        )
+                        if appEngineAudible {
+                            notificationManager.nukeAllAlertingAlarmKitSurfaces(reason: "scene-active-engine-verified")
+                            notificationManager.cancelAllBackupAlarmKitChains()
+                        } else {
+                            print("[AppRoot] Scene active — keeping AlarmKit surfaces until AppEngine is strictly verified")
+                        }
+                    }
                     Task {
                         let engineLiveHealthy = AlarmContinuousAudioEngine.shared.isEngineActive &&
                             AlarmContinuousAudioEngine.shared.cachedIsHealthy &&
@@ -167,84 +263,112 @@ struct AppRootView: View {
                 }
                 notificationManager.recoverAlarmFromDeliveredNotificationsIfNeeded()
                 notificationManager.recoverAlarmKitAlertingIfNeeded()
+                // Fast path: if coordinator already knows alarm is ringing, make
+                // sure the full-screen UI is visible immediately on re-foreground.
+                ringCoordinator.ensureRingingUIVisible()
+                // Cold-launch fast path: coordinator has no state yet but AlarmKit
+                // may already be alerting. Synchronous check so the alarm UI appears
+                // without waiting for the async recoverAlarmKitAlertingIfNeeded task.
+                if foregroundScheduler != nil, !ringCoordinator.isRinging {
+#if canImport(AlarmKit)
+                    if #available(iOS 26.0, *) {
+                        if let alertingAlarm = (try? AlarmManager.shared.alarms)?
+                            .first(where: { $0.state == .alerting }) {
+                            let surfaceId = alertingAlarm.id.uuidString
+                            let sourceId = AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceId)
+                            print("[AppRoot] Direct AlarmKit alerting alarm on foreground — starting ring source=\(sourceId)")
+                            _ = ringCoordinator.startRinging(alarmId: sourceId, source: .notification)
+                        }
+                    }
+#endif
+                }
+                restoreAndTakeoverWhenAppActive(reason: "scenePhase.active-post-recovery")
                 enforceAlarmCustomUIIfNeeded()
                 handlePendingCustomAlarmUIHandoff(trigger: "scenePhase.active")
                 refreshAlarmUnlockPromptIfNeeded()
+                if let sourceId = ringCoordinator.activeAlarm?.id.uuidString
+                    ?? AlarmAuthHandoffStore.activeRingingAlarmId() {
+                    notificationManager.cancelForceClosedWarningIfAppHandlingSound(sourceAlarmId: sourceId)
+                    notificationManager.cancelAppEngineRingingControlNotification(
+                        sourceAlarmId: sourceId,
+                        reason: "scene-active"
+                    )
+                }
             } else if newPhase == .inactive || newPhase == .background {
+                stopForceCloseWarningHeartbeat()
+                AlarmAuthHandoffStore.writeHeartbeat(
+                    runId: AlarmAudioStateController.shared.currentAlarmRunId?.uuidString,
+                    isPlaying: AlarmContinuousAudioEngine.shared.confirmStillPlaying()
+                )
                 pomodoroEngine.handleSceneDidEnterBackground()
+                // Backgrounding with a pending alarm: start the bounded silent
+                // keep-alive so the process stays alive until the alarm fires and the
+                // AppEngine can take over (no-op if no alarm is pending / ring active).
+                AlarmKeepAliveAudioService.shared.evaluate(reason: "scene-\(newPhase == .inactive ? "inactive" : "background")")
                 stopAlarmKitSurfaceTask?.cancel()
                 stopAlarmKitSurfaceTask = nil
+                print("🧭 [ALARMTRACE_ACTION] EVENT=SCENE_LEFT_FOREGROUND POSSIBLE_SIDE_BUTTON=true SCENE_PHASE=\(String(describing: newPhase).uppercased()) APP_STATE=\(UIApplication.shared.applicationState.rawValue) IS_RINGING=\(ringCoordinator.isRinging) ENGINE_ACTIVE=\(AlarmContinuousAudioEngine.shared.isEngineActive) ENGINE_HEALTHY=\(AlarmContinuousAudioEngine.shared.cachedIsHealthy) PHASE=\(AlarmAudioStateController.shared.phase.rawValue) BRIDGE_SURFACE=\(AlarmBackgroundAudioBridge.shared.currentAlarmID ?? "nil")")
+                let _sysVol = AVAudioSession.sharedInstance().outputVolume
+                let _playerVol = AlarmContinuousAudioEngine.shared.currentPlayerVolume
+                let _appTarget = AlarmAudioStateController.shared.selectedSoundVolume
+                print("[SideButton] pressed: system=\(String(format: "%.2f", _sysVol)) player=\(String(format: "%.2f", _playerVol)) appTarget=\(String(format: "%.2f", _appTarget)) phase=\(AlarmAudioStateController.shared.phase.rawValue) isRinging=\(ringCoordinator.isRinging)")
                 // CRITICAL: cancel any in-flight AlarmKit dismissal. If the user
                 // re-locks during a deferred dismissal window, we must NOT stop
                 // AlarmKit — its lock-screen surface is the most reliable audio
                 // continuity for the alarm.
                 notificationManager.cancelPendingAlarmKitDismissals(reason: "scene-inactive-background")
                 ringCoordinator.cancelDeferredBridgeStop(reason: "scene-inactive-background")
-                if ringCoordinator.isRinging, let alarm = ringCoordinator.activeAlarm {
-                    ringCoordinator.reassertRingingAudio(reason: "scene-inactive-background")
-                    notificationManager.scheduleHardwareButtonRespawnIfNeeded(
-                        sourceAlarmId: alarm.id.uuidString,
-                        alarmName: alarm.name,
-                        reason: "Side button detected via scenePhase"
-                    )
-                    notificationManager.startAlarmKitUnlockPromptLoop(
-                        sourceAlarmId: alarm.id.uuidString,
-                        surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString,
-                        alarmName: alarm.name
-                    )
-                    let phase = AlarmAudioStateController.shared.phase
-                    if phase == .appEnginePrimary || phase == .alarmKitFallback {
-                        guard UIApplication.shared.applicationState != .active else {
-                            print("[AppRoot] enforceLockedRingingState suppressed — app is foreground")
-                            return
-                        }
-                        notificationManager.enforceLockedRingingState(
-                            sourceAlarmId: alarm.id.uuidString,
-                            surfaceAlarmId: AlarmBackgroundAudioBridge.shared.currentAlarmID ?? alarm.id.uuidString
-                        )
-                    } else {
-                        print("[AppRoot] enforceLockedRingingState suppressed — phase \(phase.rawValue) (engine not primary yet)")
+                let sceneLabel = newPhase == .inactive ? "inactive" : "background"
+                notificationManager.handleAppLeaveLifecycleEvent(
+                    ringCoordinator: ringCoordinator,
+                    alarms: alarmStore.alarms,
+                    reason: "scene-\(sceneLabel)"
+                )
+                let resolvedSourceAlarmId: String? = {
+                    if let alarm = ringCoordinator.activeAlarm { return alarm.id.uuidString }
+                    if let persisted = AlarmAuthHandoffStore.activeRingingAlarmId() { return persisted }
+                    if let bridgeSource = AlarmBackgroundAudioBridge.shared.currentSourceAlarmID { return bridgeSource }
+                    if let surface = AlarmBackgroundAudioBridge.shared.currentAlarmID {
+                        return AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surface)
                     }
-                    // App is now backgrounded/locked. Bridge audio can fail
-                    // when iOS suspends us. Arm the AlarmKit backup chain so
-                    // a fresh AlarmKit alarm fires every 2s as a fallback.
-                    if #available(iOS 26.0, *) {
-                        Task {
-                            let engineLiveHealthy = AlarmContinuousAudioEngine.shared.isEngineActive &&
-                                AlarmContinuousAudioEngine.shared.cachedIsHealthy &&
-                                AlarmContinuousAudioEngine.shared.confirmStillPlaying()
-                            if !engineLiveHealthy {
-                                if AlarmAudioStateController.shared.shouldAllowAlarmKitRespawn() {
-                                    await notificationManager.ensureBackupAlarmKitChain(sourceAlarmId: alarm.id.uuidString)
-                                    print("[AppRoot] Scene background — backup chain scheduled (engine not healthy)")
-                                } else {
-                                    print("[AppRoot] Scene background — backup chain suppressed by phase \(AlarmAudioStateController.shared.phase.rawValue)")
-                                }
-                            } else {
-                                print("[AppRoot] Scene background — backup chain skipped (engine healthy)")
-                            }
-                        }
-                    }
-                } else if let surfaceAlarmId = AlarmBackgroundAudioBridge.shared.currentAlarmID {
-                    let sourceAlarmId = AlarmBackgroundAudioBridge.shared.currentSourceAlarmID
-                        ?? AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceAlarmId)
-                    notificationManager.scheduleHardwareButtonRespawnIfNeeded(
-                        sourceAlarmId: sourceAlarmId,
-                        alarmName: nil,
-                        reason: "Side button detected via scenePhase"
+                    return nil
+                }()
+                let resolvedSurfaceAlarmId: String? = {
+                    AlarmBackgroundAudioBridge.shared.currentAlarmID
+                        ?? AlarmAuthHandoffStore.surfaceAlarmId()
+                        ?? resolvedSourceAlarmId
+                }()
+                if let sourceAlarmId = resolvedSourceAlarmId,
+                   !AlarmAuthHandoffStore.isFinalStopOrSnoozePressed() {
+                    let alarmStillActive = notificationManager.isLiveAlarmSessionActive(
+                        ringCoordinator: ringCoordinator,
+                        sourceAlarmId: sourceAlarmId
                     )
-                    let phase = AlarmAudioStateController.shared.phase
-                    if phase == .appEnginePrimary || phase == .alarmKitFallback {
-                        guard UIApplication.shared.applicationState != .active else {
-                            print("[AppRoot] enforceLockedRingingState suppressed — app is foreground")
-                            return
+                    if alarmStillActive {
+                        let enginePhase = AlarmAudioStateController.shared.phase
+                        let engineOwnsAudio = (enginePhase == .appEnginePrimary || enginePhase == .appEngineFadingIn)
+                            && AlarmContinuousAudioEngine.shared.confirmStillPlaying()
+                        if engineOwnsAudio
+                            || AlarmAudioStateController.shared.userHasUnlockedDuringThisAlarmRun {
+                            notificationManager.dismissAlarmKitUIForAppEngineOwnedSession(
+                                sourceAlarmId: sourceAlarmId,
+                                reason: "scene-\(sceneLabel)-engine-primary"
+                            )
                         }
-                        notificationManager.enforceLockedRingingState(
+                        print("🧭 [ALARMTRACE_ACTION] EVENT=SIDE_BUTTON_OR_BACKGROUND_DURING_RINGING ALARM_ID=\(sourceAlarmId) RC_RINGING=\(ringCoordinator.isRinging) ENGINE_ACTIVE=\(AlarmContinuousAudioEngine.shared.isEngineActive)")
+                        notificationManager.handleLockedHardwareSuppression(
                             sourceAlarmId: sourceAlarmId,
-                            surfaceAlarmId: surfaceAlarmId
+                            surfaceAlarmId: resolvedSurfaceAlarmId,
+                            scenePhaseLabel: sceneLabel,
+                            reason: "side-button-scene-\(sceneLabel)"
                         )
-                    } else {
-                        print("[AppRoot] enforceLockedRingingState suppressed — phase \(phase.rawValue)")
+                        if !engineOwnsAudio {
+                            notificationManager.startAlarmKitUnlockPromptLoop(
+                                sourceAlarmId: sourceAlarmId,
+                                surfaceAlarmId: resolvedSurfaceAlarmId ?? sourceAlarmId,
+                                alarmName: ringCoordinator.activeAlarm?.name
+                            )
+                        }
                     }
                 }
             }
@@ -258,52 +382,99 @@ struct AppRootView: View {
                 print("[AppRoot] Deferring custom UI handoff request until app active (state=\(appState.rawValue))")
                 return
             }
+            restoreAndTakeoverWhenAppActive(reason: "customUIHandoffRequested")
             handlePendingCustomAlarmUIHandoff(trigger: "customUIHandoffRequested")
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            // Fires BEFORE scenePhase becomes .active and BEFORE
-            // protectedDataDidBecomeAvailable. Force-reset the audio session
-            // to clear any stuck state from AlarmKit's interference, then
-            // reassert audio. This is what makes "open the app brings sound
-            // back" actually work — without the force-reset, the session can
-            // be in a state where setActive(true) is technically successful
-            // but no actual audio output happens.
-            if AlarmAudioStateController.shared.isAlarmRinging {
-                print("[AppRoot] willEnterForeground: forceReset skipped because alarm is ringing")
-            } else if !AlarmContinuousAudioEngine.shared.isEngineActive {
-                AudioRouteManager.shared.forceResetAlarmSession()
-            } else {
-                print("[AppRoot] willEnterForeground: skipping AudioRouteManager reset — engine active")
-            }
+            notificationManager.logLifecycleTransition("willEnterForeground")
+            print("🧭 [ALARMTRACE_ACTION] EVENT=WILL_ENTER_FOREGROUND IS_RINGING=\(ringCoordinator.isRinging) ENGINE_ACTIVE=\(AlarmContinuousAudioEngine.shared.isEngineActive) ENGINE_HEALTHY=\(AlarmContinuousAudioEngine.shared.cachedIsHealthy) PHASE=\(AlarmAudioStateController.shared.phase.rawValue) BRIDGE_PLAYING=\(AlarmBackgroundAudioBridge.shared.isPlaying)")
+            restoreAndTakeoverWhenAppActive(reason: "willEnterForeground")
             if ringCoordinator.isRinging {
                 ringCoordinator.reassertRingingAudio(reason: "willEnterForeground")
+                ringCoordinator.ensureRingingUIVisible()
             } else if AlarmBackgroundAudioBridge.shared.isPlaying {
                 AlarmBackgroundAudioBridge.shared.reinforceLockedLoopNow(reason: "willEnterForeground")
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+            notificationManager.logLifecycleTransition("willResignActive")
+            notificationManager.handleAppLeaveLifecycleEvent(
+                ringCoordinator: ringCoordinator,
+                alarms: alarmStore.alarms,
+                reason: "willResignActive"
+            )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+            notificationManager.logLifecycleTransition("didEnterBackground")
+            notificationManager.handleAppLeaveLifecycleEvent(
+                ringCoordinator: ringCoordinator,
+                alarms: alarmStore.alarms,
+                reason: "didEnterBackground"
+            )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openAlarmMenuFromReadinessNotification)) { _ in
+            applyOpenAlarmMenuNavigationIfPending(trigger: "notification-tap")
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            notificationManager.logLifecycleTransition("didBecomeActive")
+            print("🧭 [ALARMTRACE_ACTION] EVENT=DID_BECOME_ACTIVE IS_RINGING=\(ringCoordinator.isRinging) ENGINE_ACTIVE=\(AlarmContinuousAudioEngine.shared.isEngineActive) ENGINE_HEALTHY=\(AlarmContinuousAudioEngine.shared.cachedIsHealthy) PHASE=\(AlarmAudioStateController.shared.phase.rawValue)")
+            notificationManager.markCleanForegroundSession(reason: "didBecomeActive")
             AlarmAudioStateController.shared.handleAppBecameActive()
+            restoreAndTakeoverWhenAppActive(reason: "didBecomeActive")
             AlarmContinuousAudioEngine.shared.recoverIfNeeded()
             print("[AppRoot] Engine recovery check on active — isEngineActive: \(AlarmContinuousAudioEngine.shared.isEngineActive)")
+            ringCoordinator.reassertRingingAudio(reason: "didBecomeActive")
+            ringCoordinator.ensureRingingUIVisible()
+            notificationManager.cancelArmedAlarmCloseWarning(reason: "didBecomeActive")
+            notificationManager.cancelAppClosedWarning(reason: "didBecomeActive")
+            notificationManager.cancelForceQuitWarning(reason: "didBecomeActive")
+            notificationManager.purgeAllRecoveryOpenAppNotifications(reason: "didBecomeActive")
+            applyOpenAlarmMenuNavigationIfPending(trigger: "didBecomeActive")
+            notificationManager.runReadinessHealthCheckOnAppOpen(alarms: alarmStore.alarms)
+            refreshSwipeAwayWarningStandbyIfNeeded(reason: "didBecomeActive")
+            startForceCloseWarningHeartbeat()
             notificationManager.recoverAlarmKitAlertingIfNeeded()
             enforceAlarmCustomUIIfNeeded()
             handlePendingCustomAlarmUIHandoff(trigger: "didBecomeActive")
+            if let sourceId = ringCoordinator.activeAlarm?.id.uuidString
+                ?? AlarmAuthHandoffStore.activeRingingAlarmId() {
+                notificationManager.cancelAppEngineRingingControlNotification(
+                    sourceAlarmId: sourceId,
+                    reason: "didBecomeActive"
+                )
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataWillBecomeUnavailableNotification)) { _ in
+            notificationManager.recordProtectedDataWillBecomeUnavailable()
+            if let sourceId = ringCoordinator.activeAlarm?.id.uuidString
+                ?? AlarmAuthHandoffStore.activeRingingAlarmId()
+                ?? AlarmAudioStateController.shared.currentAlarmId,
+               AlarmAuthHandoffStore.alarmState() == .ringing,
+               notificationManager.isLiveAlarmSessionActive(
+                   ringCoordinator: ringCoordinator,
+                   sourceAlarmId: sourceId
+               ),
+               !AlarmAuthHandoffStore.isFinalStopOrSnoozePressed() {
+                let surfaceId = AlarmBackgroundAudioBridge.shared.currentAlarmID
+                    ?? AlarmAuthHandoffStore.surfaceAlarmId()
+                    ?? sourceId
+                print("🧭 [ALARMTRACE_ACTION] EVENT=PROTECTED_DATA_LOCK_DURING_RING ALARM_ID=\(sourceId)")
+                notificationManager.handleLockedHardwareSuppression(
+                    sourceAlarmId: sourceId,
+                    surfaceAlarmId: surfaceId,
+                    scenePhaseLabel: "protected-data-lock",
+                    reason: "protected-data-lock-side-button"
+                )
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
+            notificationManager.recordProtectedDataDidBecomeAvailable()
             let appState = UIApplication.shared.applicationState
-            // Earliest moment after FaceID/Touch ID auth. Force-reset the
-            // audio session to clear AlarmKit's audio session interference,
-            // then reassert audio. This minimizes the silence window the
-            // user perceives between unlock and audio resuming.
-            if AlarmAudioStateController.shared.isAlarmRinging {
-                print("[AppRoot] protectedDataAvailable: forceReset skipped because alarm is ringing")
-            } else if !AlarmContinuousAudioEngine.shared.isEngineActive {
-                AudioRouteManager.shared.forceResetAlarmSession()
-            } else {
-                print("[AppRoot] protectedDataAvailable: skipping AudioRouteManager reset — engine active")
-            }
+            print("🧭 [ALARMTRACE_ACTION] EVENT=PROTECTED_DATA_AVAILABLE APP_STATE=\(appState.rawValue) IS_RINGING=\(ringCoordinator.isRinging) ENGINE_ACTIVE=\(AlarmContinuousAudioEngine.shared.isEngineActive) ENGINE_HEALTHY=\(AlarmContinuousAudioEngine.shared.cachedIsHealthy) PHASE=\(AlarmAudioStateController.shared.phase.rawValue)")
+            restoreAndTakeoverWhenAppActive(reason: "protectedDataDidBecomeAvailable")
             if ringCoordinator.isRinging {
                 ringCoordinator.reassertRingingAudio(reason: "protectedDataAvailable")
+                ringCoordinator.ensureRingingUIVisible()
             } else if AlarmBackgroundAudioBridge.shared.isPlaying {
                 AlarmBackgroundAudioBridge.shared.reinforceLockedLoopNow(reason: "protectedDataAvailable")
             }
@@ -343,27 +514,313 @@ struct AppRootView: View {
             alarmKitFailureMessage = AlarmKitSchedulingMessenger.shared.latestMessage()
             showAlarmKitFailureNotice = true
         }
-        .alert("Alarm Compatibility", isPresented: $showLegacyAlarmModeNotice) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("This iPhone is using the notification fallback path. Alarms still schedule and notify, but silent-mode override depends on iOS capabilities and permissions.")
-        }
-        .alert("AlarmKit Required", isPresented: $showAlarmKitFailureNotice) {
-            Button("Open Settings") {
-                guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
-                UIApplication.shared.open(url)
+        .modifier(RootNoticeAlerts(
+            showLegacyAlarmModeNotice: $showLegacyAlarmModeNotice,
+            showAlarmKitFailureNotice: $showAlarmKitFailureNotice,
+            showNotificationsDisabledWarning: $showNotificationsDisabledWarning,
+            showForceQuitEducationAlert: $showForceQuitEducationAlert,
+            alarmKitFailureMessage: alarmKitFailureMessage,
+            onForceQuitEducationAcknowledged: {
+                notificationManager.markForceQuitEducationAcknowledged()
             }
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(alarmKitFailureMessage)
+        ))
+    }
+
+    /// Requests notification permission the first time an enabled alarm exists
+    /// while the app is foreground. If permission is denied, surfaces an in-app
+    /// warning explaining the limitation. Idempotent per app session.
+    private func ensureAlarmNotificationPermissionIfNeeded(reason: String) {
+        guard UIApplication.shared.applicationState == .active else { return }
+        guard !didRequestAlarmNotificationPermission else { return }
+        guard alarmStore.alarms.contains(where: { $0.enabled }) else { return }
+        guard notificationManager.authorizationStatus == .notDetermined
+            || notificationManager.authorizationStatus == .denied else { return }
+
+        didRequestAlarmNotificationPermission = true
+        print("[AlarmSetup] ensuring notification permission before enabling alarm")
+        Task { @MainActor in
+            let result = await notificationManager.ensureNotificationPermissionForAlarmFeatures(reason: reason)
+            switch result {
+            case .granted:
+                print("[AlarmSetup] notification permission granted")
+                notificationManager.reconcilePreAlarmReadinessReminders(alarms: alarmStore.alarms, reason: "permission-granted")
+            case .denied, .notDetermined:
+                print("[AlarmSetup] notification permission denied; showing warning")
+                showNotificationsDisabledWarning = true
+            }
         }
     }
     
+    /// Active ringing alarm always wins over onboarding — full-screen cover binding.
+    /// Requires a genuine ring session (alarmState == ringing), not merely a
+    /// future scheduled alarm or a readiness-notification tap.
+    private var shouldPresentAlarmRingingFullScreen: Bool {
+        guard AlarmAuthHandoffStore.isActivelyRinging() else { return false }
+        if ringCoordinator.isRingingUIVisible { return true }
+        if ringCoordinator.isRinging { return true }
+        return true
+    }
+
+    /// "Open Alarmo again" reminders are disabled — purge any stale copies on foreground.
+    private func refreshSwipeAwayWarningStandbyIfNeeded(reason: String) {
+        notificationManager.purgeAllOpenAlarmoAgainNotifications(reason: reason)
+        notificationManager.cancelArmedAlarmCloseWarning(reason: reason)
+    }
+
+    private func startForceCloseWarningHeartbeat() {
+        stopForceCloseWarningHeartbeat()
+    }
+
+    private func stopForceCloseWarningHeartbeat() {
+        forceCloseWarningHeartbeat?.invalidate()
+        forceCloseWarningHeartbeat = nil
+    }
+
+    private func resolvedNextEnabledAlarmForCloseWarning() -> (alarm: Alarm, fireDate: Date)? {
+        let now = Date()
+        let upcoming = alarmStore.alarms.compactMap { alarm -> (Alarm, Date)? in
+            guard alarm.enabled else { return nil }
+            guard let fire = AlarmStore.nextFireDate(for: alarm, from: now), fire > now else { return nil }
+            return (alarm, fire)
+        }
+        return upcoming.min(by: { $0.1 < $1.1 })
+    }
+
+    private func resolvedLiveAlarmSourceId() -> String? {
+        if let alarm = ringCoordinator.activeAlarm { return alarm.id.uuidString }
+        if let persisted = AlarmAuthHandoffStore.activeRingingAlarmId() { return persisted }
+        if let bridgeSource = AlarmBackgroundAudioBridge.shared.currentSourceAlarmID { return bridgeSource }
+        if let surface = AlarmBackgroundAudioBridge.shared.currentAlarmID {
+            return AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surface)
+        }
+#if canImport(AlarmKit)
+        if #available(iOS 26.0, *) {
+            if let alerting = try? AlarmManager.shared.alarms.first(where: { $0.state == .alerting }) {
+                return AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: alerting.id.uuidString)
+            }
+        }
+#endif
+        return nil
+    }
+
+    private func resolvedLiveAlarmSurfaceId(fallbackSourceId: String) -> String? {
+        AlarmBackgroundAudioBridge.shared.currentAlarmID
+            ?? AlarmAuthHandoffStore.surfaceAlarmId()
+            ?? fallbackSourceId
+    }
+
+    private struct ForegroundEngineVerificationSample {
+        let isPlaying: Bool
+        let currentTime: TimeInterval
+        let outputVolume: Float
+        let hasValidRoute: Bool
+    }
+
+    /// Unified foreground takeover: when app is active and alarm is still ringing,
+    /// AppEngine must reclaim audio immediately and only then dismiss AlarmKit.
+    private func restoreAndTakeoverWhenAppActive(sourceAlarmId: String? = nil, reason: String) {
+        print("[ForegroundTakeover] ENTRY reason=\(reason) source=\(sourceAlarmId ?? AlarmAuthHandoffStore.activeRingingAlarmId() ?? "nil")")
+        guard UIApplication.shared.applicationState == .active else { return }
+        guard !AlarmAuthHandoffStore.isFinalStopOrSnoozePressed() else { return }
+        guard AlarmAuthHandoffStore.alarmState() == .ringing else { return }
+
+        let resolvedSourceAlarmId = sourceAlarmId
+            ?? AlarmAuthHandoffStore.activeRingingAlarmId()
+            ?? resolvedLiveAlarmSourceId()
+        guard let resolvedSourceAlarmId else { return }
+        print("[AlarmRestore] active ringing alarm found before root routing source=\(resolvedSourceAlarmId)")
+
+        let sessionLive = notificationManager.isLiveAlarmSessionActive(
+            ringCoordinator: ringCoordinator,
+            sourceAlarmId: resolvedSourceAlarmId
+        )
+        guard sessionLive else { return }
+
+        print("[ForegroundTakeover] app active with ringing alarm source=\(resolvedSourceAlarmId) reason=\(reason)")
+        if !appPreferences.onboardingCompleted {
+            print("[AlarmRestore] active alarm overrides onboarding source=\(resolvedSourceAlarmId)")
+        }
+        print("[AlarmRestore] active alarm overrides main UI source=\(resolvedSourceAlarmId)")
+
+        AlarmAuthHandoffStore.markAppBecameActive()
+        restoreActiveRingingAlarmIfNeeded(trigger: "foreground-takeover-\(reason)")
+        ringCoordinator.ensureRingingUIVisible()
+        print("[ForegroundTakeover] presenting AlarmRingingView source=\(resolvedSourceAlarmId)")
+        print("[AlarmRestore] presenting AlarmRingingView full-screen source=\(resolvedSourceAlarmId)")
+        print("[ForegroundTakeover] starting AppEngine source=\(resolvedSourceAlarmId)")
+
+        // Start takeover immediately in foreground.
+        AlarmAudioStateController.shared.handleAppBecameActive()
+        let appEngineAudible = AlarmAudioStateController.shared.isAppEngineQuickAudible(
+            reason: "foreground-takeover-precheck-\(reason)"
+        )
+        if !appEngineAudible {
+            print("[ForegroundTakeover] starting AppEngine takeover source=\(resolvedSourceAlarmId)")
+            AudioRouteManager.shared.forceResetAlarmSession()
+            AlarmContinuousAudioEngine.shared.recoverIfNeeded()
+            ringCoordinator.reassertRingingAudio(reason: "foreground-takeover-\(reason)")
+        }
+
+        foregroundTakeoverVerificationTask?.cancel()
+        foregroundTakeoverVerificationTask = Task { @MainActor in
+            await verifyForegroundTakeoverAndFinalize(sourceAlarmId: resolvedSourceAlarmId, reason: reason)
+        }
+    }
+
+    private func verifyForegroundTakeoverAndFinalize(sourceAlarmId: String, reason: String) async {
+        try? await Task.sleep(nanoseconds: 170_000_000)
+        let sample1 = captureForegroundEngineVerificationSample()
+        try? await Task.sleep(nanoseconds: 220_000_000)
+        let sample2 = captureForegroundEngineVerificationSample()
+        let timeAdvanced = sample2.currentTime > sample1.currentTime + 0.02
+        let strictAudible = await AlarmAudioStateController.shared.isAppEngineActuallyAudible(
+            reason: "foreground-takeover-verify-\(reason)"
+        )
+        print("[ForegroundTakeover] engine verification sample isPlaying=\(sample2.isPlaying) currentTime=\(String(format: "%.2f", sample2.currentTime)) outputVolume=\(String(format: "%.2f", sample2.outputVolume)) routeValid=\(sample2.hasValidRoute) timeAdvanced=\(timeAdvanced) strictAudible=\(strictAudible)")
+
+        let pass = strictAudible
+        if pass {
+            print("[ForegroundTakeover] engine verification PASS source=\(sourceAlarmId)")
+            print("[ForegroundTakeover] AppEngine verified playing source=\(sourceAlarmId)")
+            print("[AudioOwner] AppEngine now owns sound after Unlock/Open-to-Stop")
+            AlarmAudioStateController.shared.markUserUnlockedDuringAlarmRun(reason: "foreground-takeover-verified")
+            print("[ForegroundTakeover] dismissing AlarmKit after engine verified source=\(sourceAlarmId)")
+            notificationManager.dismissAlarmKitUIForAppEngineOwnedSession(
+                sourceAlarmId: sourceAlarmId,
+                reason: "foreground-engine-verified"
+            )
+            if let surfaceId = AlarmAuthHandoffStore.surfaceAlarmId(), surfaceId != sourceAlarmId {
+                notificationManager.dismissLinkedAlarmKitSurfaces(
+                    sourceAlarmId: surfaceId,
+                    reason: "foreground-engine-verified-surface"
+                )
+            }
+            print("[AlarmKitRecovery] not cancelled yet; waiting for engine verification")
+            let cancelled = await notificationManager.verifyAndCancelPreArmedRecoveryIfEngineAudible(
+                sourceAlarmId: sourceAlarmId,
+                reason: "foreground-engine-verified"
+            )
+            if cancelled {
+                print("[ForegroundTakeover] cancelling pre-armed recovery after engine verified source=\(sourceAlarmId)")
+                print("[AlarmKitRecovery] cancelled reason=foreground-engine-verified")
+            }
+            notificationManager.cancelPendingAuthRecovery(sourceAlarmId: sourceAlarmId)
+            notificationManager.cancelHardwareSuppressionChecks(sourceAlarmId: sourceAlarmId)
+            notificationManager.cancelForceClosedWarningIfAppHandlingSound(sourceAlarmId: sourceAlarmId)
+            return
+        }
+
+        print("[ForegroundTakeover] engine verification FAIL; keeping AlarmKit/recovery armed")
+        print("[ForegroundTakeover] AppEngine failed; alarm remains active")
+        print("[ForegroundTakeover] AlarmKit not dismissed because engine failed")
+        notificationManager.scheduleAudibleAlarmKitRecoveryIfNeeded(
+            sourceAlarmId: sourceAlarmId,
+            reason: "foreground-engine-verify-fail-\(reason)",
+            delay: 1.0,
+            force: true
+        )
+        print("[AlarmKitRecovery] recovery remains armed because foreground engine failed")
+    }
+
+    private func captureForegroundEngineVerificationSample() -> ForegroundEngineVerificationSample {
+        let engine = AlarmContinuousAudioEngine.shared
+        let isPlaying = engine.confirmStillPlaying()
+        return ForegroundEngineVerificationSample(
+            isPlaying: isPlaying,
+            currentTime: engine.currentTime,
+            outputVolume: AVAudioSession.sharedInstance().outputVolume,
+            hasValidRoute: engine.hasValidAudibleRoute
+        )
+    }
+
+    /// Restores alarm UI + audio from persisted auth handoff (cold launch, failed auth, manual open).
+    private func restoreActiveRingingAlarmIfNeeded(trigger: String) {
+        guard foregroundScheduler != nil else { return }
+        guard let sourceAlarmId = AlarmAuthHandoffStore.activeRingingAlarmId() else { return }
+        guard !AlarmAuthHandoffStore.isFinalStopOrSnoozePressed() else { return }
+
+        print("[AlarmRestore] app active with active ringing alarm source=\(sourceAlarmId) trigger=\(trigger)")
+        print("[AlarmRestore] manual/cold app open found active ringing alarm source=\(sourceAlarmId) trigger=\(trigger)")
+        print("[ManualRestore] user opened app while alarm still ringing source=\(sourceAlarmId)")
+        if !appPreferences.onboardingCompleted {
+            print("[AlarmRestore] presenting AlarmRingingView before onboarding source=\(sourceAlarmId)")
+            print("[Onboarding] skipped because alarm is ringing source=\(sourceAlarmId)")
+        }
+        print("[AuthHandoff] app became active; restoring ringing UI source=\(sourceAlarmId)")
+        print("[AlarmRestore] restoring full-screen alarm UI source=\(sourceAlarmId)")
+        print("[ManualRestore] restoring full-screen alarm UI source=\(sourceAlarmId)")
+
+        AlarmAuthHandoffStore.markAppBecameActive()
+        notificationManager.cancelAuthHandoffTimeout(sourceAlarmId: sourceAlarmId)
+        notificationManager.cancelHardwareSuppressionChecks(sourceAlarmId: sourceAlarmId)
+
+        let engineLiveHealthy = AlarmAudioStateController.shared.isAppEngineQuickAudible(
+            reason: "restore-\(trigger)"
+        )
+
+        if !ringCoordinator.isRinging {
+            let didStart = ringCoordinator.startRinging(alarmId: sourceAlarmId, source: .notification)
+            if !didStart {
+                handlePendingCustomAlarmUIHandoff(trigger: "restore-\(trigger)", bypassDedup: true)
+                return
+            }
+        }
+
+        ringCoordinator.ensureRingingUIVisible()
+        print("[AuthHandoff] presenting AlarmRingingView from persisted handoff source=\(sourceAlarmId)")
+
+        if engineLiveHealthy {
+            print("[AlarmRestore] engine quick-check passed; scheduling strict verify source=\(sourceAlarmId)")
+            Task { @MainActor in
+                if await AlarmAudioStateController.shared.isAppEngineActuallyAudible(
+                    reason: "restore-strict-\(trigger)"
+                ) {
+                    print("[AlarmRestore] engine strictly verified; cancelling pending recovery source=\(sourceAlarmId)")
+                    notificationManager.cancelPendingAuthRecovery(sourceAlarmId: sourceAlarmId)
+                    notificationManager.cancelHardwareSuppressionChecks(sourceAlarmId: sourceAlarmId)
+                    _ = await notificationManager.verifyAndCancelPreArmedRecoveryIfEngineAudible(
+                        sourceAlarmId: sourceAlarmId,
+                        reason: "app-active-engine-verified"
+                    )
+                    AlarmAudioStateController.shared.clearHardwareRecoveryState()
+                }
+            }
+        } else {
+            print("[AlarmRestore] AppEngine not playing; starting recovery/takeover source=\(sourceAlarmId)")
+            print("[AuthHandoff] AppEngine not playing; starting takeover/recovery source=\(sourceAlarmId)")
+            print("[HardwareRecovery] app active after suppression; restoring alarm UI source=\(sourceAlarmId)")
+            print("[ManualRestore] starting AppEngine recovery source=\(sourceAlarmId)")
+            AlarmAudioStateController.shared.handleAppBecameActive()
+            ringCoordinator.reassertRingingAudio(reason: "auth-handoff-restore-\(trigger)")
+            if UIApplication.shared.applicationState == .active,
+               !AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
+                notificationManager.scheduleAudibleAlarmKitRecoveryIfNeeded(
+                    sourceAlarmId: sourceAlarmId,
+                    reason: "manual-open-restore",
+                    delay: 1.0
+                )
+            }
+        }
+    }
+
     private func updateViewState() {
-        let shouldForceOnboarding =
-            appPreferences.forceShowOnboardingNextLaunch ||
-            (appPreferences.devAlwaysShowOnboarding && !appPreferences.onboardingCompleted)
-        let newState = !shouldForceOnboarding && appPreferences.onboardingCompleted
+        print("[AppRoot] checking active ringing handoff before root routing")
+        if AlarmAuthHandoffStore.isActivelyRinging() {
+            let sourceAlarmId = AlarmAuthHandoffStore.activeRingingAlarmId() ?? "unknown"
+            print("[AlarmRestore] active ringing alarm found source=\(sourceAlarmId)")
+            print("[AlarmRestore] active alarm overrides onboarding source=\(sourceAlarmId)")
+            print("[AlarmRestore] active alarm overrides main UI source=\(sourceAlarmId)")
+            print("[AlarmRestore] presenting AlarmRingingView full-screen source=\(sourceAlarmId)")
+            restoreAndTakeoverWhenAppActive(sourceAlarmId: sourceAlarmId, reason: "updateViewState")
+            return
+        }
+        if AlarmAuthHandoffStore.activeRingingAlarmId() != nil {
+            print("[AlarmRestore] skipped; alarm is not ringing source=\(AlarmAuthHandoffStore.activeRingingAlarmId() ?? "unknown")")
+        }
+        let newState = Self.shouldShowMainTab(
+            preferences: appPreferences,
+            hasPersistedAlarms: !alarmStore.alarms.isEmpty
+        )
         if newState != showingMainTab {
             withAnimation(.easeInOut) {
                 showingMainTab = newState
@@ -372,10 +829,53 @@ struct AppRootView: View {
     }
 
     private static func initialMainTabState(from preferences: AppPreferences) -> Bool {
-        let shouldForceOnboarding =
-            preferences.forceShowOnboardingNextLaunch ||
-            (preferences.devAlwaysShowOnboarding && !preferences.onboardingCompleted)
-        return !shouldForceOnboarding && preferences.onboardingCompleted
+        shouldShowMainTab(preferences: preferences, hasPersistedAlarms: preferences.hasAnyAlarm)
+    }
+
+    /// Returning users should land on the Alarmo logo → home flow, not replay onboarding.
+    private static func shouldShowMainTab(
+        preferences: AppPreferences,
+        hasPersistedAlarms: Bool
+    ) -> Bool {
+        if preferences.onboardingCompleted || hasPersistedAlarms {
+            return true
+        }
+        return !shouldForceOnboarding(from: preferences)
+    }
+
+    private static func shouldForceOnboarding(from preferences: AppPreferences) -> Bool {
+        guard !preferences.onboardingCompleted else { return false }
+        return preferences.forceShowOnboardingNextLaunch || preferences.devAlwaysShowOnboarding
+    }
+
+    private func clearStaleForceOnboardingFlagIfNeeded(trigger: String) {
+        guard appPreferences.onboardingCompleted || appPreferences.hasAnyAlarm else { return }
+        guard appPreferences.forceShowOnboardingNextLaunch else { return }
+        appPreferences.forceShowOnboardingNextLaunch = false
+        print("[AppRoot] cleared stale force-onboarding flag trigger=\(trigger)")
+    }
+
+    private func applyOpenAlarmMenuNavigationIfPending(trigger: String) {
+        guard notificationManager.hasPendingOpenAlarmMenuNavigation() else { return }
+        openAlarmMenuFromNotification(trigger: trigger)
+    }
+
+    /// Informational notification taps (e.g. "Alarmo was closed") should land on the
+    /// alarm tab, not replay onboarding or the Report dashboard.
+    private func openAlarmMenuFromNotification(trigger: String) {
+        print("[Navigation] showing alarm menu trigger=\(trigger)")
+        appPreferences.forceShowOnboardingNextLaunch = false
+        navigationStore.selectedTab = .alarm
+
+        let isReturningUser =
+            appPreferences.onboardingCompleted
+            || appPreferences.hasAnyAlarm
+            || !alarmStore.alarms.isEmpty
+        guard isReturningUser else { return }
+
+        showingMainTab = true
+        notificationManager.clearPendingOpenAlarmMenuNavigation()
+        print("[Navigation] applied alarm-menu route trigger=\(trigger) tab=\(navigationStore.selectedTab.rawValue)")
     }
 
     private func hasPendingLiveActivityOpenRequest() -> Bool {
@@ -388,14 +888,18 @@ struct AppRootView: View {
         guard foregroundScheduler != nil else { return }
 
         let pending = AlarmCustomUIHandoffStore.pendingRequest()
-        let sourceAlarmId = pending?.sourceAlarmID
+        let sourceAlarmId = AlarmAuthHandoffStore.activeRingingAlarmId()
+            ?? pending?.sourceAlarmID
             ?? AlarmBackgroundAudioBridge.shared.currentAlarmID.map {
                 AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: $0)
             }
-        let surfaceAlarmId = pending?.surfaceAlarmID
+        let surfaceAlarmId = AlarmAuthHandoffStore.surfaceAlarmId()
+            ?? pending?.surfaceAlarmID
             ?? AlarmBackgroundAudioBridge.shared.currentAlarmID
             ?? sourceAlarmId
         guard let sourceAlarmId, let surfaceAlarmId else { return }
+        guard !AlarmAuthHandoffStore.isFinalStopOrSnoozePressed() else { return }
+        print("[AlarmHandoff] active ringing alarm found before routing source=\(sourceAlarmId) trigger=\(trigger)")
         let controller = AlarmAudioStateController.shared
         let appState = UIApplication.shared.applicationState
         let engine = AlarmContinuousAudioEngine.shared
@@ -440,7 +944,9 @@ struct AppRootView: View {
 
         if didStartPrimary || didStartMapped {
             let resolvedSource = didStartPrimary ? sourceAlarmId : mappedSource
-            AlarmCustomUIHandoffStore.clear()
+            print("[AlarmHandoff] startRinging succeeded from foreground handoff source=\(resolvedSource) engineActive=\(AlarmContinuousAudioEngine.shared.isEngineActive) phase=\(AlarmAudioStateController.shared.phase.rawValue)")
+            print("[AuthHandoff] presenting AlarmRingingView from persisted handoff source=\(resolvedSource)")
+            AlarmAuthHandoffStore.markAppBecameActive()
             customUIHandoffInProgress = false
             customUIHandoffActiveRequestKey = nil
             customUIHandoffStartedAt = nil
@@ -535,6 +1041,7 @@ struct AppRootView: View {
     private func handleAlarmHandoffURL(_ url: URL) {
         guard let alarmID = AlarmCustomUIHandoffStore.alarmID(from: url) else { return }
         AlarmCustomUIHandoffStore.request(alarmID: alarmID)
+        restoreAndTakeoverWhenAppActive(sourceAlarmId: alarmID.uuidString, reason: "handoffURL")
         handlePendingCustomAlarmUIHandoff(trigger: "handoffURL")
     }
 
@@ -570,6 +1077,17 @@ struct AppRootView: View {
 
         guard ringCoordinator.isRinging || AlarmBackgroundAudioBridge.shared.isPlaying else { return }
 
+        guard UIApplication.shared.applicationState != .active else { return }
+
+        if notificationManager.isAppEngineControllingAlarmAudioForNotifications() {
+            notificationManager.ensureAppEngineRingingControlNotification(
+                sourceAlarmId: sourceAlarmId,
+                alarmName: alarmName ?? ringCoordinator.activeAlarm?.name,
+                reason: "refresh-unlock-prompt-engine-primary"
+            )
+            return
+        }
+
         notificationManager.scheduleAlarmKitUnlockPrompt(
             sourceAlarmId: sourceAlarmId,
             surfaceAlarmId: surfaceAlarmId,
@@ -583,7 +1101,13 @@ struct AppRootView: View {
     }
 
     private var resolvedColorScheme: ColorScheme? {
-        appThemeStyleRaw == AlarmThemeStyle.tiimo.rawValue ? .light : settingsStore.themeMode.colorScheme
+        let style = AlarmThemeStyle(rawValue: appThemeStyleRaw) ?? .default
+        return style.forcesLightColorScheme ? .light : settingsStore.themeMode.colorScheme
+    }
+
+    private var isTiimoTheme: Bool {
+        let style = AlarmThemeStyle(rawValue: appThemeStyleRaw) ?? .default
+        return style.usesTiimoLayoutBranch
     }
 
     private func handlePlanNotificationMarkDone(userInfo: [AnyHashable: Any]?) {
@@ -662,6 +1186,72 @@ struct AppRootView: View {
             checkDate = previous
         }
         return streak
+    }
+}
+
+private struct LaunchLogoView: View {
+    let isTiimoTheme: Bool
+
+    var body: some View {
+        ZStack {
+            (isTiimoTheme ? Color.white : Color.black)
+                .ignoresSafeArea()
+
+            Text("Alarmo")
+                .font(.system(size: 44, weight: .bold, design: .rounded))
+                .foregroundColor(isTiimoTheme ? .black : .white)
+                .kerning(0.4)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Alarmo")
+    }
+}
+
+/// Bundles the root-level informational alerts into a single modifier so the
+/// main `body` expression stays small enough for the Swift type-checker.
+private struct RootNoticeAlerts: ViewModifier {
+    @Binding var showLegacyAlarmModeNotice: Bool
+    @Binding var showAlarmKitFailureNotice: Bool
+    @Binding var showNotificationsDisabledWarning: Bool
+    @Binding var showForceQuitEducationAlert: Bool
+    let alarmKitFailureMessage: String
+    let onForceQuitEducationAcknowledged: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onReceive(NotificationCenter.default.publisher(for: .showForceQuitEducationAfterAlarmSetup)) { _ in
+                showForceQuitEducationAlert = true
+            }
+            .alert("Keep Alarmo available", isPresented: $showForceQuitEducationAlert) {
+                Button("OK", role: .cancel) {
+                    onForceQuitEducationAcknowledged()
+                }
+            } message: {
+                Text("Your basic alarm sound is scheduled. For the full wake-up screen, missions, and in-app sound, don't force-close Alarmo from the app switcher before the alarm.")
+            }
+            .alert("Alarm Compatibility", isPresented: $showLegacyAlarmModeNotice) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("This iPhone is using the notification fallback path. Alarms still schedule and notify, but silent-mode override depends on iOS capabilities and permissions.")
+            }
+            .alert("AlarmKit Required", isPresented: $showAlarmKitFailureNotice) {
+                Button("Open Settings") {
+                    guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                    UIApplication.shared.open(url)
+                }
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(alarmKitFailureMessage)
+            }
+            .alert("Notifications are off", isPresented: $showNotificationsDisabledWarning) {
+                Button("Open Settings") {
+                    guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                    UIApplication.shared.open(url)
+                }
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Alarmo can still schedule the basic alarm sound, but it cannot remind you to reopen the app if it is closed. Enable notifications in Settings for the full alarm experience.")
+            }
     }
 }
 

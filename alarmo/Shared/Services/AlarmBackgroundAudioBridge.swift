@@ -45,6 +45,7 @@ final class AlarmBackgroundAudioBridge {
     private var consecutiveWatchdogFailures: Int = 0
     private var lastWatchdogRecoveryAttemptAt: Date = .distantPast
     private var watchdogRecoveryInProgress: Bool = false
+    private var lastObservedOutputVolume: Float = -1
 
     // Backoff schedule: attempt 1 = 0.5s wait, 2 = 1s, 3 = 2s, 4+ = 5s max
     private func watchdogBackoffInterval() -> TimeInterval {
@@ -91,7 +92,11 @@ final class AlarmBackgroundAudioBridge {
     }
 
     var isPlaying: Bool {
-        activeAlarmID != nil
+        guard activeAlarmID != nil || activeSourceAlarmID != nil else { return false }
+        return watchdogTimer != nil
+            || backgroundTaskID != .invalid
+            || pendingHandoffStopWorkItem != nil
+            || AlarmContinuousAudioEngine.shared.isEngineActive
     }
 
     var isAudiblyPlaying: Bool {
@@ -125,7 +130,15 @@ final class AlarmBackgroundAudioBridge {
         if controller.currentAlarmId != alarmId || controller.currentAlarmRunId == nil {
             controller.beginAlarmSession(alarmId: alarmId, soundName: soundName, reason: "bridge-\(reason)")
         }
+        if NotificationManager.shared.shouldPreserveAlarmKitPrimaryOwner(sourceAlarmId: alarmId) {
+            controller.markAlarmKitPrimaryLocked(reason: "bridge-preserve-primary-owner-\(reason)")
+            swiftlog("[Bridge] preserving AlarmKit primary owner; engine prewarm suppressed reason=\(reason)")
+            return
+        }
         if controller.phase == .alarmKitSettling || controller.phase == .appEnginePreparing || controller.phase == .alarmKitFallback {
+            if UIApplication.shared.applicationState != .active {
+                swiftlog("[AudioOwner] Bridge started near-silent because AlarmKit is primary (owner=\(controller.audibleOwner.rawValue) phase=\(controller.phase.rawValue))")
+            }
             if let runId = controller.currentAlarmRunId {
                 AlarmContinuousAudioEngine.shared.prepareSilently(
                     soundName: soundName,
@@ -157,6 +170,24 @@ final class AlarmBackgroundAudioBridge {
         guard let uuid = UUID(uuidString: resolvedSourceAlarmId) else { return }
         guard let alarm = (alarmStore ?? AlarmStore.shared).alarm(by: uuid) else {
             print("[AlarmBackgroundAudioBridge] Alarm not found for source=\(resolvedSourceAlarmId), surface=\(surfaceAlarmId)")
+            return
+        }
+
+        if NotificationManager.shared.shouldPreserveAlarmKitPrimaryOwner(sourceAlarmId: resolvedSourceAlarmId),
+           !AlarmContinuousAudioEngine.shared.isEngineActive {
+            activeAlarmID = surfaceAlarmId
+            activeSourceAlarmID = resolvedSourceAlarmId
+            AlarmAudioStateController.shared.markAlarmKitPrimaryLocked(reason: "bridge-passive-standby")
+            AlarmAudioStateController.shared.prewarmEngineForInstantHandoff(
+                alarmId: resolvedSourceAlarmId,
+                soundName: alarm.soundName,
+                reason: "bridge-passive-standby"
+            )
+            beginBackgroundTaskIfNeeded(named: "alarmo.backgroundAlarm.standby.\(surfaceAlarmId)")
+            if watchdogTimer == nil {
+                startWatchdog()
+            }
+            swiftlog("[Bridge] passive standby — AlarmKit owns sound; engine prewarmed source=\(resolvedSourceAlarmId)")
             return
         }
 
@@ -337,7 +368,63 @@ final class AlarmBackgroundAudioBridge {
             return
         }
 
+        if AlarmAuthHandoffStore.alarmState() == .ringing
+            || AlarmAudioStateController.shared.isAlarmRinging {
+            AlarmAudioStateController.shared.evaluateForbiddenAudioStateIfNeeded(reason: "bridge-watchdog")
+        }
+
         let engineHealthy = AlarmContinuousAudioEngine.shared.cachedIsHealthy
+        let alarmKitOwnsLockedAudio = AlarmAudioStateController.shared.isAlarmKitPrimaryLockedActive()
+            || (NotificationManager.shared.shouldPreserveAlarmKitPrimaryOwner(sourceAlarmId: sourceAlarmId)
+                && NotificationManager.shared.currentAlarmSurfaceStatus(
+                    sourceAlarmId: sourceAlarmId,
+                    reason: "bridge-watchdog"
+                ).trustedAsAudible)
+        if alarmKitOwnsLockedAudio {
+            let enginePlaying = AlarmContinuousAudioEngine.shared.confirmStillPlaying()
+            if !enginePlaying {
+                // During the initial locked AlarmKit-owned ring the engine is
+                // intentionally silent (prewarmed only). Take over only after a
+                // real suppression signal or once AlarmKit is no longer alerting.
+                let explicitSuppression = NotificationManager.shared.hasExplicitHardwareSuppression(
+                    sourceAlarmId: sourceAlarmId
+                )
+                let alarmKitStillAlerting = NotificationManager.shared.hasAlarmKitAlertingSurface(
+                    sourceAlarmId: sourceAlarmId
+                )
+                if explicitSuppression || !alarmKitStillAlerting {
+                    swiftlog(
+                        "[Bridge] post-suppression handoff — engine silent " +
+                        "source=\(sourceAlarmId) explicit=\(explicitSuppression) " +
+                        "alarmKitAlerting=\(alarmKitStillAlerting)"
+                    )
+                    _ = NotificationManager.shared.startAppEngineAfterAlarmKitSuppression(
+                        sourceAlarmId: sourceAlarmId,
+                        surfaceAlarmId: alarmId,
+                        reason: "bridge-watchdog-post-suppression"
+                    )
+                } else {
+                    LogThrottler.log(
+                        "[Bridge] AppEngine silence expected because AlarmKit owns locked audio",
+                        key: "bridge.watchdog.alarmkit-primary.\(sourceAlarmId)",
+                        interval: 5.0,
+                        sink: swiftlog
+                    )
+                }
+            } else {
+                LogThrottler.log(
+                    "[Bridge] AppEngine playing while AlarmKit primary",
+                    key: "bridge.watchdog.alarmkit-playing.\(sourceAlarmId)",
+                    interval: 5.0,
+                    sink: swiftlog
+                )
+            }
+            consecutiveWatchdogFailures = 0
+            lastWatchdogRecoveryAttemptAt = .distantPast
+            watchdogRecoveryInProgress = false
+            silentBridgeSince = nil
+            return
+        }
         if AlarmAudioStateController.shared.isSilenceExpected() {
             consecutiveWatchdogFailures = 0
             lastWatchdogRecoveryAttemptAt = .distantPast
@@ -431,6 +518,14 @@ final class AlarmBackgroundAudioBridge {
         }
         lastLockedRefreshAt = now
         guard let sourceAlarmId = activeSourceAlarmID ?? activeAlarmID else { return }
+        if NotificationManager.shared.shouldUseLockedNoUIRecovery(sourceAlarmId: sourceAlarmId) {
+            print("[LockedNoUI] bridge locked refresh → engine only (no AlarmKit UI) reason=\(reason) source=\(sourceAlarmId)")
+            NotificationManager.shared.attemptLockedNoUIEngineRecovery(
+                sourceAlarmId: sourceAlarmId,
+                reason: "bridge-\(reason)"
+            )
+            return
+        }
         NotificationManager.shared.ensureAlarmKitSurfaceForLockedLoopIfNeeded(
             sourceAlarmId: sourceAlarmId,
             force: true
@@ -482,23 +577,20 @@ final class AlarmBackgroundAudioBridge {
     }
 
     private func handleOutputVolumeDidChange() {
-        guard activeAlarmID != nil else { return }
+        guard activeAlarmID != nil || activeSourceAlarmID != nil else { return }
         let output = AVAudioSession.sharedInstance().outputVolume
-        print("[Volume] outputVolume=\(String(format: "%.2f", output)) playerVolume=\(String(format: "%.2f", AlarmContinuousAudioEngine.shared.currentPlayerVolume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) reason=hardware-volume-change")
-        let appState = UIApplication.shared.applicationState
-        if appState == .active && NotificationManager.shared.isCustomAlarmUIVisibleInForeground() {
-            return
-        }
-        guard appState != .active else { return }
+        let oldOutput = lastObservedOutputVolume >= 0 ? lastObservedOutputVolume : output
+        lastObservedOutputVolume = output
 
         let sourceAlarmId = activeSourceAlarmID
-            ?? activeAlarmID
+            ?? activeAlarmID.map { AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: $0) }
             ?? AlarmCustomUIHandoffStore.pendingRequest()?.sourceAlarmID
-        guard let sourceAlarmId else { return }
-        NotificationManager.shared.scheduleHardwareButtonRespawnIfNeeded(
-            sourceAlarmId: sourceAlarmId,
-            alarmName: nil,
-            reason: "Volume button detected via audio session"
+            ?? AlarmAuthHandoffStore.activeRingingAlarmId()
+
+        AlarmAudioStateController.shared.handleOutputVolumeChange(
+            oldVolume: oldOutput,
+            newVolume: output,
+            sourceAlarmId: sourceAlarmId
         )
     }
 }
