@@ -59,7 +59,7 @@ struct StepsMissionView: View {
         VStack(spacing: 40) {
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.2), lineWidth: 4)
+                    .stroke(MissionTheme.softStroke, lineWidth: 4)
                     .frame(width: 120, height: 120)
                 
                 Image(systemName: "figure.walk")
@@ -70,7 +70,7 @@ struct StepsMissionView: View {
             Text("Stand up and\nPrepare yourself")
                 .font(.system(size: 32, weight: .black))
                 .multilineTextAlignment(.center)
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
             
             Button(action: {
                 viewModel.start()
@@ -80,18 +80,9 @@ struct StepsMissionView: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 48)
                     .padding(.vertical, 18)
-                    .background(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.08, green: 0.78, blue: 0.92),
-                                Color(red: 0.05, green: 0.66, blue: 0.84)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .background(MissionTheme.primaryButtonGradient)
                     .cornerRadius(32)
-                    .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3), radius: 15, x: 0, y: 10)
+                    .shadow(color: MissionTheme.primaryButtonShadow, radius: 15, x: 0, y: 10)
             }
         }
     }
@@ -108,14 +99,14 @@ struct StepsMissionView: View {
                 } else {
                     Text("Walk Around")
                         .font(.system(size: 32, weight: .black))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                         .transition(.opacity)
                 }
                 
                 ZStack {
                     // Background track
                     Circle()
-                        .stroke(Color.white.opacity(0.1), style: StrokeStyle(lineWidth: 24, lineCap: .round))
+                        .stroke(MissionTheme.softStroke, style: StrokeStyle(lineWidth: 24, lineCap: .round))
                         .frame(width: 250, height: 250)
                     
                     // Progress
@@ -142,14 +133,14 @@ struct StepsMissionView: View {
                     VStack(spacing: 8) {
                         Image(systemName: "figure.walk")
                             .font(.system(size: 50))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                             // A simple scale/bounce effect when steps update
                             .scaleEffect(viewModel.remainingSteps % 2 == 0 ? 1.0 : 1.1)
                             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: viewModel.remainingSteps)
                         
                         Text("\(viewModel.remainingSteps)")
                             .font(.system(size: 72, weight: .black, design: .monospaced))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                             .contentTransition(.numericText())
                             .animation(.default, value: viewModel.remainingSteps)
                         
@@ -177,14 +168,14 @@ struct StepsMissionView: View {
                 
                 Text("Great job!")
                     .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                 
                 Text("You're awake now! 👟")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(Colors.textSecondary)
             }
             .padding(40)
-            .background(Color.black.opacity(0.85))
+            .background(MissionTheme.successCardFill)
             .cornerRadius(32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -201,7 +192,7 @@ struct StepsMissionView: View {
             Text("Motion access required")
                 .font(.system(size: 24, weight: .bold))
                 .multilineTextAlignment(.center)
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
             
             Text("Please enable 'Motion & Fitness' access in Settings to use this mission.")
                 .font(.system(size: 16))
@@ -218,7 +209,7 @@ struct StepsMissionView: View {
             .foregroundColor(.white)
             .padding(.vertical, 12)
             .padding(.horizontal, 24)
-            .background(Colors.accentTeal)
+            .background(MissionTheme.primaryButtonGradient)
             .cornerRadius(24)
             
             Button("Try Again") {

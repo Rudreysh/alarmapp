@@ -589,8 +589,7 @@ struct HomeView: View {
                         Spacer()
                         FloatingAddMenu(
                             onSelectTimer: {
-                                showTimer = true
-                                showAddMenu = false
+                                openTimer()
                             },
                             onSelectHabit: {
                                 openCreateHabit()
@@ -648,6 +647,13 @@ struct HomeView: View {
         showAddMenu = false
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             showCreateHabit = true
+        }
+    }
+
+    private func openTimer() {
+        showAddMenu = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            showTimer = true
         }
     }
 

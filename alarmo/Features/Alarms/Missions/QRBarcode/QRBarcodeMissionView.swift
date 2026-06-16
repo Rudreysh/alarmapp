@@ -86,7 +86,7 @@ struct QRBarcodeMissionView: View {
                             .foregroundColor(Colors.textSecondary)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
-                            .background(Color.white.opacity(0.08))
+                            .background(MissionTheme.softFill)
                             .cornerRadius(8)
                     }
                 }
@@ -99,10 +99,10 @@ struct QRBarcodeMissionView: View {
                 }) {
                     Text("Scan")
                         .font(.title3.bold())
-                        .foregroundColor(.black)
+                        .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
-                        .background(Color.white)
+                        .background(MissionTheme.primaryButtonGradient)
                         .cornerRadius(16)
                 }
                 .padding(.horizontal, 24)
@@ -124,7 +124,7 @@ struct QRBarcodeMissionView: View {
                                 .font(.headline)
                                 .foregroundColor(.white)
                                 .padding()
-                                .background(viewModel.runtimeIsError ? Color.red : Color.green)
+                                .background(viewModel.runtimeIsError ? Color.red : Colors.accentGreen)
                                 .cornerRadius(12)
                                 .padding(.bottom, 100)
                                 .transition(.move(edge: .bottom).combined(with: .opacity))

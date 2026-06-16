@@ -32,7 +32,7 @@ struct QRScannerView: View {
                         }
                     }
                     .padding()
-                    .background(Colors.accentTeal)
+                    .background(MissionTheme.primaryButtonGradient)
                     .foregroundColor(.white)
                     .cornerRadius(8)
                 }
@@ -52,7 +52,7 @@ struct QRScannerView: View {
                             .font(.system(size: 20, weight: .bold))
                             .foregroundColor(.white)
                             .padding(12)
-                            .background(Color.black.opacity(0.5))
+                            .background(MissionTheme.successScrim)
                             .clipShape(Circle())
                     }
                     .padding(.leading, 20)
@@ -66,7 +66,7 @@ struct QRScannerView: View {
                                 .font(.system(size: 20, weight: .bold))
                                 .foregroundColor(service.isTorchEnabled ? Colors.accentTeal : .white)
                                 .padding(12)
-                                .background(Color.black.opacity(0.5))
+                                .background(MissionTheme.successScrim)
                                 .clipShape(Circle())
                         }
                         .padding(.trailing, 20)
@@ -150,7 +150,7 @@ struct ScannerOverlay: View {
             
             ZStack {
                 // Dimmed background with transparent center window.
-                Color.black.opacity(0.45)
+                MissionTheme.successScrim
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
                             .frame(width: scanWidth, height: scanHeight)
@@ -161,7 +161,7 @@ struct ScannerOverlay: View {
                 
                 // Border frame
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.white, lineWidth: 3)
+                    .stroke(MissionTheme.isTiimo ? Colors.accentBlue : Color.white, lineWidth: 3)
                     .frame(width: scanWidth, height: scanHeight)
                     .position(x: width / 2, y: height / 2)
             }

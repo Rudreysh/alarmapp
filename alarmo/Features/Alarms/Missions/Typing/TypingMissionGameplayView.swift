@@ -34,10 +34,10 @@ struct TypingMissionGameplayView: View {
                 }) {
                     Text("Done")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(viewModel.isDoneEnabled ? .black : Colors.textTertiary)
+                        .foregroundColor(viewModel.isDoneEnabled ? MissionTheme.secondaryButtonText : Colors.textTertiary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(viewModel.isDoneEnabled ? Color.white : Color.white.opacity(0.1))
+                        .background(viewModel.isDoneEnabled ? MissionTheme.secondaryButtonFill : MissionTheme.softFill)
                         .cornerRadius(32)
                 }
                 .disabled(!viewModel.isDoneEnabled)
@@ -47,7 +47,7 @@ struct TypingMissionGameplayView: View {
                 if viewModel.isPreviewMode {
                     Text("PREVIEW MODE")
                         .font(.system(size: 14, weight: .black))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(MissionTheme.backgroundSubtleText)
                         .padding(.bottom, 20)
                 }
                 
@@ -81,12 +81,12 @@ struct TypingMissionGameplayView: View {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
             Spacer()
             Text("\(viewModel.roundIndex)/\(viewModel.totalRounds)")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
             Spacer()
             // Timer Display
             HStack(spacing: 4) {
@@ -97,14 +97,14 @@ struct TypingMissionGameplayView: View {
             .foregroundColor(viewModel.timeRemaining < 10 ? .red : .cyan)
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .background(Color.white.opacity(0.1))
+            .background(MissionTheme.timerCapsuleFill)
             .cornerRadius(12)
             
             Spacer()
             Button(action: { viewModel.soundEnabled.toggle() }) {
                 Image(systemName: viewModel.soundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
         }
         .padding(.horizontal, 24)
@@ -152,7 +152,7 @@ struct TypingMissionGameplayView: View {
             .font(.system(size: 32, weight: .bold))
             .multilineTextAlignment(.center)
             .padding(12)
-            .background(Color.white.opacity(0.05))
+            .background(MissionTheme.softFill)
             .cornerRadius(12)
         }
         .padding(.horizontal, 24)
@@ -160,7 +160,7 @@ struct TypingMissionGameplayView: View {
     
     private var successOverlay: some View {
         ZStack {
-            Color.black.opacity(0.6).ignoresSafeArea()
+            MissionTheme.successScrim.ignoresSafeArea()
             MissionEmojiConfettiBackground()
             
             VStack(spacing: 24) {
@@ -170,8 +170,11 @@ struct TypingMissionGameplayView: View {
                 
                 Text(viewModel.isPreviewMode && viewModel.roundIndex == viewModel.totalRounds ? "Preview Complete" : "Good job!")
                     .font(.system(size: 32, weight: .heavy))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
+            .padding(28)
+            .background(MissionTheme.successCardFill)
+            .cornerRadius(28)
         }
     }
 }
@@ -181,7 +184,7 @@ struct BlinkingCursor: View {
     
     var body: some View {
         Rectangle()
-            .fill(Color.white)
+            .fill(Colors.textPrimary)
             .frame(width: 2)
             .opacity(isVisible ? 1 : 0)
             .onAppear {

@@ -61,7 +61,7 @@ struct SquatMissionView: View {
         VStack(spacing: 40) {
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.15), lineWidth: 4)
+                    .stroke(MissionTheme.softStroke, lineWidth: 4)
                     .frame(width: 120, height: 120)
                 
                 Image(systemName: "figure.strengthtraining.traditional")
@@ -83,7 +83,7 @@ struct SquatMissionView: View {
             Text("Do squats\nto dismiss")
                 .font(.system(size: 32, weight: .black))
                 .multilineTextAlignment(.center)
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
             
             Text("Complete \(viewModel.targetSquats) squats to turn off the alarm")
                 .font(.system(size: 16, weight: .semibold))
@@ -94,23 +94,14 @@ struct SquatMissionView: View {
             Button(action: {
                 viewModel.start()
             }) {
-                Text("Start Now")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 48)
-                    .padding(.vertical, 18)
-                    .background(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.08, green: 0.78, blue: 0.92),
-                                Color(red: 0.05, green: 0.66, blue: 0.84)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .cornerRadius(32)
-                    .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3), radius: 15, x: 0, y: 10)
+                    Text("Start Now")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 48)
+                        .padding(.vertical, 18)
+                        .background(MissionTheme.primaryButtonGradient)
+                        .cornerRadius(32)
+                        .shadow(color: MissionTheme.primaryButtonShadow, radius: 15, x: 0, y: 10)
             }
         }
     }
@@ -123,32 +114,32 @@ struct SquatMissionView: View {
             ZStack {
                 // Background Track
                 Circle()
-                    .stroke(Color.white.opacity(0.1), style: StrokeStyle(lineWidth: 16, lineCap: .round))
+                    .stroke(MissionTheme.softStroke, style: StrokeStyle(lineWidth: 16, lineCap: .round))
                     .frame(width: 200, height: 200)
                 
                 // Progress
                 Circle()
                     .trim(from: 0.0, to: viewModel.progress)
                     .stroke(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.08, green: 0.78, blue: 0.92),
-                                Color(red: 0.05, green: 0.66, blue: 0.84)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                            LinearGradient(
+                                colors: [
+                                    MissionTheme.isTiimo ? Color(hex: "#9B90F1") : Color(red: 0.08, green: 0.78, blue: 0.92),
+                                    MissionTheme.isTiimo ? Colors.accentBlue : Color(red: 0.05, green: 0.66, blue: 0.84)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
                         ),
                         style: StrokeStyle(lineWidth: 16, lineCap: .round)
                     )
-                    .rotationEffect(.degrees(-90))
-                    .frame(width: 200, height: 200)
-                    .animation(.easeOut(duration: 0.3), value: viewModel.progress)
-                    .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.4), radius: 10, x: 0, y: 0)
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 200, height: 200)
+                        .animation(.easeOut(duration: 0.3), value: viewModel.progress)
+                        .shadow(color: MissionTheme.primaryButtonShadow.opacity(0.8), radius: 10, x: 0, y: 0)
                 
                 // Icon
                 Image(systemName: viewModel.phase == .squatting ? "figure.cooldown" : "figure.strengthtraining.traditional")
                     .font(.system(size: 70))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                     // Real-time squatting animation matching the user's detected phase
                     .offset(y: viewModel.phase == .squatting ? 25 : 0)
                     .scaleEffect(y: viewModel.phase == .squatting ? 0.8 : 1.0, anchor: .bottom)
@@ -165,7 +156,7 @@ struct SquatMissionView: View {
             HStack(alignment: .lastTextBaseline) {
                 Text("\(viewModel.currentSquats)")
                     .font(.system(size: 80, weight: .black, design: .monospaced))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                     .contentTransition(.numericText())
                 
                 Text("/\(viewModel.targetSquats)")
@@ -193,14 +184,14 @@ struct SquatMissionView: View {
                 
                 Text("Great workout!")
                     .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                 
                 Text("You're definitely awake now! 💪")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(Colors.textSecondary)
             }
             .padding(40)
-            .background(Color.black.opacity(0.85))
+            .background(MissionTheme.successCardFill)
             .cornerRadius(32)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -218,7 +209,7 @@ struct SquatMissionView: View {
             Text("Motion access required")
                 .font(.system(size: 24, weight: .bold))
                 .multilineTextAlignment(.center)
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
             
             Text("Please enable 'Motion & Fitness' access in Settings to use the Squat mission.")
                 .font(.system(size: 16))
@@ -235,7 +226,7 @@ struct SquatMissionView: View {
             .foregroundColor(.white)
             .padding(.vertical, 12)
             .padding(.horizontal, 24)
-            .background(Colors.accentTeal)
+            .background(MissionTheme.primaryButtonGradient)
             .cornerRadius(24)
         }
     }

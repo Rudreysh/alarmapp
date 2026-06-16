@@ -17,6 +17,11 @@ final class HomeViewModel: ObservableObject {
         guard !didHandleAppear else { return }
         didHandleAppear = true
 
+        if NotificationManager.shared.consumeSuppressHomeUpsellOnce() {
+            print("[Navigation] skipped home upsell because app opened from informational notification")
+            return
+        }
+
         // Show first-run discount flow only once (first time Alarm screen appears).
         if !preferences.hasShownFirstHomeDiscountFlow {
             preferences.hasShownFirstHomeDiscountFlow = true

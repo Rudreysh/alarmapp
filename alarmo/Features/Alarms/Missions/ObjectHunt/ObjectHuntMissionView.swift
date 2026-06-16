@@ -77,7 +77,7 @@ struct ObjectHuntMissionView: View {
                 if isEvaluating {
                     ProgressView("Checking similarity...")
                         .tint(Colors.accentTeal)
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                 }
 
                 HStack(spacing: 12) {

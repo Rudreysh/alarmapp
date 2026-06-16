@@ -9,21 +9,21 @@ struct MemoryCardView: View {
         ZStack {
             // Card Back
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color(white: 0.25))
+                .fill(MissionTheme.softFillStrong)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        .stroke(MissionTheme.softStroke, lineWidth: 1)
                 )
                 .overlay(
                     Text("?")
                         .font(.system(size: 32, weight: .bold))
-                        .foregroundColor(.white.opacity(0.3))
+                        .foregroundColor(MissionTheme.backgroundSubtleText)
                 )
                 .opacity(card.isFaceUp || card.isMatched ? 0 : 1)
             
             // Card Front
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color(white: 0.2))
+                .fill(Colors.cardSurface)
                 .overlay(
                     Group {
                         if card.imageName != nil {
@@ -31,19 +31,19 @@ struct MemoryCardView: View {
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
                                 .padding(12)
-                                .foregroundColor(.white)
+                                .foregroundColor(Colors.textPrimary)
                         } else if let icon = card.systemIcon {
                             Image(systemName: icon)
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
                                 .padding(12)
-                                .foregroundColor(card.isBonus ? .orange : .white)
+                                .foregroundColor(card.isBonus ? .orange : Colors.textPrimary)
                         }
                     }
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(card.isMatched ? Color.green.opacity(0.5) : Color.white.opacity(0.2), lineWidth: 2)
+                        .stroke(card.isMatched ? Color.green.opacity(0.5) : MissionTheme.softStroke, lineWidth: 2)
                 )
                 .opacity(card.isFaceUp || card.isMatched ? 1 : 0)
         }
@@ -109,14 +109,14 @@ struct MemoryDifficultyPicker: View {
                 Button(action: { selected = diff }) {
                     Text(diff.rawValue)
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(selected == diff ? .white : .orange)
+                        .foregroundColor(selected == diff ? MissionTheme.selectedControlText : MissionTheme.unselectedControlText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(selected == diff ? Color.orange : Color.white)
+                        .background(selected == diff ? MissionTheme.selectedControlFill : Colors.cardSurface)
                         .cornerRadius(12)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.orange, lineWidth: 2)
+                                .stroke(selected == diff ? MissionTheme.selectedControlFill : Colors.cardStroke, lineWidth: 2)
                         )
                 }
             }
@@ -131,7 +131,7 @@ struct MemoryTutorialSheet: View {
     
     var body: some View {
         ZStack {
-            Color.black.opacity(0.8).ignoresSafeArea()
+            MissionTheme.overlayScrim.ignoresSafeArea()
             
             VStack(spacing: 12) {
                 HStack {
@@ -198,7 +198,7 @@ struct MemoryTutorialSheet: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(Colors.accentTeal)
+                            .background(MissionTheme.primaryButtonGradient)
                             .cornerRadius(12)
                     }
                 }

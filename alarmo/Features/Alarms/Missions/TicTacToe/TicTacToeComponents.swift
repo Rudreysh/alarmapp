@@ -10,7 +10,7 @@ struct TTTCellView: View {
         Button(action: onTap) {
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(white: 0.25))
+                    .fill(MissionTheme.softFillStrong)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(isHighlighted ? Color.orange : Color.clear, lineWidth: 3)
@@ -19,7 +19,7 @@ struct TTTCellView: View {
                 if mark != .empty {
                     Text(mark.rawValue)
                         .font(.system(size: 40, weight: .black))
-                        .foregroundColor(mark == .x ? .orange : Color.white.opacity(0.9))
+                        .foregroundColor(mark == .x ? .orange : Colors.textPrimary)
                         .transition(.scale.combined(with: .opacity))
                 }
             }
@@ -49,14 +49,14 @@ struct TTTDifficultyPicker: View {
                 }) {
                     Text(diff.label)
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(selected == diff ? .white : .orange)
+                        .foregroundColor(selected == diff ? MissionTheme.selectedControlText : MissionTheme.unselectedControlText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .background(selected == diff ? Color.orange : Color.white)
+                        .background(selected == diff ? MissionTheme.selectedControlFill : Colors.cardSurface)
                         .cornerRadius(20)
                         .overlay(
                             RoundedRectangle(cornerRadius: 20)
-                                .stroke(Color.orange, lineWidth: 2)
+                                .stroke(selected == diff ? MissionTheme.selectedControlFill : Colors.cardStroke, lineWidth: 2)
                         )
                 }
             }
@@ -78,14 +78,14 @@ struct TTTSizePicker: View {
                 }) {
                     Text(size.label)
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(selected == size ? .white : .orange)
+                        .foregroundColor(selected == size ? MissionTheme.selectedControlText : MissionTheme.unselectedControlText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .background(selected == size ? Color.orange : Color.white)
+                        .background(selected == size ? MissionTheme.selectedControlFill : Colors.cardSurface)
                         .cornerRadius(20)
                         .overlay(
                             RoundedRectangle(cornerRadius: 20)
-                                .stroke(Color.orange, lineWidth: 2)
+                                .stroke(selected == size ? MissionTheme.selectedControlFill : Colors.cardStroke, lineWidth: 2)
                         )
                 }
             }
@@ -137,7 +137,7 @@ struct TTTTutorialSheet: View {
     
     var body: some View {
         ZStack {
-            Color.black.opacity(0.8).ignoresSafeArea()
+            MissionTheme.overlayScrim.ignoresSafeArea()
             
             VStack(spacing: 12) {
                 HStack {
@@ -204,7 +204,7 @@ struct TTTTutorialSheet: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(Colors.accentTeal)
+                            .background(MissionTheme.primaryButtonGradient)
                             .cornerRadius(12)
                     }
                 }

@@ -474,7 +474,7 @@ struct QuickAlarmView: View {
             )
         }
         .sheet(isPresented: $showEmojiPicker) {
-            EmojiPickerView { selected in
+            EmojiPickerView(initialEmoji: viewModel.alarmEmoji) { selected in
                 viewModel.alarmEmoji = selected
             }
         }
@@ -737,6 +737,7 @@ private struct QuickPresetEditor: View {
     @State private var emojiIcon: String
     @State private var minutes: Int
     @State private var seconds: Int
+    @State private var showEmojiPicker = false
 
     init(
         title: String,
@@ -767,21 +768,28 @@ private struct QuickPresetEditor: View {
                 }
 
                 Section("Preset Emoji (Optional)") {
-                    TextField("Add emoji", text: $emojiIcon)
-                        .onChange(of: emojiIcon) { _, newValue in
-                            emojiIcon = normalizedEmojiInput(newValue)
-                        }
-                    Text("Examples")
-                        .font(.caption)
-                        .foregroundColor(Colors.textSecondary)
-                    HStack(spacing: 10) {
-                        ForEach(["⏰", "⚡️", "📚", "🧘", "🏃", "💪", "😴", "🧠"], id: \.self) { emoji in
-                            Button(emoji) {
-                                emojiIcon = emoji
-                            }
-                            .font(.system(size: 22))
+                    Button {
+                        showEmojiPicker = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            Text(emojiIcon.isEmpty ? "🙂" : emojiIcon)
+                                .font(.system(size: 24))
+                                .frame(width: 28)
+
+                            Text("Choose with emoji keyboard")
+                                .foregroundColor(Colors.textPrimary)
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(Colors.textSecondary)
                         }
                     }
+                    .buttonStyle(.plain)
+                    Text("The emoji keyboard opens automatically.")
+                        .font(.caption)
+                        .foregroundColor(Colors.textSecondary)
                 }
 
                 Section("Time") {
@@ -803,6 +811,11 @@ private struct QuickPresetEditor: View {
                 }
             }
         }
+        .sheet(isPresented: $showEmojiPicker) {
+            EmojiPickerView(initialEmoji: emojiIcon) { selected in
+                emojiIcon = normalizedEmojiInput(selected)
+            }
+        }
     }
 
     private func normalizedEmojiInput(_ value: String) -> String {
@@ -818,8 +831,6 @@ private struct QuickAlarmLabelEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showEmojiPicker = false
 
-    private let quickEmojiSuggestions = ["⚡️", "⏰", "🌅", "🚀", "📚", "💪", "🧠", "🌙"]
-
     var body: some View {
         NavigationStack {
             Form {
@@ -827,25 +838,29 @@ private struct QuickAlarmLabelEditorView: View {
                     TextField("Quick Alarm", text: $name)
                 }
 
-                Section("Emoji (multiple supported)") {
-                    TextField("⚡️⏰", text: $emoji)
-                    Text("You can add one or many emojis.")
-                        .font(.caption)
-                        .foregroundColor(Colors.textSecondary)
+                Section("Emoji") {
                     Button {
                         showEmojiPicker = true
                     } label: {
-                        Label("Browse Emoji Library", systemImage: "magnifyingglass")
-                            .font(.system(size: 14, weight: .semibold))
-                    }
-                    HStack(spacing: 12) {
-                        ForEach(quickEmojiSuggestions, id: \.self) { item in
-                            Button(item) {
-                                emoji += item
-                            }
-                            .font(.system(size: 24))
+                        HStack(spacing: 12) {
+                            Text(emoji.isEmpty ? "⚡️" : emoji)
+                                .font(.system(size: 24))
+                                .frame(width: 28)
+
+                            Text("Choose with emoji keyboard")
+                                .foregroundColor(Colors.textPrimary)
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(Colors.textSecondary)
                         }
                     }
+                    .buttonStyle(.plain)
+                    Text("The emoji keyboard opens automatically.")
+                        .font(.caption)
+                        .foregroundColor(Colors.textSecondary)
                 }
             }
             .navigationTitle("Label")
@@ -860,8 +875,8 @@ private struct QuickAlarmLabelEditorView: View {
             }
         }
         .sheet(isPresented: $showEmojiPicker) {
-            EmojiPickerView { selected in
-                emoji += selected
+            EmojiPickerView(initialEmoji: emoji) { selected in
+                emoji = selected
             }
         }
     }

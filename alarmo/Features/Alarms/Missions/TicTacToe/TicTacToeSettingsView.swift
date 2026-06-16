@@ -67,17 +67,17 @@ struct TicTacToeSettingsView: View {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
             Spacer()
             Text("Tic Tac Toe")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
             Spacer()
             Button(action: { dismiss() }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
         }
         .padding(.horizontal, 24)
@@ -91,8 +91,8 @@ struct TicTacToeSettingsView: View {
                 .font(.system(size: 12, weight: .bold))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
-                .background(Color.blue)
-                .foregroundColor(.white)
+                .background(MissionTheme.exampleBadgeFill)
+                .foregroundColor(MissionTheme.exampleBadgeText)
                 .clipShape(Capsule())
             
             // Mock 3x3 Grid
@@ -101,19 +101,19 @@ struct TicTacToeSettingsView: View {
                     HStack(spacing: 8) {
                         ForEach(0..<3, id: \.self) { c in
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.white.opacity(0.1))
+                                .fill(MissionTheme.softFill)
                                 .frame(width: 40, height: 40)
                                 .overlay(
                                     Text(r == c ? "X" : (r == 0 && c == 2 ? "O" : ""))
                                         .font(.system(size: 24, weight: .bold))
-                                        .foregroundColor(r == c ? .orange : .white.opacity(0.5))
+                                        .foregroundColor(r == c ? .orange : MissionTheme.backgroundSubtleText)
                                 )
                         }
                     }
                 }
             }
             .padding(16)
-            .background(Color.white.opacity(0.05))
+            .background(MissionTheme.softFill)
             .cornerRadius(16)
         }
     }
@@ -123,18 +123,18 @@ struct TicTacToeSettingsView: View {
             VStack(spacing: 8) {
                 Text(selectedDifficulty.label)
                     .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                 
                 // Difficulty Slider style (using buttons for now to match the "segmented" feel but high precision)
                 HStack(spacing: 0) {
                     ForEach(TTTDifficulty.allCases) { diff in
                         Rectangle()
-                            .fill(selectedDifficulty == diff ? Color.white : Color.white.opacity(0.2))
+                            .fill(selectedDifficulty == diff ? Colors.textPrimary : MissionTheme.softStroke)
                             .frame(height: 4)
                             .frame(maxWidth: .infinity)
                             .overlay(
                                 Circle()
-                                    .fill(selectedDifficulty == diff ? Color.white : Color.clear)
+                                    .fill(selectedDifficulty == diff ? Colors.textPrimary : Color.clear)
                                     .frame(width: 12, height: 12)
                             )
                             .onTapGesture {
@@ -151,12 +151,12 @@ struct TicTacToeSettingsView: View {
                 }
             }
             
-            Divider().background(Color.white.opacity(0.1))
-            
+            Divider().background(MissionTheme.softStroke)
+
             HStack {
                 Text("Board Size")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                 Spacer()
                 Picker("", selection: $selectedSize) {
                     ForEach(TTTBoardSize.allCases) { size in
@@ -179,7 +179,7 @@ struct TicTacToeSettingsView: View {
                     HStack(alignment: .lastTextBaseline, spacing: 8) {
                         Text("\(i)")
                             .font(.system(size: 32, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                         if i == rounds {
                             Text("rounds")
                                 .font(.system(size: 18, weight: .bold))
@@ -203,10 +203,10 @@ struct TicTacToeSettingsView: View {
                 Button(action: { showAlarmPreview = true }) {
                     Text("Preview")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(MissionTheme.secondaryButtonText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
-                        .background(Color.white.opacity(0.12))
+                        .background(MissionTheme.secondaryButtonFill)
                         .cornerRadius(32)
                 }
                 
@@ -219,18 +219,9 @@ struct TicTacToeSettingsView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
-                        .background(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.08, green: 0.78, blue: 0.92),
-                                    Color(red: 0.05, green: 0.66, blue: 0.84)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .background(MissionTheme.primaryButtonGradient)
                         .cornerRadius(32)
-                        .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3), radius: 15, x: 0, y: 10)
+                        .shadow(color: MissionTheme.primaryButtonShadow, radius: 15, x: 0, y: 10)
                 }
             }
             .padding(.horizontal, 20)

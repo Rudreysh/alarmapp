@@ -70,7 +70,7 @@ struct HouseholdItemHuntMissionView: View {
                     VStack(spacing: 24) {
                         Text(isLegacyReferenceMode ? "Find the saved reference item and capture it." : (isChoosingTarget ? "Selecting a random item from your list..." : "Find and capture this item."))
                             .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                             .multilineTextAlignment(.center)
                             .padding(.top, 14)
                             .padding(.horizontal, 24)
@@ -125,7 +125,7 @@ struct HouseholdItemHuntMissionView: View {
                             ProgressView("Analyzing photo...")
                                 .progressViewStyle(.circular)
                                 .tint(Colors.accentTeal)
-                                .foregroundColor(.white)
+                                .foregroundColor(Colors.textPrimary)
                         }
 
                         captureButton
@@ -139,10 +139,10 @@ struct HouseholdItemHuntMissionView: View {
                             } label: {
                                 Text("Choose from Library")
                                     .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(MissionTheme.secondaryButtonText)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 14)
-                                    .background(Color.white.opacity(0.12))
+                                    .background(MissionTheme.secondaryButtonFill)
                                     .cornerRadius(20)
                             }
                             .padding(.horizontal, 20)
@@ -232,7 +232,7 @@ struct HouseholdItemHuntMissionView: View {
                     .resizable()
                     .scaledToFill()
                     .blur(radius: isEvaluating ? 6 : 3)
-                    .overlay(Color.black.opacity(0.20))
+                    .overlay(MissionTheme.isTiimo ? Color.black.opacity(0.12) : Color.black.opacity(0.20))
                     .clipShape(RoundedRectangle(cornerRadius: 20))
                     .padding(8)
             } else if isChoosingTarget, let spinDisplayItem {
@@ -302,7 +302,7 @@ struct HouseholdItemHuntMissionView: View {
             if let overlay = overlayMessage {
                 Text(overlay)
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white.opacity(0.95))
+                    .foregroundColor(MissionTheme.isTiimo ? Colors.textPrimary : Color.white.opacity(0.95))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 18)
             }
@@ -317,7 +317,7 @@ struct HouseholdItemHuntMissionView: View {
 
     private var successCelebrationOverlay: some View {
         ZStack {
-            Color.black.opacity(0.55).ignoresSafeArea()
+            MissionTheme.successScrim.ignoresSafeArea()
             MissionEmojiConfettiBackground()
 
             VStack(spacing: 10) {
@@ -326,7 +326,7 @@ struct HouseholdItemHuntMissionView: View {
                     .foregroundColor(Colors.accentGreen)
                 Text("Mission complete")
                     .font(.system(size: 28, weight: .black))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
             .padding(.horizontal, 20)
         }

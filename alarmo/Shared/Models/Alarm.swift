@@ -296,7 +296,27 @@ struct Alarm: Identifiable, Codable, Equatable {
         copy.isSkippedOnce = false
         return copy
     }
-    
+
+    /// Total snooze delay in seconds from configured minutes + seconds. Nil when snooze is off.
+    var resolvedSnoozeTotalSeconds: Int? {
+        let minutes = max(0, snoozeMinutes)
+        let seconds = max(0, snoozeSeconds)
+        let total: Int
+        if seconds > 0 {
+            total = minutes * 60 + seconds
+        } else {
+            total = minutes * 60
+        }
+        guard total > 0 else { return nil }
+        return total
+    }
+
+    var isSnoozeEnabled: Bool { resolvedSnoozeTotalSeconds != nil }
+
+    var hasActiveMissions: Bool {
+        missions.contains { $0.type != .off }
+    }
+
     enum CodingKeys: String, CodingKey {
         case id, type, name, emoji, hour, minute, second, isDaily, repeatMask, enabled
         case wakeUpCheckEnabled, soundName, soundVolume, vibrateEnabled

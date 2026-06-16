@@ -59,18 +59,18 @@ struct ShakeMissionView: View {
         VStack(spacing: 40) {
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.2), lineWidth: 4)
+                    .stroke(MissionTheme.softStroke, lineWidth: 4)
                     .frame(width: 100, height: 100)
                 
                 Image(systemName: "iphone.radiowaves.left.and.right")
                     .font(.system(size: 40))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
             
             Text("Shake your phone\nto dismiss")
                 .font(.system(size: 32, weight: .black))
                 .multilineTextAlignment(.center)
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
             
             Text("You need to shake \(viewModel.targetShakes) times")
                 .font(.system(size: 16, weight: .semibold))
@@ -81,10 +81,10 @@ struct ShakeMissionView: View {
             }) {
                 Text("Start Now")
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.black)
+                    .foregroundColor(.white)
                     .padding(.horizontal, 48)
                     .padding(.vertical, 16)
-                    .background(Color.white)
+                    .background(MissionTheme.primaryButtonGradient)
                     .cornerRadius(32)
             }
         }
@@ -104,7 +104,7 @@ struct ShakeMissionView: View {
             // Counter
             Text("\(viewModel.currentShakes)")
                 .font(.system(size: 100, weight: .black, design: .monospaced))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
                 .contentTransition(.numericText())
             
             Text("of \(viewModel.targetShakes) shakes")
@@ -115,7 +115,7 @@ struct ShakeMissionView: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.white.opacity(0.15))
+                        .fill(MissionTheme.softFillStrong)
                         .frame(height: 12)
                     
                     Capsule()
@@ -154,7 +154,7 @@ struct ShakeMissionView: View {
                 
                 Text("Good job!")
                     .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                 
                 Text("You're wide awake now!")
                     .font(.system(size: 16, weight: .semibold))
@@ -176,7 +176,7 @@ struct ShakeMissionView: View {
             Text("Motion access required")
                 .font(.system(size: 24, weight: .bold))
                 .multilineTextAlignment(.center)
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
             
             Text("Please enable Motion access in Settings to use the Shake mission.")
                 .font(.system(size: 16))
@@ -193,7 +193,7 @@ struct ShakeMissionView: View {
             .foregroundColor(.white)
             .padding(.vertical, 12)
             .padding(.horizontal, 24)
-            .background(Colors.accentTeal)
+            .background(MissionTheme.primaryButtonGradient)
             .cornerRadius(24)
         }
     }

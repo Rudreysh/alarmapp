@@ -16,17 +16,17 @@ struct TicTacToeGameView: View {
                     Button(action: { dismiss() }) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                     }
                     Spacer()
                     Text("\(viewModel.currentIndex + 1)/\(viewModel.totalRounds)")
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                     Spacer()
                     Button(action: { viewModel.showTutorialSheet = true }) {
                         Image(systemName: "questionmark.circle")
                             .font(.system(size: 24))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -36,12 +36,11 @@ struct TicTacToeGameView: View {
                 
                 Text("Tic Tac Toe")
                     .font(.system(size: 32, weight: .black))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                     .padding(.bottom, 20)
                 
                 // Status Row
                 TTTStatusRow(status: viewModel.statusText, isThinking: viewModel.isThinking)
-                    .foregroundColor(.white)
                 
                 if viewModel.boardSize == .fiveByFive {
                     Text("4 in a row to win")
@@ -60,7 +59,7 @@ struct TicTacToeGameView: View {
                 if viewModel.isPreviewMode {
                     Text("PREVIEW MODE")
                         .font(.system(size: 14, weight: .black))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(MissionTheme.backgroundSubtleText)
                         .padding(.bottom, 20)
                 }
             }
@@ -132,7 +131,7 @@ struct TicTacToeGameView: View {
                             .foregroundColor(.yellow)
                         Text("Victory!")
                             .font(.system(size: 24, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(MissionTheme.isTiimo ? Colors.textPrimary : .white)
                     }
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
@@ -155,13 +154,13 @@ struct TicTacToeGameView: View {
                 VStack(spacing: 24) {
                     Text("Session Stats")
                         .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                     
                     VStack(spacing: 16) {
                         StatDetailRow(label: "Wins", value: "\(viewModel.stats.wins)", color: .green)
                         StatDetailRow(label: "Losses", value: "\(viewModel.stats.losses)", color: .red)
                         StatDetailRow(label: "Draws", value: "\(viewModel.stats.draws)", color: .gray)
-                        Divider().background(Color.white.opacity(0.2))
+                        Divider().background(MissionTheme.softStroke)
                         StatDetailRow(label: "Current Streak", value: "\(viewModel.stats.currentStreak)", color: .orange)
                         StatDetailRow(label: "Best Streak", value: "\(viewModel.stats.bestStreak)", color: .yellow)
                     }
@@ -193,7 +192,7 @@ struct StatDetailRow: View {
         HStack {
             Text(label)
                 .font(.system(size: 18))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(MissionTheme.backgroundMutedText)
             Spacer()
             Text(value)
                 .font(.system(size: 22, weight: .bold))

@@ -16,17 +16,17 @@ struct MemoryMatchGameView: View {
                     Button(action: { dismiss() }) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                     }
                     Spacer()
                     Text("\(viewModel.currentIndex + 1)/\(viewModel.totalRounds)")
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                     Spacer()
                     Button(action: { viewModel.showTutorialSheet = true }) {
                         Image(systemName: "questionmark.circle")
                             .font(.system(size: 24))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -36,7 +36,7 @@ struct MemoryMatchGameView: View {
                 
                 Text("Memory Match")
                     .font(.system(size: 32, weight: .black))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                     .padding(.bottom, 20)
                 
                 // Stats Row
@@ -47,7 +47,6 @@ struct MemoryMatchGameView: View {
                     total: viewModel.totalPairs,
                     score: viewModel.score
                 )
-                .foregroundColor(.white)
                 
                 // Game Grid
                 gameGrid
@@ -59,7 +58,7 @@ struct MemoryMatchGameView: View {
                 if viewModel.isPreviewMode {
                     Text("PREVIEW MODE")
                         .font(.system(size: 14, weight: .black))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(MissionTheme.backgroundSubtleText)
                         .padding(.bottom, 20)
                 }
             }
@@ -133,7 +132,7 @@ struct MemoryMatchGameView: View {
                     RuleBullet(text: "Complete the game in the fewest moves possible")
                 }
                 .padding()
-                .background(Color.white.opacity(0.8))
+                .background(Colors.cardSurface)
                 .cornerRadius(16)
                 .padding(.horizontal, 24)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -158,7 +157,7 @@ struct MemoryMatchGameView: View {
                             .foregroundColor(.yellow)
                         Text("Victory!")
                             .font(.system(size: 24, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(MissionTheme.isTiimo ? Colors.textPrimary : .white)
                     }
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)

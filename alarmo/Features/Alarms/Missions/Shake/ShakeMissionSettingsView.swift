@@ -55,17 +55,17 @@ struct ShakeMissionSettingsView: View {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
             Spacer()
             Text("Shake")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
             Spacer()
             Button(action: { dismiss() }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
         }
         .padding(.horizontal, 24)
@@ -77,21 +77,21 @@ struct ShakeMissionSettingsView: View {
     private var previewCard: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 24)
-                .fill(Color.white.opacity(0.1))
+                .fill(MissionTheme.softFill)
                 .aspectRatio(16/9, contentMode: .fit)
             
             VStack(spacing: 12) {
                 Image(systemName: "iphone.radiowaves.left.and.right")
                     .font(.system(size: 50))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                 Text("Shake to dismiss")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
         }
         .overlay(
             RoundedRectangle(cornerRadius: 24)
-                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                .stroke(MissionTheme.softStroke, lineWidth: 1)
         )
     }
     
@@ -102,7 +102,7 @@ struct ShakeMissionSettingsView: View {
                     HStack(alignment: .lastTextBaseline, spacing: 8) {
                         Text("\(i)")
                             .font(.system(size: 32, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                         if i == shakeCount {
                             Text("Shakes")
                                 .font(.system(size: 18, weight: .bold))
@@ -126,10 +126,10 @@ struct ShakeMissionSettingsView: View {
                 Button(action: { showAlarmPreview = true }) {
                     Text("Preview")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(MissionTheme.secondaryButtonText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
-                        .background(Color.white.opacity(0.12))
+                        .background(MissionTheme.secondaryButtonFill)
                         .cornerRadius(32)
                 }
                 
@@ -142,18 +142,9 @@ struct ShakeMissionSettingsView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
-                        .background(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.08, green: 0.78, blue: 0.92),
-                                    Color(red: 0.05, green: 0.66, blue: 0.84)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .background(MissionTheme.primaryButtonGradient)
                         .cornerRadius(32)
-                        .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3), radius: 15, x: 0, y: 10)
+                        .shadow(color: MissionTheme.primaryButtonShadow, radius: 15, x: 0, y: 10)
                 }
             }
             .padding(.horizontal, 20)

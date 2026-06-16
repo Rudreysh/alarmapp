@@ -144,8 +144,8 @@ struct AlarmRingingView: View {
             .allowsHitTesting(!ringCoordinator.showingGreeting)
 
             // Keep MPVolumeView mounted while alarm UI is visible so hardware
-            // volume buttons target media output. This does not auto-raise
-            // system volume; it only maps button presses to media domain.
+            // volume buttons target media output and SystemOutputVolumeFloorManager
+            // can programmatically raise volume back to the alarm's configured floor.
             HiddenMPVolumeView()
                 .frame(width: 1, height: 1)
                 .opacity(0.001)
@@ -394,35 +394,42 @@ struct AlarmRingingView: View {
             print("🧭 [ALARMTRACE_UI] EVENT=RINGING_VIEW_ON_APPEAR APP_STATE=\(String(describing: appState).uppercased()) PHASE=\(AlarmAudioStateController.shared.phase.rawValue.uppercased()) OWNER=\(AlarmAudioStateController.shared.audibleOwner.rawValue.uppercased()) ALARM_ID=\(ringCoordinator.activeAlarm?.id.uuidString ?? "nil")")
             print("[Volume] outputVolume=\(String(format: "%.2f", output)) playerVolume=\(String(format: "%.2f", AlarmContinuousAudioEngine.shared.currentPlayerVolume)) phase=\(AlarmAudioStateController.shared.phase.rawValue) reason=ringing-view-onAppear")
             logVolumeSnapshot(reason: "ringing-view-onAppear-route")
-            let phase = AlarmAudioStateController.shared.phase
-            if ringCoordinator.isRinging &&
-                (phase == .alarmKitSettling || phase == .appEnginePreparing || phase == .appEngineFadingIn || phase == .appEnginePrimary) {
-                let floorVolume = ringCoordinator.activeAlarm
-                    .map { max(0.01, min(1.0, $0.soundVolume)) }
-                    ?? AlarmAudioStateController.preAlarmMinimumOutputVolume
-                Task { @MainActor in
-                    SystemOutputVolumeFloorManager.shared.attemptRaiseOutputVolumeFloor(
-                        minimumVolume: floorVolume,
-                        reason: "ringing-view-onappear"
-                    )
-                }
+            if output < AlarmAudioStateController.lowOutputVolumeThreshold {
+                lowVolumeHintMessage = "iPhone volume is low. Turn volume up for louder alarm."
             }
-            ringCoordinator.reassertRingingAudio(reason: "ringing-view-onAppear")
+            if appState == .active {
+                ringCoordinator.reassertRingingAudio(reason: "ringing-view-onAppear")
+                AlarmAudioStateController.shared.enforceForegroundVolumeControl(reason: "ringing-view-onAppear")
+                startAppSoundCapabilityProbeIfNeeded()
+            } else {
+                print("[AlarmRingingView] background onAppear ignored for audio reassert appState=\(appState.rawValue)")
+                print("[RecoveryCheck] ignoring RC_UI_VISIBLE because app is not active")
+            }
             logActiveAlarmIfNeeded()
         }
         .onReceive(NotificationCenter.default.publisher(for: systemVolumeDidChange)) { _ in
             logVolumeSnapshot(reason: "ringing-view-system-volume-change")
-            // Re-enforce the volume floor whenever system volume changes while the
-            // ringing UI is visible (app is foreground). This is the Alarmy-style
-            // "volume goes back up" behavior: user presses volume-down → we immediately
-            // raise it back to the alarm's configured level via MPVolumeView.
             guard ringCoordinator.isRinging else { return }
-            let floorVolume = ringCoordinator.activeAlarm
-                .map { max(0.01, min(1.0, $0.soundVolume)) }
-                ?? AlarmAudioStateController.preAlarmMinimumOutputVolume
-            // Use immediate (rate-limit-free) enforcement so every volume-button press
-            // is countered instantly, not just the first one in a 1.5s window.
-            SystemOutputVolumeFloorManager.shared.enforceFloorImmediately(minimumVolume: floorVolume)
+            let session = AVAudioSession.sharedInstance()
+            let newVol = session.outputVolume
+            let oldVol = AlarmAudioStateController.shared.lastKnownOutputVolume >= 0
+                ? AlarmAudioStateController.shared.lastKnownOutputVolume
+                : newVol
+            AlarmAudioStateController.shared.handleOutputVolumeChange(
+                oldVolume: oldVol,
+                newVolume: newVol,
+                sourceAlarmId: ringCoordinator.activeAlarm?.id.uuidString
+            )
+            let floorVolume = AlarmAudioStateController.shared.resolvedForegroundVolumeFloor()
+            SystemOutputVolumeFloorManager.shared.enforceFloorImmediately(
+                minimumVolume: floorVolume,
+                reason: "ringing-view-volume-change"
+            )
+            if AlarmAudioStateController.shared.lowVolumeWarningActive {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    lowVolumeHintMessage = "iPhone volume is low. Turn volume up for louder alarm."
+                }
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .alarmVolumeFloorHint)) { notification in
             let message = (notification.userInfo?["message"] as? String) ?? "Increase iPhone volume for louder alarm."
@@ -581,6 +588,44 @@ struct AlarmRingingView: View {
         guard lastLoggedAlarmId != alarm.id else { return }
         lastLoggedAlarmId = alarm.id
         print("[AlarmRingingView] alarmId=\(alarm.id.uuidString) wallpaperId=\(alarm.wallpaperId)")
+    }
+
+    /// Foreground active alarm UI: pre-arm AlarmKit fallback first, then prove the
+    /// AppEngine is actually audible. Only after a PASS do we cancel the fallback
+    /// and let the AppEngine be the primary owner.
+    private func startAppSoundCapabilityProbeIfNeeded() {
+        guard UIApplication.shared.applicationState == .active else { return }
+        guard let alarm = ringCoordinator.activeAlarm else { return }
+        let sourceAlarmId = alarm.id.uuidString
+        let runId = AlarmAudioStateController.shared.currentAlarmRunId?.uuidString
+            ?? AlarmContinuousAudioEngine.shared.currentAlarmRunId?.uuidString
+            ?? sourceAlarmId
+
+        print("[ForegroundAudio] AlarmRingingView active — starting AppEngine immediately source=\(sourceAlarmId)")
+        NotificationManager.shared.preArmAudibleAlarmKitRecovery(
+            sourceAlarmId: sourceAlarmId,
+            runId: runId,
+            reason: "app-sound-probe-safety",
+            delay: 4.5
+        )
+
+        AppSoundCapabilityProbe.shared.evaluate(
+            sourceAlarmId: sourceAlarmId,
+            runId: runId,
+            reason: "ringing-view-active",
+            onPass: {
+                print("[ForegroundAudio] AppEngine verified audible; owner=appEngine source=\(sourceAlarmId)")
+                Task { @MainActor in
+                    _ = await NotificationManager.shared.verifyAndCancelPreArmedRecoveryIfEngineAudible(
+                        sourceAlarmId: sourceAlarmId,
+                        reason: "app-engine-proven-audible"
+                    )
+                }
+            },
+            onFail: { reason in
+                print("[ForegroundAudio] AppEngine not proven audible; keeping AlarmKit fallback source=\(sourceAlarmId) reason=\(reason)")
+            }
+        )
     }
 
     private func resolvedBarcodeTarget(for mission: AlarmMission) -> (code: String, symbology: String?)? {

@@ -43,7 +43,7 @@ final class CreateWakeUpAlarmViewModel: ObservableObject {
         draft.dailyMotivationEnabled = alarm.dailyMotivationEnabled
         draft.visualOutputSettings = alarm.visualOutputSettings
         draft.name = alarm.name
-        draft.emoji = alarm.emoji
+        draft.emoji = alarm.emoji.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? defaultAlarmEmoji : alarm.emoji
         draft.enabled = alarm.enabled
         draft.isDaily = alarm.isDaily
         draft.selectedWeekdays = Set(RepeatMask.weekdays(from: alarm.repeatMask))

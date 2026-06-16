@@ -85,13 +85,13 @@ struct PhraseSelectionView: View {
             Button("Cancel") {
                 dismiss()
             }
-            .foregroundColor(.white)
+            .foregroundColor(Colors.textPrimary)
             
             Spacer()
             
             Text("Select the sentences")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
             
             Spacer()
             
@@ -101,7 +101,7 @@ struct PhraseSelectionView: View {
                 dismiss()
             }
             .font(.system(size: 18, weight: .bold))
-            .foregroundColor(.white)
+            .foregroundColor(Colors.textPrimary)
         }
         .padding(.horizontal, 20)
         .padding(.top, 20)
@@ -116,7 +116,7 @@ struct PhraseSelectionView: View {
                         HStack(spacing: 6) {
                             Text(category.rawValue)
                                 .font(.system(size: 14, weight: viewModel.activeTab == category ? .bold : .medium))
-                                .foregroundColor(viewModel.activeTab == category ? .white : Colors.textSecondary)
+                                .foregroundColor(viewModel.activeTab == category ? Colors.textPrimary : Colors.textSecondary)
                             
                             let count = TypingMissionStore.shared.allPhrases.filter { $0.category == category && viewModel.temporarySelectedIDs.contains($0.id) }.count
                             if count > 0 {
@@ -124,8 +124,8 @@ struct PhraseSelectionView: View {
                                     .font(.system(size: 10, weight: .bold))
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
-                                    .background(Color.white.opacity(0.15))
-                                    .foregroundColor(.white)
+                                    .background(MissionTheme.exampleBadgeFill)
+                                    .foregroundColor(MissionTheme.exampleBadgeText)
                                     .clipShape(Capsule())
                             }
                         }
@@ -161,14 +161,14 @@ struct PhraseSelectionView: View {
                         checkbox(isSelected: viewModel.isAllSelected)
                         Text("Select all")
                             .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                         Spacer()
                     }
                     .padding(.vertical, 16)
                     .padding(.horizontal, 20)
                 }
                 
-                Divider().background(Color.white.opacity(0.1))
+                Divider().background(MissionTheme.softStroke)
                 
                 // Phrase rows
                 ForEach(viewModel.filteredPhrases) { phrase in
@@ -178,15 +178,15 @@ struct PhraseSelectionView: View {
                             checkbox(isSelected: isSelected)
                             Text(phrase.text)
                                 .font(.system(size: 16))
-                                .foregroundColor(.white)
+                                .foregroundColor(Colors.textPrimary)
                                 .multilineTextAlignment(.leading)
                             Spacer()
                         }
                         .padding(.vertical, 16)
                         .padding(.horizontal, 20)
-                        .background(isSelected ? Color.white.opacity(0.08) : Color.clear)
+                        .background(isSelected ? MissionTheme.softFill : Color.clear)
                     }
-                    Divider().background(Color.white.opacity(0.05))
+                    Divider().background(MissionTheme.softStroke.opacity(0.6))
                         .padding(.leading, 56)
                 }
             }
@@ -200,7 +200,7 @@ struct PhraseSelectionView: View {
             VStack(spacing: 16) {
                 Image(systemName: "book")
                     .font(.system(size: 80))
-                    .foregroundColor(Color.white.opacity(0.2))
+                    .foregroundColor(MissionTheme.backgroundSubtleText)
                 
                 Text("No My Phrases added yet")
                     .font(.system(size: 16))
@@ -219,12 +219,12 @@ struct PhraseSelectionView: View {
                 Text("Create new")
             }
             .font(.system(size: 18, weight: .bold))
-            .foregroundColor(.white)
+            .foregroundColor(Colors.textPrimary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                    .stroke(MissionTheme.softStroke, lineWidth: 1)
             )
         }
     }
@@ -232,12 +232,12 @@ struct PhraseSelectionView: View {
     private func checkbox(isSelected: Bool) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: 4)
-                .stroke(isSelected ? Color.cyan : Color.white.opacity(0.3), lineWidth: 2)
+                .stroke(isSelected ? Colors.accentBlue : MissionTheme.softStroke, lineWidth: 2)
                 .frame(width: 22, height: 22)
             
             if isSelected {
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.cyan)
+                    .fill(Colors.accentBlue)
                     .frame(width: 22, height: 22)
                 
                 Image(systemName: "checkmark")
@@ -260,11 +260,11 @@ struct CreatePhraseSheet: View {
             VStack(spacing: 24) {
                 HStack {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                     Spacer()
                     Text("Create new")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                     Spacer()
                     Button("Save") {
                         if !text.isEmpty {
@@ -273,7 +273,7 @@ struct CreatePhraseSheet: View {
                         }
                     }
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(text.isEmpty ? Colors.textTertiary : .white)
+                    .foregroundColor(text.isEmpty ? Colors.textTertiary : Colors.textPrimary)
                     .disabled(text.isEmpty)
                 }
                 .padding(.horizontal, 20)
@@ -281,7 +281,7 @@ struct CreatePhraseSheet: View {
                 
                 TextEditor(text: $text)
                     .font(.system(size: 20))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
                     .scrollContentBackground(.hidden)
                     .background(Colors.cardSurface)
                     .cornerRadius(16)

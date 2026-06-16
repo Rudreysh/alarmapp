@@ -18,7 +18,7 @@ struct MathMissionPlayView: View {
                     VStack(spacing: 32) {
                         Text(problem.displayExpression)
                             .font(.system(size: 60, weight: .black))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                             .multilineTextAlignment(.center)
                         
                         answerArea
@@ -41,7 +41,7 @@ struct MathMissionPlayView: View {
                 if viewModel.isPreviewMode {
                     Text("PREVIEW MODE")
                         .font(.system(size: 14, weight: .black))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(MissionTheme.backgroundSubtleText)
                         .padding(.bottom, 20)
                 }
             }
@@ -60,12 +60,12 @@ struct MathMissionPlayView: View {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
             Spacer()
             Text(viewModel.progressText)
                 .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
             Spacer()
             // Timer Display
             HStack(spacing: 4) {
@@ -76,14 +76,14 @@ struct MathMissionPlayView: View {
             .foregroundColor(viewModel.timeRemaining < 10 ? .red : .cyan)
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .background(Color.white.opacity(0.1))
+            .background(MissionTheme.timerCapsuleFill)
             .cornerRadius(12)
             
             Spacer()
             Button(action: { viewModel.isSoundEnabled.toggle() }) {
                 Image(systemName: viewModel.isSoundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
         }
         .padding(.horizontal, 24)
@@ -97,11 +97,11 @@ struct MathMissionPlayView: View {
                     Spacer()
                     Text(viewModel.inputText)
                         .font(.system(size: 48, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(Colors.textPrimary)
                     
                     // Blinking Cursor
                     Rectangle()
-                        .fill(Color.white.opacity(0.6))
+                        .fill(MissionTheme.backgroundSubtleText)
                         .frame(width: 2, height: 40)
                         .opacity(viewModel.inputText.count < 9 ? 1 : 0) // Basic blink could be added with animation
                     
@@ -111,7 +111,7 @@ struct MathMissionPlayView: View {
                 .frame(height: 100)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.3), lineWidth: 2)
+                        .stroke(MissionTheme.softStroke, lineWidth: 2)
                 )
             } else {
                 feedbackBar
@@ -138,7 +138,7 @@ struct MathMissionPlayView: View {
     
     private var successOverlay: some View {
         ZStack {
-            Color.black.opacity(0.6).ignoresSafeArea()
+            MissionTheme.successScrim.ignoresSafeArea()
             MissionEmojiConfettiBackground()
             
             VStack(spacing: 24) {
@@ -149,8 +149,11 @@ struct MathMissionPlayView: View {
                 
                 Text(viewModel.isPreviewMode && viewModel.currentIndex == viewModel.problems.count - 1 ? "Preview Complete" : "Good job!")
                     .font(.system(size: 32, weight: .heavy))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
+            .padding(28)
+            .background(MissionTheme.successCardFill)
+            .cornerRadius(28)
         }
     }
 }

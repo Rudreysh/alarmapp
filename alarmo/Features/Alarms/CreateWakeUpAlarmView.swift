@@ -984,6 +984,8 @@ private extension CreateWakeUpAlarmView {
                 scheduler.schedule(alarm: alarm)
             }
 
+            notificationManager.requestForceQuitEducationAfterAlarmSetup(alarm: alarm)
+
             onClose()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                 isSaving = false
@@ -1000,25 +1002,25 @@ private extension CreateWakeUpAlarmView {
             let delivery = await notificationManager.currentAlarmDeliveryStatus()
             if !granted || !delivery.notificationsAuthorized {
                 isSaving = false
-                alarmAccessAlertMessage = "Alarm notifications are not authorized. Turn on notifications for Awayk."
+                alarmAccessAlertMessage = "Alarm notifications are not authorized. Turn on notifications for Alarmo."
                 showAlarmAccessAlert = true
                 return
             }
             if !delivery.soundEnabled {
                 isSaving = false
-                alarmAccessAlertMessage = "Notification sounds are turned off for Awayk. Turn sounds on so alarms ring audibly."
+                alarmAccessAlertMessage = "Notification sounds are turned off for Alarmo. Turn sounds on so alarms ring audibly."
                 showAlarmAccessAlert = true
                 return
             }
             if !delivery.alertEnabled {
                 isSaving = false
-                alarmAccessAlertMessage = "Alert notifications are turned off for Awayk. Enable Alerts so alarms appear on screen."
+                alarmAccessAlertMessage = "Alert notifications are turned off for Alarmo. Enable Alerts so alarms appear on screen."
                 showAlarmAccessAlert = true
                 return
             }
             if !delivery.lockScreenEnabled {
                 isSaving = false
-                alarmAccessAlertMessage = "Lock Screen alerts are off for Awayk. Enable Lock Screen notifications so alarms are visible while your phone is locked."
+                alarmAccessAlertMessage = "Lock Screen alerts are off for Alarmo. Enable Lock Screen notifications so alarms are visible while your phone is locked."
                 showAlarmAccessAlert = true
                 return
             }

@@ -54,7 +54,7 @@ struct QRBarcodeSettingsView: View {
                             .overlay(
                                 Image(systemName: "barcode.viewfinder")
                                     .font(.system(size: 80))
-                                    .foregroundColor(.white.opacity(0.8))
+                                    .foregroundColor(MissionTheme.backgroundMutedText)
                             )
                         
                         Spacer()
@@ -64,10 +64,10 @@ struct QRBarcodeSettingsView: View {
                         }) {
                             Text("Scan")
                                 .font(.title3.bold())
-                                .foregroundColor(Colors.bgPrimary)
+                                .foregroundColor(MissionTheme.secondaryButtonText)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 18)
-                                .background(Color.white)
+                                .background(MissionTheme.secondaryButtonFill)
                                 .cornerRadius(16)
                         }
                         .padding(.horizontal, 24)
@@ -121,10 +121,10 @@ struct QRBarcodeSettingsView: View {
                     }) {
                         Text("Preview")
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(MissionTheme.secondaryButtonText)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 18)
-                            .background(Color.white.opacity(0.12))
+                            .background(MissionTheme.secondaryButtonFill)
                             .cornerRadius(32)
                     }
                     
@@ -142,18 +142,9 @@ struct QRBarcodeSettingsView: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 18)
-                            .background(
-                                LinearGradient(
-                                    colors: [
-                                        Color(red: 0.08, green: 0.78, blue: 0.92),
-                                        Color(red: 0.05, green: 0.66, blue: 0.84)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
+                            .background(MissionTheme.primaryButtonGradient)
                             .cornerRadius(32)
-                            .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3), radius: 15, x: 0, y: 10)
+                            .shadow(color: MissionTheme.primaryButtonShadow, radius: 15, x: 0, y: 10)
                     }
                 }
                 .padding(.horizontal, 20)

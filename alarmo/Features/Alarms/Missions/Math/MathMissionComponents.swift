@@ -8,25 +8,25 @@ struct DifficultySliderView: View {
         VStack(spacing: 20) {
             Text(difficulty.displayName)
                 .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
             
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     // Track
                     Rectangle()
-                        .fill(Color.white.opacity(0.1))
+                        .fill(MissionTheme.softFill)
                         .frame(height: 4)
                     
                     // Active Track
                     Rectangle()
-                        .fill(Color.cyan)
+                        .fill(Colors.accentBlue)
                         .frame(width: CGFloat(difficulty.rawValue) / CGFloat(levels.count - 1) * geometry.size.width, height: 4)
                     
                     // Dots
                     HStack(spacing: 0) {
                         ForEach(levels, id: \.self) { level in
                             Circle()
-                                .fill(level.rawValue <= difficulty.rawValue ? Color.cyan : Color.white.opacity(0.3))
+                                .fill(level.rawValue <= difficulty.rawValue ? Colors.accentBlue : MissionTheme.backgroundSubtleText)
                                 .frame(width: 8, height: 8)
                                 .frame(maxWidth: .infinity)
                                 .onTapGesture {
@@ -39,7 +39,7 @@ struct DifficultySliderView: View {
                     
                     // Knob
                     Circle()
-                        .fill(Color.white)
+                        .fill(MissionTheme.selectedControlFill)
                         .frame(width: 24, height: 24)
                         .offset(x: (CGFloat(difficulty.rawValue) / CGFloat(levels.count - 1) * geometry.size.width) - 12)
                         .gesture(
@@ -87,7 +87,7 @@ struct NumericKeypadView: View {
                 keyButton("1")
                 keyButton("2")
                 keyButton("3")
-                actionButton(icon: "delete.left.fill", color: Color.white.opacity(0.2), action: onDelete)
+                actionButton(icon: "delete.left.fill", color: MissionTheme.secondaryButtonFill, action: onDelete)
             }
             
             // Row 2: 4 5 6 Checkmark
@@ -113,10 +113,10 @@ struct NumericKeypadView: View {
         Button(action: { onDigit(digit) }) {
             Text(digit)
                 .font(.system(size: 24, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 64)
-                .background(Color.white.opacity(0.1))
+                .background(MissionTheme.softFill)
                 .cornerRadius(12)
         }
     }
@@ -125,7 +125,7 @@ struct NumericKeypadView: View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 24, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(icon == "delete.left.fill" ? MissionTheme.secondaryButtonText : .white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 64)
                 .background(color)

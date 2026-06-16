@@ -136,26 +136,20 @@ struct CreateHabitAlarmView: View {
 
                         // 2. Name & Emoji
                         HStack(spacing: Spacing.m) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Colors.cardSurface.opacity(0.45))
-                                    .frame(width: 44, height: 44)
-
-                                TextField("🙂", text: $viewModel.emoji)
-                                    .font(.system(size: 30))
-                                    .multilineTextAlignment(.center)
-                                    .textInputAutocapitalization(.never)
-                                    .autocorrectionDisabled(true)
-                                    .frame(width: 40, height: 40)
-                                    .onChange(of: viewModel.emoji) { _, newValue in
-                                        viewModel.emoji = normalizedEmojiInput(newValue)
-                                    }
-                            }
-
                             Button(action: { showEmojiPicker = true }) {
-                                Image(systemName: "face.smiling")
-                                    .foregroundColor(Colors.textSecondary)
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(Colors.cardSurface.opacity(0.45))
+                                        .frame(width: 44, height: 44)
+
+                                    Text(viewModel.emoji.isEmpty ? defaultAlarmEmoji : viewModel.emoji)
+                                        .font(.system(size: 30))
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.5)
+                                        .frame(width: 40, height: 40)
+                                }
                             }
+                            .buttonStyle(.plain)
 
                             TextField("Please fill in the alarm name", text: $viewModel.name)
                                 .font(.system(size: 20, weight: .semibold))
@@ -398,7 +392,7 @@ struct CreateHabitAlarmView: View {
             }
         }
         .sheet(isPresented: $showEmojiPicker) {
-            EmojiPickerView { emoji in
+            EmojiPickerView(initialEmoji: viewModel.emoji) { emoji in
                 viewModel.emoji = emoji
                 showEmojiPicker = false
             }
@@ -845,6 +839,7 @@ struct CreateHabitAlarmView: View {
             } else {
                 alarmStore.add(alarm)
             }
+            notificationManager.requestForceQuitEducationAfterAlarmSetup(alarm: alarm)
         }
 
         // Scheduling can be expensive (attachments + many notifications); keep it off MainActor.
@@ -859,12 +854,6 @@ struct CreateHabitAlarmView: View {
         return labels[day - 1]
     }
 
-    private func normalizedEmojiInput(_ value: String) -> String {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let first = trimmed.first else { return "" }
-        return String(first)
-    }
-    
     // Helpers for display
     var timeZoneText: String {
         guard viewModel.timeZoneMode == .custom,

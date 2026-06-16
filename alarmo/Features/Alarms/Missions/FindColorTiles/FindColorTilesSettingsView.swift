@@ -70,17 +70,17 @@ struct FindColorTilesSettingsView: View {
             Button(action: { dismiss() }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
             Spacer()
             Text("Find Color Tiles")
                 .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
             Spacer()
             Button(action: { dismiss() }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Colors.textPrimary)
             }
         }
         .padding(.horizontal, 24)
@@ -95,8 +95,8 @@ struct FindColorTilesSettingsView: View {
                 .font(.system(size: 12, weight: .bold))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
-                .background(Color.blue)
-                .foregroundColor(.white)
+                .background(MissionTheme.exampleBadgeFill)
+                .foregroundColor(MissionTheme.exampleBadgeText)
                 .clipShape(Capsule())
             
             // Preview Grid - Responsive size
@@ -125,7 +125,7 @@ struct FindColorTilesSettingsView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text(settings.difficulty.label)
                 .font(.system(size: 20, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .center)
             
             CustomSlider(value: Binding(
@@ -154,7 +154,7 @@ struct FindColorTilesSettingsView: View {
                     HStack(alignment: .lastTextBaseline, spacing: 8) {
                         Text("\(i)")
                             .font(.system(size: 32, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                         if i == settings.rounds {
                             Text("rounds")
                                 .font(.system(size: 18, weight: .bold))
@@ -181,10 +181,10 @@ struct FindColorTilesSettingsView: View {
                 }) {
                     Text("Preview")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(MissionTheme.secondaryButtonText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
-                        .background(Color.white.opacity(0.12))
+                        .background(MissionTheme.secondaryButtonFill)
                         .cornerRadius(32)
                 }
                 
@@ -198,18 +198,9 @@ struct FindColorTilesSettingsView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
-                        .background(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.08, green: 0.78, blue: 0.92),
-                                    Color(red: 0.05, green: 0.66, blue: 0.84)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .background(MissionTheme.primaryButtonGradient)
                         .cornerRadius(32)
-                        .shadow(color: Color(red: 0, green: 0.7, blue: 0.9).opacity(0.3), radius: 15, x: 0, y: 10)
+                        .shadow(color: MissionTheme.primaryButtonShadow, radius: 15, x: 0, y: 10)
                 }
             }
             .padding(.horizontal, 20)
@@ -239,14 +230,14 @@ struct CustomSlider: View {
             ZStack(alignment: .leading) {
                 // Track
                 Rectangle()
-                    .fill(Color.white.opacity(0.2))
+                    .fill(MissionTheme.softFillStrong)
                     .frame(height: 4)
                 
                 // Tick marks
                 HStack {
                     ForEach(0...Int((range.upperBound - range.lowerBound) / step), id: \.self) { index in
                         Circle()
-                            .fill(Color.white)
+                            .fill(MissionTheme.backgroundSubtleText)
                             .frame(width: 4, height: 4)
                         if index != Int((range.upperBound - range.lowerBound) / step) {
                             Spacer()
@@ -256,7 +247,7 @@ struct CustomSlider: View {
                 
                 // Thumb
                 Circle()
-                    .fill(Color.white)
+                    .fill(MissionTheme.selectedControlFill)
                     .frame(width: 28, height: 28)
                     .offset(x: self.getThumbOffset(geometry: geometry))
                     .gesture(

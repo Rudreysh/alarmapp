@@ -18,15 +18,15 @@ struct MissionPreviewAlarmView: View {
 
                 Text(currentDateText)
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(MissionTheme.backgroundMutedText)
 
                 Text(currentTimeText)
                     .font(.system(size: 64, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(MissionTheme.backgroundText)
 
                 Text("Alarm")
                     .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(MissionTheme.backgroundText)
 
                 Spacer()
 
@@ -57,10 +57,10 @@ struct MissionPreviewAlarmView: View {
                     Button(action: { dismiss() }) {
                         Text("EXIT PREVIEW")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(MissionTheme.secondaryButtonText)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
-                            .background(Color.black.opacity(0.3))
+                            .background(MissionTheme.secondaryButtonFill)
                             .cornerRadius(12)
                     }
                 }
