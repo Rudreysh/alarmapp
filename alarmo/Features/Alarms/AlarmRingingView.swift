@@ -345,6 +345,9 @@ struct AlarmRingingView: View {
             }
         }
         .animation(.easeInOut(duration: 0.34), value: ringCoordinator.showingGreeting)
+        .overlay {
+            RewardFeedbackOverlay()
+        }
         .overlay(alignment: .top) {
             if let toast = ringCoordinator.penaltyToastMessage {
                 Text(toast)
