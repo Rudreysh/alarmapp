@@ -78,9 +78,8 @@ struct AppRootView: View {
         .environmentObject(themeManager)
         .preferredColorScheme(resolvedColorScheme)
         .onAppear {
-            // Configure remote assets from GitHub
-            // Note: Change 'green-theme' to 'main' when merging to production branch.
-            AssetManager.shared.configure(catalogURL: "https://raw.githubusercontent.com/Rudreysh/alarmapp/green-theme/HostedAssets/catalog.json")
+            // Assets served from Cloudflare R2 (awayk-assets-prod bucket).
+            AssetManager.shared.configure(catalogURL: "https://pub-867c22af17a844a8abf716b25dec2772.r2.dev/HostedAssets/catalog.json")
             Task {
                 await AssetManager.shared.fetchCatalog()
             }
