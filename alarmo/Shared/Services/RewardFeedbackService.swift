@@ -82,6 +82,7 @@ final class RewardFeedbackService: ObservableObject {
 
         do {
             audioPlayer = try AVAudioPlayer(contentsOf: url)
+            audioPlayer?.volume = 0.2
             audioPlayer?.prepareToPlay()
             audioPlayer?.play()
         } catch {
