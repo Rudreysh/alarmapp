@@ -65,22 +65,42 @@ final class AlarmKeepAliveAudioService {
         }
     }
 
-    /// Re-evaluate keep-alive when an alarm fires. Does NOT force-stop — shouldRun()
-    /// decides: keeps the player alive while AppEngine is still taking over, stops it
-    /// once AppEngine is confirmed playing or the scene becomes active.
-    func pauseForAlarmRing(reason: String) {
+    /// Called at alarm fire. AlarmKit may have just WOKEN the app from suspension —
+    /// ensure the silent keep-alive is running so the process stays alive through the
+    /// AlarmKit ring until AppEngine takes over.
+    ///
+    /// Previously this STOPPED the keep-alive ("never coexist with alarm audio"). But
+    /// that removed the app's only background audio session: iOS then suspended the
+    /// process within seconds, before the background AppEngine takeover (driven by the
+    /// `alarmUpdates` observation when AlarmKit leaves `.alerting`) could run. The
+    /// result was the overnight "AlarmKit-only, AppEngine never plays unless I open the
+    /// app" bug. The keep-alive is silent (volume 0) and `.mixWithOthers`, so it
+    /// coexists with AlarmKit without dual sound or interruption. It is stopped the
+    /// moment AppEngine actually owns audio (see `evaluate` on phase transitions).
+    func ensureAliveForAlarmRing(reason: String) {
         cancelRetries()
-        evaluate(reason: "alarm-ring-\(reason)")
+        // Foreground: AppEngine plays immediately, no keep-alive needed.
+        guard UIApplication.shared.applicationState != .active else {
+            stop(reason: "alarm-ring-foreground-\(reason)")
+            return
+        }
+        if isRunning, player?.isPlaying == true { return }
+        isRunning = false
+        player = nil
+        start(reason: "alarm-ring-\(reason)", attempt: 0)
     }
 
     private func shouldRun() -> Bool {
         if UIApplication.shared.applicationState == .active { return false }
         if AlarmAudioStateController.shared.isAlarmRinging {
-            // Keep running until AppEngine has claimed audio. Stopping here removes the
-            // app's only background audio session; iOS then suspends the process before
-            // the ~3-5s AppEngine takeover timer can fire (the morning alarm bug).
-            // The keep-alive is silent (.mixWithOthers, volume=0) so it coexists safely
-            // with AlarmKit — no dual-sound issue.
+            // Keep running until AppEngine actually OWNS audio (fadingIn/primary).
+            // While AlarmKit owns the ring, or AppEngine is only PREPARING (which does
+            // not play sound), the keep-alive is the only thing preventing iOS from
+            // suspending the process — and a suspended process can't observe AlarmKit
+            // leaving `.alerting`, so the background takeover never runs (the morning
+            // "AlarmKit-only" bug). The keep-alive is silent (.mixWithOthers, volume=0)
+            // so it coexists with AlarmKit — no dual sound. Released once AppEngine
+            // owns audio so the two never fight over the session.
             let phase = AlarmAudioStateController.shared.phase
             return phase != .appEngineFadingIn && phase != .appEnginePrimary
         }
