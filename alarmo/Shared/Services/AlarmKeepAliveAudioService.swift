@@ -65,16 +65,25 @@ final class AlarmKeepAliveAudioService {
         }
     }
 
-    /// Stop the keep-alive SYNCHRONOUSLY before the alarm engine starts playing, so
-    /// the silent loop never coexists with the alarm audio. Call at ring start.
+    /// Re-evaluate keep-alive when an alarm fires. Does NOT force-stop — shouldRun()
+    /// decides: keeps the player alive while AppEngine is still taking over, stops it
+    /// once AppEngine is confirmed playing or the scene becomes active.
     func pauseForAlarmRing(reason: String) {
         cancelRetries()
-        stop(reason: "alarm-ring-\(reason)")
+        evaluate(reason: "alarm-ring-\(reason)")
     }
 
     private func shouldRun() -> Bool {
         if UIApplication.shared.applicationState == .active { return false }
-        if AlarmAudioStateController.shared.isAlarmRinging { return false }
+        if AlarmAudioStateController.shared.isAlarmRinging {
+            // Keep running until AppEngine has claimed audio. Stopping here removes the
+            // app's only background audio session; iOS then suspends the process before
+            // the ~3-5s AppEngine takeover timer can fire (the morning alarm bug).
+            // The keep-alive is silent (.mixWithOthers, volume=0) so it coexists safely
+            // with AlarmKit — no dual-sound issue.
+            let phase = AlarmAudioStateController.shared.phase
+            return phase != .appEngineFadingIn && phase != .appEnginePrimary
+        }
         return hasPendingAlarmWithinWindow()
     }
 

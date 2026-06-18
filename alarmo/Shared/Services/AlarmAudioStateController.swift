@@ -850,6 +850,21 @@ final class AlarmAudioStateController {
                 return
             }
             log("[StateController] AlarmKit alerting — alarmKitFallback active, preserving AlarmKit owner (reason=\(reason))")
+            // Background re-alert while still in alarmKitFallback: arm the takeover if
+            // one hasn't been scheduled yet (handles cold-relaunch after overnight kill).
+            if !appActive, !AlarmAuthHandoffStore.isFinalStopOrSnoozePressed() {
+                let capturedAlarmId = alarmId
+                DispatchQueue.main.asyncAfter(deadline: .now() + Self.alarmKitSettleDelay) { [weak self] in
+                    guard let self,
+                          self.phase == .alarmKitFallback,
+                          !AlarmAuthHandoffStore.isFinalStopOrSnoozePressed() else { return }
+                    self.log("[StateController] overnight background re-alert — triggering suppression takeover after settle delay")
+                    NotificationManager.shared.startAppEngineAfterAlarmKitSuppression(
+                        sourceAlarmId: capturedAlarmId,
+                        reason: "overnight-background-suppression"
+                    )
+                }
+            }
             return
         }
 
@@ -917,6 +932,24 @@ final class AlarmAudioStateController {
 	            takeoverWorkItem = nil
 	            markAlarmKitPrimaryLocked(reason: "preserve-alarmkit-owner-\(reason)")
 	            log("[StateController] AlarmKit alerting — preserving AlarmKit owner; AppEngine idle until explicit handoff (reason=\(reason))")
+	            // Overnight/background alarm: the phone was already locked when the alarm
+	            // fired, so handleLockedHardwareSuppression is never called (no side-button
+	            // press from the user). Schedule the equivalent suppression takeover so
+	            // AppEngine takes over after AlarmKit's settle window — the same path used
+	            // when the side button is pressed while the alarm is ringing.
+	            if !appActive, !AlarmAuthHandoffStore.isFinalStopOrSnoozePressed() {
+	                let capturedAlarmId = alarmId
+	                DispatchQueue.main.asyncAfter(deadline: .now() + Self.alarmKitSettleDelay) { [weak self] in
+	                    guard let self,
+	                          self.phase == .alarmKitFallback,
+	                          !AlarmAuthHandoffStore.isFinalStopOrSnoozePressed() else { return }
+	                    self.log("[StateController] overnight background alarm — triggering suppression takeover after settle delay")
+	                    NotificationManager.shared.startAppEngineAfterAlarmKitSuppression(
+	                        sourceAlarmId: capturedAlarmId,
+	                        reason: "overnight-background-suppression"
+	                    )
+	                }
+	            }
 	            return
 	        }
 
