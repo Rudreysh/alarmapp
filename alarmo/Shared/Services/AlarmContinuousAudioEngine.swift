@@ -31,7 +31,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
 
     private var player: AVAudioPlayer?
     private var currentSoundName: String?
-    private var currentAlarmId: String?
+    private(set) var currentAlarmId: String?
     private(set) var currentAlarmRunId: UUID?
     private var currentVolume: Float = 1.0
     private(set) var targetVolume: Float = 1.0

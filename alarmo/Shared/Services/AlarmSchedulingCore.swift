@@ -1300,6 +1300,17 @@ final class AlarmManagerFacade: AlarmScheduler, AlarmSchedulerProtocol {
             }
             let activeIDs = Set(alarms.filter(\.enabled).map(\.id))
             await requestStore.purgeNotIn(activeIDs)
+
+            // Cancel AlarmKit registrations with no backing store row — orphans from
+            // a replaced/deleted alarm that still fire with their OLD sound (the
+            // "I changed the sound but hear the previous one" bug). Pass ALL store
+            // ids (enabled + disabled) so only genuinely-gone alarms are purged.
+            if selectedPath == .alarmKit,
+               let alarmKitScheduler = alarmKitScheduler as? AlarmSchedulerIOS26AlarmKit {
+                await alarmKitScheduler.cancelOrphanedRegistrations(
+                    knownStoreIds: Set(alarms.map(\.id))
+                )
+            }
         }
     }
 

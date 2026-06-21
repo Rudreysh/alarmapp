@@ -116,6 +116,45 @@ final class AlarmSchedulerIOS26AlarmKit: AlarmScheduler {
 #endif
     }
 
+    /// Cancels AlarmKit registrations that have no backing store alarm — the
+    /// orphans that cause "I changed the sound but still hear the previous one".
+    /// When an alarm is replaced (its store row removed and a new one created), its
+    /// old AlarmKit registration carries the OLD sound and keeps firing forever
+    /// because `reconcilePersistedAlarms` only ever walked the store, never the
+    /// actual AlarmKit registrations. Conservative by design: only purges DIRECT
+    /// top-level orphans (surface == source, source not in the store) and never an
+    /// alerting alarm or any auxiliary surface (snooze/continuity/recovery, which
+    /// always have surface != source). Skipped entirely while an alarm is ringing.
+    func cancelOrphanedRegistrations(knownStoreIds: Set<UUID>) async {
+#if canImport(AlarmKit)
+        if #available(iOS 26.0, *) {
+            guard !AlarmAudioStateController.shared.isAlarmRinging else {
+                logger.log("Orphan reconcile skipped — alarm ringing")
+                return
+            }
+            let registered: [AlarmKit.Alarm]
+            do {
+                registered = try AlarmManager.shared.alarms
+            } catch {
+                logger.error("Orphan reconcile fetch failed: \(error.localizedDescription, privacy: .public)")
+                return
+            }
+            for alarm in registered {
+                if alarm.state == .alerting { continue }
+                let surfaceId = alarm.id
+                if knownStoreIds.contains(surfaceId) { continue }
+                // Only purge a top-level alarm surface (surface == source). Auxiliary
+                // surfaces always map to a different source id and are managed by
+                // their own lifecycle — never touch them here.
+                let sourceIdStr = AlarmCustomUIHandoffStore.sourceAlarmID(forSurfaceAlarmID: surfaceId.uuidString)
+                guard sourceIdStr == surfaceId.uuidString else { continue }
+                await cancelAlarm(id: surfaceId)
+                logger.log("Cancelled orphaned AlarmKit alarm \(surfaceId.uuidString, privacy: .public) — no backing store row")
+            }
+        }
+#endif
+    }
+
     func rescheduleAlarm(id: UUID, newDate: Date) async throws {
         let existing = await stateStore.value(for: id)
         await cancelAlarm(id: id)

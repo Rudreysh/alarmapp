@@ -6631,6 +6631,19 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             print("[AlarmKitObservation] left alerting — no live session source=\(sourceAlarmId) reason=\(reason)")
             return
         }
+        // HIJACK GUARD: only honor a left-alerting takeover for the alarm that is
+        // actually the committed live ring. A DIFFERENT alarm's surface leaving
+        // `.alerting` — e.g. a stale/orphaned duplicate scheduled with an OLD sound
+        // (an AlarmKit registration whose store row was replaced and never
+        // cancelled) — must NOT rebind the session to its sound. That is the root of
+        // the "I press the side button and hear the PREVIOUS sound" bug: the stale
+        // surface hijacks the ring and restarts the engine on the old file.
+        let committedRing = AlarmAudioStateController.shared.currentAlarmId
+            ?? AlarmAuthHandoffStore.activeRingingAlarmId()
+        if let committedRing, committedRing != sourceAlarmId {
+            print("[AlarmKitObservation] left alerting IGNORED — source=\(sourceAlarmId) is not the committed ring \(committedRing) (stale/secondary surface) reason=\(reason)")
+            return
+        }
         if AlarmContinuousAudioEngine.shared.confirmStillPlaying()
             && AlarmAudioStateController.shared.phase == .appEnginePrimary {
             print("[AlarmKitObservation] left alerting — AppEngine already primary source=\(sourceAlarmId)")

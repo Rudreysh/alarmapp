@@ -324,6 +324,17 @@ final class AlarmRingCoordinator: ObservableObject {
                 print("[AlarmRingCoordinator] engine confirmed playing — skipping start() to preserve continuous audio source=\(trimmedReason)")
                 return
             }
+            // Do NOT clobber a healthy ring with a DIFFERENT alarm's sound. If the
+            // engine is actively playing some other alarm than this coordinator's
+            // activeAlarm (a stale/secondary binding), restarting here would switch
+            // the sound AND reset playback to 0 — the "wrong sound, first few seconds
+            // looping" bug. Preserve the audio the engine is currently producing.
+            if let engineAlarmId = AlarmContinuousAudioEngine.shared.currentAlarmId,
+               engineAlarmId != alarm.id.uuidString,
+               AlarmContinuousAudioEngine.shared.confirmStillPlaying() {
+                print("[AlarmRingCoordinator] reassert skipped restart — engine playing different alarm \(engineAlarmId), coordinator activeAlarm=\(alarm.id.uuidString); preserving continuity source=\(trimmedReason)")
+                return
+            }
             AlarmContinuousAudioEngine.shared.start(
                 soundName: alarm.soundName,
                 alarmId: alarm.id.uuidString,
