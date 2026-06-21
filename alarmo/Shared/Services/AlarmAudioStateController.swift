@@ -578,7 +578,14 @@ final class AlarmAudioStateController {
     /// heard while locked (media volume at/near zero). Called by the audible
     /// verification failure path so the alarm is never left silent.
     func recordLockedEngineInaudible(reason: String) {
-        markEngineInaudibleWhileLocked()
+        let transientSession = AlarmContinuousAudioEngine.shared.lastAudibleRecoveryFailedSessionActivation
+        let outputVolume = AVAudioSession.sharedInstance().outputVolume
+        let genuinelyLowVolume = outputVolume <= Self.lowOutputVolumeThreshold
+        if genuinelyLowVolume || !transientSession {
+            markEngineInaudibleWhileLocked()
+        } else {
+            log("[LockedAudible] NOT latching inaudible — transient session-activation failure output=\(String(format: "%.2f", outputVolume)) reason=\(reason)")
+        }
         switch phase {
         case .alarmKitSettling, .appEnginePreparing, .appEngineFadingIn, .appEnginePrimary:
             transitionAudioPhase(to: .alarmKitFallback, reason: "engine-inaudible-locked-\(reason)")

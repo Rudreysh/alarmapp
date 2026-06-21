@@ -42,6 +42,8 @@ final class AlarmKeepAliveAudioService {
     /// Bounds battery: only keep alive when an alarm is within this window.
     private let maxLookaheadHours: TimeInterval = 24
     private let retryBackoff: [TimeInterval] = [0.5, 1.0, 2.0]
+    private var heartbeatTimer: DispatchSourceTimer?
+    private let heartbeatInterval: TimeInterval = 15
 
     private init() {}
 
@@ -146,6 +148,8 @@ final class AlarmKeepAliveAudioService {
             player = p
             isRunning = true
             DiagnosticsLog.shared.log("▶️ started (mixWithOthers) reason=\(reason)", category: "KeepAlive")
+            startHeartbeat()
+            reassertEngineTakeoverIfSuppressed(reason: reason)
         } catch {
             DiagnosticsLog.shared.log("start failed attempt=\(attempt) error=\(error.localizedDescription) reason=\(reason)", category: "KeepAlive")
             scheduleRetry(reason: reason, nextAttempt: attempt + 1)
@@ -173,12 +177,65 @@ final class AlarmKeepAliveAudioService {
 
     private func stop(reason: String) {
         cancelRetries()
+        stopHeartbeat()
         guard isRunning else { return }
         player?.stop()
         player = nil
         isRunning = false
         // Do NOT deactivate the shared session — the alarm engine may own it.
         DiagnosticsLog.shared.log("⏹ stopped reason=\(reason)", category: "KeepAlive")
+    }
+
+    private func reassertEngineTakeoverIfSuppressed(reason: String) {
+        guard AlarmFeatureFlags.appEngineTakesOverAfterAlarmKitSuppression else { return }
+        guard UIApplication.shared.applicationState != .active else { return }
+        let controller = AlarmAudioStateController.shared
+        guard controller.isAlarmRinging else { return }
+        guard !AlarmAuthHandoffStore.isFinalStopOrSnoozePressed() else { return }
+        guard controller.audibleOwner != .appEngine,
+              !controller.appEngineConfirmedPlaying() else { return }
+        guard let alarmId = controller.currentAlarmId
+                ?? AlarmAuthHandoffStore.activeRingingAlarmId() else { return }
+        let suppressed = controller.isAlarmKitSurfaceSuppressionRisk(sourceAlarmId: alarmId)
+            || NotificationManager.shared.hasExplicitHardwareSuppression(sourceAlarmId: alarmId)
+        guard suppressed else { return }
+        DiagnosticsLog.shared.log(
+            "session re-activated during suppressed ring — re-driving AppEngine takeover source=\(alarmId) reason=\(reason)",
+            category: "KeepAlive"
+        )
+        _ = NotificationManager.shared.startAppEngineAfterAlarmKitSuppression(
+            sourceAlarmId: alarmId,
+            reason: "keepalive-session-recovered-\(reason)"
+        )
+    }
+
+    private func startHeartbeat() {
+        guard heartbeatTimer == nil else { return }
+        let timer = DispatchSource.makeTimerSource(queue: .main)
+        timer.schedule(
+            deadline: .now() + heartbeatInterval,
+            repeating: heartbeatInterval,
+            leeway: .seconds(2)
+        )
+        timer.setEventHandler { [weak self] in
+            Task { @MainActor in self?.heartbeatTick() }
+        }
+        heartbeatTimer = timer
+        timer.resume()
+    }
+
+    private func stopHeartbeat() {
+        heartbeatTimer?.setEventHandler {}
+        heartbeatTimer?.cancel()
+        heartbeatTimer = nil
+    }
+
+    private func heartbeatTick() {
+        guard isRunning else { stopHeartbeat(); return }
+        if player?.isPlaying != true {
+            DiagnosticsLog.shared.log("heartbeat: player not progressing — re-evaluating", category: "KeepAlive")
+        }
+        evaluate(reason: "heartbeat")
     }
 
     private func silentSoundURL() -> URL? {

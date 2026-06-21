@@ -60,6 +60,13 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
     private(set) var isProgressingNow: Bool = false
     /// Set when `setActive(true)` succeeds during a ring session.
     private(set) var playbackSessionActivated: Bool = false
+    /// True when the most recent `startAudibleRecovery` failed specifically because
+    /// the AVAudioSession could not be (re)activated — almost always a TRANSIENT
+    /// concurrent interruption (e.g. the side-button press that just suppressed
+    /// AlarmKit), distinct from a genuine zero-volume inaudibility. Callers use this
+    /// to avoid latching the engine off as "proven inaudible while locked" for a
+    /// failure that clears on its own within ~1s.
+    private(set) var lastAudibleRecoveryFailedSessionActivation: Bool = false
 
     static let audibilitySampleDelay: TimeInterval = 0.4
     static let audibilityTimeAdvanceMinimum: TimeInterval = 0.02
@@ -1387,7 +1394,9 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
             log("[Engine][AudibleRecovery] blocked — no prepared player reason=\(reason)")
             return false
         }
+        lastAudibleRecoveryFailedSessionActivation = false
         guard activatePlaybackSessionForRecovery(reason: reason) else {
+            lastAudibleRecoveryFailedSessionActivation = true
             return false
         }
 
