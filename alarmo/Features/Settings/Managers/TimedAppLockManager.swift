@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UserNotifications
 
 /// Standalone "block these apps for X hours" lock, independent of the Pomodoro timer.
 ///
@@ -105,6 +106,7 @@ final class TimedAppLockManager: ObservableObject {
         )
         persist()
         applyShield()
+        scheduleExpiryNotification()
         startTicking()
     }
 
@@ -125,7 +127,22 @@ final class TimedAppLockManager: ObservableObject {
             clear()
         } else {
             applyShield()
+            scheduleExpiryNotification()
             startTicking()
+            verifyIntegrity()
+        }
+    }
+
+    /// Call when the app returns to the foreground. The 1s tick timer is suspended
+    /// while the app is backgrounded, so a lock that expired in the background is
+    /// released here, and an active one is re-asserted + tamper-checked.
+    func refreshOnForeground() {
+        guard let s = state else { return }
+        if Date() >= s.lockedUntil {
+            clear()
+        } else {
+            applyShield()
+            if tickTimer == nil { startTicking() }
             verifyIntegrity()
         }
     }
@@ -171,8 +188,41 @@ final class TimedAppLockManager: ObservableObject {
         needsReauthToResume = false
         defaults.removeObject(forKey: stateKey)
         KeychainStore.delete(account: keychainAccount)
+        cancelExpiryNotification()
         stopTicking()
         BlockingManager.shared.clearBlocking()
+    }
+
+    // MARK: - Expiry notification
+
+    // iOS can't run our code to auto-unblock at expiry without a DeviceActivityMonitor
+    // extension, so until that target exists we notify the user to reopen the app,
+    // which then releases the lock (refreshOnForeground / restoreOnLaunch). Staying
+    // blocked a little past expiry until reopen is the safe direction for a lock.
+    private static let expiryNotificationId = "timedAppLock.expiry"
+
+    private func scheduleExpiryNotification() {
+        guard let s = state else { return }
+        let interval = s.lockedUntil.timeIntervalSinceNow
+        cancelExpiryNotification()
+        guard interval > 1 else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "App lock ended"
+        content.body = "Your timed lock is over. Open the app to unlock \(s.blockListName)."
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
+        let request = UNNotificationRequest(
+            identifier: Self.expiryNotificationId,
+            content: content,
+            trigger: trigger
+        )
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    private func cancelExpiryNotification() {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(
+            withIdentifiers: [Self.expiryNotificationId]
+        )
     }
 
     // MARK: - Ticking

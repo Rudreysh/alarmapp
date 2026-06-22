@@ -190,6 +190,9 @@ struct AppRootView: View {
                 // App is alive in foreground — the overnight keep-alive is no longer
                 // needed; stop it to save battery.
                 AlarmKeepAliveAudioService.shared.evaluate(reason: "scene-active")
+                // Release an expired timed app-lock, or re-assert + tamper-check an
+                // active one (the lock's tick timer is suspended in the background).
+                TimedAppLockManager.shared.refreshOnForeground()
                 applyOpenAlarmMenuNavigationIfPending(trigger: "scene-active")
                 SystemOutputVolumeFloorManager.shared.prepareVolumeViewIfNeeded()
                 notificationManager.markCleanForegroundSession(reason: "scene-active")
