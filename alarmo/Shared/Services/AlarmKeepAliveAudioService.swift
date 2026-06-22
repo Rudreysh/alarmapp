@@ -148,6 +148,7 @@ final class AlarmKeepAliveAudioService {
             player = p
             isRunning = true
             DiagnosticsLog.shared.log("▶️ started (mixWithOthers) reason=\(reason)", category: "KeepAlive")
+            KeepAliveBatteryMonitor.shared.recordStart(reason: reason)
             startHeartbeat()
             reassertEngineTakeoverIfSuppressed(reason: reason)
         } catch {
@@ -179,6 +180,7 @@ final class AlarmKeepAliveAudioService {
         cancelRetries()
         stopHeartbeat()
         guard isRunning else { return }
+        KeepAliveBatteryMonitor.shared.recordStop(reason: reason)
         player?.stop()
         player = nil
         isRunning = false

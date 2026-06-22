@@ -139,6 +139,19 @@ struct AlarmSettingsView: View {
                         )
                     }
                     .buttonStyle(.plain)
+
+                    Divider().padding(.leading, 56).opacity(0.35)
+
+                    NavigationLink {
+                        BatteryMonitorView()
+                    } label: {
+                        row(
+                            icon: "battery.100.bolt",
+                            title: "Battery Monitor",
+                            trailing: ""
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
                 .background(Colors.cardSurface)
                 .cornerRadius(24)
