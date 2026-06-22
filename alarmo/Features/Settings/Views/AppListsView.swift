@@ -36,6 +36,18 @@ struct AppListsView: View {
                 SettingsGlassBackground()
 
                 List {
+                    // ---- Block Now (timed lock) ----
+                    if !blockLists.isEmpty {
+                        Section {
+                            TimedLockSectionContent(blockLists: blockLists)
+                        } header: {
+                            Text("BLOCK NOW")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(Colors.textSecondary)
+                        }
+                        .listRowBackground(Color.white.opacity(0.08))
+                    }
+
                     // ---- Focus Session Blocking ----
                     if !blockLists.isEmpty {
                         Section {

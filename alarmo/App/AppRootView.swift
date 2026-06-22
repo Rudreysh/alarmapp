@@ -104,6 +104,9 @@ struct AppRootView: View {
                 // Launch may occur directly into the background (e.g. relaunched by
                 // the system) — start the keep-alive if an alarm is pending.
                 AlarmKeepAliveAudioService.shared.evaluate(reason: "launch")
+                // Re-apply (or release if expired) any standalone timed app lock so
+                // it survives force-quit / reboot.
+                TimedAppLockManager.shared.restoreOnLaunch()
             }
             restoreAndTakeoverWhenAppActive(reason: "onAppear")
             handlePendingCustomAlarmUIHandoff(trigger: "onAppear")
