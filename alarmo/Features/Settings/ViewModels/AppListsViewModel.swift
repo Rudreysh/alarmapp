@@ -28,11 +28,6 @@ final class AppListsViewModel: ObservableObject {
 
     @discardableResult
     func createList(type: AppListType, context: ModelContext) -> AppList? {
-        if type == .allow && !isPro {
-            showProPaywall = true
-            return nil
-        }
-
         let nextName: String
         switch type {
         case .block:

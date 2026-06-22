@@ -20,7 +20,6 @@ struct AppListsView: View {
     @State private var selectedDetailList: AppList?
     @State private var presentCompactBlockListEditor = false
     @State private var listPendingDelete: AppList?
-    @State private var showDifficultyMenu = false
     @State private var showMissionsMenu = false
 
     private var blockLists: [AppList] { appLists.filter { $0.type == .block } }
@@ -78,7 +77,6 @@ struct AppListsView: View {
                             if let engine {
                                 EngineSettingsSection(
                                     engine: engine,
-                                    onOpenDifficulty: { showDifficultyMenu = true },
                                     onOpenMissions: { showMissionsMenu = true }
                                 )
                             }
@@ -133,24 +131,18 @@ struct AppListsView: View {
                                 selectedDetailList = created
                             }
                         }) {
-                            HStack {
-                                Label("New Allow List", systemImage: "plus.circle.fill")
-                                    .font(.body.weight(.semibold))
-                                    .foregroundColor(Colors.accentTeal)
-                                Spacer()
-                                Text("PRO")
-                                    .font(.system(size: 10, weight: .black))
-                                    .foregroundColor(.black)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 3)
-                                    .background(Colors.pillGreen)
-                                    .clipShape(Capsule())
-                            }
+                            Label("New Allow List", systemImage: "plus.circle.fill")
+                                .font(.body.weight(.semibold))
+                                .foregroundColor(Colors.accentTeal)
                         }
                     } header: {
                         Text("ALLOW LISTS")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(Colors.textSecondary)
+                    } footer: {
+                        Text("Apps in an allow list are exempt from blocking.")
+                            .font(.system(size: 12))
+                            .foregroundColor(Colors.textTertiary)
                     }
                     .listRowBackground(Color.white.opacity(0.08))
                 }
@@ -176,18 +168,6 @@ struct AppListsView: View {
                     isFocusBlockingLocked: isFocusBlockingLocked,
                     activeLockedListID: settings.selectedBlockListId
                 )
-            }
-            .sheet(isPresented: $viewModel.showProPaywall) {
-                ProPaywallFlowView(startStep: .intro) {
-                    viewModel.showProPaywall = false
-                }
-            }
-            .sheet(isPresented: $showDifficultyMenu) {
-                if let engine {
-                    NavigationStack {
-                        SessionDifficultyPickerView(engine: engine)
-                    }
-                }
             }
             .sheet(isPresented: $showMissionsMenu) {
                 if let engine {
@@ -780,201 +760,193 @@ struct BlockListDetailView: View {
 
 struct EngineSettingsSection: View {
     @ObservedObject var engine: PomodoroEngine
-    let onOpenDifficulty: () -> Void
     let onOpenMissions: () -> Void
-    
+
     private var hasSelectedBlockList: Bool {
         !engine.config.selectedBlockListId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
-
     private var selectedMissionsCount: Int {
         engine.config.enabledChallenges.filter { $0 != .off }.count
     }
-
     private var isBlockToggleLocked: Bool {
         engine.isFocusBlockingControlsLocked
     }
-    
+
     var body: some View {
-        Group {
+        // ONE List row (a single VStack) — NOT a Group. A Group here flattened the
+        // dividers/toggles into separate List rows, which rendered as the empty
+        // bordered boxes seen on screen. One VStack keeps internal dividers as thin
+        // lines and fixes that.
+        VStack(alignment: .leading, spacing: 14) {
             Divider().background(Colors.cardStroke)
-            
-            Toggle(isOn: Binding(
-                get: { engine.config.blockAppsEnabled },
-                set: {
-                    if isBlockToggleLocked {
-                        return
-                    }
-                    if $0 && !hasSelectedBlockList {
-                        return
-                    }
-                    var c = engine.config
-                    c.blockAppsEnabled = $0
-                    engine.updateConfig(c)
-                }
-            )) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Block During Focus")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(Colors.textPrimary)
-                    Text("Apps are blocked when the timer runs")
-                        .font(.system(size: 13))
-                        .foregroundColor(Colors.textSecondary)
-                }
-            }
-            .tint(Colors.accentRed)
-            .disabled(isBlockToggleLocked || (!hasSelectedBlockList && !engine.config.blockAppsEnabled))
-            
+
+            blockDuringFocusToggle
+
             if isBlockToggleLocked {
-                Text("Block During Focus is locked until the current focus session ends.")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Colors.accentRed)
-                    .padding(.top, 6)
+                hint("Block During Focus is locked until the current focus session ends.", color: Colors.accentRed, bold: true)
             } else if !hasSelectedBlockList {
-                Text("Select an active block list above to enable focus blocking.")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Colors.textTertiary)
-                    .padding(.top, 6)
+                hint("Select an active block list above to enable focus blocking.", color: Colors.textTertiary, bold: false)
             }
-            
+
             if engine.config.blockAppsEnabled {
                 Divider().background(Colors.cardStroke)
-                
-                Toggle(isOn: Binding(
-                    get: { engine.config.blockDuringBreaks },
-                    set: {
-                        var c = engine.config
-                        c.blockDuringBreaks = $0
-                        engine.updateConfig(c)
-                    }
-                )) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Keep Blocked During Breaks")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(Colors.textPrimary)
-                        Text("Apps stay blocked during short and long breaks")
-                            .font(.system(size: 13))
-                            .foregroundColor(Colors.textSecondary)
-                    }
-                }
-                .tint(Colors.accentBlue)
-                
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("SESSION RULES")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Colors.textSecondary)
-                        .padding(.top, 10)
-
-                    Button(action: onOpenDifficulty) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "gauge.with.needle")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(Colors.accentBlue)
-                                .frame(width: 24)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Session Difficulty")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(Colors.textPrimary)
-                                Text(engine.config.breakMode.subtitle)
-                                    .font(.system(size: 13))
-                                    .foregroundColor(Colors.textSecondary)
-                                    .lineLimit(1)
-                            }
-                            Spacer()
-                            Text(engine.config.breakMode.title)
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(engine.config.breakMode == .hardcore ? .red : Colors.accentBlue)
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(Colors.textTertiary)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background(Color.white.opacity(0.08))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-
-                    Button(action: onOpenMissions) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "target")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(Colors.accentBlue)
-                                .frame(width: 24)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Unlock Missions")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(Colors.textPrimary)
-                                Text(selectedMissionsCount == 0 ? "No mission selected" : "\(selectedMissionsCount) selected")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(Colors.textSecondary)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(Colors.textTertiary)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background(Color.white.opacity(0.08))
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-
-                    Text("Users must complete selected missions to stop or take a break during locked sessions.")
-                        .font(.system(size: 12))
-                        .foregroundColor(Colors.textTertiary)
-                        .padding(.horizontal, 4)
-                }
+                keepBlockedDuringBreaksToggle
+                Divider().background(Colors.cardStroke)
+                stopEarlyControl
             }
         }
+        .padding(.vertical, 4)
     }
-}
 
-private struct SessionDifficultyPickerView: View {
-    @Environment(\.dismiss) private var dismiss
-    @ObservedObject var engine: PomodoroEngine
+    private var blockDuringFocusToggle: some View {
+        Toggle(isOn: Binding(
+            get: { engine.config.blockAppsEnabled },
+            set: {
+                if isBlockToggleLocked { return }
+                if $0 && !hasSelectedBlockList { return }
+                var c = engine.config
+                c.blockAppsEnabled = $0
+                engine.updateConfig(c)
+            }
+        )) {
+            settingLabel("Block During Focus", "Apps are blocked when the timer runs")
+        }
+        .tint(Colors.accentRed)
+        .disabled(isBlockToggleLocked || (!hasSelectedBlockList && !engine.config.blockAppsEnabled))
+    }
 
-    var body: some View {
-        List {
-            ForEach(SessionBreakMode.allCases, id: \.self) { mode in
-                Button {
-                    var config = engine.config
-                    config.breakMode = mode
-                    engine.updateConfig(config)
-                } label: {
+    private var keepBlockedDuringBreaksToggle: some View {
+        Toggle(isOn: Binding(
+            get: { engine.config.blockDuringBreaks },
+            set: {
+                var c = engine.config
+                c.blockDuringBreaks = $0
+                engine.updateConfig(c)
+            }
+        )) {
+            settingLabel("Keep Blocked During Breaks", "Apps stay blocked during short and long breaks")
+        }
+        .tint(Colors.accentBlue)
+    }
+
+    // Single "if you try to stop early" control — replaces the two overlapping
+    // "Session Difficulty" + "Unlock Missions" rows. Maps onto SessionBreakMode
+    // (easy/harder/hardcore) without changing the model; the mission picker only
+    // appears for the mission-gated middle level.
+    private var stopEarlyControl: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("IF YOU TRY TO STOP EARLY")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(Colors.textSecondary)
+
+            HStack(spacing: 8) {
+                ForEach(SessionBreakMode.allCases, id: \.self) { mode in
+                    levelChip(mode)
+                }
+            }
+
+            Text(levelDescription(engine.config.breakMode))
+                .font(.system(size: 13))
+                .foregroundColor(Colors.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if engine.config.breakMode == .harder {
+                Button(action: onOpenMissions) {
                     HStack(spacing: 12) {
-                        Image(systemName: mode.icon)
+                        Image(systemName: "target")
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(mode == .hardcore ? .red : Colors.accentBlue)
+                            .foregroundColor(Colors.accentBlue)
                             .frame(width: 24)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(mode.title)
+                            Text("Unlock Mission")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(Colors.textPrimary)
-                            Text(mode.subtitle)
+                            Text(selectedMissionsCount == 0 ? "Tap to choose a mission" : "\(selectedMissionsCount) selected")
                                 .font(.system(size: 13))
-                                .foregroundColor(Colors.textSecondary)
+                                .foregroundColor(selectedMissionsCount == 0 ? Colors.accentRed : Colors.textSecondary)
                         }
                         Spacer()
-                        if engine.config.breakMode == mode {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(Colors.accentBlue)
-                        }
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(Colors.textTertiary)
                     }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(Color.white.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .navigationTitle("Session Difficulty")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Done") { dismiss() }
+    }
+
+    private func levelChip(_ mode: SessionBreakMode) -> some View {
+        let selected = engine.config.breakMode == mode
+        let accent: Color = mode == .hardcore ? .red : Colors.accentBlue
+        return Button {
+            guard !isBlockToggleLocked else { return }
+            var c = engine.config
+            c.breakMode = mode
+            engine.updateConfig(c)
+        } label: {
+            VStack(spacing: 5) {
+                Image(systemName: levelIcon(mode))
+                    .font(.system(size: 16, weight: .semibold))
+                Text(levelLabel(mode))
+                    .font(.system(size: 12, weight: .bold))
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
             }
+            .foregroundColor(selected ? .white : Colors.textSecondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(selected ? accent : Color.white.opacity(0.08))
+            )
         }
-        .scrollContentBackground(.hidden)
-        .background(SettingsGlassBackground())
+        .buttonStyle(.plain)
+        .disabled(isBlockToggleLocked)
+    }
+
+    private func settingLabel(_ title: String, _ subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(Colors.textPrimary)
+            Text(subtitle)
+                .font(.system(size: 13))
+                .foregroundColor(Colors.textSecondary)
+        }
+    }
+
+    private func hint(_ text: String, color: Color, bold: Bool) -> some View {
+        Text(text)
+            .font(.system(size: 12, weight: bold ? .semibold : .medium))
+            .foregroundColor(color)
+    }
+
+    // Plain-language labels mapped onto SessionBreakMode (model unchanged).
+    private func levelLabel(_ mode: SessionBreakMode) -> String {
+        switch mode {
+        case .easy: return "Flexible"
+        case .harder: return "Committed"
+        case .hardcore: return "Locked"
+        }
+    }
+    private func levelIcon(_ mode: SessionBreakMode) -> String {
+        switch mode {
+        case .easy: return "lock.open"
+        case .harder: return "target"
+        case .hardcore: return "lock.fill"
+        }
+    }
+    private func levelDescription(_ mode: SessionBreakMode) -> String {
+        switch mode {
+        case .easy: return "Stop or take a break anytime."
+        case .harder: return "Complete a mission to stop early or take a break."
+        case .hardcore: return "No early stops — apps stay blocked until the timer ends."
+        }
     }
 }
 
