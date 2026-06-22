@@ -39,12 +39,22 @@ final class TimedAppLockManager: ObservableObject {
     @Published private(set) var state: LockState?
     /// Bumped every second while active so countdown views refresh.
     @Published private(set) var tickToken: Int = 0
+    /// Number of times a Locked/Committed lock was found broken (shield missing or
+    /// Screen Time access revoked) while it should have been active — the foundation
+    /// for the future penalty/fine feature.
+    @Published private(set) var brokenCommitmentCount: Int = 0
+    /// Set when a lock survives via the Keychain (e.g. after a reinstall) but the
+    /// shield can't be re-applied because Screen Time access isn't granted.
+    @Published private(set) var needsReauthToResume = false
 
     private let defaults = UserDefaults.standard
     private let stateKey = "timedAppLock.state.v1"
+    private let keychainAccount = "timedAppLock.state.v1"
+    private let brokenKey = "timedAppLock.brokenCommitments.v1"
     private var tickTimer: Timer?
 
     private init() {
+        brokenCommitmentCount = defaults.integer(forKey: brokenKey)
         load()
     }
 
@@ -107,7 +117,8 @@ final class TimedAppLockManager: ObservableObject {
     }
 
     /// Called on app launch — re-apply the shield if still within the window, or
-    /// release it if the window already passed while the app was away.
+    /// release it if the window already passed while the app was away. Also resumes a
+    /// lock that survived an app reinstall via the Keychain.
     func restoreOnLaunch() {
         guard let s = state else { return }
         if Date() >= s.lockedUntil {
@@ -115,7 +126,31 @@ final class TimedAppLockManager: ObservableObject {
         } else {
             applyShield()
             startTicking()
+            verifyIntegrity()
         }
+    }
+
+    /// Re-assert the shield and detect tampering (shield missing / Screen Time access
+    /// revoked) while a lock should be active. Safe to call on every foreground.
+    func verifyIntegrity() {
+        guard let s = state, Date() < s.lockedUntil else { return }
+        #if !targetEnvironment(simulator)
+        if !ScreenTimeAuthorizationManager.shared.isAuthorized {
+            // The user revoked Screen Time access (or reinstalled) — the shield can't
+            // be enforced until access is granted again. Record the broken commitment.
+            needsReauthToResume = true
+            recordBrokenCommitment()
+            return
+        }
+        #endif
+        needsReauthToResume = false
+        // Idempotent re-apply ensures the shield is actually in place.
+        applyShield()
+    }
+
+    private func recordBrokenCommitment() {
+        brokenCommitmentCount += 1
+        defaults.set(brokenCommitmentCount, forKey: brokenKey)
     }
 
     // MARK: - Shield
@@ -133,7 +168,9 @@ final class TimedAppLockManager: ObservableObject {
 
     private func clear() {
         state = nil
+        needsReauthToResume = false
         defaults.removeObject(forKey: stateKey)
+        KeychainStore.delete(account: keychainAccount)
         stopTicking()
         BlockingManager.shared.clearBlocking()
     }
@@ -166,12 +203,20 @@ final class TimedAppLockManager: ObservableObject {
     private func persist() {
         guard let s = state, let data = try? JSONEncoder().encode(s) else { return }
         defaults.set(data, forKey: stateKey)
+        // Mirror to the Keychain so the lock survives an app reinstall.
+        KeychainStore.set(data, account: keychainAccount)
     }
 
     private func load() {
-        guard let data = defaults.data(forKey: stateKey),
-              let decoded = try? JSONDecoder().decode(LockState.self, from: data) else { return }
+        // Prefer UserDefaults; fall back to the Keychain copy, which survives an app
+        // reinstall (deleting the app does NOT release a still-running lock).
+        let data = defaults.data(forKey: stateKey) ?? KeychainStore.get(account: keychainAccount)
+        guard let data, let decoded = try? JSONDecoder().decode(LockState.self, from: data) else { return }
         state = decoded
+        // Re-seed UserDefaults if we recovered from the Keychain after a reinstall.
+        if defaults.data(forKey: stateKey) == nil {
+            defaults.set(data, forKey: stateKey)
+        }
     }
 
     static func formatRemaining(_ seconds: TimeInterval) -> String {

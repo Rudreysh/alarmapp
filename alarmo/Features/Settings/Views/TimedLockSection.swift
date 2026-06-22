@@ -15,6 +15,7 @@ struct TimedLockSectionContent: View {
     @State private var missions: [UnblockChallenge] = [.math]
     @State private var showUnlock = false
     @State private var showMissionPicker = false
+    @State private var showLockdownGuide = false
 
     private let presets: [(label: String, minutes: Int)] = [
         ("15m", 15), ("30m", 30), ("1h", 60), ("2h", 120), ("4h", 240), ("8h", 480)
@@ -44,10 +45,12 @@ struct TimedLockSectionContent: View {
             }
         }
         .padding(.vertical, 4)
+        .onAppear { lock.verifyIntegrity() }
         .sheet(isPresented: $showUnlock) { unlockSheet }
         .sheet(isPresented: $showMissionPicker) {
             TimedLockMissionPicker(selected: $missions)
         }
+        .sheet(isPresented: $showLockdownGuide) { LockdownGuideView() }
     }
 
     // MARK: - Active
@@ -76,6 +79,13 @@ struct TimedLockSectionContent: View {
                 Text("“\(note)”")
                     .font(.system(size: 13))
                     .foregroundColor(Colors.textSecondary)
+            }
+
+            if lock.needsReauthToResume {
+                Text("⚠️ Screen Time access is off — your locked apps aren't being enforced. Re-enable it to honor your lock.")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Colors.accentRed)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Button {
@@ -146,6 +156,20 @@ struct TimedLockSectionContent: View {
                 .font(.system(size: 13))
                 .foregroundColor(Colors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if strictness == .locked {
+                Button { showLockdownGuide = true } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "shield.lefthalf.filled")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Make this tamper-resistant (can't delete the app)")
+                            .font(.system(size: 13, weight: .semibold))
+                        Image(systemName: "chevron.right").font(.system(size: 10, weight: .bold))
+                    }
+                    .foregroundColor(Colors.accentBlue)
+                }
+                .buttonStyle(.plain)
+            }
 
             if strictness == .committed {
                 Button { showMissionPicker = true } label: {
