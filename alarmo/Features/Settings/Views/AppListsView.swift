@@ -36,18 +36,6 @@ struct AppListsView: View {
                 SettingsGlassBackground()
 
                 List {
-                    // ---- Block Now (timed lock) ----
-                    if !blockLists.isEmpty {
-                        Section {
-                            TimedLockSectionContent(blockLists: blockLists)
-                        } header: {
-                            Text("BLOCK NOW")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(Colors.textSecondary)
-                        }
-                        .listRowBackground(Color.white.opacity(0.08))
-                    }
-
                     // ---- Focus Session Blocking ----
                     if !blockLists.isEmpty {
                         Section {
@@ -804,10 +792,19 @@ struct EngineSettingsSection: View {
                 Divider().background(Colors.cardStroke)
                 keepBlockedDuringBreaksToggle
                 Divider().background(Colors.cardStroke)
-                stopEarlyControl
+                strictModeControl
             }
         }
         .padding(.vertical, 4)
+        .onAppear {
+            // Two modes only (Normal / Strict). Normalize any legacy "stop anytime"
+            // (.easy) config to Normal=mission-gated so the UI and behavior match.
+            if engine.config.blockAppsEnabled, engine.config.breakMode == .easy {
+                var c = engine.config
+                c.breakMode = .harder
+                engine.updateConfig(c)
+            }
+        }
     }
 
     private var blockDuringFocusToggle: some View {
@@ -841,28 +838,31 @@ struct EngineSettingsSection: View {
         .tint(Colors.accentBlue)
     }
 
-    // Single "if you try to stop early" control — replaces the two overlapping
-    // "Session Difficulty" + "Unlock Missions" rows. Maps onto SessionBreakMode
-    // (easy/harder/hardcore) without changing the model; the mission picker only
-    // appears for the mission-gated middle level.
-    private var stopEarlyControl: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("IF YOU TRY TO STOP EARLY")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Colors.textSecondary)
+    private var isStrict: Bool { engine.config.breakMode == .hardcore }
 
-            HStack(spacing: 8) {
-                ForEach(SessionBreakMode.allCases, id: \.self) { mode in
-                    levelChip(mode)
+    // Two modes only — Normal vs Strict. Strict = apps stay blocked until the timer
+    // ends (no early unlock, uninstall-proof). Normal = unlock early by completing
+    // the chosen mission, shown directly below the toggle.
+    private var strictModeControl: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle(isOn: Binding(
+                get: { isStrict },
+                set: { on in
+                    guard !isBlockToggleLocked else { return }
+                    var c = engine.config
+                    c.breakMode = on ? .hardcore : .harder
+                    engine.updateConfig(c)
                 }
+            )) {
+                settingLabel(
+                    "Strict Mode",
+                    "Apps stay blocked until the timer ends — no early unlock, even if you uninstall."
+                )
             }
+            .tint(.red)
+            .disabled(isBlockToggleLocked)
 
-            Text(levelDescription(engine.config.breakMode))
-                .font(.system(size: 13))
-                .foregroundColor(Colors.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if engine.config.breakMode == .harder {
+            if !isStrict {
                 Button(action: onOpenMissions) {
                     HStack(spacing: 12) {
                         Image(systemName: "target")
@@ -888,37 +888,12 @@ struct EngineSettingsSection: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 .buttonStyle(.plain)
-            }
-        }
-    }
 
-    private func levelChip(_ mode: SessionBreakMode) -> some View {
-        let selected = engine.config.breakMode == mode
-        let accent: Color = mode == .hardcore ? .red : Colors.accentBlue
-        return Button {
-            guard !isBlockToggleLocked else { return }
-            var c = engine.config
-            c.breakMode = mode
-            engine.updateConfig(c)
-        } label: {
-            VStack(spacing: 5) {
-                Image(systemName: levelIcon(mode))
-                    .font(.system(size: 16, weight: .semibold))
-                Text(levelLabel(mode))
-                    .font(.system(size: 12, weight: .bold))
-                    .minimumScaleFactor(0.7)
-                    .lineLimit(1)
+                Text("In Normal mode you can end early by completing this mission.")
+                    .font(.system(size: 12))
+                    .foregroundColor(Colors.textTertiary)
             }
-            .foregroundColor(selected ? .white : Colors.textSecondary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(selected ? accent : Color.white.opacity(0.08))
-            )
         }
-        .buttonStyle(.plain)
-        .disabled(isBlockToggleLocked)
     }
 
     private func settingLabel(_ title: String, _ subtitle: String) -> some View {
@@ -936,29 +911,6 @@ struct EngineSettingsSection: View {
         Text(text)
             .font(.system(size: 12, weight: bold ? .semibold : .medium))
             .foregroundColor(color)
-    }
-
-    // Plain-language labels mapped onto SessionBreakMode (model unchanged).
-    private func levelLabel(_ mode: SessionBreakMode) -> String {
-        switch mode {
-        case .easy: return "Flexible"
-        case .harder: return "Committed"
-        case .hardcore: return "Locked"
-        }
-    }
-    private func levelIcon(_ mode: SessionBreakMode) -> String {
-        switch mode {
-        case .easy: return "lock.open"
-        case .harder: return "target"
-        case .hardcore: return "lock.fill"
-        }
-    }
-    private func levelDescription(_ mode: SessionBreakMode) -> String {
-        switch mode {
-        case .easy: return "Stop or take a break anytime."
-        case .harder: return "Complete a mission to stop early or take a break."
-        case .hardcore: return "No early stops — apps stay blocked until the timer ends."
-        }
     }
 }
 
