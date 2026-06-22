@@ -16,6 +16,8 @@ enum SettingsPalette {
 }
 
 struct SettingsGlassBackground: View {
+    @ObservedObject private var settingsStore = SettingsStore.shared
+    @ObservedObject private var themeManager = ThemeManager.shared
     @State private var animate = false
 
     var body: some View {
@@ -58,8 +60,10 @@ struct SettingsGlassBackground: View {
                 .offset(x: animate ? -10 : 12, y: animate ? 86 : 74)
                 .scaleEffect(animate ? 1.03 : 0.98)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea()
         .allowsHitTesting(false)
+        .id("\(settingsStore.alarmThemeStyleRaw)-\(themeManager.paletteRevision)")
         .onAppear {
             withAnimation(.easeInOut(duration: 20).repeatForever(autoreverses: true)) {
                 animate = true

@@ -946,14 +946,7 @@ struct PlanItemTimelineRow: View {
     private let habitRowScale: CGFloat = 0.9
 
     private var isLightMode: Bool {
-        switch settingsStore.themeMode {
-        case .light:
-            return true
-        case .dark:
-            return false
-        case .system:
-            return colorScheme == .light
-        }
+        settingsStore.isLightAppearance
     }
     
     var body: some View {
@@ -1033,11 +1026,17 @@ struct PlanItemTimelineRow: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [
-                            isLightMode ? Color.white.opacity(0.98) : Color(red: 0.04, green: 0.08, blue: 0.12).opacity(0.92),
-                            isLightMode ? Color(red: 0.97, green: 0.97, blue: 0.97).opacity(0.98) : Color(red: 0.06, green: 0.11, blue: 0.17).opacity(0.86),
-                            isLightMode ? Color(red: 0.95, green: 0.95, blue: 0.95).opacity(0.98) : Color(red: 0.03, green: 0.05, blue: 0.09).opacity(0.92)
-                        ],
+                        colors: isLightMode
+                            ? [
+                                Colors.cardSurface,
+                                Colors.cardSurface.opacity(0.98),
+                                Colors.bgSecondary.opacity(0.92)
+                            ]
+                            : [
+                                Color(red: 0.04, green: 0.08, blue: 0.12).opacity(0.92),
+                                Color(red: 0.06, green: 0.11, blue: 0.17).opacity(0.86),
+                                Color(red: 0.03, green: 0.05, blue: 0.09).opacity(0.92)
+                            ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -2730,14 +2729,7 @@ struct CalendarHeaderView: View {
     
     private var calendar: Calendar { Calendar.current }
     private var isLightMode: Bool {
-        switch settingsStore.themeMode {
-        case .light:
-            return true
-        case .dark:
-            return false
-        case .system:
-            return colorScheme == .light
-        }
+        settingsStore.isLightAppearance
     }
     
     var body: some View {
@@ -2757,7 +2749,7 @@ struct CalendarHeaderView: View {
                                 .foregroundColor(Colors.textSecondary)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(isLightMode ? Color.white.opacity(0.95) : Colors.cardSurface)
+                                .background(Colors.cardSurface)
                                 .cornerRadius(8)
                         }
                     }
@@ -2778,7 +2770,7 @@ struct CalendarHeaderView: View {
                                 Text(moodEmoji ?? "🙂")
                                     .font(.system(size: 24))
                                     .frame(width: 40, height: 40)
-                                    .background(isLightMode ? Color.white.opacity(0.95) : Color.white.opacity(0.08))
+                                    .background(Colors.cardSurface)
                                     .clipShape(Circle())
 
                                 Image(systemName: "plus.circle.fill")
@@ -2801,7 +2793,7 @@ struct CalendarHeaderView: View {
                                 .font(.system(size: 14))
                                 .foregroundColor(isListView ? Colors.textPrimary : Colors.textSecondary)
                                 .frame(width: 32, height: 32)
-                                .background(isListView ? (isLightMode ? Color.white.opacity(0.95) : Colors.cardSurface) : Color.clear)
+                                .background(isListView ? Colors.cardSurface : Color.clear)
                                 .clipShape(Circle())
                         }
                         
@@ -2810,12 +2802,12 @@ struct CalendarHeaderView: View {
                                 .font(.system(size: 14))
                                 .foregroundColor(!isListView ? Colors.textPrimary : Colors.textSecondary)
                                 .frame(width: 32, height: 32)
-                                .background(!isListView ? (isLightMode ? Color.white.opacity(0.95) : Colors.cardSurface) : Color.clear)
+                                .background(!isListView ? Colors.cardSurface : Color.clear)
                                 .clipShape(Circle())
                         }
                     }
                     .padding(2)
-                    .background(isLightMode ? Color.white.opacity(0.75) : Colors.cardSurface.opacity(0.3))
+                    .background(Colors.cardSurface.opacity(isLightMode ? 0.85 : 0.3))
                     .clipShape(Capsule())
                 }
             }
@@ -2915,14 +2907,7 @@ struct WeekDayCell: View {
     let hasMoodNote: Bool
     let onTap: () -> Void
     private var isLightMode: Bool {
-        switch settingsStore.themeMode {
-        case .light:
-            return true
-        case .dark:
-            return false
-        case .system:
-            return colorScheme == .light
-        }
+        settingsStore.isLightAppearance
     }
     
     var body: some View {
@@ -2933,11 +2918,11 @@ struct WeekDayCell: View {
             VStack(spacing: 3) {
                 Text(dayNum)
                     .font(.system(size: 16, weight: isSelected ? .bold : .regular))
-                    .foregroundColor(isSelected ? (isLightMode ? Colors.textPrimary : .white) : Colors.textSecondary)
+                    .foregroundColor(isSelected ? .white : Colors.textSecondary)
                     .frame(width: 32, height: 32)
                     .background(
                         isSelected
-                            ? (isLightMode ? Color(red: 0.90, green: 0.90, blue: 0.90) : Color(red: 0.06, green: 0.45, blue: 0.62))
+                            ? Colors.accentTeal
                             : Color.clear
                     )
                     .clipShape(Circle())
@@ -3027,14 +3012,7 @@ struct PlanItemRow: View {
     @State private var dragIntent: DragIntent?
     private let habitRowScale: CGFloat = 0.9
     private var isLightMode: Bool {
-        switch settingsStore.themeMode {
-        case .light:
-            return true
-        case .dark:
-            return false
-        case .system:
-            return colorScheme == .light
-        }
+        settingsStore.isLightAppearance
     }
     
     var body: some View {
@@ -3044,22 +3022,34 @@ struct PlanItemRow: View {
                     isHabitItem
                     ? AnyShapeStyle(
                         LinearGradient(
-                            colors: [
-                                isLightMode ? Color.white.opacity(0.98) : Color(red: 0.04, green: 0.08, blue: 0.12).opacity(0.92),
-                                isLightMode ? Color(red: 0.97, green: 0.97, blue: 0.97).opacity(0.98) : Color(red: 0.06, green: 0.11, blue: 0.17).opacity(0.86),
-                                isLightMode ? Color(red: 0.95, green: 0.95, blue: 0.95).opacity(0.98) : Color(red: 0.03, green: 0.05, blue: 0.09).opacity(0.92)
-                            ],
+                            colors: isLightMode
+                                ? [
+                                    Colors.cardSurface,
+                                    Colors.cardSurface.opacity(0.98),
+                                    Colors.bgSecondary.opacity(0.92)
+                                ]
+                                : [
+                                    Color(red: 0.04, green: 0.08, blue: 0.12).opacity(0.92),
+                                    Color(red: 0.06, green: 0.11, blue: 0.17).opacity(0.86),
+                                    Color(red: 0.03, green: 0.05, blue: 0.09).opacity(0.92)
+                                ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                     : AnyShapeStyle(
                         LinearGradient(
-                            colors: [
-                                isLightMode ? Color.white.opacity(0.98) : Color(red: 0.05, green: 0.07, blue: 0.11).opacity(0.94),
-                                isLightMode ? Color(red: 0.97, green: 0.97, blue: 0.97).opacity(0.98) : Color(red: 0.09, green: 0.12, blue: 0.17).opacity(0.88),
-                                isLightMode ? Color(red: 0.95, green: 0.95, blue: 0.95).opacity(0.98) : Color(red: 0.04, green: 0.06, blue: 0.10).opacity(0.94)
-                            ],
+                            colors: isLightMode
+                                ? [
+                                    Colors.cardSurface,
+                                    Colors.cardSurface.opacity(0.98),
+                                    Colors.bgSecondary.opacity(0.94)
+                                ]
+                                : [
+                                    Color(red: 0.05, green: 0.07, blue: 0.11).opacity(0.94),
+                                    Color(red: 0.09, green: 0.12, blue: 0.17).opacity(0.88),
+                                    Color(red: 0.04, green: 0.06, blue: 0.10).opacity(0.94)
+                                ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )

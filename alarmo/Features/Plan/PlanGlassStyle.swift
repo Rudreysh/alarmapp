@@ -4,62 +4,122 @@ enum PlanPalette {
     static var textPrimary: Color { Colors.textPrimary }
     static var textSecondary: Color { Colors.textSecondary }
     static var textMuted: Color { Colors.textTertiary }
-    static let accent = Color(red: 0.08, green: 0.78, blue: 0.92)
-    static let accentStrong = Color(red: 0.05, green: 0.66, blue: 0.84)
-    static let accentSoft = Color(red: 0.28, green: 0.88, blue: 0.98)
+    static var accent: Color { Colors.accentTeal }
+    static var accentStrong: Color { Colors.accentBlue }
+    static var accentSoft: Color { Colors.accentTeal.opacity(0.85) }
 }
 
 struct PlanGlassBackground: View {
-    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var settingsStore = SettingsStore.shared
+    @ObservedObject private var themeManager = ThemeManager.shared
+    @State private var animate = false
 
-    private var isLightMode: Bool {
-        switch settingsStore.themeMode {
-        case .light:
-            return true
-        case .dark:
-            return false
-        case .system:
-            return colorScheme == .light
-        }
+    private var isLightAppearance: Bool {
+        settingsStore.isLightAppearance
     }
 
     var body: some View {
         ZStack {
-            // 1. Deep Black Base
-            (isLightMode ? Colors.bgPrimary : Color.black)
-                .ignoresSafeArea()
-            
-            // 2. Warm Orange Glow (Bottom Left)
-            // Positioned to spill over from the bottom left corner
+            LinearGradient(
+                colors: [
+                    Colors.bgPrimary,
+                    Colors.bgSecondary,
+                    Colors.bgPrimary
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            if isLightAppearance {
+                lightThemeGlow
+            } else {
+                darkThemeGlow
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .id("\(settingsStore.alarmThemeStyleRaw)-\(themeManager.paletteRevision)")
+        .onAppear {
+            withAnimation(.easeInOut(duration: 20).repeatForever(autoreverses: true)) {
+                animate = true
+            }
+        }
+    }
+
+    private var lightThemeGlow: some View {
+        ZStack {
             GeometryReader { proxy in
                 Circle()
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color(red: 0.78, green: 0.49, blue: 0.26).opacity(isLightMode ? 0.20 : 0.5), // #C87D43
-                                Color(red: 0.78, green: 0.49, blue: 0.26).opacity(isLightMode ? 0.05 : 0.1),
+                                Colors.accentBlue.opacity(0.14),
+                                Colors.accentTeal.opacity(0.06),
                                 .clear
                             ],
                             center: .center,
                             startRadius: 10,
-                            endRadius: proxy.size.width * 0.8 // Large spill
+                            endRadius: proxy.size.width * 0.75
                         )
                     )
-                    .frame(width: proxy.size.width * 1.5, height: proxy.size.width * 1.5)
-                    .position(x: 0, y: proxy.size.height) // Bottom Left corner
-                    .blur(radius: 60)
+                    .frame(width: proxy.size.width * 1.2, height: proxy.size.width * 1.2)
+                    .position(x: proxy.size.width * 0.15, y: proxy.size.height * 0.2)
+                    .blur(radius: 48)
             }
             .ignoresSafeArea()
-            
-            // 3. Teal/Blue-Grey Glow (Middle/Bottom Right)
+
             GeometryReader { proxy in
                 Ellipse()
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color(red: 0.37, green: 0.49, blue: 0.54).opacity(isLightMode ? 0.18 : 0.4), // #5F7D8B
-                                Color(red: 0.82, green: 0.82, blue: 0.82).opacity(isLightMode ? 0.12 : 0.2), // #D0D0D0 (Light Grey mix)
+                                Colors.sheetGradientTop.opacity(0.35),
+                                .clear
+                            ],
+                            center: .center,
+                            startRadius: 20,
+                            endRadius: proxy.size.width * 0.55
+                        )
+                    )
+                    .frame(width: proxy.size.width, height: proxy.size.height * 0.5)
+                    .position(x: proxy.size.width * 0.85, y: proxy.size.height * 0.75)
+                    .blur(radius: 40)
+            }
+            .ignoresSafeArea()
+        }
+    }
+
+    private var darkThemeGlow: some View {
+        ZStack {
+            GeometryReader { proxy in
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color(red: 0.78, green: 0.49, blue: 0.26).opacity(0.5),
+                                Color(red: 0.78, green: 0.49, blue: 0.26).opacity(0.1),
+                                .clear
+                            ],
+                            center: .center,
+                            startRadius: 10,
+                            endRadius: proxy.size.width * 0.8
+                        )
+                    )
+                    .frame(width: proxy.size.width * 1.5, height: proxy.size.width * 1.5)
+                    .position(x: 0, y: proxy.size.height)
+                    .blur(radius: 60)
+                    .offset(x: animate ? 4 : -4)
+            }
+            .ignoresSafeArea()
+
+            GeometryReader { proxy in
+                Ellipse()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color(red: 0.37, green: 0.49, blue: 0.54).opacity(0.4),
+                                Color(red: 0.82, green: 0.82, blue: 0.82).opacity(0.2),
                                 .clear
                             ],
                             center: .center,
@@ -68,16 +128,14 @@ struct PlanGlassBackground: View {
                         )
                     )
                     .frame(width: proxy.size.width * 1.2, height: proxy.size.height * 0.8)
-                    .position(x: proxy.size.width, y: proxy.size.height * 0.6) // Middle-Bottom Right
+                    .position(x: proxy.size.width, y: proxy.size.height * 0.6)
                     .blur(radius: 50)
+                    .offset(x: animate ? -6 : 6)
             }
             .ignoresSafeArea()
-            
-            // 4. Subtle Noise/Grain Overlay
-            // Using a high-opacity color mix or material to simulate texture if possible,
-            // otherwise just the gradient is the main "pattern".
+
             Rectangle()
-                .fill((isLightMode ? Color.black : Color.white).opacity(0.02))
+                .fill(Color.white.opacity(0.02))
                 .blendMode(.overlay)
                 .ignoresSafeArea()
         }
@@ -89,7 +147,7 @@ extension View {
         self
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.white.opacity(fillOpacity))
+                    .fill(Colors.cardSurface.opacity(max(fillOpacity, 0.72)))
                     .background(
                         .ultraThinMaterial,
                         in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -97,9 +155,9 @@ extension View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                    .stroke(Colors.cardStroke, lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(0.22), radius: 10, x: 0, y: 5)
+            .shadow(color: Colors.shadow.opacity(0.22), radius: 10, x: 0, y: 5)
     }
 
     func planGlassCircle(size: CGFloat = 56, fillOpacity: Double = 0.10) -> some View {
@@ -107,27 +165,27 @@ extension View {
             .frame(width: size, height: size)
             .background(
                 Circle()
-                    .fill(Color.white.opacity(fillOpacity))
+                    .fill(Colors.cardSurface.opacity(max(fillOpacity, 0.72)))
                     .background(.ultraThinMaterial, in: Circle())
             )
             .overlay(
                 Circle()
-                    .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                    .stroke(Colors.cardStroke, lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(0.22), radius: 8, x: 0, y: 4)
+            .shadow(color: Colors.shadow.opacity(0.18), radius: 8, x: 0, y: 4)
     }
 
     func planPrimaryCTA(cornerRadius: CGFloat = 24) -> some View {
         self
-            .foregroundColor(Color.white.opacity(0.95))
+            .foregroundColor(SettingsStore.shared.isLightAppearance ? Colors.textPrimary : Color.white.opacity(0.95))
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [
-                                PlanPalette.accentSoft.opacity(0.68),
-                                PlanPalette.accentStrong.opacity(0.72),
-                                PlanPalette.accent.opacity(0.70)
+                                PlanPalette.accentSoft.opacity(0.78),
+                                PlanPalette.accentStrong.opacity(0.82),
+                                PlanPalette.accent.opacity(0.80)
                             ],
                             startPoint: .leading,
                             endPoint: .trailing
@@ -137,14 +195,7 @@ extension View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.44), Color.white.opacity(0.14)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
+                    .stroke(Colors.cardStroke.opacity(0.65), lineWidth: 1)
             )
             .shadow(color: PlanPalette.accent.opacity(0.20), radius: 14, x: 0, y: 8)
     }

@@ -96,6 +96,13 @@ extension AlarmThemeStyle {
     }
 }
 
+extension SettingsStore {
+    /// User-facing appearance: Light (tiimo) vs Dark (default).
+    var isLightAppearance: Bool {
+        alarmThemeStyle == .tiimo
+    }
+}
+
 enum HabitDistanceUnitSystem: String, Codable, CaseIterable, Identifiable {
     case kilometers = "kilometers"
     case miles = "miles"
@@ -308,7 +315,16 @@ class SettingsStore: ObservableObject {
         if perCheatAmountCents > 0 && penaltyAmountEuro == 1 {
             penaltyAmountEuro = min(10, max(1, perCheatAmountCents / 100))
         }
+        Self.syncThemeMode(withAlarmStyleRaw: UserDefaults.standard.string(forKey: Keys.alarmThemeStyleRaw), current: &themeMode)
         ThemeManager.shared.updateTheme()
+    }
+
+    private static func syncThemeMode(withAlarmStyleRaw rawValue: String?, current: inout ThemeMode) {
+        let style = AlarmThemeStyle(rawValue: rawValue ?? AlarmThemeStyle.default.rawValue) ?? .default
+        let expected: ThemeMode = style == .tiimo ? .light : .dark
+        if current != expected {
+            current = expected
+        }
     }
 
     var enforcementMode: EnforcementMode {
@@ -386,7 +402,12 @@ class SettingsStore: ObservableObject {
         get { AlarmThemeStyle(rawValue: alarmThemeStyleRaw) ?? .default }
         set {
             alarmThemeStyleRaw = newValue.rawValue
-            ThemeManager.shared.updateTheme()
+            let expectedMode: ThemeMode = newValue == .tiimo ? .light : .dark
+            if themeMode != expectedMode {
+                themeMode = expectedMode
+            } else {
+                ThemeManager.shared.updateTheme()
+            }
         }
     }
 

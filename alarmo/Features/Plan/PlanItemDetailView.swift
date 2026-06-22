@@ -1315,14 +1315,7 @@ struct HabitStatisticsTabView: View {
     }
 
     private var isLightTheme: Bool {
-        switch settingsStore.themeMode {
-        case .light:
-            return true
-        case .dark:
-            return false
-        case .system:
-            return colorScheme == .light
-        }
+        settingsStore.isLightAppearance
     }
 
     private var trendAccentColor: Color {
@@ -1330,11 +1323,11 @@ struct HabitStatisticsTabView: View {
     }
 
     private var trendPrimaryBlue: Color {
-        Color(red: 0.08, green: 0.78, blue: 0.92)
+        Colors.accentTeal
     }
 
     private var trendSecondaryBlue: Color {
-        Color(red: 0.05, green: 0.66, blue: 0.84)
+        Colors.accentBlue
     }
 
     private var trendAverageValue: Double {

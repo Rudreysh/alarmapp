@@ -1101,7 +1101,12 @@ struct AppRootView: View {
 
     private var resolvedColorScheme: ColorScheme? {
         let style = AlarmThemeStyle(rawValue: appThemeStyleRaw) ?? .default
-        return style.forcesLightColorScheme ? .light : settingsStore.themeMode.colorScheme
+        switch style {
+        case .tiimo:
+            return .light
+        case .default:
+            return .dark
+        }
     }
 
     private var isTiimoTheme: Bool {

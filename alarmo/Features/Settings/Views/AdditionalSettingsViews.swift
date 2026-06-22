@@ -104,6 +104,10 @@ struct ThemeSettingsView: View {
             .padding(.top, 20)
             .padding(.horizontal, 20)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Colors.bgPrimary.ignoresSafeArea())
+        .toolbarBackground(Colors.bgPrimary, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .navigationTitle("Themes")
         .navigationBarTitleDisplayMode(.inline)
     }

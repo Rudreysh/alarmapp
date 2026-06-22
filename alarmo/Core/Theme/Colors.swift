@@ -176,29 +176,29 @@ enum Colors {
     )
 
     private static var activePalette: Palette {
-        let styleRaw = UserDefaults.standard.string(forKey: themeStyleKey) ?? "default"
-        if styleRaw == "lilac_calm" {
-            return lilacCalmPalette
-        }
-        if styleRaw == "tiimo" {
+        let styleRaw = UserDefaults.standard.string(forKey: themeStyleKey) ?? AlarmThemeStyle.default.rawValue
+        switch styleRaw {
+        case AlarmThemeStyle.tiimo.rawValue:
             return tiimoPalette
-        }
-        if styleRaw == "meadow_cream" {
+        case "lilac_calm":
+            return lilacCalmPalette
+        case "meadow_cream":
             return meadowCreamPalette
-        }
-        if styleRaw == "green" {
+        case "green":
             return greenPalette
-        }
-
-        let modeRaw = UserDefaults.standard.string(forKey: themeModeKey) ?? "Dark"
-        switch modeRaw {
-        case "Light":
-            return lightPalette
-        case "Follow system setting":
-            let isSystemLight = UIScreen.main.traitCollection.userInterfaceStyle == .light
-            return isSystemLight ? lightPalette : defaultPalette
-        default:
+        case AlarmThemeStyle.default.rawValue:
             return defaultPalette
+        default:
+            let modeRaw = UserDefaults.standard.string(forKey: themeModeKey) ?? ThemeMode.dark.rawValue
+            switch modeRaw {
+            case ThemeMode.light.rawValue:
+                return lightPalette
+            case ThemeMode.system.rawValue:
+                let isSystemLight = UIScreen.main.traitCollection.userInterfaceStyle == .light
+                return isSystemLight ? lightPalette : defaultPalette
+            default:
+                return defaultPalette
+            }
         }
     }
 
@@ -374,45 +374,44 @@ struct GreenTheme: AppTheme {
 
 class ThemeManager: ObservableObject {
     static let shared = ThemeManager()
-    
-    @Published var activeTheme: AppTheme = TiimoLightTheme()
-    
+
+    @Published private(set) var activeTheme: AppTheme = TiimoLightTheme()
+    @Published private(set) var paletteRevision: Int = 0
+
     private init() {
         updateTheme()
     }
-    
+
     func updateTheme() {
         let themeStyleKey = "settings.alarmThemeStyleRaw"
         let themeModeKey = "settings.themeMode"
-        
-        let styleRaw = UserDefaults.standard.string(forKey: themeStyleKey) ?? "default"
-        
-        if styleRaw == "lilac_calm" {
+
+        let styleRaw = UserDefaults.standard.string(forKey: themeStyleKey) ?? AlarmThemeStyle.default.rawValue
+
+        switch styleRaw {
+        case "lilac_calm":
             activeTheme = LilacCalmTheme()
-            return
-        }
-        if styleRaw == "tiimo" {
+        case AlarmThemeStyle.tiimo.rawValue:
             activeTheme = TiimoLightTheme()
-            return
-        }
-        if styleRaw == "meadow_cream" {
+        case "meadow_cream":
             activeTheme = MeadowCreamTheme()
-            return
-        }
-        if styleRaw == "green" {
+        case "green":
             activeTheme = GreenTheme()
-            return
-        }
-        
-        let modeRaw = UserDefaults.standard.string(forKey: themeModeKey) ?? "Dark"
-        switch modeRaw {
-        case "Light":
-            activeTheme = DefaultLightTheme()
-        case "Follow system setting":
-            let isSystemLight = UIScreen.main.traitCollection.userInterfaceStyle == .light
-            activeTheme = isSystemLight ? DefaultLightTheme() : DefaultDarkTheme()
-        default:
+        case AlarmThemeStyle.default.rawValue:
             activeTheme = DefaultDarkTheme()
+        default:
+            let modeRaw = UserDefaults.standard.string(forKey: themeModeKey) ?? ThemeMode.dark.rawValue
+            switch modeRaw {
+            case ThemeMode.light.rawValue:
+                activeTheme = DefaultLightTheme()
+            case ThemeMode.system.rawValue:
+                let isSystemLight = UIScreen.main.traitCollection.userInterfaceStyle == .light
+                activeTheme = isSystemLight ? DefaultLightTheme() : DefaultDarkTheme()
+            default:
+                activeTheme = DefaultDarkTheme()
+            }
         }
+
+        paletteRevision &+= 1
     }
 }
