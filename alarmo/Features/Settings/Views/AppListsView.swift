@@ -740,18 +740,9 @@ struct EngineSettingsSection: View {
         // lines and fixes that.
         VStack(alignment: .leading, spacing: 14) {
             Divider().background(Colors.cardStroke)
-
             blockDuringFocusToggle
 
-            if isBlockToggleLocked {
-                hint("Block During Focus is locked until the current focus session ends.", color: Colors.accentRed, bold: true)
-            } else if !hasSelectedBlockList {
-                hint("Select an active block list above to enable focus blocking.", color: Colors.textTertiary, bold: false)
-            }
-
             if engine.config.blockAppsEnabled {
-                Divider().background(Colors.cardStroke)
-                keepBlockedDuringBreaksToggle
                 Divider().background(Colors.cardStroke)
                 strictModeControl
             }
@@ -779,24 +770,12 @@ struct EngineSettingsSection: View {
                 engine.updateConfig(c)
             }
         )) {
-            settingLabel("Block During Focus", "Apps are blocked when the timer runs")
+            Text("Block During Focus")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(Colors.textPrimary)
         }
         .tint(Colors.accentRed)
         .disabled(isBlockToggleLocked || (!hasSelectedBlockList && !engine.config.blockAppsEnabled))
-    }
-
-    private var keepBlockedDuringBreaksToggle: some View {
-        Toggle(isOn: Binding(
-            get: { engine.config.blockDuringBreaks },
-            set: {
-                var c = engine.config
-                c.blockDuringBreaks = $0
-                engine.updateConfig(c)
-            }
-        )) {
-            settingLabel("Keep Blocked During Breaks", "Apps stay blocked during short and long breaks")
-        }
-        .tint(Colors.accentBlue)
     }
 
     private var isStrict: Bool { engine.config.breakMode == .hardcore }
@@ -815,10 +794,9 @@ struct EngineSettingsSection: View {
                     engine.updateConfig(c)
                 }
             )) {
-                settingLabel(
-                    "Strict Mode",
-                    "Apps stay blocked until the timer ends — no early unlock, even if you uninstall."
-                )
+                Text("Strict Mode")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Colors.textPrimary)
             }
             .tint(.red)
             .disabled(isBlockToggleLocked)
@@ -834,7 +812,7 @@ struct EngineSettingsSection: View {
                             Text("Unlock Mission")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(Colors.textPrimary)
-                            Text(selectedMissionsCount == 0 ? "Tap to choose a mission" : "\(selectedMissionsCount) selected")
+                            Text(selectedMissionsCount == 0 ? "Tap to choose" : "\(selectedMissionsCount) selected")
                                 .font(.system(size: 13))
                                 .foregroundColor(selectedMissionsCount == 0 ? Colors.accentRed : Colors.textSecondary)
                         }
@@ -849,30 +827,10 @@ struct EngineSettingsSection: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 .buttonStyle(.plain)
-
-                Text("In Normal mode you can end early by completing this mission.")
-                    .font(.system(size: 12))
-                    .foregroundColor(Colors.textTertiary)
             }
         }
     }
 
-    private func settingLabel(_ title: String, _ subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(Colors.textPrimary)
-            Text(subtitle)
-                .font(.system(size: 13))
-                .foregroundColor(Colors.textSecondary)
-        }
-    }
-
-    private func hint(_ text: String, color: Color, bold: Bool) -> some View {
-        Text(text)
-            .font(.system(size: 12, weight: bold ? .semibold : .medium))
-            .foregroundColor(color)
-    }
 }
 
 private struct MissionsPickerView: View {
