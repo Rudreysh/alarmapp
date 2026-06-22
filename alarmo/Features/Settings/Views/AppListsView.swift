@@ -294,6 +294,7 @@ struct BlockListDetailView: View {
     @State private var pickerUnavailableMessage = "Could not open app/category picker."
     @State private var isEditing = false
     @State private var showDetailedEditor: Bool
+    @State private var listType: AppListType
     @FocusState private var isNameFieldFocused: Bool
     #if canImport(FamilyControls)
     @State private var showSystemActivityPicker = false
@@ -315,30 +316,31 @@ struct BlockListDetailView: View {
         self.activeLockedListID = activeLockedListID
         self._viewModel = StateObject(wrappedValue: BlockListDetailViewModel(list: list))
         self._showDetailedEditor = State(initialValue: !startsCompact)
+        self._listType = State(initialValue: list.type)
     }
 
     var body: some View {
         ZStack {
             SettingsGlassBackground()
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    detailHeader
-                    blockListDescription
+                VStack(alignment: .leading, spacing: 18) {
+                    opalHeader
+                    blockAllowSegmented
+                    addAppOrWebsiteRow
                     screenTimeAccessPrompt
-                    if showDetailedEditor {
-                        categoriesSection
-                        appsSection
-                    } else {
-                        compactSelectAppsSection
-                    }
-                    adultBlockingSection
+                    selectedOrEmpty
+                    neverAllowedSection
+                    Text(listType == .allow
+                         ? "Only the apps and websites above stay allowed — everything else is blocked."
+                         : "Selected apps and websites are blocked during your session.")
+                        .font(.system(size: 12))
+                        .foregroundColor(Colors.textTertiary)
+                        .padding(.horizontal, 4)
                     saveButton
-                    if showDetailedEditor {
-                        deleteButton
-                    }
+                    deleteButton
                 }
                 .padding(.horizontal, 22)
-                .padding(.top, 24)
+                .padding(.top, 12)
                 .padding(.bottom, 28)
             }
         }
@@ -382,57 +384,85 @@ struct BlockListDetailView: View {
         activeLockedListID == list.id.uuidString
     }
 
-    private var detailHeader: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            if isEditing {
-                TextField("🛑 App Block List", text: $viewModel.name)
-                    .font(.system(size: 30, weight: .bold))
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
+    private var opalHeader: some View {
+        HStack(spacing: 12) {
+            Button { dismiss() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 17, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
-                    .textInputAutocapitalization(.words)
-                    .focused($isNameFieldFocused)
-            } else {
-                Text(viewModel.name)
-                    .font(.system(size: 30, weight: .bold))
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
-                    .foregroundColor(Colors.textPrimary)
+                    .frame(width: 38, height: 38)
+                    .background(Circle().fill(Color.white.opacity(0.08)))
             }
+            .buttonStyle(.plain)
 
-            Spacer(minLength: 8)
+            TextField("Block List", text: $viewModel.name)
+                .font(.system(size: 20, weight: .bold))
+                .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.6)
+                .lineLimit(1)
+                .foregroundColor(Colors.textPrimary)
+                .textInputAutocapitalization(.words)
+                .focused($isNameFieldFocused)
+                .disabled(isLockedActiveList)
+                .frame(maxWidth: .infinity)
 
-            Button(showDetailedEditor ? (isEditing ? "Done" : "Edit") : "Edit") {
-                if isLockedActiveList {
-                    return
-                }
-                if showDetailedEditor {
-                    isEditing.toggle()
-                    isNameFieldFocused = isEditing
-                } else {
-                    showDetailedEditor = true
-                    isEditing = true
-                    isNameFieldFocused = true
-                }
+            Button { persistAndDismiss() } label: {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundColor(.black)
+                    .frame(width: 38, height: 38)
+                    .background(Circle().fill(Colors.accentTeal))
             }
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundColor(isLockedActiveList ? Colors.textTertiary : Colors.accentBlue)
-            .disabled(isLockedActiveList)
+            .buttonStyle(.plain)
         }
     }
 
-    private var blockListDescription: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("🛡️ Block List: only selected apps and categories will be blocked during your session.")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(Colors.textSecondary)
-                .lineSpacing(3)
-            if isLockedActiveList {
-                Text("Editing is locked while this focus session is active.")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(Colors.accentRed)
+    private var blockAllowSegmented: some View {
+        HStack(spacing: 0) {
+            segmentButton("Block", .block)
+            segmentButton("Allow Only", .allow)
+        }
+        .padding(4)
+        .background(Capsule().fill(Color.white.opacity(0.08)))
+        .opacity(isLockedActiveList ? 0.5 : 1)
+    }
+
+    private func segmentButton(_ title: String, _ type: AppListType) -> some View {
+        let selected = listType == type
+        return Button {
+            guard !isLockedActiveList else { return }
+            listType = type
+        } label: {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(selected ? Colors.textPrimary : Colors.textSecondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 9)
+                .background(Capsule().fill(selected ? Color.white.opacity(0.16) : .clear))
+        }
+        .buttonStyle(.plain)
+        .disabled(isLockedActiveList)
+    }
+
+    private var addAppOrWebsiteRow: some View {
+        Button {
+            guard !isLockedActiveList else { return }
+            openPickerWithAuthorizationCheck()
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "plus")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(Colors.accentBlue)
+                    .frame(width: 42, height: 42)
+                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.08)))
+                Text("Add App or Website")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(Colors.textPrimary)
+                Spacer()
             }
         }
+        .buttonStyle(.plain)
+        .disabled(isLockedActiveList)
     }
 
     @ViewBuilder
@@ -466,131 +496,62 @@ struct BlockListDetailView: View {
         }
     }
 
-    private var compactSelectAppsSection: some View {
-        Button {
-            guard !isLockedActiveList else { return }
-            openPickerWithAuthorizationCheck()
-        } label: {
-            HStack(spacing: 10) {
-                Text("Select Apps")
-                    .font(.system(size: 18, weight: .semibold))
-                    .minimumScaleFactor(0.7)
-                    .foregroundColor(Colors.textPrimary)
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(Colors.textTertiary)
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 18)
-            .background(Color.white.opacity(0.10))
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .disabled(isLockedActiveList)
-    }
-
-    private var categoriesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: "square.grid.2x2")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(Colors.textSecondary)
-                Text("Categories")
-                    .font(.system(size: 20, weight: .bold))
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
-                    .foregroundColor(Colors.textPrimary)
-                Text("\(selectedCategoriesCount)")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(Colors.textSecondary)
-                Spacer()
-                Button("Add / Remove") {
-                    openPickerWithAuthorizationCheck()
-                }
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor((isEditing && !isLockedActiveList) ? Colors.accentBlue : Colors.textTertiary)
-                .disabled(!isEditing || isLockedActiveList)
-            }
-
-            if selectedCategoriesCount == 0 {
-                Text("No categories selected")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(Colors.textTertiary)
-                    .padding(.top, 2)
-            } else {
+    @ViewBuilder
+    private var selectedOrEmpty: some View {
+        if selectedAppsCount == 0 && selectedCategoriesCount == 0 {
+            Text(listType == .allow ? "No apps will be allowed" : "No apps will be blocked")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(Colors.textTertiary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, 12)
+        } else {
+            VStack(spacing: 8) {
                 selectedCategoriesList
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 18)
-        .background(Color.white.opacity(0.10))
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-    }
-
-    private var appsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: "iphone")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(Colors.textSecondary)
-                Text("Apps")
-                    .font(.system(size: 20, weight: .bold))
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
-                    .foregroundColor(Colors.textPrimary)
-                Spacer()
-                Button("Add / Remove") {
-                    openPickerWithAuthorizationCheck()
-                }
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor((isEditing && !isLockedActiveList) ? Colors.accentBlue : Colors.textTertiary)
-                .disabled(!isEditing || isLockedActiveList)
-            }
-
-            Text("\(selectedAppsCount) apps selected")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Colors.textSecondary)
-
-            if selectedAppsCount == 0 {
-                Text("No apps selected")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(Colors.textTertiary)
-                    .padding(.top, 2)
-            } else {
                 selectedAppsList
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 18)
-        .background(Color.white.opacity(0.10))
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
-    private var adultBlockingSection: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "18.circle")
-                .font(.system(size: 24, weight: .medium))
+    private var neverAllowedSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("NEVER ALLOWED")
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(Colors.textSecondary)
-            Text("Adult Content Blocking")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(Colors.textPrimary)
-            Spacer()
-            Toggle("", isOn: $viewModel.adultBlockingEnabled)
-                .labelsHidden()
-                .tint(Colors.accentBlue)
-                .disabled(isLockedActiveList)
+
+            HStack(spacing: 12) {
+                Image(systemName: "18.circle.fill")
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(Colors.accentRed)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Adult Websites")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Colors.textPrimary)
+                    Text("Always blocked while this list is active")
+                        .font(.system(size: 12))
+                        .foregroundColor(Colors.textTertiary)
+                }
+                Spacer()
+                Toggle("", isOn: $viewModel.adultBlockingEnabled)
+                    .labelsHidden()
+                    .tint(Colors.accentBlue)
+                    .disabled(isLockedActiveList)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(Color.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 18)
-        .background(Color.white.opacity(0.10))
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+    }
+
+    private func persistAndDismiss() {
+        if list.type != listType { list.type = listType }
+        viewModel.save(to: list, context: modelContext, appListsViewModel: appListsViewModel)
+        dismiss()
     }
 
     private var saveButton: some View {
         Button {
-            viewModel.save(to: list, context: modelContext, appListsViewModel: appListsViewModel)
-            dismiss()
+            persistAndDismiss()
         } label: {
             Text("Save")
                 .font(.system(size: 18, weight: .bold))
