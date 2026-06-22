@@ -396,26 +396,46 @@ struct PomoTimerView: View {
                             VStack(spacing: Spacing.m) {
                                 idleControlRow
                                     .padding(.horizontal, Spacing.l)
-
-                                if engine.config.blockAppsEnabled {
-                                    strictModeTogglePill
-                                        .padding(.horizontal, Spacing.l)
+                                
+                                Button {
+                                    // Ensure selected block list + snapshot are synced before starting.
+                                    // This avoids needing a no-op "Save" after app relaunch.
+                                    syncBlockListToEngine()
+                                    engine.start(taskId: activeTaskId)
+                                    if showTimerStartCoachMark {
+                                        showTimerStartCoachMark = false
+                                        viewModel.preferences.hasSeenTimerStartTooltip = true
+                                    }
                                 }
-
-                                startControl
-                                    .padding(.horizontal, Spacing.l)
-                                    .coachMark(
-                                        title: "Start",
-                                        subtitle: "Begin session.",
-                                        isVisible: $showTimerStartCoachMark,
-                                        alignment: .top,
-                                        pointDirection: .bottom,
-                                        arrowAlignment: .center,
-                                        arrowOffsetX: 0,
-                                        bubbleOffsetX: 0,
-                                        bubbleOffsetY: -80,
-                                        color: .red
+                                label: {
+                                    HStack(spacing: 13) {
+                                        Text("Start")
+                                            .font(.system(size: 18, weight: .black))
+                                        Image(systemName: "play.fill")
+                                            .font(.system(size: 16, weight: .bold))
+                                    }
+                                    .foregroundColor(.black)
+                                    .frame(width: 208)
+                                    .padding(.vertical, 10.5)
+                                    .background(
+                                        Capsule()
+                                            .fill(TimerPalette.accent)
                                     )
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.horizontal, Spacing.l)
+                                .coachMark(
+                                    title: "Start",
+                                    subtitle: "Begin session.",
+                                    isVisible: $showTimerStartCoachMark,
+                                    alignment: .top,
+                                    pointDirection: .bottom,
+                                    arrowAlignment: .center,
+                                    arrowOffsetX: 0,
+                                    bubbleOffsetX: 0,
+                                    bubbleOffsetY: -80,
+                                    color: .red
+                                )
                             }
                             .offset(y: Layout.idleControlsLift)
                         } else {
@@ -744,92 +764,6 @@ struct PomoTimerView: View {
         settingsStore.blockedAdultContentEnabled = list.adultBlockingEnabled
     }
     
-    /// Strict mode is "on" when blocking is enabled and the session can't be ended
-    /// early (maps to the block config's hardcore break mode).
-    private var isStrictStart: Bool {
-        engine.config.blockAppsEnabled && engine.config.breakMode == .hardcore
-    }
-
-    private func startSession() {
-        // Ensure selected block list + snapshot are synced before starting.
-        syncBlockListToEngine()
-        engine.start(taskId: activeTaskId)
-        if showTimerStartCoachMark {
-            showTimerStartCoachMark = false
-            viewModel.preferences.hasSeenTimerStartTooltip = true
-        }
-    }
-
-    /// Compact Strict Mode toggle surfaced on the Timer so it can be set at start
-    /// time (also editable in the block list). Red when on.
-    private var strictModeTogglePill: some View {
-        Button {
-            guard !engine.isFocusBlockingControlsLocked else { return }
-            var c = engine.config
-            c.breakMode = (c.breakMode == .hardcore) ? .harder : .hardcore
-            engine.updateConfig(c)
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: isStrictStart ? "lock.fill" : "lock.open")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(isStrictStart ? .red : Colors.textSecondary)
-                Text("Strict Mode")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Colors.textPrimary)
-                Spacer()
-                Text(isStrictStart ? "ON" : "OFF")
-                    .font(.system(size: 12, weight: .black))
-                    .foregroundColor(isStrictStart ? .white : Colors.textSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Capsule().fill(isStrictStart ? Color.red : Color.white.opacity(0.12)))
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(isLightMode ? Color.white.opacity(0.92) : Color.white.opacity(0.12))
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(isStrictStart ? Color.red.opacity(0.3) : (isLightMode ? Colors.cardStroke : Color.white.opacity(0.22)), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-        .frame(maxWidth: 320)
-        .disabled(engine.isFocusBlockingControlsLocked)
-    }
-
-    /// Start button — becomes "Hold to Start" when Strict Mode is on (a commitment
-    /// gesture so a no-escape lock isn't started by accident).
-    @ViewBuilder
-    private var startControl: some View {
-        let label = HStack(spacing: 13) {
-            Text(isStrictStart ? "Hold to Start" : "Start")
-                .font(.system(size: 18, weight: .black))
-            Image(systemName: isStrictStart ? "lock.fill" : "play.fill")
-                .font(.system(size: 16, weight: .bold))
-        }
-        .foregroundColor(.black)
-        .frame(width: 208)
-        .padding(.vertical, 10.5)
-        .background(Capsule().fill(TimerPalette.accent))
-
-        if isStrictStart {
-            label
-                .contentShape(Capsule())
-                .onLongPressGesture(minimumDuration: 0.7) {
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    startSession()
-                }
-        } else {
-            Button { startSession() } label: { label }
-                .buttonStyle(.plain)
-        }
-    }
-
     private var idleControlRow: some View {
         HStack(spacing: 10) {
             Spacer()
