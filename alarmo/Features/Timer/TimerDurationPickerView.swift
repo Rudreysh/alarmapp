@@ -17,7 +17,15 @@ struct TimerDurationPickerView: View {
     private let maxMinutes = 480          // 8h
     private let pointsPerMinute: CGFloat = 3.2   // scrub sensitivity
     private let snap = 5                   // snap to 5-minute steps while scrubbing
-    private let presets: [(String, Int)] = [("15m", 15), ("30m", 30), ("45m", 45), ("1h", 60), ("1h 30m", 90), ("2h", 120)]
+    private let presets: [(String, Int)] = [
+        ("15m", 15),
+        ("30m", 30),
+        ("45m", 45),
+        ("1h", 60),
+        ("2h", 120),
+        ("4h", 240),
+        ("8h", 480)
+    ]
 
     init(initialTotalSeconds: Int, segmentTitle: String, onSave: @escaping (Int) -> Void) {
         self.initialTotalSeconds = initialTotalSeconds

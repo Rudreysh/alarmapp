@@ -114,7 +114,7 @@ final class AlarmAudioStateController {
     static let ownerFlipFreezeThreshold: Int = 2
 
     static let lowOutputVolumeThreshold: Float = 0.15
-    /// Minimum system output volume while Alarmo is foreground during a ring.
+    /// Minimum system output volume while Awayk is foreground during a ring.
     static let foregroundVolumeFloorStandard: Float = 0.90
     /// Used when media volume has been crushed near zero — fight back harder.
     static let foregroundVolumeFloorAggressive: Float = 1.0
@@ -578,6 +578,16 @@ final class AlarmAudioStateController {
     /// heard while locked (media volume at/near zero). Called by the audible
     /// verification failure path so the alarm is never left silent.
     func recordLockedEngineInaudible(reason: String) {
+        // Only LATCH "proven inaudible while locked" (which blocks every future
+        // locked engine takeover until unlock / volume rise) when the engine truly
+        // cannot be heard — i.e. media volume is at/near zero, where `.playback` is
+        // physically silent. A TRANSIENT session-activation failure (the side-button
+        // interruption that just suppressed AlarmKit) clears within ~1s; latching the
+        // engine off for it strands the alarm in AlarmKit-fallback with no sound for
+        // the rest of the run (the overnight "side button → silence" bug). In that
+        // case we still fall back to AlarmKit (never silent) but keep the engine
+        // eligible so the next retry — or the keep-alive session-recovered re-drive —
+        // can take over.
         let transientSession = AlarmContinuousAudioEngine.shared.lastAudibleRecoveryFailedSessionActivation
         let outputVolume = AVAudioSession.sharedInstance().outputVolume
         let genuinelyLowVolume = outputVolume <= Self.lowOutputVolumeThreshold
@@ -1302,12 +1312,16 @@ final class AlarmAudioStateController {
         // Try to make the engine audible FIRST. Only promote the phase if it
         // actually starts playing — otherwise leave state untouched so the caller
         // can fall back to an audible AlarmKit re-alert.
+        // In volume-floor-ignoring mode, start near the current (possibly low)
+        // media volume and ramp gently to full over a few seconds instead of the
+        // fast 0.3s restore (the user asked for a soft 2–5s ramp).
         let engineStarted: Bool = ignoreVolumeFloor
             ? engine.startAudibleRecovery(
                 alarmRunId: runId,
                 rampDuration: Self.postSlideRampDuration,
                 startFloor: Self.appEngineInitialVolume,
-                reason: reason)
+                reason: reason
+              )
             : engine.startAudibleRecovery(alarmRunId: runId, reason: reason)
         guard engineStarted else {
             log("[LockedAudible] ❌ engine could not start playing — AlarmKit re-alert needed reason=\(reason)")

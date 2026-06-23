@@ -36,6 +36,9 @@ protocol AppPreferencesProtocol: AnyObject {
     var hasSeenTimerIntervalTooltip: Bool { get set }
     var hasSeenTimerBlockListTooltip: Bool { get set }
     var hasSeenTimerStartTooltip: Bool { get set }
+    var timerFlipStartEnabled: Bool { get set }
+    var timerStrictModeEnabled: Bool { get set }
+    var timerOLEDAntiBurnInEnabled: Bool { get set }
     // Plan
     var hasSeenPlanFabTooltip: Bool { get set }
     var hasSeenPlanHabitVsTaskTooltip: Bool { get set }
@@ -119,6 +122,9 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
     @Published var hasSeenTimerIntervalTooltip: Bool { didSet { defaults.set(hasSeenTimerIntervalTooltip, forKey: Keys.hasSeenTimerIntervalTooltip) } }
     @Published var hasSeenTimerBlockListTooltip: Bool { didSet { defaults.set(hasSeenTimerBlockListTooltip, forKey: Keys.hasSeenTimerBlockListTooltip) } }
     @Published var hasSeenTimerStartTooltip: Bool { didSet { defaults.set(hasSeenTimerStartTooltip, forKey: Keys.hasSeenTimerStartTooltip) } }
+    @Published var timerFlipStartEnabled: Bool { didSet { defaults.set(timerFlipStartEnabled, forKey: Keys.timerFlipStartEnabled); log("set timerFlipStartEnabled=\(timerFlipStartEnabled)") } }
+    @Published var timerStrictModeEnabled: Bool { didSet { defaults.set(timerStrictModeEnabled, forKey: Keys.timerStrictModeEnabled); log("set timerStrictModeEnabled=\(timerStrictModeEnabled)") } }
+    @Published var timerOLEDAntiBurnInEnabled: Bool { didSet { defaults.set(timerOLEDAntiBurnInEnabled, forKey: Keys.timerOLEDAntiBurnInEnabled); log("set timerOLEDAntiBurnInEnabled=\(timerOLEDAntiBurnInEnabled)") } }
     // Plan
     @Published var hasSeenPlanFabTooltip: Bool { didSet { defaults.set(hasSeenPlanFabTooltip, forKey: Keys.hasSeenPlanFabTooltip) } }
     @Published var hasSeenPlanHabitVsTaskTooltip: Bool { didSet { defaults.set(hasSeenPlanHabitVsTaskTooltip, forKey: Keys.hasSeenPlanHabitVsTaskTooltip) } }
@@ -215,6 +221,9 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
         self.hasSeenTimerIntervalTooltip = false
         self.hasSeenTimerBlockListTooltip = false
         self.hasSeenTimerStartTooltip = false
+        self.timerFlipStartEnabled = false
+        self.timerStrictModeEnabled = false
+        self.timerOLEDAntiBurnInEnabled = true
         self.hasSeenPlanFabTooltip = false
         self.hasSeenPlanHabitVsTaskTooltip = false
         self.hasSeenPlanSwipeTooltip = false
@@ -248,6 +257,9 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
         self.hasSeenTimerIntervalTooltip = defaults.bool(forKey: Keys.hasSeenTimerIntervalTooltip)
         self.hasSeenTimerBlockListTooltip = defaults.bool(forKey: Keys.hasSeenTimerBlockListTooltip)
         self.hasSeenTimerStartTooltip = defaults.bool(forKey: Keys.hasSeenTimerStartTooltip)
+        self.timerFlipStartEnabled = defaults.object(forKey: Keys.timerFlipStartEnabled) as? Bool ?? false
+        self.timerStrictModeEnabled = defaults.object(forKey: Keys.timerStrictModeEnabled) as? Bool ?? false
+        self.timerOLEDAntiBurnInEnabled = defaults.object(forKey: Keys.timerOLEDAntiBurnInEnabled) as? Bool ?? true
         self.hasSeenPlanFabTooltip = defaults.bool(forKey: Keys.hasSeenPlanFabTooltip)
         self.hasSeenPlanHabitVsTaskTooltip = defaults.bool(forKey: Keys.hasSeenPlanHabitVsTaskTooltip)
         self.hasSeenPlanSwipeTooltip = defaults.bool(forKey: Keys.hasSeenPlanSwipeTooltip)
@@ -356,6 +368,9 @@ final class AppPreferences: ObservableObject, AppPreferencesProtocol {
         static let hasSeenTimerIntervalTooltip = "alarmo.timer.hasSeenTimerIntervalTooltip"
         static let hasSeenTimerBlockListTooltip = "alarmo.timer.hasSeenTimerBlockListTooltip"
         static let hasSeenTimerStartTooltip = "alarmo.timer.hasSeenTimerStartTooltip"
+        static let timerFlipStartEnabled = "alarmo.focus.timerFlipStartEnabled"
+        static let timerStrictModeEnabled = "alarmo.focus.timerStrictModeEnabled"
+        static let timerOLEDAntiBurnInEnabled = "alarmo.focus.timerOLEDAntiBurnInEnabled"
         static let hasSeenPlanFabTooltip = "alarmo.plan.hasSeenFabTooltip"
         static let hasSeenPlanHabitVsTaskTooltip = "alarmo.plan.hasSeenHabitVsTaskTooltip"
         static let hasSeenPlanSwipeTooltip = "alarmo.plan.hasSeenSwipeTooltip"

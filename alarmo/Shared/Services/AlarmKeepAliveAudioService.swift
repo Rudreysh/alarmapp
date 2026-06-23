@@ -42,6 +42,12 @@ final class AlarmKeepAliveAudioService {
     /// Bounds battery: only keep alive when an alarm is within this window.
     private let maxLookaheadHours: TimeInterval = 24
     private let retryBackoff: [TimeInterval] = [0.5, 1.0, 2.0]
+    /// Periodic self-heal: a silent volume-0 player can be stalled by iOS overnight
+    /// without firing any interruption/route notification, and `evaluate()` is
+    /// otherwise only event-driven (scene change / launch / scheduling). The
+    /// heartbeat re-checks `player?.isPlaying` and restarts a stalled player while
+    /// the process still has execution time. (A fully suspended app cannot self-heal
+    /// — AlarmKit remains the never-silent floor for that case.)
     private var heartbeatTimer: DispatchSourceTimer?
     /// Tier 1 battery: the heartbeat is only a backup (interruption/route/media-reset
     /// observers catch real failures instantly), so it can be infrequent. 60s instead
@@ -160,6 +166,12 @@ final class AlarmKeepAliveAudioService {
             DiagnosticsLog.shared.log("▶️ started (mixWithOthers) reason=\(reason)", category: "KeepAlive")
             KeepAliveBatteryMonitor.shared.recordStart(reason: reason)
             startHeartbeat()
+            // A successful session (re)activation while backgrounded during a ring is
+            // a rare confirmed "the session is usable RIGHT NOW" moment, AND this code
+            // is executing (so the process is alive). If AlarmKit's sound was
+            // suppressed and AppEngine isn't yet audible, re-drive the takeover here —
+            // the suppression-takeover's own wall-clock retries freeze under
+            // suspension, so this is the reliable retrigger point.
             reassertEngineTakeoverIfSuppressed(reason: reason)
         } catch {
             DiagnosticsLog.shared.log("start failed attempt=\(attempt) error=\(error.localizedDescription) reason=\(reason)", category: "KeepAlive")
@@ -198,16 +210,23 @@ final class AlarmKeepAliveAudioService {
         DiagnosticsLog.shared.log("⏹ stopped reason=\(reason)", category: "KeepAlive")
     }
 
+    /// When the silent keep-alive session (re)activates during an active ring whose
+    /// AlarmKit sound was suppressed (side-button / slide-to-stop / volume), re-drive
+    /// the AppEngine takeover. Gated on a real suppression signal so we never start a
+    /// PARALLEL engine while AlarmKit is still legitimately ringing (dual sound).
     private func reassertEngineTakeoverIfSuppressed(reason: String) {
         guard AlarmFeatureFlags.appEngineTakesOverAfterAlarmKitSuppression else { return }
         guard UIApplication.shared.applicationState != .active else { return }
         let controller = AlarmAudioStateController.shared
         guard controller.isAlarmRinging else { return }
         guard !AlarmAuthHandoffStore.isFinalStopOrSnoozePressed() else { return }
+        // Only when AppEngine is not already the audible owner / confirmed playing.
         guard controller.audibleOwner != .appEngine,
               !controller.appEngineConfirmedPlaying() else { return }
         guard let alarmId = controller.currentAlarmId
                 ?? AlarmAuthHandoffStore.activeRingingAlarmId() else { return }
+        // Require a real suppression signal — otherwise AlarmKit is still the
+        // intentional owner and a takeover here would be premature (dual sound).
         let suppressed = controller.isAlarmKitSurfaceSuppressionRisk(sourceAlarmId: alarmId)
             || NotificationManager.shared.hasExplicitHardwareSuppression(sourceAlarmId: alarmId)
         guard suppressed else { return }
@@ -247,6 +266,8 @@ final class AlarmKeepAliveAudioService {
         if player?.isPlaying != true {
             DiagnosticsLog.shared.log("heartbeat: player not progressing — re-evaluating", category: "KeepAlive")
         }
+        // evaluate() restarts a stalled player if it should still be running, or
+        // stops the keep-alive (and heartbeat) if it should not.
         evaluate(reason: "heartbeat")
     }
 

@@ -17,6 +17,7 @@ struct PomoTimerView: View {
     @State private var editingSeconds: Int = 0
     @State private var showAppLists = false
     @State private var showDeepFocusConfirm = false
+    @State private var lastObservedOrientation: UIDeviceOrientation = .unknown
     
     // Timer Onboarding Sequence
     @State private var showTimerTimeIntegerCoachMark = false
@@ -53,7 +54,7 @@ struct PomoTimerView: View {
 
         static let appBlockListIconSize: CGFloat = 11
         static let appBlockListLabelSize: CGFloat = 13
-        static let idleControlsLift: CGFloat = -50
+        static let idleControlsLift: CGFloat = -34
     }
 
     private var activeParallelSession: ParallelFocusSession? {
@@ -67,6 +68,10 @@ struct PomoTimerView: View {
 
     private var isLightMode: Bool {
         colorScheme == .light
+    }
+
+    private var isStrictModeLocked: Bool {
+        viewModel.preferences.timerStrictModeEnabled && (engine.isRunning || engine.isPaused)
     }
 
     private var primaryChipFill: Color {
@@ -93,17 +98,150 @@ struct PomoTimerView: View {
     
     var body: some View {
         GeometryReader { geo in
-            let availableWidth = geo.size.width
-            let availableHeight = geo.size.height
-            let isDenseLayout = availableHeight < 760 || engine.parallelSessions.count > 1
-            let topInset = isDenseLayout ? Spacing.s : Spacing.m
-            let topSectionSpacer = isDenseLayout ? CGFloat(6) : CGFloat(16)
-            let controlsTopSpacer = isDenseLayout ? CGFloat(2) : CGFloat(8)
-            let diameter = min(availableWidth * 0.75, availableHeight * 0.45)
-            let middleDialDiameter = diameter * 0.72 // 20% larger circumference than the previous Pomodoro circle
-            let ringSectionSpacing = isDenseLayout ? CGFloat(18) : CGFloat(24)
-            let timerReadoutSize = max(Layout.timerReadoutMinimumSize, diameter * Layout.timerReadoutBaseFactor * Layout.timerReadoutScale)
-            let resetIconSize = Layout.resetBaseSize * Layout.resetScale
+            timerLayout(
+                availableWidth: geo.size.width,
+                availableHeight: geo.size.height
+            )
+        }
+        .sheet(isPresented: $showTaskSelection) {
+            TaskSelectionSheet(viewModel: viewModel)
+                .environmentObject(taskStore)
+                .environmentObject(engine)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $viewModel.showFrequentlyUsedPomo) {
+            FrequentlyUsedPomoSheet(viewModel: viewModel, engine: engine)
+        }
+        .sheet(isPresented: $showIntervalSettings) {
+            IntervalTimerSettingsView(engine: engine)
+        }
+        .sheet(isPresented: $viewModel.showSoundSelection) {
+            SoundPickerView(selectedSound: Binding(
+                get: { viewModel.ambientSoundName },
+                set: { val in 
+                    viewModel.setAmbientSound(val)
+                }
+            ))
+        }
+        .sheet(isPresented: $showTimerEditSheet) {
+            TimerDurationPickerView(
+                initialTotalSeconds: editingSeconds,
+                segmentTitle: engine.state.currentSegment?.title ?? "Timer",
+                onSave: { seconds in
+                    applySelectedSeconds(seconds)
+                    showTimerEditSheet = false
+                }
+            )
+            .presentationDetents([.fraction(0.4)])
+        }
+        .sheet(isPresented: $showAppLists) {
+            AppListsView(engine: engine)
+                .onDisappear {
+                    // Pull the latest selected list from shared settings after the sheet closes.
+                    syncBlockListToEngine()
+                }
+        }
+        // MARK: - Intervention Sheet
+        .fullScreenCover(isPresented: $engine.showingIntervention) {
+            SessionInterventionView(
+                breakMode: engine.config.breakMode,
+                enabledChallenges: engine.config.enabledChallenges,
+                onStopConfirmed: {
+                    engine.forceStop()
+                },
+                onTakeBreak: {
+                    engine.takeBreakAfterChallenge()
+                },
+                onDismiss: {
+                    engine.showingIntervention = false
+                }
+            )
+            .ignoresSafeArea()
+        }
+        .onAppear {
+            // Check background foreground refresh
+            engine.refreshTimer()
+            // Restore the saved block list reference into the engine on first launch
+            syncBlockListToEngine()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            engine.refreshTimer()
+            // Keep block-list selection coherent after background/foreground transitions.
+            syncBlockListToEngine()
+        }
+        .onChange(of: allAppLists.map(\.id)) { _, _ in
+            syncBlockListToEngine()
+        }
+        .onChange(of: engine.isRunning) { _, running in
+            if !running && viewModel.isAmbientPlaying {
+                // Stop ambient music if the timer is paused or stopped
+                viewModel.toggleAmbientSound()
+            }
+        }
+        .onChange(of: engine.state.currentSegment) { _, newSegment in
+            // Stop music immediately if transitioning to a break
+            if newSegment == .shortBreak || newSegment == .longBreak {
+                if viewModel.isAmbientPlaying {
+                    viewModel.toggleAmbientSound()
+                }
+            }
+        }
+        .onAppear {
+            onTimerAppear()
+        }
+        .onChange(of: showTimerTimeIntegerCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerTimeIntegerTooltip {
+                viewModel.preferences.hasSeenTimerTimeIntegerTooltip = true
+                triggerNextTimerStep()
+            }
+        }
+        .onChange(of: showTimerCircleCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerCircleTooltip {
+                viewModel.preferences.hasSeenTimerCircleTooltip = true
+                triggerNextTimerStep()
+            }
+        }
+        .onChange(of: showTimerIntervalCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerIntervalTooltip {
+                viewModel.preferences.hasSeenTimerIntervalTooltip = true
+                triggerNextTimerStep()
+            }
+        }
+        .onChange(of: showTimerMusicCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerMusicTooltip {
+                viewModel.preferences.hasSeenTimerMusicTooltip = true
+                triggerNextTimerStep()
+            }
+        }
+        .onChange(of: showTimerBlockListCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerBlockListTooltip {
+                viewModel.preferences.hasSeenTimerBlockListTooltip = true
+                triggerNextTimerStep()
+            }
+        }
+        .onChange(of: showTimerStartCoachMark) { _, isVisible in
+            if !isVisible && !viewModel.preferences.hasSeenTimerStartTooltip {
+                viewModel.preferences.hasSeenTimerStartTooltip = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
+            handleFlipStartOrientationChange(UIDevice.current.orientation)
+        }
+    }
+
+    @ViewBuilder
+    private func timerLayout(availableWidth: CGFloat, availableHeight: CGFloat) -> some View {
+        let isDenseLayout: Bool = availableHeight < 760 || engine.parallelSessions.count > 1
+        let topInset: CGFloat = isDenseLayout ? Spacing.s : Spacing.m
+        let topSectionSpacer: CGFloat = isDenseLayout ? CGFloat(6) : CGFloat(16)
+        let controlsTopSpacer: CGFloat = isDenseLayout ? CGFloat(2) : CGFloat(8)
+        let diameter: CGFloat = min(availableWidth * 0.75, availableHeight * 0.45)
+        let middleDialDiameter: CGFloat = diameter * 0.72
+        let ringSectionSpacing: CGFloat = isDenseLayout ? CGFloat(18) : CGFloat(24)
+        let timerReadoutSize: CGFloat = max(Layout.timerReadoutMinimumSize, diameter * Layout.timerReadoutBaseFactor * Layout.timerReadoutScale * 1.2)
+        let resetIconSize: CGFloat = Layout.resetBaseSize * Layout.resetScale
+
             
             ZStack(alignment: .top) {
                 // Main Timer UI
@@ -149,6 +287,7 @@ struct PomoTimerView: View {
                         }
                         .buttonStyle(.plain)
                         .fixedSize(horizontal: true, vertical: false)
+                        .disabled(isStrictModeLocked)
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.top, topInset + 12)
@@ -157,6 +296,7 @@ struct PomoTimerView: View {
                     HStack(spacing: 16) {
                         // Interval Settings Shortcut
                         Button(action: { 
+                            guard !isStrictModeLocked else { return }
                             showIntervalSettings = true 
                             if showTimerIntervalCoachMark {
                                 showTimerIntervalCoachMark = false
@@ -192,6 +332,7 @@ struct PomoTimerView: View {
                         
                         // Ambient Sound Selection Shortcut
                         Button(action: { 
+                            guard !isStrictModeLocked else { return }
                             viewModel.showSoundSelection = true 
                             if showTimerMusicCoachMark {
                                 showTimerMusicCoachMark = false
@@ -282,6 +423,7 @@ struct PomoTimerView: View {
                             }
                         )
                         .frame(width: middleDialDiameter, height: middleDialDiameter)
+                        .allowsHitTesting(!isStrictModeLocked)
                         .coachMark(
                             title: "Dial",
                             subtitle: "Rotate to set time.",
@@ -299,6 +441,7 @@ struct PomoTimerView: View {
                             HStack(spacing: Layout.timerResetSpacing) {
                                 timerReadout(size: timerReadoutSize, totalSeconds: engine.state.remainingSeconds)
                                     .onTapGesture {
+                                        guard !isStrictModeLocked else { return }
                                         if showTimerTimeIntegerCoachMark {
                                             showTimerTimeIntegerCoachMark = false
                                             viewModel.preferences.hasSeenTimerTimeIntegerTooltip = true
@@ -328,7 +471,7 @@ struct PomoTimerView: View {
                                         .frame(width: Layout.resetButtonFrame, height: Layout.resetButtonFrame)
                                 }
                                 .buttonStyle(.plain)
-                                .disabled(engine.isRunning)
+                                .disabled(engine.isRunning || isStrictModeLocked)
                                 .accessibilityLabel("Reset timer")
                             }
                             .frame(maxWidth: .infinity, alignment: .center)
@@ -382,7 +525,12 @@ struct PomoTimerView: View {
                             }
                         }
                     }
+                    .oledAntiBurnIn(
+                        enabled: viewModel.preferences.timerOLEDAntiBurnInEnabled,
+                        isActive: engine.isRunning || engine.isPaused
+                    )
                     .onTapGesture {
+                        guard !isStrictModeLocked else { return }
                         if !engine.isRunning {
                             viewModel.showFrequentlyUsedPomo = true
                         }
@@ -584,130 +732,8 @@ struct PomoTimerView: View {
                 }
             }
             .frame(width: availableWidth, height: availableHeight, alignment: .top)
-        }
-        .sheet(isPresented: $showTaskSelection) {
-            TaskSelectionSheet(viewModel: viewModel)
-                .environmentObject(taskStore)
-                .environmentObject(engine)
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-        }
-        .sheet(isPresented: $viewModel.showFrequentlyUsedPomo) {
-            FrequentlyUsedPomoSheet(viewModel: viewModel, engine: engine)
-        }
-        .sheet(isPresented: $showIntervalSettings) {
-            IntervalTimerSettingsView(engine: engine)
-        }
-        .sheet(isPresented: $viewModel.showSoundSelection) {
-            SoundPickerView(selectedSound: Binding(
-                get: { viewModel.ambientSoundName },
-                set: { val in 
-                    viewModel.setAmbientSound(val)
-                }
-            ))
-        }
-        .sheet(isPresented: $showTimerEditSheet) {
-            TimerDurationPickerView(
-                initialTotalSeconds: editingSeconds,
-                segmentTitle: engine.state.currentSegment?.title ?? "Timer",
-                onSave: { seconds in
-                    applySelectedSeconds(seconds)
-                    showTimerEditSheet = false
-                }
-            )
-            .presentationDetents([.fraction(0.4)])
-        }
-        .sheet(isPresented: $showAppLists) {
-            AppListsView(engine: engine)
-                .onDisappear {
-                    // Pull the latest selected list from shared settings after the sheet closes.
-                    syncBlockListToEngine()
-                }
-        }
-        // MARK: - Intervention Sheet
-        .fullScreenCover(isPresented: $engine.showingIntervention) {
-            SessionInterventionView(
-                breakMode: engine.config.breakMode,
-                enabledChallenges: engine.config.enabledChallenges,
-                onStopConfirmed: {
-                    engine.forceStop()
-                },
-                onTakeBreak: {
-                    engine.takeBreakAfterChallenge()
-                },
-                onDismiss: {
-                    engine.showingIntervention = false
-                }
-            )
-            .ignoresSafeArea()
-        }
-        .onAppear {
-            // Check background foreground refresh
-            engine.refreshTimer()
-            // Restore the saved block list reference into the engine on first launch
-            syncBlockListToEngine()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            engine.refreshTimer()
-            // Keep block-list selection coherent after background/foreground transitions.
-            syncBlockListToEngine()
-        }
-        .onChange(of: allAppLists.map(\.id)) { _, _ in
-            syncBlockListToEngine()
-        }
-        .onChange(of: engine.isRunning) { _, running in
-            if !running && viewModel.isAmbientPlaying {
-                // Stop ambient music if the timer is paused or stopped
-                viewModel.toggleAmbientSound()
-            }
-        }
-        .onChange(of: engine.state.currentSegment) { _, newSegment in
-            // Stop music immediately if transitioning to a break
-            if newSegment == .shortBreak || newSegment == .longBreak {
-                if viewModel.isAmbientPlaying {
-                    viewModel.toggleAmbientSound()
-                }
-            }
-        }
-        .onAppear {
-            onTimerAppear()
-        }
-        .onChange(of: showTimerTimeIntegerCoachMark) { _, isVisible in
-            if !isVisible && !viewModel.preferences.hasSeenTimerTimeIntegerTooltip {
-                viewModel.preferences.hasSeenTimerTimeIntegerTooltip = true
-                triggerNextTimerStep()
-            }
-        }
-        .onChange(of: showTimerCircleCoachMark) { _, isVisible in
-            if !isVisible && !viewModel.preferences.hasSeenTimerCircleTooltip {
-                viewModel.preferences.hasSeenTimerCircleTooltip = true
-                triggerNextTimerStep()
-            }
-        }
-        .onChange(of: showTimerIntervalCoachMark) { _, isVisible in
-            if !isVisible && !viewModel.preferences.hasSeenTimerIntervalTooltip {
-                viewModel.preferences.hasSeenTimerIntervalTooltip = true
-                triggerNextTimerStep()
-            }
-        }
-        .onChange(of: showTimerMusicCoachMark) { _, isVisible in
-            if !isVisible && !viewModel.preferences.hasSeenTimerMusicTooltip {
-                viewModel.preferences.hasSeenTimerMusicTooltip = true
-                triggerNextTimerStep()
-            }
-        }
-        .onChange(of: showTimerBlockListCoachMark) { _, isVisible in
-            if !isVisible && !viewModel.preferences.hasSeenTimerBlockListTooltip {
-                viewModel.preferences.hasSeenTimerBlockListTooltip = true
-                triggerNextTimerStep()
-            }
-        }
-        .onChange(of: showTimerStartCoachMark) { _, isVisible in
-            if !isVisible && !viewModel.preferences.hasSeenTimerStartTooltip {
-                viewModel.preferences.hasSeenTimerStartTooltip = true
-            }
-        }
     }
+
     
     // MARK: - Helpers
 
@@ -769,6 +795,7 @@ struct PomoTimerView: View {
             Spacer()
             
             Button {
+                guard !isStrictModeLocked else { return }
                 showAppLists = true
             } label: {
                 let listName = timerBlockListDisplayName(selectedBlockList?.name)
@@ -800,25 +827,6 @@ struct PomoTimerView: View {
                 .shadow(color: isLightMode ? Color.black.opacity(0.08) : Color.black.opacity(0.25), radius: 10, x: 0, y: 5)
             }
             .buttonStyle(.plain)
-            .coachMark(
-                title: "Deep Focus",
-                subtitle: "Block distractions by blocking apps.",
-                isVisible: $showTimerBlockListCoachMark,
-                alignment: .top,
-                pointDirection: .bottom,
-                arrowAlignment: .center,
-                arrowOffsetX: 0,
-                bubbleOffsetX: 0,
-                bubbleOffsetY: -80,
-                color: .red
-            )
-            .onTapGesture {
-                if showTimerBlockListCoachMark {
-                    showTimerBlockListCoachMark = false
-                    viewModel.preferences.hasSeenTimerBlockListTooltip = true
-                    triggerNextTimerStep()
-                }
-            }
             .buttonStyle(.plain)
             
             Spacer()
@@ -1143,12 +1151,23 @@ struct PomoTimerView: View {
                     showTimerIntervalCoachMark = true
                 } else if !viewModel.preferences.hasSeenTimerMusicTooltip {
                     showTimerMusicCoachMark = true
-                } else if !viewModel.preferences.hasSeenTimerBlockListTooltip {
-                    showTimerBlockListCoachMark = true
                 } else if !viewModel.preferences.hasSeenTimerStartTooltip {
                     showTimerStartCoachMark = true
                 }
             }
+        }
+    }
+
+    private func handleFlipStartOrientationChange(_ orientation: UIDeviceOrientation) {
+        defer { lastObservedOrientation = orientation }
+        guard viewModel.preferences.timerFlipStartEnabled else { return }
+        guard orientation == .faceDown, lastObservedOrientation != .faceDown else { return }
+
+        if case .idle = engine.state.phase {
+            syncBlockListToEngine()
+            engine.start(taskId: activeTaskId)
+        } else if engine.isPaused {
+            engine.resume()
         }
     }
     

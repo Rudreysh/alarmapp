@@ -1396,6 +1396,12 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         }
         lastAudibleRecoveryFailedSessionActivation = false
         guard activatePlaybackSessionForRecovery(reason: reason) else {
+            // The session could not be (re)activated — almost always a TRANSIENT
+            // concurrent interruption (the side-button press that just suppressed
+            // AlarmKit). Flag it so the locked-inaudible latch is NOT tripped for a
+            // condition that clears on its own within ~1s; otherwise the alarm is
+            // stranded in AlarmKit-fallback for the rest of the run with no sound
+            // (the overnight "side button → silence, engine never plays" bug).
             lastAudibleRecoveryFailedSessionActivation = true
             return false
         }
@@ -1890,7 +1896,7 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
         }
         return key
     }
-
+    
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         Task { @MainActor [weak self] in
             guard let self else { return }

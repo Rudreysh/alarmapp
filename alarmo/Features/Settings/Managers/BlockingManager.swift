@@ -142,4 +142,14 @@ final class BlockingManager: ObservableObject {
         store.webContent.blockedByFilter = nil
         #endif
     }
+
+    func setAppRemovalDenied(_ denied: Bool, source: String = "Strict Mode") {
+        #if canImport(ManagedSettings)
+        store.application.denyAppRemoval = denied ? true : nil
+        blockingLog.info("\(denied ? "🧷" : "🪪") [BlockingManager] App removal restriction \(denied ? "ENABLED" : "CLEARED") — source: \(source)")
+        #else
+        _ = denied
+        _ = source
+        #endif
+    }
 }

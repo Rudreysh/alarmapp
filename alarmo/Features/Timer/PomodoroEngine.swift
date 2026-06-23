@@ -379,6 +379,7 @@ class PomodoroEngine: ObservableObject {
         } else {
             persistRuntimeState()
         }
+        syncStrictModeAppRemovalProtection()
     }
     
     /// Called after challenge completed for a break (unblocks temporarily if blockDuringBreaks is false)
@@ -430,6 +431,7 @@ class PomodoroEngine: ObservableObject {
             state.phase = .idle
             persistRuntimeState()
         }
+        syncStrictModeAppRemovalProtection()
     }
     
     func skipSegment() {
@@ -452,6 +454,8 @@ class PomodoroEngine: ObservableObject {
         } else {
             accountabilityManager.endFocusSession()
         }
+
+        syncStrictModeAppRemovalProtection()
         
         // App Blocking
         applyBlockingForSegment(kind)
@@ -622,6 +626,7 @@ class PomodoroEngine: ObservableObject {
             // Simple Mode: Always finish to idle/done screen
              state.phase = .finishedSegment(segment: .focus)
              // Simple mode usually just alerts completion.
+             syncStrictModeAppRemovalProtection()
              return
         }
         
@@ -641,6 +646,7 @@ class PomodoroEngine: ObservableObject {
                 handleNextTransition(to: .shortBreak, autoStart: config.autoStartBreak)
             }
         }
+        syncStrictModeAppRemovalProtection()
         persistRuntimeState()
     }
 
@@ -663,6 +669,7 @@ class PomodoroEngine: ObservableObject {
             state.phase = .finishedSegment(segment: state.currentSegment ?? .focus) // Show "Finished X"
             // The UI will look at `state.currentSegment` to know what just finished, 
             // and use `getNextSegment()` to know what button to show ("Start Break" vs "Start Focus")
+            syncStrictModeAppRemovalProtection()
         }
     }
     
@@ -674,6 +681,8 @@ class PomodoroEngine: ObservableObject {
         
         if config.autoStartNextCycle {
             startSegment(.focus)
+        } else {
+            syncStrictModeAppRemovalProtection()
         }
     }
     
@@ -762,6 +771,7 @@ class PomodoroEngine: ObservableObject {
             oldConfig.selectedBlockListId != effectiveConfig.selectedBlockListId {
             refreshBlockingForCurrentPhase()
         }
+        syncStrictModeAppRemovalProtection()
     }
     
     func apply(task: TaskItem) {
@@ -973,6 +983,7 @@ class PomodoroEngine: ObservableObject {
     }
 
     private func refreshBlockingForCurrentPhase() {
+        syncStrictModeAppRemovalProtection()
         switch state.phase {
         case .running(let segment), .paused(let segment):
             guard config.blockAppsEnabled else {
@@ -1000,6 +1011,25 @@ class PomodoroEngine: ObservableObject {
         default:
             break
         }
+    }
+
+    private var shouldDenyAppRemovalDuringStrictFocus: Bool {
+        switch state.phase {
+        case .running(let segment), .paused(let segment):
+            return segment == .focus &&
+                config.blockAppsEnabled &&
+                config.breakMode == .hardcore &&
+                !effectiveSelectedBlockListId().isEmpty
+        default:
+            return false
+        }
+    }
+
+    private func syncStrictModeAppRemovalProtection() {
+        BlockingManager.shared.setAppRemovalDenied(
+            shouldDenyAppRemovalDuringStrictFocus,
+            source: "Pomodoro Strict Focus"
+        )
     }
 
     private func applyBlockingFromStoredSelectionIfPossible() -> Bool {

@@ -2,6 +2,9 @@ import SwiftUI
 import SwiftData
 #if canImport(FamilyControls)
 import FamilyControls
+#if canImport(ManagedSettings)
+import ManagedSettings
+#endif
 #endif
 
 struct AppListsView: View {
@@ -35,126 +38,141 @@ struct AppListsView: View {
             ZStack {
                 SettingsGlassBackground()
 
-                List {
-                    // ---- Focus Session Blocking ----
-                    if !blockLists.isEmpty {
-                        Section {
-                            let activeId = settings.selectedBlockListId
-                            let activeName = blockLists.first(where: { $0.id.uuidString == activeId })?.name
-                            let isFocusArmed = activeName != nil && isBlockDuringFocusEnabled
-                            
-                            // Active list status row
-                            HStack(spacing: 12) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.red.opacity(0.15))
-                                        .frame(width: 38, height: 38)
-                                    Image(systemName: isFocusArmed ? "lock.fill" : "lock.open.fill")
-                                        .font(.system(size: 16))
-                                        .foregroundColor(isFocusArmed ? .red : Colors.textTertiary)
-                                }
-                                
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("Active Block List")
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundColor(Colors.textPrimary)
-                                    Text(activeName ?? "Tap a list below to activate")
-                                        .font(.system(size: 13))
-                                        .foregroundColor(isFocusArmed ? Colors.accentRed : Colors.textTertiary)
-                                }
-                                
-                                Spacer()
-                            }
-                            .padding(.vertical, 4)
+                VStack(spacing: 0) {
+                    HStack {
+                        Text("App Lists")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor(Colors.textPrimary)
 
-                            if isFocusBlockingLocked {
-                                Text("Blocking is locked for this active focus session.")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(Colors.accentRed)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 12)
+
+                    List {
+                        if !blockLists.isEmpty {
+                            Section {
+                                let activeId = settings.selectedBlockListId
+                                let activeName = blockLists.first(where: { $0.id.uuidString == activeId })?.name
+                                let isFocusArmed = activeName != nil && isBlockDuringFocusEnabled
+
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(Color.red.opacity(0.15))
+                                            .frame(width: 38, height: 38)
+                                        Image(systemName: isFocusArmed ? "lock.fill" : "lock.open.fill")
+                                            .font(.system(size: 16))
+                                            .foregroundColor(isFocusArmed ? .red : Colors.textTertiary)
+                                    }
+
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("Active Block List")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundColor(Colors.textPrimary)
+                                        Text(activeName ?? "Tap a list below to activate")
+                                            .font(.system(size: 13))
+                                            .foregroundColor(isFocusArmed ? Colors.accentRed : Colors.textTertiary)
+                                    }
+
+                                    Spacer()
+                                }
+                                .padding(.vertical, 4)
+
+                                if isFocusBlockingLocked {
+                                    Text("Blocking is locked for this active focus session.")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(Colors.accentRed)
+                                }
+
+                                if let engine {
+                                    EngineSettingsSection(
+                                        engine: engine,
+                                        onOpenMissions: { showMissionsMenu = true }
+                                    )
+                                }
+                            } header: {
+                                Text("FOR FOCUS SESSIONS")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(Colors.textSecondary)
                             }
-                            
-                            // ---- Engine Settings (Toggles) ----
-                            if let engine {
-                                EngineSettingsSection(
-                                    engine: engine,
-                                    onOpenMissions: { showMissionsMenu = true }
-                                )
+                            .listRowBackground(Color.white.opacity(0.08))
+                        }
+
+                        Section {
+                            ForEach(blockLists) { list in
+                                listRow(list: list)
+                            }
+                            .onDelete { indices in
+                                indices.forEach { index in
+                                    listPendingDelete = blockLists[index]
+                                }
+                            }
+
+                            Button {
+                                if let created = viewModel.createList(type: .block, context: modelContext) {
+                                    if !isFocusBlockingLocked {
+                                        engine?.setActiveBlockList(created)
+                                    }
+                                    presentCompactBlockListEditor = true
+                                    selectedDetailList = created
+                                }
+                            } label: {
+                                Label("New Block List", systemImage: "plus.circle.fill")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundColor(Colors.accentBlue)
                             }
                         } header: {
-                            Text("FOR FOCUS SESSIONS")
+                            Text("BLOCK LISTS")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(Colors.textSecondary)
                         }
                         .listRowBackground(Color.white.opacity(0.08))
+
+                        Section {
+                            ForEach(allowLists) { list in
+                                listRow(list: list)
+                            }
+                            .onDelete { indices in
+                                indices.forEach { index in
+                                    listPendingDelete = allowLists[index]
+                                }
+                            }
+
+                            Button {
+                                if let created = viewModel.createList(type: .allow, context: modelContext) {
+                                    presentCompactBlockListEditor = false
+                                    selectedDetailList = created
+                                }
+                            } label: {
+                                Label("New Allow List", systemImage: "plus.circle.fill")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundColor(Colors.accentTeal)
+                            }
+                        } header: {
+                            Text("ALLOW LISTS")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(Colors.textSecondary)
+                        } footer: {
+                            Text("Apps in an allow list are exempt from blocking.")
+                                .font(.system(size: 12))
+                                .foregroundColor(Colors.textTertiary)
+                        }
+                        .listRowBackground(Color.white.opacity(0.08))
                     }
-
-                    Section {
-                        ForEach(blockLists) { list in
-                            listRow(list: list)
-                        }
-                        .onDelete { indices in
-                            indices.forEach { index in
-                                listPendingDelete = blockLists[index]
-                            }
-                        }
-
-                        Button(action: { 
-                            if let created = viewModel.createList(type: .block, context: modelContext) {
-                                presentCompactBlockListEditor = true
-                                selectedDetailList = created
-                            }
-                        }) {
-                            Label("New Block List", systemImage: "plus.circle.fill")
-                                .font(.body.weight(.semibold))
-                                .foregroundColor(Colors.accentBlue)
-                        }
-                    } header: {
-                        Text("BLOCK LISTS")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(Colors.textSecondary)
-                    }
-                    .listRowBackground(Color.white.opacity(0.08))
-
-                    Section {
-                        ForEach(allowLists) { list in
-                            listRow(list: list)
-                        }
-                        .onDelete { indices in
-                            indices.forEach { index in
-                                listPendingDelete = allowLists[index]
-                            }
-                        }
-
-                        Button(action: { 
-                            if let created = viewModel.createList(type: .allow, context: modelContext) {
-                                presentCompactBlockListEditor = false
-                                selectedDetailList = created
-                            }
-                        }) {
-                            Label("New Allow List", systemImage: "plus.circle.fill")
-                                .font(.body.weight(.semibold))
-                                .foregroundColor(Colors.accentTeal)
-                        }
-                    } header: {
-                        Text("ALLOW LISTS")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(Colors.textSecondary)
-                    } footer: {
-                        Text("Apps in an allow list are exempt from blocking.")
-                            .font(.system(size: 12))
-                            .foregroundColor(Colors.textTertiary)
-                    }
-                    .listRowBackground(Color.white.opacity(0.08))
+                    .listStyle(.insetGrouped)
+                    .scrollContentBackground(.hidden)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-        }
-            .navigationTitle("App Lists")
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Close") { dismiss() }
+                        .foregroundColor(Colors.textPrimary)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
                         .foregroundColor(Colors.textPrimary)
                 }
             }
@@ -199,6 +217,7 @@ struct AppListsView: View {
                 Text("This action cannot be undone.")
             }
         }
+    }
 
     @ViewBuilder
     private func listRow(list: AppList) -> some View {
@@ -228,6 +247,7 @@ struct AppListsView: View {
             .onTapGesture {
                 if list.type == .block && !isFocusBlockingLocked {
                     viewModel.setSelectedList(list, context: modelContext)
+                    engine?.setActiveBlockList(list)
                 }
                 presentCompactBlockListEditor = false
                 selectedDetailList = list
@@ -237,6 +257,7 @@ struct AppListsView: View {
                     Button(action: {
                         if !isFocusBlockingLocked {
                             viewModel.setSelectedList(list, context: modelContext)
+                            engine?.setActiveBlockList(list)
                         }
                         presentCompactBlockListEditor = false
                         selectedDetailList = list
@@ -298,9 +319,14 @@ struct BlockListDetailView: View {
     @FocusState private var isNameFieldFocused: Bool
     #if canImport(FamilyControls)
     @State private var showSystemActivityPicker = false
+    @State private var selectedApplicationTokensForRemoval: Set<ApplicationToken> = []
     #endif
     #if targetEnvironment(simulator)
     @State private var showMockActivityPicker = false
+    @State private var expandedSelectedCategoryIDs: Set<String> = []
+    @State private var selectedCategoryIDsForRemoval: Set<String> = []
+    @State private var selectedAppIDsForRemoval: Set<String> = []
+    @State private var categoryEditorID: String?
     #endif
 
     init(
@@ -358,6 +384,23 @@ struct BlockListDetailView: View {
                 ) { apps, categories in
                     viewModel.mockSelectedAppIDs = apps
                     viewModel.mockSelectedCategoryIDs = categories
+                }
+            }
+            .sheet(
+                isPresented: Binding(
+                    get: { categoryEditorID != nil },
+                    set: { if !$0 { categoryEditorID = nil } }
+                )
+            ) {
+                if let categoryID = categoryEditorID {
+                    MockCategoryEditorSheet(
+                        categoryID: categoryID,
+                        selectedApps: viewModel.mockSelectedAppIDs,
+                        selectedCategories: viewModel.mockSelectedCategoryIDs
+                    ) { apps, categories in
+                        viewModel.mockSelectedAppIDs = apps
+                        viewModel.mockSelectedCategoryIDs = categories
+                    }
                 }
             }
             #endif
@@ -445,24 +488,40 @@ struct BlockListDetailView: View {
     }
 
     private var addAppOrWebsiteRow: some View {
-        Button {
-            guard !isLockedActiveList else { return }
-            openPickerWithAuthorizationCheck()
-        } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "plus")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(Colors.accentBlue)
-                    .frame(width: 42, height: 42)
-                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.08)))
-                Text("Add App or Website")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(Colors.textPrimary)
-                Spacer()
+        HStack(spacing: 12) {
+            Button {
+                guard !isLockedActiveList else { return }
+                openPickerWithAuthorizationCheck()
+            } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(Colors.accentBlue)
+                        .frame(width: 42, height: 42)
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.08)))
+                    Text("Add App or Website")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(Colors.textPrimary)
+                    Spacer()
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(isLockedActiveList)
+
+            if selectedAppsCount > 0 || selectedCategoriesCount > 0 {
+                Button(isEditing ? "Done" : "Edit") {
+                    toggleEditingMode()
+                }
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(isLockedActiveList ? Colors.textTertiary : Colors.accentBlue)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .background(Color.white.opacity(0.08))
+                .clipShape(Capsule())
+                .buttonStyle(.plain)
+                .disabled(isLockedActiveList)
             }
         }
-        .buttonStyle(.plain)
-        .disabled(isLockedActiveList)
     }
 
     @ViewBuilder
@@ -506,10 +565,94 @@ struct BlockListDetailView: View {
                 .padding(.vertical, 12)
         } else {
             VStack(spacing: 8) {
+                bulkDeleteToolbar
                 selectedCategoriesList
                 selectedAppsList
             }
         }
+    }
+
+    @ViewBuilder
+    private var bulkDeleteToolbar: some View {
+        #if targetEnvironment(simulator)
+        let selectedCount = selectedCategoryIDsForRemoval.count + selectedAppIDsForRemoval.count
+        if isEditing && selectedCount > 0 {
+            HStack(spacing: 12) {
+                Text("\(selectedCount) selected")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Colors.textPrimary)
+
+                Spacer()
+
+                Button("Clear") {
+                    clearRemovalSelection()
+                }
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Colors.textSecondary)
+
+                Button {
+                    deleteSelectedMockItems()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 13, weight: .bold))
+                        Text("Delete")
+                            .font(.system(size: 14, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Colors.accentRed)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(isLockedActiveList)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        #elseif canImport(FamilyControls)
+        let selectedCount = selectedApplicationTokensForRemoval.count
+        if isEditing && selectedCount > 0 {
+            HStack(spacing: 12) {
+                Text("\(selectedCount) selected")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Colors.textPrimary)
+
+                Spacer()
+
+                Button("Clear") {
+                    selectedApplicationTokensForRemoval.removeAll()
+                }
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Colors.textSecondary)
+
+                Button {
+                    deleteSelectedApplicationTokens()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 13, weight: .bold))
+                        Text("Delete")
+                            .font(.system(size: 14, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Colors.accentRed)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(isLockedActiveList)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        #endif
     }
 
     private var neverAllowedSection: some View {
@@ -608,10 +751,7 @@ struct BlockListDetailView: View {
         #if targetEnvironment(simulator)
         let categories = viewModel.mockSelectedCategoryIDs.sorted()
         ForEach(categories, id: \.self) { categoryID in
-            selectionBadgeRow(
-                title: MockActivityPickerSheet.categoryDisplayName(for: categoryID),
-                symbol: "square.grid.2x2"
-            )
+            selectedCategoryRow(categoryID: categoryID)
         }
         #elseif canImport(FamilyControls)
         ForEach(Array(viewModel.selection.categoryTokens), id: \.self) { token in
@@ -629,20 +769,13 @@ struct BlockListDetailView: View {
     @ViewBuilder
     private var selectedAppsList: some View {
         #if targetEnvironment(simulator)
-        let apps = viewModel.mockSelectedAppIDs.sorted()
+        let apps = standaloneSelectedMockApps
         ForEach(apps, id: \.self) { appID in
-            selectionBadgeRow(
-                title: MockActivityPickerSheet.appDisplayName(for: appID),
-                symbol: "app.fill"
-            )
+            selectedMockAppRow(appID: appID, indent: 0, categoryID: nil)
         }
         #elseif canImport(FamilyControls)
         ForEach(Array(viewModel.selection.applicationTokens), id: \.self) { token in
-            tokenBadgeRow(symbol: "app.fill") {
-                Label(token)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(Colors.textPrimary)
-            }
+            selectedApplicationTokenRow(token: token)
         }
         #else
         EmptyView()
@@ -682,6 +815,304 @@ struct BlockListDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
+    #if canImport(FamilyControls)
+    private func selectedApplicationTokenRow(token: ApplicationToken) -> some View {
+        let isMarkedForRemoval = selectedApplicationTokensForRemoval.contains(token)
+
+        return HStack(spacing: 12) {
+            if isEditing {
+                Button {
+                    toggleApplicationTokenRemovalSelection(token)
+                } label: {
+                    Image(systemName: isMarkedForRemoval ? "checkmark.square.fill" : "square")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(isMarkedForRemoval ? Colors.accentBlue : Colors.textSecondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(isLockedActiveList)
+            }
+
+            Label(token)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(Colors.textPrimary)
+
+            Spacer()
+
+            if isEditing {
+                Button {
+                    removeApplicationToken(token)
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(Colors.accentRed)
+                }
+                .buttonStyle(.plain)
+                .disabled(isLockedActiveList)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(Color.white.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func toggleApplicationTokenRemovalSelection(_ token: ApplicationToken) {
+        guard !isLockedActiveList else { return }
+        if selectedApplicationTokensForRemoval.contains(token) {
+            selectedApplicationTokensForRemoval.remove(token)
+        } else {
+            selectedApplicationTokensForRemoval.insert(token)
+        }
+    }
+
+    private func removeApplicationToken(_ token: ApplicationToken) {
+        guard !isLockedActiveList else { return }
+        viewModel.selection.applicationTokens.remove(token)
+        selectedApplicationTokensForRemoval.remove(token)
+    }
+
+    private func deleteSelectedApplicationTokens() {
+        guard !isLockedActiveList else { return }
+        for token in selectedApplicationTokensForRemoval {
+            viewModel.selection.applicationTokens.remove(token)
+        }
+        selectedApplicationTokensForRemoval.removeAll()
+    }
+    #endif
+
+    #if targetEnvironment(simulator)
+    private var standaloneSelectedMockApps: [String] {
+        viewModel.mockSelectedAppIDs
+            .filter { appID in
+                guard let app = MockActivityPickerSheet.apps.first(where: { $0.id == appID }) else { return true }
+                return !viewModel.mockSelectedCategoryIDs.contains(app.categoryID)
+            }
+            .sorted { MockActivityPickerSheet.appDisplayName(for: $0) < MockActivityPickerSheet.appDisplayName(for: $1) }
+    }
+
+    @ViewBuilder
+    private func selectedCategoryRow(categoryID: String) -> some View {
+        let isExpanded = expandedSelectedCategoryIDs.contains(categoryID)
+        let categoryApps = MockActivityPickerSheet.apps
+            .filter { $0.categoryID == categoryID && viewModel.mockSelectedAppIDs.contains($0.id) }
+            .sorted { $0.name < $1.name }
+        let isMarkedForRemoval = selectedCategoryIDsForRemoval.contains(categoryID)
+
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                if isEditing {
+                    Button {
+                        toggleCategoryRemovalSelection(categoryID)
+                    } label: {
+                        Image(systemName: isMarkedForRemoval ? "checkmark.square.fill" : "square")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(isMarkedForRemoval ? Colors.accentBlue : Colors.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isLockedActiveList)
+                }
+
+                Image(systemName: "square.grid.2x2")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Colors.textSecondary)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(MockActivityPickerSheet.categoryDisplayName(for: categoryID))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Colors.textPrimary)
+                    Text("\(categoryApps.count) selected apps")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Colors.textTertiary)
+                }
+
+                Spacer()
+
+                Button {
+                    categoryEditorID = categoryID
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(Colors.accentBlue)
+                }
+                .buttonStyle(.plain)
+                .disabled(isLockedActiveList)
+
+                if !categoryApps.isEmpty {
+                    Button {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                            if isExpanded {
+                                expandedSelectedCategoryIDs.remove(categoryID)
+                            } else {
+                                expandedSelectedCategoryIDs.insert(categoryID)
+                            }
+                        }
+                    } label: {
+                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(Colors.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if isEditing {
+                    Button {
+                        removeMockCategory(categoryID)
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(Colors.accentRed)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isLockedActiveList)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(Color.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+            if isExpanded && !categoryApps.isEmpty {
+                VStack(spacing: 8) {
+                    ForEach(categoryApps) { app in
+                        selectedMockAppRow(appID: app.id, indent: 28, categoryID: categoryID)
+                    }
+                }
+                .padding(.top, 8)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func selectedMockAppRow(appID: String, indent: CGFloat, categoryID: String?) -> some View {
+        let isMarkedForRemoval = selectedAppIDsForRemoval.contains(appID)
+        HStack(spacing: 12) {
+            if isEditing {
+                Button {
+                    toggleAppRemovalSelection(appID)
+                } label: {
+                    Image(systemName: isMarkedForRemoval ? "checkmark.square.fill" : "square")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(isMarkedForRemoval ? Colors.accentBlue : Colors.textSecondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(isLockedActiveList)
+            }
+
+            Text(MockActivityPickerSheet.appDisplayName(for: appID))
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(Colors.textPrimary)
+
+            Spacer()
+
+            if isEditing {
+                Button {
+                    removeMockApp(appID, from: categoryID)
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(Colors.accentRed)
+                }
+                .buttonStyle(.plain)
+                .disabled(isLockedActiveList)
+            }
+        }
+        .padding(.leading, 16 + indent)
+        .padding(.trailing, 16)
+        .padding(.vertical, 14)
+        .background(Color.white.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func removeMockCategory(_ categoryID: String) {
+        guard !isLockedActiveList else { return }
+        viewModel.mockSelectedCategoryIDs.removeAll { $0 == categoryID }
+        let categoryAppIDs = Set(MockActivityPickerSheet.apps.filter { $0.categoryID == categoryID }.map(\.id))
+        viewModel.mockSelectedAppIDs.removeAll { categoryAppIDs.contains($0) }
+        expandedSelectedCategoryIDs.remove(categoryID)
+        selectedCategoryIDsForRemoval.remove(categoryID)
+        selectedAppIDsForRemoval.subtract(categoryAppIDs)
+    }
+
+    private func removeMockApp(_ appID: String, from categoryID: String?) {
+        guard !isLockedActiveList else { return }
+        viewModel.mockSelectedAppIDs.removeAll { $0 == appID }
+        selectedAppIDsForRemoval.remove(appID)
+        if let categoryID {
+            viewModel.mockSelectedCategoryIDs.removeAll { $0 == categoryID }
+            selectedCategoryIDsForRemoval.remove(categoryID)
+        } else if let app = MockActivityPickerSheet.apps.first(where: { $0.id == appID }) {
+            let categoryApps = MockActivityPickerSheet.apps.filter { $0.categoryID == app.categoryID }
+            let allSelected = categoryApps.allSatisfy { viewModel.mockSelectedAppIDs.contains($0.id) }
+            if !allSelected {
+                viewModel.mockSelectedCategoryIDs.removeAll { $0 == app.categoryID }
+                selectedCategoryIDsForRemoval.remove(app.categoryID)
+            }
+        }
+    }
+
+    private func toggleCategoryRemovalSelection(_ categoryID: String) {
+        guard !isLockedActiveList else { return }
+        if selectedCategoryIDsForRemoval.contains(categoryID) {
+            selectedCategoryIDsForRemoval.remove(categoryID)
+        } else {
+            selectedCategoryIDsForRemoval.insert(categoryID)
+        }
+    }
+
+    private func toggleAppRemovalSelection(_ appID: String) {
+        guard !isLockedActiveList else { return }
+        if selectedAppIDsForRemoval.contains(appID) {
+            selectedAppIDsForRemoval.remove(appID)
+        } else {
+            selectedAppIDsForRemoval.insert(appID)
+        }
+    }
+
+    private func clearRemovalSelection() {
+        selectedCategoryIDsForRemoval.removeAll()
+        selectedAppIDsForRemoval.removeAll()
+    }
+
+    private func deleteSelectedMockItems() {
+        guard !isLockedActiveList else { return }
+        let categories = Array(selectedCategoryIDsForRemoval)
+        let apps = Array(selectedAppIDsForRemoval)
+
+        for categoryID in categories {
+            removeMockCategory(categoryID)
+        }
+
+        for appID in apps {
+            removeMockApp(appID, from: mockParentCategoryID(for: appID))
+        }
+
+        clearRemovalSelection()
+    }
+
+    private func toggleEditingMode() {
+        guard !isLockedActiveList else { return }
+        if isEditing {
+            clearRemovalSelection()
+        }
+        isEditing.toggle()
+    }
+
+    private func mockParentCategoryID(for appID: String) -> String? {
+        guard let app = MockActivityPickerSheet.apps.first(where: { $0.id == appID }) else { return nil }
+        return viewModel.mockSelectedCategoryIDs.contains(app.categoryID) ? app.categoryID : nil
+    }
+    #endif
+
+    #if !targetEnvironment(simulator)
+    private func toggleEditingMode() {
+        guard !isLockedActiveList else { return }
+        if isEditing {
+            selectedApplicationTokensForRemoval.removeAll()
+        }
+        isEditing.toggle()
+    }
+    #endif
+
     private func openPickerWithAuthorizationCheck() {
         if authManager.isAuthorized {
             presentSystemPicker()
@@ -719,18 +1150,239 @@ struct BlockListDetailView: View {
     }
 }
 
+#if targetEnvironment(simulator)
+private struct MockCategoryEditorSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let categoryID: String
+    @State private var localApps: Set<String>
+    @State private var localCategories: Set<String>
+    @State private var selectedForRemoval: Set<String> = []
+    let onSave: (_ selectedApps: [String], _ selectedCategories: [String]) -> Void
+
+    init(
+        categoryID: String,
+        selectedApps: [String],
+        selectedCategories: [String],
+        onSave: @escaping (_ selectedApps: [String], _ selectedCategories: [String]) -> Void
+    ) {
+        self.categoryID = categoryID
+        self._localApps = State(initialValue: Set(selectedApps))
+        self._localCategories = State(initialValue: Set(selectedCategories))
+        self.onSave = onSave
+    }
+
+    private var categoryTitle: String {
+        MockActivityPickerSheet.categoryDisplayName(for: categoryID)
+    }
+
+    private var categoryApps: [MockActivityPickerSheet.MockApp] {
+        MockActivityPickerSheet.apps
+            .filter { $0.categoryID == categoryID }
+            .sorted { $0.name < $1.name }
+    }
+
+    private var allSelected: Bool {
+        !categoryApps.isEmpty && categoryApps.allSatisfy { localApps.contains($0.id) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                SettingsGlassBackground()
+
+                VStack(spacing: 16) {
+                    if !selectedForRemoval.isEmpty {
+                        HStack(spacing: 12) {
+                            Text("\(selectedForRemoval.count) selected")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Colors.textPrimary)
+
+                            Spacer()
+
+                            Button("Clear") {
+                                selectedForRemoval.removeAll()
+                            }
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Colors.textSecondary)
+
+                            Button {
+                                deleteSelectedApps()
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "trash")
+                                        .font(.system(size: 13, weight: .bold))
+                                    Text("Delete")
+                                        .font(.system(size: 14, weight: .bold))
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Colors.accentRed)
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 20)
+                    }
+
+                    HStack {
+                        Button(allSelected ? "Remove All" : "Select All") {
+                            toggleAll()
+                        }
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Colors.accentBlue)
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+
+                    ScrollView {
+                        VStack(spacing: 8) {
+                            ForEach(categoryApps) { app in
+                                HStack(spacing: 12) {
+                                    Button {
+                                        toggleRemovalSelection(app.id)
+                                    } label: {
+                                        Image(systemName: selectedForRemoval.contains(app.id) ? "checkmark.square.fill" : "square")
+                                            .font(.system(size: 20, weight: .semibold))
+                                            .foregroundColor(selectedForRemoval.contains(app.id) ? Colors.accentBlue : Colors.textSecondary)
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    Button {
+                                        toggleMembership(app.id)
+                                    } label: {
+                                        Image(systemName: localApps.contains(app.id) ? "checkmark.circle.fill" : "circle")
+                                            .font(.system(size: 20, weight: .semibold))
+                                            .foregroundColor(localApps.contains(app.id) ? Colors.accentTeal : Colors.textSecondary)
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    Text(app.emoji)
+                                        .font(.system(size: 20))
+
+                                    Text(app.name)
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundColor(Colors.textPrimary)
+
+                                    Spacer()
+
+                                    Button {
+                                        removeSingle(app.id)
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundColor(Colors.accentRed)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 14)
+                                .background(Color.white.opacity(0.08))
+                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                    }
+                }
+                .padding(.vertical, 20)
+            }
+            .navigationTitle(categoryTitle)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Close") { dismiss() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        persistAndDismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    private func toggleAll() {
+        if allSelected {
+            for app in categoryApps {
+                localApps.remove(app.id)
+            }
+            localCategories.remove(categoryID)
+        } else {
+            for app in categoryApps {
+                localApps.insert(app.id)
+            }
+            localCategories.insert(categoryID)
+        }
+    }
+
+    private func toggleMembership(_ appID: String) {
+        if localApps.contains(appID) {
+            localApps.remove(appID)
+        } else {
+            localApps.insert(appID)
+        }
+
+        if categoryApps.allSatisfy({ localApps.contains($0.id) }) {
+            localCategories.insert(categoryID)
+        } else {
+            localCategories.remove(categoryID)
+        }
+    }
+
+    private func toggleRemovalSelection(_ appID: String) {
+        if selectedForRemoval.contains(appID) {
+            selectedForRemoval.remove(appID)
+        } else {
+            selectedForRemoval.insert(appID)
+        }
+    }
+
+    private func removeSingle(_ appID: String) {
+        localApps.remove(appID)
+        selectedForRemoval.remove(appID)
+        localCategories.remove(categoryID)
+    }
+
+    private func deleteSelectedApps() {
+        for appID in selectedForRemoval {
+            localApps.remove(appID)
+        }
+        selectedForRemoval.removeAll()
+        if categoryApps.allSatisfy({ localApps.contains($0.id) }) {
+            localCategories.insert(categoryID)
+        } else {
+            localCategories.remove(categoryID)
+        }
+    }
+
+    private func persistAndDismiss() {
+        onSave(Array(localApps).sorted(), Array(localCategories).sorted())
+        dismiss()
+    }
+}
+#endif
+
 struct EngineSettingsSection: View {
     @ObservedObject var engine: PomodoroEngine
     let onOpenMissions: () -> Void
+    private let settings = SettingsStore.shared
+    @State private var showStrictModeWarning = false
 
     private var hasSelectedBlockList: Bool {
-        !engine.config.selectedBlockListId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !effectiveSelectedBlockListId.isEmpty
     }
     private var selectedMissionsCount: Int {
         engine.config.enabledChallenges.filter { $0 != .off }.count
     }
     private var isBlockToggleLocked: Bool {
         engine.isFocusBlockingControlsLocked
+    }
+    private var effectiveSelectedBlockListId: String {
+        let configId = engine.config.selectedBlockListId.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !configId.isEmpty { return configId }
+        return settings.selectedBlockListId.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     var body: some View {
@@ -764,8 +1416,18 @@ struct EngineSettingsSection: View {
             get: { engine.config.blockAppsEnabled },
             set: {
                 if isBlockToggleLocked { return }
-                if $0 && !hasSelectedBlockList { return }
                 var c = engine.config
+                if $0 {
+                    let selectedId = effectiveSelectedBlockListId
+                    guard !selectedId.isEmpty else { return }
+                    c.selectedBlockListId = selectedId
+                    // Default newly-enabled focus blocking to mission-based unlock
+                    // instead of carrying forward a previously strict setting.
+                    c.breakMode = .harder
+                    if c.enabledChallenges.isEmpty || c.enabledChallenges.allSatisfy({ $0 == .off }) {
+                        c.enabledChallenges = [.math]
+                    }
+                }
                 c.blockAppsEnabled = $0
                 engine.updateConfig(c)
             }
@@ -781,17 +1443,20 @@ struct EngineSettingsSection: View {
     private var isStrict: Bool { engine.config.breakMode == .hardcore }
 
     // Two modes only — Normal vs Strict. Strict = apps stay blocked until the timer
-    // ends (no early unlock, uninstall-proof). Normal = unlock early by completing
-    // the chosen mission, shown directly below the toggle.
+    // ends and iOS app deletion is disabled while the strict focus session is
+    // actively running. Normal = unlock early by completing the chosen mission,
+    // shown directly below the toggle.
     private var strictModeControl: some View {
         VStack(alignment: .leading, spacing: 12) {
             Toggle(isOn: Binding(
                 get: { isStrict },
                 set: { on in
                     guard !isBlockToggleLocked else { return }
-                    var c = engine.config
-                    c.breakMode = on ? .hardcore : .harder
-                    engine.updateConfig(c)
+                    if on && !isStrict {
+                        showStrictModeWarning = true
+                    } else {
+                        setStrictModeEnabled(false)
+                    }
                 }
             )) {
                 Text("Strict Mode")
@@ -800,6 +1465,20 @@ struct EngineSettingsSection: View {
             }
             .tint(.red)
             .disabled(isBlockToggleLocked)
+            .alert("Enable Strict Mode?", isPresented: $showStrictModeWarning) {
+                Button("Cancel", role: .cancel) {}
+                Button("Enable") {
+                    setStrictModeEnabled(true)
+                }
+            } message: {
+                Text("While this session is active, iOS app deletion will be disabled.")
+            }
+
+            if isStrict {
+                Text("While this session is active, iOS app deletion will be disabled.")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Colors.textSecondary)
+            }
 
             if !isStrict {
                 Button(action: onOpenMissions) {
@@ -829,6 +1508,12 @@ struct EngineSettingsSection: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    private func setStrictModeEnabled(_ enabled: Bool) {
+        var c = engine.config
+        c.breakMode = enabled ? .hardcore : .harder
+        engine.updateConfig(c)
     }
 
 }
