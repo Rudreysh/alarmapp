@@ -53,10 +53,6 @@ final class AlarmKeepAliveAudioService {
     /// observers catch real failures instantly), so it can be infrequent. 60s instead
     /// of 15s cuts main-thread wakeups 4× with no reliability loss.
     private let heartbeatInterval: TimeInterval = 60
-    /// Tier 1 battery: ask the audio HW for a large I/O buffer so the render path
-    /// wakes the CPU far less often while playing silence. Latency is irrelevant for
-    /// silence (and the alarm isn't latency-sensitive). iOS clamps to its real max.
-    private let preferredIOBuffer: TimeInterval = 1.0
 
     private init() {}
 
@@ -136,7 +132,7 @@ final class AlarmKeepAliveAudioService {
 
     private func start(reason: String, attempt: Int) {
         guard !isRunning else { return }
-        guard let url = keepAliveSilentURL() else {
+        guard let url = silentSoundURL() else {
             DiagnosticsLog.shared.log("cannot start — silent file unavailable reason=\(reason)", category: "KeepAlive")
             return
         }
@@ -149,10 +145,12 @@ final class AlarmKeepAliveAudioService {
             // .mixWithOthers the session is NOT interrupted by AlarmKit, so the keep-alive
             // stays invisible to the ring handoff. This also matches the app's long-standing
             // default session (AlarmAppDelegate) and never cuts the user's bedtime audio.
+            //
+            // Do NOT set preferredIOBufferDuration here: requesting a large buffer on the
+            // SHARED session while AlarmKit is alerting makes play() fail (delaying the
+            // AppEngine takeover ~6s) AND leaves a high-latency buffer the AppEngine then
+            // inherits — the alarm sounds delayed/broken. Reverted from the Tier-1 attempt.
             try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
-            // Best-effort large I/O buffer (Tier 1 battery). `try?` so a rejection never
-            // breaks the keep-alive. Set before activating, per Apple guidance.
-            try? session.setPreferredIOBufferDuration(preferredIOBuffer)
             try session.setActive(true, options: [])
             let p = try AVAudioPlayer(contentsOf: url)
             p.numberOfLoops = -1
@@ -269,59 +267,6 @@ final class AlarmKeepAliveAudioService {
         // evaluate() restarts a stalled player if it should still be running, or
         // stops the keep-alive (and heartbeat) if it should not.
         evaluate(reason: "heartbeat")
-    }
-
-    /// Dedicated keep-alive silence file: 8 kHz mono, 30 s (Tier 1 battery).
-    /// A longer loop means far fewer per-loop boundaries than the shared 1 s AlarmKit
-    /// file, and it is kept SEPARATE so AlarmKit's silent alert is never affected.
-    /// Falls back to the shared AlarmKit-staged file if generation ever fails — the
-    /// keep-alive must never be left without a file (failure-proof).
-    private func keepAliveSilentURL() -> URL? {
-        guard let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else {
-            return silentSoundURL()
-        }
-        let dir = library.appendingPathComponent("Sounds", isDirectory: true)
-        let url = dir.appendingPathComponent("alarmo_keepalive_silence.caf", isDirectory: false)
-        if FileManager.default.fileExists(atPath: url.path),
-           let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
-           let size = attrs[.size] as? Int, size > 1000 {
-            return url
-        }
-        if generateKeepAliveSilence(at: url, in: dir) {
-            return url
-        }
-        return silentSoundURL()
-    }
-
-    private func generateKeepAliveSilence(at url: URL, in dir: URL) -> Bool {
-        let settings: [String: Any] = [
-            AVFormatIDKey: kAudioFormatLinearPCM,
-            AVSampleRateKey: 8_000.0,
-            AVNumberOfChannelsKey: 1,
-            AVLinearPCMBitDepthKey: 16,
-            AVLinearPCMIsBigEndianKey: false,
-            AVLinearPCMIsFloatKey: false
-        ]
-        let temp = FileManager.default.temporaryDirectory.appendingPathComponent("alarmo_keepalive_temp.caf")
-        do {
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            let file = try AVAudioFile(forWriting: temp, settings: settings, commonFormat: .pcmFormatInt16, interleaved: false)
-            let frames = AVAudioFrameCount(8_000 * 30) // 30 s of silence
-            guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: frames) else {
-                return false
-            }
-            buffer.frameLength = frames
-            try file.write(from: buffer)
-            if FileManager.default.fileExists(atPath: url.path) {
-                try FileManager.default.removeItem(at: url)
-            }
-            try FileManager.default.moveItem(at: temp, to: url)
-            return true
-        } catch {
-            try? FileManager.default.removeItem(at: temp)
-            DiagnosticsLog.shared.log("keep-alive silence generation failed: \(error.localizedDescription)", category: "KeepAlive")
-            return false
-        }
     }
 
     private func silentSoundURL() -> URL? {
