@@ -3160,20 +3160,26 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
     func isHardwareSuppressionReason(_ reason: String) -> Bool {
         let normalized = reason.lowercased()
+        // NOTE: "audio-interruption" is deliberately NOT here. An AVAudioSession
+        // interruption `.began` fires when AlarmKit GRABS audio to START ringing
+        // (also calls/Siri) — never when the user suppresses the alarm (that
+        // RELEASES audio → `.ended`). Treating it as an explicit hardware
+        // suppression let the AppEngine take over AT RING START, playing in
+        // PARALLEL with the still-ringing AlarmKit = DUAL SOUND. Likewise
+        // "scene-inactive"/"scene-background"/bare "suppression" are NOT
+        // suppression signals — backgrounding during a ring is not the user
+        // silencing the alarm. A real suppression always arrives via one of the
+        // reasons below (AlarmKit state leaving `.alerting`, a volume/side-button
+        // event, etc.).
         return normalized.contains("slide-to-stop")
             || normalized.contains("volume-suppression")
-            || normalized.contains("audio-interruption")
             || normalized.contains("alarmkit-stop-intent")
             || normalized.contains("alarmkit-left-alerting")
-            || normalized.contains("bridge-watchdog")
             || normalized.contains("side-button")
             || normalized.contains("side_button")
-            || normalized.contains("hardware")
-            || normalized.contains("scene-inactive")
-            || normalized.contains("scene-background")
-            || normalized.contains("protected-data-lock")
-            || normalized.contains("lock-suppression")
-            || normalized.contains("suppression")
+            || normalized.contains("auth-handoff")
+            || normalized.contains("unlock-to-stop")
+            || normalized.contains("authentication")
     }
 
     private func isExplicitAlarmKitSuppressionReason(_ reason: String) -> Bool {
