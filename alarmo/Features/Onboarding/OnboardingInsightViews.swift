@@ -204,24 +204,25 @@ private struct CountUpNumber: View {
 }
 
 
-/// The hope screen: names BOTH pillars so the user understands why Alarmo has alarm
-/// missions AND app blocking. Cards spring in; includes a friction-science line.
+/// The hope screen: names all three pillars so the user understands why Alarmo has
+/// alarm missions, app blocking, AND Pomodoro focus. Cards spring in; friction note.
 struct OnboardingHopePillarsView: View {
     @ObservedObject var viewModel: OnboardingViewModel
     let onNext: () -> Void
 
     @State private var card1 = false
     @State private var card2 = false
+    @State private var card3 = false
     @State private var noteIn = false
 
     var body: some View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
-            VStack(spacing: 18) {
+            VStack(spacing: 14) {
                 ProgressHeader(step: OnboardingStep.hopePillars.rawValue, total: OnboardingStep.progressTotal, showsBadge: false)
                     .padding(.horizontal, Spacing.l)
 
-                Text("\(viewModel.displayFirstName), Alarmo gives you two things")
+                Text("\(viewModel.displayFirstName), Alarmo gives you three things")
                     .font(.system(size: 26, weight: .bold, design: .rounded))
                     .multilineTextAlignment(.center)
                     .foregroundColor(Colors.textPrimary)
@@ -248,6 +249,15 @@ struct OnboardingHopePillarsView: View {
                 .opacity(card2 ? 1 : 0)
                 .offset(y: card2 ? 0 : 26)
 
+                pillarCard(
+                    emoji: "🍅",
+                    title: "Pomodoro focus sessions",
+                    body: "Work in focused sprints with distracting apps blocked while the timer runs.",
+                    tint: Colors.accentOrange
+                )
+                .opacity(card3 ? 1 : 0)
+                .offset(y: card3 ? 0 : 26)
+
                 Text("Most scrolling starts before you even decide to. Alarmo adds a small moment of friction first — so you choose on purpose.")
                     .font(.system(size: 14, weight: .medium))
                     .multilineTextAlignment(.center)
@@ -271,7 +281,8 @@ struct OnboardingHopePillarsView: View {
         .onAppear {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.1)) { card1 = true }
             withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.3)) { card2 = true }
-            withAnimation(.easeOut(duration: 0.4).delay(0.6)) { noteIn = true }
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.5)) { card3 = true }
+            withAnimation(.easeOut(duration: 0.4).delay(0.8)) { noteIn = true }
         }
     }
 
