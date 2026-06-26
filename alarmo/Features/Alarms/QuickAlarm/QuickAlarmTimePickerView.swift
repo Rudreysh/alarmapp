@@ -111,26 +111,9 @@ struct QuickAlarmTimePickerView: View {
                         .pickerStyle(.wheel)
                         .frame(width: 100)
                         .clipped()
-                        
+                        .onAppear { seconds = 0 }
+
                         Text("m")
-                            .font(.system(size: 20, weight: .bold, design: .rounded))
-                            .foregroundColor(Colors.textPrimary)
-                            .offset(y: 2)
-                        
-                        // Second Picker
-                        Picker("Second", selection: $seconds) {
-                            ForEach(0..<60) { s in
-                                Text(String(format: "%02d", s))
-                                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                                    .foregroundColor(Colors.textPrimary)
-                                    .tag(s)
-                            }
-                        }
-                        .pickerStyle(.wheel)
-                        .frame(width: 100)
-                        .clipped()
-                        
-                        Text("s")
                             .font(.system(size: 20, weight: .bold, design: .rounded))
                             .foregroundColor(Colors.textPrimary)
                             .offset(y: 2)

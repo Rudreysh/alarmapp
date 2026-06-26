@@ -89,14 +89,6 @@ struct QuickAlarmView: View {
                                     Text("m")
                                         .font(.system(size: 26, weight: .semibold, design: .rounded))
                                         .foregroundColor(Colors.textSecondary)
-                                    
-                                    Text("\(viewModel.seconds)")
-                                        .font(.system(size: 72, weight: .bold, design: .rounded))
-                                        .foregroundColor(Colors.accentTeal)
-                                        .padding(.leading, 8)
-                                    Text("s")
-                                        .font(.system(size: 26, weight: .semibold, design: .rounded))
-                                        .foregroundColor(Colors.textSecondary)
                                 }
                                 
                                 HStack(spacing: 6) {

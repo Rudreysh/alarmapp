@@ -49,7 +49,7 @@ struct CreateWakeUpAlarmView: View {
             _viewModel = StateObject(wrappedValue: CreateWakeUpAlarmViewModel(
                 defaultHour: calendar.component(.hour, from: now),
                 defaultMinute: calendar.component(.minute, from: now),
-                defaultSecond: calendar.component(.second, from: now),
+                defaultSecond: 0,
                 defaultRepeatMask: defaults.onboardingRepeatMask,
                 defaultSoundName: defaults.onboardingSoundName,
                 defaultSoundVolume: defaults.onboardingSoundVolume,
@@ -611,7 +611,18 @@ struct CreateWakeUpAlarmView: View {
                 showingLocalTimePreview = true
                 viewModel.startCycling()
             }
-            
+
+            // Auto-download the default sound if it is not on device yet (new alarm only).
+            if existingAlarm == nil {
+                let soundName = viewModel.draft.soundName
+                Task {
+                    if let remote = AssetManager.shared.remoteSounds.first(where: { $0.title == soundName }),
+                       !AssetManager.shared.fileExists(filename: remote.filename) {
+                        _ = try? await AssetManager.shared.downloadAsset(from: remote.url, filename: remote.filename)
+                    }
+                }
+            }
+
             // Trigger first relevant step
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                 if !preferences.hasSeenEditAlarmTimeTooltip {
@@ -985,6 +996,11 @@ private extension CreateWakeUpAlarmView {
             }
 
             notificationManager.requestForceQuitEducationAfterAlarmSetup(alarm: alarm)
+
+            // Persist the chosen sound as the default for future new alarms.
+            let prefs = AppPreferences()
+            prefs.onboardingSoundName = alarm.soundName
+            prefs.onboardingSoundVolume = alarm.soundVolume
 
             onClose()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {

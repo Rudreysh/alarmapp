@@ -46,7 +46,7 @@ struct CreateHabitAlarmView: View {
             _viewModel = StateObject(wrappedValue: CreateHabitAlarmViewModel(
                 defaultHour: calendar.component(.hour, from: now),
                 defaultMinute: calendar.component(.minute, from: now),
-                defaultSecond: calendar.component(.second, from: now),
+                defaultSecond: 0,
                 defaultSoundName: defaults.onboardingSoundName,
                 defaultSoundVolume: defaults.onboardingSoundVolume,
                 defaultWallpaperId: defaults.onboardingWallpaperId

@@ -80,7 +80,6 @@ struct DigitalTimeDisplay: View {
                 SunRayTimePickerView(
                     hour: $hour,
                     minute: $minute,
-                    second: $second,
                     sizeMultiplier: sunrayScale
                 )
             case .focusDial:

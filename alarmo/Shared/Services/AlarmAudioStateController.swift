@@ -864,6 +864,28 @@ final class AlarmAudioStateController {
             sourceAlarmId: alarmId
         )
 
+        // PROCESS-ALIVE ANCHOR (reliability fix). The instant the ring starts while
+        // backgrounded/locked, acquire a UIApplication background-task assertion so the
+        // process keeps ~30s of GUARANTEED execution — self-renewing while the ring is
+        // live. Without this, the ONLY thing keeping the app alive at ring time is the
+        // silent keep-alive AVAudioPlayer, whose play() reliably FAILS for ~5s while
+        // AlarmKit holds the audio hardware. During that unanchored gap, pressing the
+        // side button stops AlarmKit and iOS suspends the process before the
+        // `alarmUpdates` observation can drive the AppEngine takeover — so the alarm
+        // goes silent until the app is reopened (the morning "AppEngine never played"
+        // bug). The bridge's passive-standby path (preserve-owner + engine inactive)
+        // only PREWARMS the engine SILENTLY and acquires the assertion — it starts no
+        // audible audio, so there is no dual sound.
+        if !appActive, shouldPreserveAlarmKitOwner {
+            let surfaceForAnchor = AlarmAuthHandoffStore.surfaceAlarmId()
+                ?? AlarmBackgroundAudioBridge.shared.currentAlarmID
+                ?? alarmId
+            AlarmBackgroundAudioBridge.shared.start(
+                surfaceAlarmId: surfaceForAnchor,
+                sourceAlarmId: alarmId
+            )
+        }
+
         if phase == .alarmKitFallback {
             if appActive,
                let runId = currentAlarmRunId {

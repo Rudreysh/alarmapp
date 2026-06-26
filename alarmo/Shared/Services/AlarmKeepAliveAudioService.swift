@@ -40,8 +40,20 @@ final class AlarmKeepAliveAudioService {
     private var observersInstalled = false
     private var retryWorkItems: [DispatchWorkItem] = []
     /// Bounds battery: only keep alive when an alarm is within this window.
-    private let maxLookaheadHours: TimeInterval = 24
+    /// Tier-2 battery: narrowed from 24h to 3h. A backgrounded-but-alive app no longer
+    /// keeps itself unsuspended all day for a far-future alarm. Reliability is unaffected
+    /// because a far-future alarm suspends the app regardless, and the ring-time process
+    /// anchor (a UIApplication background-task assertion acquired the instant AlarmKit
+    /// alerts — see AlarmAudioStateController.handleAlarmKitAlerting) — not this pre-ring
+    /// keep-alive — is what carries the AppEngine takeover through a side-button press.
+    private let maxLookaheadHours: TimeInterval = 3
     private let retryBackoff: [TimeInterval] = [0.5, 1.0, 2.0]
+    /// While an alarm is actively ringing the keep-alive is a process-alive anchor and
+    /// its play() reliably FAILS for the first ~5s (AlarmKit holds the audio HW). Rather
+    /// than give up after the bounded backoff (~4s) — right before the HW frees — keep
+    /// retrying on this cadence for the duration of the ring so the session activates the
+    /// moment AlarmKit yields (e.g. on the side-button press). Bounded by the ring itself.
+    private let ringRetryInterval: TimeInterval = 0.5
     /// Periodic self-heal: a silent volume-0 player can be stalled by iOS overnight
     /// without firing any interruption/route notification, and `evaluate()` is
     /// otherwise only event-driven (scene change / launch / scheduling). The
@@ -178,8 +190,22 @@ final class AlarmKeepAliveAudioService {
     }
 
     private func scheduleRetry(reason: String, nextAttempt: Int) {
-        guard nextAttempt <= retryBackoff.count else {
-            DiagnosticsLog.shared.log("start gave up after \(retryBackoff.count) retries reason=\(reason)", category: "KeepAlive")
+        if nextAttempt > retryBackoff.count {
+            // Bounded backoff exhausted. If an alarm is actively ringing, DON'T give up:
+            // the keep-alive is the process anchor and play() only fails because AlarmKit
+            // holds the audio HW — it will succeed the instant the HW is released. Keep
+            // retrying on a slow fixed cadence until the ring ends (shouldRun() flips to
+            // false) or the session activates (start()'s !isRunning guard stops the loop).
+            guard AlarmAudioStateController.shared.isAlarmRinging else {
+                DiagnosticsLog.shared.log("start gave up after \(retryBackoff.count) retries reason=\(reason)", category: "KeepAlive")
+                return
+            }
+            let work = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                if self.shouldRun() { self.start(reason: "\(reason)-ring", attempt: nextAttempt) }
+            }
+            retryWorkItems.append(work)
+            DispatchQueue.main.asyncAfter(deadline: .now() + ringRetryInterval, execute: work)
             return
         }
         let delay = retryBackoff[nextAttempt - 1]

@@ -23,7 +23,7 @@ struct SunRayTimePickerView: View {
     @State private var isInteracting: Bool = false
     
     @State private var activeComponent: TimeComponent = .hour
-    @AppStorage("is12HourFormat") private var is12HourFormat: Bool = true // Persist format preference
+    @AppStorage("is12HourFormat") private var is12HourFormat: Bool = false // Persist format preference
     
     // New state for smooth ring dragging
     @State private var dragAngle: Double?
