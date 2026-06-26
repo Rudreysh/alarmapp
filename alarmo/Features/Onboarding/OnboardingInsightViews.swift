@@ -92,9 +92,19 @@ struct OnboardingDailyLoopInsightView: View {
     }
 
     private var lifetimeCards: some View {
-        HStack(spacing: 12) {
-            lifetimeCard(title: "Lost in \(Int(calc.yearsHorizon)) yrs", days: calc.lifetimeLostDays, color: lossColor)
-            lifetimeCard(title: "Saved with Alarmo", days: calc.lifetimeReclaimableDays, color: gainColor)
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                lifetimeCard(title: "Lost in \(Int(calc.yearsHorizon)) yrs", days: calc.lifetimeLostDays, color: lossColor)
+                lifetimeCard(title: "Saved with Alarmo", days: calc.lifetimeReclaimableDays, color: gainColor)
+            }
+            LifetimeDotsView(
+                totalYears: Int(calc.yearsHorizon),
+                lostYears: Int((Double(calc.lifetimeLostDays) / 365.0).rounded()),
+                savedYears: Int((Double(calc.lifetimeReclaimableDays) / 365.0).rounded()),
+                active: stage >= 5,
+                lossColor: lossColor,
+                gainColor: gainColor
+            )
         }
         .padding(.horizontal, Spacing.l)
         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -287,5 +297,91 @@ struct OnboardingHopePillarsView: View {
         .background(RoundedRectangle(cornerRadius: 18).fill(Colors.cardSurface.opacity(0.6)))
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(tint.opacity(0.35), lineWidth: 1.5))
         .padding(.horizontal, Spacing.l)
+    }
+}
+
+/// Lifetime visualized as dots — one per year of the horizon. Lost years fill in
+/// red (staggered), then the reclaimable subset flips to green. Tap to replay.
+/// Gray dots are time that already stays yours.
+private struct LifetimeDotsView: View {
+    let totalYears: Int
+    let lostYears: Int
+    let savedYears: Int
+    let active: Bool
+    let lossColor: Color
+    let gainColor: Color
+
+    @State private var filled = 0
+    @State private var flipped = false
+
+    private var total: Int { max(1, min(totalYears, 40)) }
+    private var lost: Int { max(0, min(lostYears, total)) }
+    private var saved: Int { max(0, min(savedYears, lost)) }
+
+    private let columns = Array(repeating: GridItem(.fixed(14), spacing: 7), count: 10)
+
+    var body: some View {
+        VStack(spacing: 12) {
+            LazyVGrid(columns: columns, spacing: 7) {
+                ForEach(0..<total, id: \.self) { i in
+                    Circle()
+                        .fill(color(for: i))
+                        .frame(width: 13, height: 13)
+                        .scaleEffect(scale(for: i))
+                        .animation(.spring(response: 0.35, dampingFraction: 0.6), value: filled)
+                        .animation(.easeInOut(duration: 0.4), value: flipped)
+                }
+            }
+            legend
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { run() }
+        .onAppear { if active { run() } }
+        .onChange(of: active) { _, on in if on { run() } }
+    }
+
+    private var legend: some View {
+        HStack(spacing: 14) {
+            legendItem(lossColor, "Lost")
+            legendItem(gainColor, "Back with Alarmo")
+            legendItem(Color.gray.opacity(0.3), "Stays yours")
+        }
+        .font(.system(size: 11, weight: .semibold))
+    }
+
+    private func legendItem(_ color: Color, _ text: String) -> some View {
+        HStack(spacing: 5) {
+            Circle().fill(color).frame(width: 9, height: 9)
+            Text(text).foregroundColor(Colors.textSecondary)
+        }
+    }
+
+    private func color(for i: Int) -> Color {
+        guard i < lost else { return Color.gray.opacity(0.18) }   // stays yours
+        if flipped && i < saved { return gainColor }              // reclaimed
+        if i < filled { return lossColor }                        // lost (revealed)
+        return Color.gray.opacity(0.18)                           // not yet revealed
+    }
+
+    private func scale(for i: Int) -> CGFloat {
+        guard i < lost else { return 1 }       // neutral dots always present
+        return i < filled ? 1 : 0.35           // lost dots pop in as they fill
+    }
+
+    private func run() {
+        filled = 0
+        flipped = false
+        guard lost > 0 else { return }
+        Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { t in
+            if filled >= lost {
+                t.invalidate()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) { flipped = true }
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                }
+                return
+            }
+            withAnimation { filled += 1 }
+        }
     }
 }

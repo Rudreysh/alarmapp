@@ -19,8 +19,8 @@ struct OnboardingMissionPickerView: View {
         .init(type: .typing, title: "Type a phrase", emoji: "⌨️"),
         .init(type: .shake, title: "Shake", emoji: "📳"),
         .init(type: .step, title: "Walk steps", emoji: "🚶"),
-        .init(type: .qrBarcode, title: "Scan a barcode", emoji: "📷"),
-        .init(type: .objectHunt, title: "Find an object", emoji: "🔍")
+        .init(type: .bibleVerse, title: "Bible verse", emoji: "🙏"),
+        .init(type: .ticTacToe, title: "Tic Tac Toe", emoji: "⭕")
     ]
 
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
