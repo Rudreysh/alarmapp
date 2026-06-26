@@ -137,10 +137,11 @@ struct OnboardingDailyLoopInsightView: View {
     }
 }
 
-/// Insight screen 2 of 2 — the LIFETIME story. The daily loop scaled out: how much
-/// you lose over `yearsHorizon` years vs how much Alarmo could give back — two
-/// count-up cards plus a dot-per-year grid (lost fills red, reclaimable flips
-/// green; tap to replay).
+/// Insight screen 2 of 2 — the LIFETIME story, framed as a "30-year map". Two
+/// count-up cards (lost vs saved) sit up top; a panel of one-dot-per-year fills the
+/// rest of the screen so no space is wasted — lost years fill red, the reclaimable
+/// subset flips green, the rest stay neutral. Tap to replay. Fully theme-adaptive
+/// via semantic Colors tokens.
 struct OnboardingLifetimeInsightView: View {
     @ObservedObject var viewModel: OnboardingViewModel
     let onNext: () -> Void
@@ -151,10 +152,13 @@ struct OnboardingLifetimeInsightView: View {
     private let gainColor = Color(hex: "#1D9E75")
     private var calc: DailyLoopCalculator { viewModel.dailyLoopCalculator }
 
+    private var lostYears: Int { Int((Double(calc.lifetimeLostDays) / 365.0).rounded()) }
+    private var savedYears: Int { Int((Double(calc.lifetimeReclaimableDays) / 365.0).rounded()) }
+
     var body: some View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
-            VStack(spacing: 18) {
+            VStack(spacing: 16) {
                 ProgressHeader(step: OnboardingStep.lifetimeInsight.rawValue, total: OnboardingStep.progressTotal, showsBadge: false)
                     .padding(.horizontal, Spacing.l)
 
@@ -162,6 +166,7 @@ struct OnboardingLifetimeInsightView: View {
                     Text("Now zoom out, \(viewModel.displayFirstName)")
                         .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundColor(Colors.textPrimary)
+                        .multilineTextAlignment(.center)
                     Text("The same loop, stretched over the next \(Int(calc.yearsHorizon)) years.")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundColor(Colors.textSecondary)
@@ -170,33 +175,21 @@ struct OnboardingLifetimeInsightView: View {
                 .padding(.horizontal, Spacing.l)
                 .fixedSize(horizontal: false, vertical: true)
 
-                Spacer()
-
+                // Cards moved up — directly under the title.
                 HStack(spacing: 12) {
-                    card(title: "Lost in \(Int(calc.yearsHorizon)) yrs", days: calc.lifetimeLostDays, color: lossColor)
-                    card(title: "Saved with Alarmo", days: calc.lifetimeReclaimableDays, color: gainColor)
+                    card(title: "Lost in \(Int(calc.yearsHorizon)) yrs", days: calc.lifetimeLostDays, color: lossColor, icon: "hourglass")
+                    card(title: "Saved with Alarmo", days: calc.lifetimeReclaimableDays, color: gainColor, icon: "sparkles")
                 }
                 .padding(.horizontal, Spacing.l)
                 .opacity(cardsIn ? 1 : 0)
-                .offset(y: cardsIn ? 0 : 20)
+                .offset(y: cardsIn ? 0 : 16)
 
-                LifetimeDotsView(
-                    totalYears: Int(calc.yearsHorizon),
-                    lostYears: Int((Double(calc.lifetimeLostDays) / 365.0).rounded()),
-                    savedYears: Int((Double(calc.lifetimeReclaimableDays) / 365.0).rounded()),
-                    active: cardsIn,
-                    lossColor: lossColor,
-                    gainColor: gainColor
-                )
-                .padding(.horizontal, Spacing.l)
-                .padding(.top, 8)
-
-                Text("Tap the dots to replay")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Colors.textSecondary.opacity(0.7))
-
-                Spacer()
+                // Hero "30-year map" panel — expands to fill the remaining space.
+                mapPanel
+                    .padding(.horizontal, Spacing.l)
             }
+            .padding(.top, 4)
+            .padding(.bottom, 8)
             .onboardingContentFrame()
             .safeAreaInset(edge: .bottom) {
                 PrimaryButton(title: "But there's good news →", style: .blueGlass, action: onNext)
@@ -209,22 +202,62 @@ struct OnboardingLifetimeInsightView: View {
         }
     }
 
-    private func card(title: String, days: Int, color: Color) -> some View {
-        VStack(spacing: 4) {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Colors.textSecondary)
-                .lineLimit(1).minimumScaleFactor(0.8)
+    private var mapPanel: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Your next \(Int(calc.yearsHorizon)) years")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(Colors.textPrimary)
+                Spacer()
+                Text("each dot = 1 year · tap to replay")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(Colors.textSecondary)
+            }
+
+            Spacer(minLength: 14)
+
+            LifetimeDotsView(
+                totalYears: Int(calc.yearsHorizon),
+                lostYears: lostYears,
+                savedYears: savedYears,
+                active: cardsIn,
+                lossColor: lossColor,
+                gainColor: gainColor
+            )
+
+            Spacer(minLength: 14)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Colors.cardSurface.opacity(0.5))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Colors.cardStroke, lineWidth: 1)
+        )
+    }
+
+    private func card(title: String, days: Int, color: Color, icon: String) -> some View {
+        VStack(spacing: 5) {
+            HStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 12, weight: .bold)).foregroundColor(color)
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Colors.textSecondary)
+                    .lineLimit(1).minimumScaleFactor(0.8)
+            }
             CountUpNumber(target: days, active: cardsIn,
-                          font: .system(size: 32, weight: .bold, design: .rounded), color: color)
+                          font: .system(size: 34, weight: .bold, design: .rounded), color: color)
             Text("days · ≈\(String(format: "%.1f", Double(days) / 365.0)) yrs")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(color.opacity(0.9))
         }
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity)
-        .background(RoundedRectangle(cornerRadius: 16).fill(color.opacity(0.08)))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(color.opacity(0.35), lineWidth: 1.5))
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(color.opacity(0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(color.opacity(0.35), lineWidth: 1.5))
     }
 }
 
@@ -365,9 +398,10 @@ struct OnboardingHopePillarsView: View {
     }
 }
 
-/// Lifetime visualized as dots — one per year of the horizon. Lost years fill in
-/// red (staggered), then the reclaimable subset flips to green. Tap to replay.
-/// Gray dots are time that already stays yours.
+/// Lifetime visualized as dots — one per year of the horizon, sized to fill the map
+/// panel. Lost years fill red (staggered), then the reclaimable subset flips green;
+/// neutral dots use a theme-adaptive token so it reads on light AND dark. Colored
+/// dots carry a soft same-color glow. Tap to replay.
 private struct LifetimeDotsView: View {
     let totalYears: Int
     let lostYears: Int
@@ -383,15 +417,18 @@ private struct LifetimeDotsView: View {
     private var lost: Int { max(0, min(lostYears, total)) }
     private var saved: Int { max(0, min(savedYears, lost)) }
 
-    private let columns = Array(repeating: GridItem(.fixed(14), spacing: 7), count: 10)
+    private var neutral: Color { Colors.textTertiary.opacity(0.30) }
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 6)
 
     var body: some View {
-        VStack(spacing: 12) {
-            LazyVGrid(columns: columns, spacing: 7) {
+        VStack(spacing: 20) {
+            LazyVGrid(columns: columns, spacing: 16) {
                 ForEach(0..<total, id: \.self) { i in
+                    let dot = color(for: i)
                     Circle()
-                        .fill(color(for: i))
-                        .frame(width: 13, height: 13)
+                        .fill(dot)
+                        .frame(width: 30, height: 30)
+                        .shadow(color: isColored(i) ? dot.opacity(0.45) : .clear, radius: 5, y: 2)
                         .scaleEffect(scale(for: i))
                         .animation(.spring(response: 0.35, dampingFraction: 0.6), value: filled)
                         .animation(.easeInOut(duration: 0.4), value: flipped)
@@ -406,31 +443,37 @@ private struct LifetimeDotsView: View {
     }
 
     private var legend: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 16) {
             legendItem(lossColor, "Lost")
             legendItem(gainColor, "Back with Alarmo")
-            legendItem(Color.gray.opacity(0.3), "Stays yours")
+            legendItem(neutral, "Stays yours")
         }
-        .font(.system(size: 11, weight: .semibold))
+        .font(.system(size: 12, weight: .semibold))
     }
 
     private func legendItem(_ color: Color, _ text: String) -> some View {
-        HStack(spacing: 5) {
-            Circle().fill(color).frame(width: 9, height: 9)
+        HStack(spacing: 6) {
+            Circle().fill(color).frame(width: 10, height: 10)
             Text(text).foregroundColor(Colors.textSecondary)
         }
     }
 
+    private func isColored(_ i: Int) -> Bool {
+        guard i < lost else { return false }
+        if flipped && i < saved { return true }
+        return i < filled
+    }
+
     private func color(for i: Int) -> Color {
-        guard i < lost else { return Color.gray.opacity(0.18) }   // stays yours
-        if flipped && i < saved { return gainColor }              // reclaimed
-        if i < filled { return lossColor }                        // lost (revealed)
-        return Color.gray.opacity(0.18)                           // not yet revealed
+        guard i < lost else { return neutral }              // stays yours
+        if flipped && i < saved { return gainColor }        // reclaimed
+        if i < filled { return lossColor }                  // lost (revealed)
+        return neutral                                      // not yet revealed
     }
 
     private func scale(for i: Int) -> CGFloat {
-        guard i < lost else { return 1 }       // neutral dots always present
-        return i < filled ? 1 : 0.35           // lost dots pop in as they fill
+        guard i < lost else { return 1 }
+        return i < filled ? 1 : 0.4
     }
 
     private func run() {
