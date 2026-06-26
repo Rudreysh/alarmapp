@@ -18,16 +18,8 @@ struct OnboardingBlockingTransitionView: View {
 
                 Spacer()
 
-                ZStack {
-                    Circle()
-                        .fill(Colors.accentBlue.opacity(0.10))
-                        .frame(width: 150, height: 150)
-                        .scaleEffect(phoneIn ? 1 : 0.6)
-                    Text("📱")
-                        .font(.system(size: 78))
-                        .scaleEffect(phoneIn ? 1 : 0.4)
-                        .rotationEffect(.degrees(phoneIn ? 0 : -18))
-                }
+                LockingAppsGraphic(animate: phoneIn)
+                    .frame(height: 180)
 
                 VStack(spacing: 14) {
                     Text("Nice, \(viewModel.displayFirstName).\nWaking up is only half the battle.")
@@ -314,5 +306,66 @@ struct OnboardingAppsToBlockView: View {
             if want != have { viewModel.toggleBlockedCategory(id) }
         }
         viewModel.blockAdultContent = adult
+    }
+}
+
+/// An "apps locking" graphic for the blocking transition: colorful app tiles pop
+/// in one by one, then a lock snaps shut and dims them — app blocking, visualized.
+/// Pure SwiftUI shapes (no asset dependency).
+private struct LockingAppsGraphic: View {
+    let animate: Bool
+    @State private var lockClosed = false
+
+    private let apps: [(emoji: String, color: Color)] = [
+        ("📸", Color(hex: "#E1306C")),
+        ("🎵", Color(hex: "#111111")),
+        ("📺", Color(hex: "#FF0000")),
+        ("🎮", Color(hex: "#7289DA")),
+        ("🛍️", Color(hex: "#FF9900")),
+        ("📰", Color(hex: "#3A6EA5"))
+    ]
+
+    private let columns = Array(repeating: GridItem(.fixed(50), spacing: 14), count: 3)
+
+    var body: some View {
+        ZStack {
+            LazyVGrid(columns: columns, spacing: 14) {
+                ForEach(Array(apps.enumerated()), id: \.offset) { index, app in
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .fill(app.color.opacity(lockClosed ? 0.30 : 0.95))
+                        .frame(width: 50, height: 50)
+                        .overlay(
+                            Text(app.emoji)
+                                .font(.system(size: 24))
+                                .opacity(lockClosed ? 0.45 : 1)
+                        )
+                        .saturation(lockClosed ? 0.15 : 1)
+                        .scaleEffect(animate ? 1 : 0.3)
+                        .opacity(animate ? 1 : 0)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.6).delay(Double(index) * 0.06), value: animate)
+                }
+            }
+            .blur(radius: lockClosed ? 1.5 : 0)
+            .animation(.easeInOut(duration: 0.3), value: lockClosed)
+
+            ZStack {
+                Circle()
+                    .fill(Colors.accentBlue)
+                    .frame(width: 64, height: 64)
+                    .shadow(color: .black.opacity(0.25), radius: 10, y: 5)
+                Image(systemName: lockClosed ? "lock.fill" : "lock.open.fill")
+                    .font(.system(size: 27, weight: .bold))
+                    .foregroundColor(.white)
+            }
+            .scaleEffect(lockClosed ? 1 : 0.01)
+            .opacity(lockClosed ? 1 : 0)
+        }
+        .onChange(of: animate) { _, on in
+            guard on else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.55)) { lockClosed = true }
+                UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+            }
+        }
     }
 }

@@ -16,11 +16,32 @@ struct DailyLoopCalculator {
     var scrollHoursWhole: Int { Int(dailyScreenHours) }
     var scrollMinutesRemainder: Int { Int((dailyScreenHours - Double(Int(dailyScreenHours))) * 60) }
 
+    /// Horizon for the lifetime framing. We avoid asking the user's age, so we use
+    /// a generic "over the next N years" window rather than a to-age-80 figure.
+    let yearsHorizon: Double = 30
+
+    /// Full minutes lost to the loop each day (all snooze + all scroll).
+    var dailyLostMinutes: Double {
+        Double(dailySnoozeMinutes) + dailyScreenHours * 60.0
+    }
+
     /// Total reclaimable minutes per day. We don't assume the user reclaims ALL
     /// scrolling — Alarmo's friction targets the mindless portion. Use a modest
     /// 40% of scroll time + all snooze time.
-    private var reclaimableDailyMinutes: Double {
+    var reclaimableDailyMinutes: Double {
         Double(dailySnoozeMinutes) + (dailyScreenHours * 60.0 * 0.40)
+    }
+
+    // MARK: Lifetime framing (over `yearsHorizon`)
+
+    /// Full days lost to the loop if nothing changes.
+    var lifetimeLostDays: Int {
+        Int(dailyLostMinutes * 365.0 * yearsHorizon / 60.0 / 24.0)
+    }
+
+    /// Days Alarmo could help reclaim over the same window.
+    var lifetimeReclaimableDays: Int {
+        Int(reclaimableDailyMinutes * 365.0 * yearsHorizon / 60.0 / 24.0)
     }
 
     var reclaimableHoursPerMonth: Int {
