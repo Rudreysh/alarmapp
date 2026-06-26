@@ -22,7 +22,7 @@ struct WelcomeView: View {
     @State private var typedSubline = ""
 
     private let headline = "Hey! I'm your alarm."
-    private let subline = "I'll help you stop snoozing through the morning."
+    private let subline = "I'll help you stop snoozing — and stop scrolling back to sleep."
 
     var body: some View {
         GeometryReader { proxy in

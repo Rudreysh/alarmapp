@@ -1,39 +1,52 @@
 import Foundation
 
+/// The redesigned onboarding tells one story across two pillars — stop snoozing
+/// (alarm + missions) and stop scrolling (app blocking + mission unlock).
+///
+/// Flow shape: Hook → Alarm diagnosis (3 Qs) → Blocking transition + diagnosis
+/// (3 Qs) → combined insight + hope → Setup (alarm/mission/blocking/sound) →
+/// Permissions → Plan summary → Paywall.
 enum OnboardingStep: Int, CaseIterable {
     case intro = 1
     case namePrompt = 2
-    case nameWelcome = 3
-    case chronotypeQuestion = 4
-    case struggleQuestion = 5
-    case wakeLateImpactQuestion = 6
-    case wakeFeelQuestion = 7
-    case morningHardestQuestion = 8
-    case halfAsleepQuestion = 9
-    case snoozeCountQuestion = 10
-    case snoozeAgeQuestion = 11
-    case snoozeDailyDrain = 12
-    case snoozeYearGrid = 13
-    case snoozeLifetimeTotal = 14
-    case snoozePayoff = 15
-    case setTime = 16
-    case wallpaper = 17
-    case quoteCategories = 18
-    case wallpaperPreview = 19
-    case notifications = 20
-    case alarmPermission = 21
-    case screenTimeAccess = 22
-    case motionAccess = 23
-    case cameraAccess = 24
-    case liveActivities = 25
-    case healthAccess = 26
-    case soundSelection = 27
-    case soundVolume = 28
-    case missionStub = 29
-    case trackingExplainer = 30
-    case paywall = 31
+
+    // Alarm diagnosis
+    case morningProblem = 3
+    case snoozeFrequency = 4
+    case alarmDifficulty = 5
+
+    // App-blocking transition + diagnosis
+    case blockingTransition = 6
+    case appsWhen = 7
+    case screenTime = 8
+    case appsToBlock = 9
+
+    // Combined insight + hope
+    case dailyLoopInsight = 10
+    case hopePillars = 11
+
+    // Setup
+    case setTime = 12
+    case missionType = 13
+    case blockingSchedule = 14
+    case soundSelection = 15
+    case soundVolume = 16
+
+    // Permissions
+    case alarmPermission = 17
+    case screenTimeAccess = 18
+    case cameraAccess = 19
+
+    // Finish
+    case planSummary = 20
+    case trackingExplainer = 21
+    case paywall = 22
 
     func next() -> OnboardingStep? {
         OnboardingStep(rawValue: rawValue + 1)
     }
+
+    /// Total used by progress indicators. Kept stable so the bar advances
+    /// monotonically even when the camera step is skipped.
+    static let progressTotal = OnboardingStep.allCases.count
 }

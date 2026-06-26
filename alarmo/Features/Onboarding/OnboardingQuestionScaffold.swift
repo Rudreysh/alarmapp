@@ -3,6 +3,7 @@ import ImageIO
 
 struct OnboardingQuestionScaffold: View {
     let title: String
+    var subtitle: String? = nil
     let options: [QuestionOption]
     @Binding var selectedOptionID: String?
     let selectedColor: Color
@@ -10,6 +11,7 @@ struct OnboardingQuestionScaffold: View {
     let questionTotal: Int
     let onNext: () -> Void
     @Environment(\.onboardingQuestionMascotHidden) private var isQuestionMascotHidden
+    @State private var appeared = false
 
     var body: some View {
         ZStack {
@@ -30,13 +32,22 @@ struct OnboardingQuestionScaffold: View {
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Colors.textPrimary)
                     .multilineTextAlignment(.center)
-                    .lineLimit(2)
+                    .lineLimit(3)
                     .minimumScaleFactor(0.75)
                     .padding(.horizontal, Spacing.l)
-                    .padding(.bottom, 18)
+                    .padding(.bottom, subtitle == nil ? 18 : 6)
+
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(Colors.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, Spacing.l)
+                        .padding(.bottom, 16)
+                }
 
                 VStack(spacing: 10) {
-                    ForEach(options) { option in
+                    ForEach(Array(options.enumerated()), id: \.element.id) { index, option in
                         Button {
                             selectedOptionID = option.id
                         } label: {
@@ -68,6 +79,13 @@ struct OnboardingQuestionScaffold: View {
                             .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 4)
                         }
                         .buttonStyle(.plain)
+                        .opacity(appeared ? 1 : 0)
+                        .offset(y: appeared ? 0 : 14)
+                        .animation(
+                            .spring(response: 0.45, dampingFraction: 0.8)
+                                .delay(0.05 + Double(index) * 0.06),
+                            value: appeared
+                        )
                     }
                 }
                 .padding(.horizontal, Spacing.l)
@@ -75,6 +93,7 @@ struct OnboardingQuestionScaffold: View {
                 Spacer()
             }
             .onboardingContentFrame()
+            .onAppear { appeared = true }
             .safeAreaInset(edge: .bottom) {
                 PrimaryButton(title: "Continue", style: .blueGlass, action: onNext)
                     .padding(.horizontal, Spacing.l)

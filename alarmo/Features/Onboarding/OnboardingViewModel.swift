@@ -105,6 +105,116 @@ final class OnboardingViewModel: ObservableObject {
         UserDefaults.standard.set(userAge, forKey: "onboarding_age")
     }
 
+    // MARK: - Redesign answers
+
+    var morningProblem: MorningProblem? { state.morningProblem }
+    func setMorningProblem(_ problem: MorningProblem) {
+        state.morningProblem = problem
+        // "I start scrolling" bridges into the blocking pillar.
+        if problem == .scrolling { state.blockingSchedule = .afterAlarmUntilMission }
+    }
+
+    var alarmDifficulty: AlarmDifficulty? { state.alarmDifficulty }
+    func setAlarmDifficulty(_ difficulty: AlarmDifficulty) { state.alarmDifficulty = difficulty }
+
+    var appsWhen: AppsWhenContext? { state.appsWhen }
+    func setAppsWhen(_ when: AppsWhenContext) {
+        state.appsWhen = when
+        // Suggest a sensible default schedule from when apps catch them.
+        switch when {
+        case .beforeSleep: state.blockingSchedule = .beforeSleep
+        case .work: state.blockingSchedule = .focusTime
+        default: state.blockingSchedule = .afterAlarmUntilMission
+        }
+    }
+
+    var dailyScreenHours: Double {
+        get { state.dailyScreenHours }
+        set { state.dailyScreenHours = newValue }
+    }
+
+    var blockedCategoryIDs: Set<String> { state.blockedCategoryIDs }
+    func toggleBlockedCategory(_ id: String) {
+        if state.blockedCategoryIDs.contains(id) {
+            state.blockedCategoryIDs.remove(id)
+        } else {
+            state.blockedCategoryIDs.insert(id)
+        }
+    }
+
+    var blockAdultContent: Bool {
+        get { state.blockAdultContent }
+        set { state.blockAdultContent = newValue }
+    }
+
+    var blockingSchedule: BlockingSchedule {
+        get { state.blockingSchedule }
+        set { state.blockingSchedule = newValue }
+    }
+
+    var dailyLoopCalculator: DailyLoopCalculator {
+        DailyLoopCalculator(snoozesPerMorning: snoozesPerMorning, dailyScreenHours: state.dailyScreenHours)
+    }
+
+    /// Camera-based missions need camera access; everything else skips that prompt.
+    var missionRequiresCamera: Bool {
+        switch state.missionType {
+        case .qrBarcode, .householdItemHunt, .objectHunt: return true
+        default: return false
+        }
+    }
+
+    // MARK: - Safe feature wiring (applied at completion)
+
+    /// Mission difficulty 0–4 derived from the alarm-difficulty answer.
+    var resolvedMissionDifficulty: Int {
+        switch state.alarmDifficulty {
+        case .easy: return 1
+        case .medium: return 2
+        case .hard: return 3
+        case .extreme: return 4
+        case .none: return 2
+        }
+    }
+
+    /// Max snoozes for the created alarm. Heavy snoozers are capped; harder
+    /// difficulty pushes the cap lower to get the user out of bed.
+    var resolvedSnoozeCount: Int {
+        let base: Int = (snoozesPerMorning <= 1) ? 1 : 3
+        switch state.alarmDifficulty {
+        case .hard: return min(base, 2)
+        case .extreme: return 0
+        default: return base
+        }
+    }
+
+    /// Frequent snoozers get a shorter interval so the morning doesn't drift.
+    var resolvedSnoozeMinutes: Int { snoozesPerMorning >= 5 ? 5 : 9 }
+
+    /// The stop-mission(s) for the created alarm. Easy difficulty = one tap (none).
+    func resolvedMissions() -> [AlarmMission] {
+        guard state.alarmDifficulty != .easy else { return [] }
+        let type: WakeUpMissionType = state.missionType == .off ? .math : state.missionType
+        return [AlarmMission(type: type, difficulty: resolvedMissionDifficulty)]
+    }
+
+    var resolvedBlockAppsEnabled: Bool {
+        state.morningProblem == .scrolling
+            || !state.blockedCategoryIDs.isEmpty
+            || state.blockAdultContent
+    }
+
+    /// Persist the blocking choices to the live blocking settings so the App
+    /// Blocking tab opens pre-configured with the user's onboarding selections.
+    func applyBlockingSettingsToSystem() {
+        let settings = SettingsStore.shared
+        if !state.blockedCategoryIDs.isEmpty {
+            settings.blockedMockCategories = Array(state.blockedCategoryIDs)
+        }
+        settings.blockedAdultContentEnabled = state.blockAdultContent
+        settings.blockAppsEnabled = resolvedBlockAppsEnabled
+    }
+
     private var cancellables = Set<AnyCancellable>()
 
     func loadWallpapers() {
@@ -199,6 +309,8 @@ final class OnboardingViewModel: ObservableObject {
     func setGentleWakeUp(_ enabled: Bool) {
         state.gentleWakeUpEnabled = enabled
     }
+
+    var missionType: WakeUpMissionType { state.missionType }
 
     func setMission(_ mission: WakeUpMissionType) {
         state.missionType = mission

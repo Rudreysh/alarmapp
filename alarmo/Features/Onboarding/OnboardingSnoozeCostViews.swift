@@ -45,7 +45,7 @@ struct OnboardingSnoozeCountQuestionView: View {
         ZStack {
             Colors.bgPrimary.ignoresSafeArea()
             VStack(spacing: 18) {
-                ProgressHeader(step: 7, total: 30, showsBadge: false)
+                ProgressHeader(step: OnboardingStep.snoozeFrequency.rawValue, total: OnboardingStep.progressTotal, showsBadge: false)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("How often do you snooze?")
                         .font(.system(size: 34, weight: .bold, design: .rounded))
