@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// Combined insight screen — a STAGED, count-up reveal (snooze → scroll → daily
-/// total → the flip to reclaimable → lifetime wasted vs saved). Built to feel like
-/// the "here's your number" moments in Cal AI / Opal / Rise: numbers tick up, bars
-/// grow, and the story turns from cost to hope on a single screen.
+/// Insight screen 1 of 2 — the DAILY story. A staged, count-up reveal: snooze →
+/// scroll → daily total lost → the flip to reclaimable hrs/month. The lifetime
+/// scale + dots live on the next screen (OnboardingLifetimeInsightView) so neither
+/// screen is overloaded. Built to feel like the "here's your number" moments in
+/// Cal AI / Opal / Rise: numbers tick up and bars grow.
 struct OnboardingDailyLoopInsightView: View {
     @ObservedObject var viewModel: OnboardingViewModel
     let onNext: () -> Void
@@ -35,13 +36,12 @@ struct OnboardingDailyLoopInsightView: View {
                 equationCard
 
                 if stage >= 4 { flipPayoff }
-                if stage >= 5 { lifetimeCards }
 
                 Spacer()
             }
             .onboardingContentFrame()
             .safeAreaInset(edge: .bottom) {
-                PrimaryButton(title: "But there's good news →", style: .blueGlass, action: onNext)
+                PrimaryButton(title: "Now zoom out →", style: .blueGlass, action: onNext)
                     .padding(.horizontal, Spacing.l)
                     .padding(.bottom, Spacing.m)
                     .opacity(stage >= 1 ? 1 : 0.5)
@@ -91,25 +91,6 @@ struct OnboardingDailyLoopInsightView: View {
         .transition(.scale(scale: 0.82).combined(with: .opacity))
     }
 
-    private var lifetimeCards: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                lifetimeCard(title: "Lost in \(Int(calc.yearsHorizon)) yrs", days: calc.lifetimeLostDays, color: lossColor)
-                lifetimeCard(title: "Saved with Alarmo", days: calc.lifetimeReclaimableDays, color: gainColor)
-            }
-            LifetimeDotsView(
-                totalYears: Int(calc.yearsHorizon),
-                lostYears: Int((Double(calc.lifetimeLostDays) / 365.0).rounded()),
-                savedYears: Int((Double(calc.lifetimeReclaimableDays) / 365.0).rounded()),
-                active: stage >= 5,
-                lossColor: lossColor,
-                gainColor: gainColor
-            )
-        }
-        .padding(.horizontal, Spacing.l)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-    }
-
     private var dailyTotalText: String {
         let total = Int(calc.dailyLostMinutes)
         let h = total / 60, m = total % 60
@@ -144,26 +125,8 @@ struct OnboardingDailyLoopInsightView: View {
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: revealed)
     }
 
-    private func lifetimeCard(title: String, days: Int, color: Color) -> some View {
-        VStack(spacing: 4) {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Colors.textSecondary)
-                .lineLimit(1).minimumScaleFactor(0.8)
-            CountUpNumber(target: days, active: stage >= 5,
-                          font: .system(size: 30, weight: .bold, design: .rounded), color: color)
-            Text("days · ≈\(String(format: "%.1f", Double(days) / 365.0)) yrs")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(color.opacity(0.9))
-        }
-        .padding(.vertical, 14)
-        .frame(maxWidth: .infinity)
-        .background(RoundedRectangle(cornerRadius: 16).fill(color.opacity(0.08)))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(color.opacity(0.35), lineWidth: 1.5))
-    }
-
     private func runTimeline() {
-        let steps: [(Double, Int)] = [(0.3, 1), (1.2, 2), (2.2, 3), (3.0, 4), (4.0, 5)]
+        let steps: [(Double, Int)] = [(0.3, 1), (1.2, 2), (2.2, 3), (3.0, 4)]
         for (delay, value) in steps {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { stage = value }
@@ -171,6 +134,97 @@ struct OnboardingDailyLoopInsightView: View {
                 UIImpactFeedbackGenerator(style: style).impactOccurred()
             }
         }
+    }
+}
+
+/// Insight screen 2 of 2 — the LIFETIME story. The daily loop scaled out: how much
+/// you lose over `yearsHorizon` years vs how much Alarmo could give back — two
+/// count-up cards plus a dot-per-year grid (lost fills red, reclaimable flips
+/// green; tap to replay).
+struct OnboardingLifetimeInsightView: View {
+    @ObservedObject var viewModel: OnboardingViewModel
+    let onNext: () -> Void
+
+    @State private var cardsIn = false
+
+    private let lossColor = Color(hex: "#E24B4A")
+    private let gainColor = Color(hex: "#1D9E75")
+    private var calc: DailyLoopCalculator { viewModel.dailyLoopCalculator }
+
+    var body: some View {
+        ZStack {
+            Colors.bgPrimary.ignoresSafeArea()
+            VStack(spacing: 18) {
+                ProgressHeader(step: OnboardingStep.lifetimeInsight.rawValue, total: OnboardingStep.progressTotal, showsBadge: false)
+                    .padding(.horizontal, Spacing.l)
+
+                VStack(spacing: 6) {
+                    Text("Now zoom out, \(viewModel.displayFirstName)")
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundColor(Colors.textPrimary)
+                    Text("The same loop, stretched over the next \(Int(calc.yearsHorizon)) years.")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(Colors.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, Spacing.l)
+                .fixedSize(horizontal: false, vertical: true)
+
+                Spacer()
+
+                HStack(spacing: 12) {
+                    card(title: "Lost in \(Int(calc.yearsHorizon)) yrs", days: calc.lifetimeLostDays, color: lossColor)
+                    card(title: "Saved with Alarmo", days: calc.lifetimeReclaimableDays, color: gainColor)
+                }
+                .padding(.horizontal, Spacing.l)
+                .opacity(cardsIn ? 1 : 0)
+                .offset(y: cardsIn ? 0 : 20)
+
+                LifetimeDotsView(
+                    totalYears: Int(calc.yearsHorizon),
+                    lostYears: Int((Double(calc.lifetimeLostDays) / 365.0).rounded()),
+                    savedYears: Int((Double(calc.lifetimeReclaimableDays) / 365.0).rounded()),
+                    active: cardsIn,
+                    lossColor: lossColor,
+                    gainColor: gainColor
+                )
+                .padding(.horizontal, Spacing.l)
+                .padding(.top, 8)
+
+                Text("Tap the dots to replay")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Colors.textSecondary.opacity(0.7))
+
+                Spacer()
+            }
+            .onboardingContentFrame()
+            .safeAreaInset(edge: .bottom) {
+                PrimaryButton(title: "But there's good news →", style: .blueGlass, action: onNext)
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.bottom, Spacing.m)
+            }
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.15)) { cardsIn = true }
+        }
+    }
+
+    private func card(title: String, days: Int, color: Color) -> some View {
+        VStack(spacing: 4) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(Colors.textSecondary)
+                .lineLimit(1).minimumScaleFactor(0.8)
+            CountUpNumber(target: days, active: cardsIn,
+                          font: .system(size: 32, weight: .bold, design: .rounded), color: color)
+            Text("days · ≈\(String(format: "%.1f", Double(days) / 365.0)) yrs")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(color.opacity(0.9))
+        }
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity)
+        .background(RoundedRectangle(cornerRadius: 16).fill(color.opacity(0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(color.opacity(0.35), lineWidth: 1.5))
     }
 }
 

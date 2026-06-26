@@ -52,7 +52,9 @@ struct OnboardingFlowView: View {
 
         // MARK: Insight + hope
         case .dailyLoopInsight:
-            OnboardingDailyLoopInsightView(viewModel: viewModel) { go(.hopePillars) }
+            OnboardingDailyLoopInsightView(viewModel: viewModel) { go(.lifetimeInsight) }
+        case .lifetimeInsight:
+            OnboardingLifetimeInsightView(viewModel: viewModel) { go(.hopePillars) }
         case .hopePillars:
             OnboardingHopePillarsView(viewModel: viewModel) { go(.setTime) }
 

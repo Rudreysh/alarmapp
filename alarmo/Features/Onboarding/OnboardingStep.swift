@@ -21,26 +21,27 @@ enum OnboardingStep: Int, CaseIterable {
     case screenTime = 8
     case appsToBlock = 9
 
-    // Combined insight + hope
+    // Insight (split: daily story, then lifetime story) + hope
     case dailyLoopInsight = 10
-    case hopePillars = 11
+    case lifetimeInsight = 11
+    case hopePillars = 12
 
     // Setup
-    case setTime = 12
-    case missionType = 13
-    case blockingSchedule = 14
-    case soundSelection = 15
-    case soundVolume = 16
+    case setTime = 13
+    case missionType = 14
+    case blockingSchedule = 15
+    case soundSelection = 16
+    case soundVolume = 17
 
     // Permissions
-    case alarmPermission = 17
-    case screenTimeAccess = 18
-    case cameraAccess = 19
+    case alarmPermission = 18
+    case screenTimeAccess = 19
+    case cameraAccess = 20
 
     // Finish
-    case planSummary = 20
-    case trackingExplainer = 21
-    case paywall = 22
+    case planSummary = 21
+    case trackingExplainer = 22
+    case paywall = 23
 
     func next() -> OnboardingStep? {
         OnboardingStep(rawValue: rawValue + 1)
