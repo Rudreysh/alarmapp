@@ -195,6 +195,9 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
     private weak var ringCoordinator: AlarmRingCoordinator?
     private weak var alarmStore: AlarmStore?
+    /// Guards `startAlarmKitObservation()` against double-subscription — it can now
+    /// be started at cold launch (AppDelegate) AND from `configure` (onAppear).
+    private var alarmKitObservationStarted = false
     private let alarmScheduler: AlarmSchedulerProtocol = AlarmManagerFacade.shared
     private let alarmRecoveryLookbackSeconds: TimeInterval = 7 * 60
     private let pendingAlarmStartKey = "alarmo.pendingNotificationAlarmStarts"
@@ -654,6 +657,8 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
     ///   in-app `AlarmRingingView` which takes over audio
     /// - Only then is the bridge audio stopped
     private func startAlarmKitObservation() {
+        guard !alarmKitObservationStarted else { return }
+        alarmKitObservationStarted = true
 #if canImport(AlarmKit)
         if #available(iOS 26.0, *) {
             Task { @MainActor in
@@ -666,6 +671,31 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
             }
         }
 #endif
+    }
+
+    /// Engage AlarmKit handling at COLD LAUNCH, from the AppDelegate — independent
+    /// of the SwiftUI view lifecycle.
+    ///
+    /// When AlarmKit fires while the app is terminated/suspended, iOS cold-launches
+    /// the process in the BACKGROUND and runs `didFinishLaunching`, but SwiftUI's
+    /// `onAppear` (where the observation + alerting recovery + keep-alive normally
+    /// start) does NOT run until the app is foregrounded. That left the FIRST morning
+    /// alarm with no takeover: by the time the user opened the app (~19s later in the
+    /// field logs), they had already silenced AlarmKit, so the alerting was never
+    /// observed. Starting the observation + recovery + keep-alive here catches the
+    /// in-progress alert immediately and acquires the bridge passive-standby anchor,
+    /// keeping the process alive through the side-button press so the takeover fires.
+    ///
+    /// Safe for normal launches: recovery only acts on an actually-`alerting` alarm,
+    /// and the keep-alive only runs when backgrounded with a pending alarm. Uses
+    /// `AlarmStore.shared` because the SwiftUI-injected store isn't wired up yet.
+    @MainActor
+    func engageAlarmHandlingAtColdLaunch() {
+        if alarmStore == nil { alarmStore = AlarmStore.shared }
+        AlarmBackgroundAudioBridge.shared.configure(alarmStore: AlarmStore.shared)
+        startAlarmKitObservation()
+        recoverAlarmKitAlertingIfNeeded()
+        AlarmKeepAliveAudioService.shared.evaluate(reason: "cold-launch")
     }
 
     func recoverAlarmKitAlertingIfNeeded() {

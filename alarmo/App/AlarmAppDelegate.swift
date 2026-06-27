@@ -27,6 +27,16 @@ final class AlarmAppDelegate: NSObject, UIApplicationDelegate {
         }
 #endif
 
+        // CRITICAL (first-alarm cold-launch fix): when AlarmKit fires while the app is
+        // terminated/suspended, iOS cold-launches us in the BACKGROUND and runs this
+        // method — but SwiftUI's onAppear (where the AlarmKit observation, alerting
+        // recovery, and keep-alive normally start) does NOT run until the app is
+        // foregrounded. That left the first morning alarm with no AppEngine takeover.
+        // Engage alarm handling now, independent of the view lifecycle, so the
+        // in-progress alert is caught and the process is anchored before the user
+        // can silence it via the side button.
+        NotificationManager.shared.engageAlarmHandlingAtColdLaunch()
+
         // AlarmKit authorization is requested from explicit UI flows (onboarding/settings)
         // and before scheduling. Avoid launch-time prompts that can trap onboarding.
 
