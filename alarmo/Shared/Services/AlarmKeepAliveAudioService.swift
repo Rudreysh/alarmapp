@@ -40,13 +40,19 @@ final class AlarmKeepAliveAudioService {
     private var observersInstalled = false
     private var retryWorkItems: [DispatchWorkItem] = []
     /// Bounds battery: only keep alive when an alarm is within this window.
-    /// Tier-2 battery: narrowed from 24h to 3h. A backgrounded-but-alive app no longer
-    /// keeps itself unsuspended all day for a far-future alarm. Reliability is unaffected
-    /// because a far-future alarm suspends the app regardless, and the ring-time process
-    /// anchor (a UIApplication background-task assertion acquired the instant AlarmKit
-    /// alerts — see AlarmAudioStateController.handleAlarmKitAlerting) — not this pre-ring
-    /// keep-alive — is what carries the AppEngine takeover through a side-button press.
-    private let maxLookaheadHours: TimeInterval = 3
+    ///
+    /// MUST stay at 24h. A "Tier-2" narrowing to 3h was tried to save battery and it
+    /// BROKE the first/overnight alarm: an alarm set the night before is >3h away at
+    /// bedtime, so the keep-alive never started; the app was then suspended/terminated
+    /// overnight; and a suspended app cannot start the keep-alive later — so the first
+    /// morning alarm cold-launched with a dead process and the AppEngine never took
+    /// over when the user pressed the side button. 24h means an alarm set tonight keeps
+    /// the app warm through the night (background audio prevents suspension), which is
+    /// what made suppression-takeover reliable in the first place. Do not narrow this
+    /// without an out-of-process pre-warm (e.g. BGProcessingTask) that can wake a
+    /// terminated app before fire. The cold-launch engagement in AlarmAppDelegate is a
+    /// backstop, not a replacement (it can't beat iOS cold-launch latency).
+    private let maxLookaheadHours: TimeInterval = 24
     private let retryBackoff: [TimeInterval] = [0.5, 1.0, 2.0]
     /// While an alarm is actively ringing the keep-alive is a process-alive anchor and
     /// its play() reliably FAILS for the first ~5s (AlarmKit holds the audio HW). Rather
@@ -61,10 +67,11 @@ final class AlarmKeepAliveAudioService {
     /// the process still has execution time. (A fully suspended app cannot self-heal
     /// — AlarmKit remains the never-silent floor for that case.)
     private var heartbeatTimer: DispatchSourceTimer?
-    /// Tier 1 battery: the heartbeat is only a backup (interruption/route/media-reset
-    /// observers catch real failures instantly), so it can be infrequent. 60s instead
-    /// of 15s cuts main-thread wakeups 4× with no reliability loss.
-    private let heartbeatInterval: TimeInterval = 60
+    /// 15s (restored from a 60s battery experiment). A stalled overnight player must be
+    /// caught quickly: if it stops and the process has no other audio anchor, iOS can
+    /// suspend before the next tick — at 60s that window was 4× larger. Reliability of
+    /// the overnight keep-alive (so the first alarm is warm) outweighs the wake savings.
+    private let heartbeatInterval: TimeInterval = 15
 
     private init() {}
 
