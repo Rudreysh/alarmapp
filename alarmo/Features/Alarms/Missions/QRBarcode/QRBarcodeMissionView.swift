@@ -126,8 +126,8 @@ struct QRBarcodeMissionView: View {
                         viewModel.scannerService.stopSession()
                     }
                     
-                    // Feedback Overlays
-                    if let message = viewModel.runtimeFeedbackMessage {
+                    // Feedback Overlays (hidden once we celebrate success)
+                    if let message = viewModel.runtimeFeedbackMessage, !viewModel.runtimeIsSuccess {
                         VStack {
                             Spacer()
                             Text(message)
@@ -140,6 +140,13 @@ struct QRBarcodeMissionView: View {
                                 .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
                         .zIndex(2) // Above scanner
+                    }
+
+                    // Confetti celebration on a successful scan.
+                    if viewModel.runtimeIsSuccess {
+                        MissionSuccessCelebration()
+                            .transition(.opacity)
+                            .zIndex(3)
                     }
                 }
             }

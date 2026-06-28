@@ -38,6 +38,7 @@ struct ObjectHuntMissionView: View {
     @State private var isEvaluating = false
 
     @State private var didComplete = false
+    @State private var showSuccess = false
 
     private var currentObject: TargetObject {
         objects[selectedIndex]
@@ -124,6 +125,11 @@ struct ObjectHuntMissionView: View {
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(Colors.textSecondary)
                     .padding(.bottom, 12)
+            }
+
+            if showSuccess {
+                MissionSuccessCelebration(title: "Nice find!")
+                    .transition(.opacity)
             }
         }
         .onAppear {
@@ -284,7 +290,8 @@ struct ObjectHuntMissionView: View {
 
                     guard !didComplete else { return }
                     didComplete = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
+                    withAnimation(.easeOut(duration: 0.2)) { showSuccess = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                         onComplete?()
                         dismiss()
                     }

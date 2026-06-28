@@ -84,7 +84,8 @@ class QRBarcodeMissionViewModel: ObservableObject {
                 scannerService.isSessionRunning = false 
                 runtimeIsSuccess = true
                 runtimeFeedbackMessage = "Good job!"
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                // Hold long enough for the confetti celebration to play.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
                     self.onMissionCompleted?()
                 }
             } else {
