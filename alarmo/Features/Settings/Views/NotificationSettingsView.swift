@@ -15,7 +15,6 @@ struct NotificationSettingsView: View {
                 VStack(spacing: 22) {
                     permissionBanner
                     alarmSection
-                    taskHabitSection
                     focusSection
                     stopwatchSection
                     quietHoursSection
@@ -94,54 +93,6 @@ struct NotificationSettingsView: View {
                     title: "Missed alarm follow-up",
                     subtitle: "Follow-up if an alarm may have been missed.",
                     isOn: alarmRuleBinding(\.missedAlarmFollowUpEnabled),
-                    isLast: true
-                )
-            }
-        }
-    }
-
-    private var taskHabitSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionTitle("Tasks & Habits")
-            SettingsCard {
-                SettingsCardToggleRow(
-                    title: "Task reminders",
-                    subtitle: "Scheduled reminders and overdue nudges.",
-                    isOn: featureEnabledBinding(\.tasks),
-                    isLast: false
-                )
-                cadenceRow(
-                    title: "Task cadence",
-                    binding: featureCadenceBinding(\.tasks),
-                    isLast: false
-                )
-                capMenuRow(
-                    title: "Task daily cap",
-                    binding: featureMaxPerDayBinding(\.tasks),
-                    range: 1...12,
-                    isLast: false
-                )
-                SettingsCardToggleRow(
-                    title: "Habit reminders",
-                    subtitle: "Daily habit check-ins and streak nudges.",
-                    isOn: featureEnabledBinding(\.habits),
-                    isLast: false
-                )
-                cadenceRow(
-                    title: "Habit cadence",
-                    binding: featureCadenceBinding(\.habits),
-                    isLast: false
-                )
-                capMenuRow(
-                    title: "Habit daily cap",
-                    binding: featureMaxPerDayBinding(\.habits),
-                    range: 1...10,
-                    isLast: false
-                )
-                SettingsCardToggleRow(
-                    title: "Weekend digest only",
-                    subtitle: "Reduce reminder frequency on weekends.",
-                    isOn: binding(for: \.weekendDigestOnly),
                     isLast: true
                 )
             }

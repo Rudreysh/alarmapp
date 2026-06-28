@@ -629,7 +629,24 @@ final class AlarmContinuousAudioEngine: NSObject, AVAudioPlayerDelegate {
     /// path. Verifies the route landed on the speaker and retries up to 3 times.
     /// Synchronous by design — call sites are synchronous; the brief retry sleep
     /// only runs in the rare case the first override does not take effect.
+    /// True when the user picked "Connected external speaker" in Settings →
+    /// Sound output. Read straight from UserDefaults so it is safe from any thread.
+    private var prefersExternalOutput: Bool {
+        UserDefaults.standard.string(forKey: "settings.soundOutputMode") == SoundOutputMode.externalPreferred.rawValue
+    }
+
     private func enforceBuiltInSpeakerOutput(context: String) {
+        // Respect the user's Sound output preference. When they've chosen to play
+        // on a connected external device (Bluetooth speaker / earphones), do NOT
+        // force the built-in speaker — `.playback` then routes to the connected
+        // output and falls back to the speaker automatically when nothing is
+        // connected. The default ("Current device") keeps always-speaker behaviour
+        // so the alarm still wakes you when no device is connected.
+        if prefersExternalOutput {
+            log("[Engine] Speaker override skipped — user prefers external output (context=\(context))")
+            return
+        }
+
         let session = AVAudioSession.sharedInstance()
         var lastError: Error?
 
