@@ -121,22 +121,29 @@ struct QRScannerView: View {
 
 struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
-    
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView(frame: .zero)
+
+    func makeUIView(context: Context) -> PreviewView {
+        let view = PreviewView()
         view.backgroundColor = .black
-        
-        let previewLayer = AVCaptureVideoPreviewLayer(session: session)
-        previewLayer.videoGravity = .resizeAspectFill
-        view.layer.addSublayer(previewLayer)
-        
+        view.videoPreviewLayer.session = session
+        view.videoPreviewLayer.videoGravity = .resizeAspectFill
         return view
     }
-    
-    func updateUIView(_ uiView: UIView, context: Context) {
-        if let layer = uiView.layer.sublayers?.first as? AVCaptureVideoPreviewLayer {
-            layer.frame = uiView.bounds
+
+    func updateUIView(_ uiView: PreviewView, context: Context) {
+        // Keep the layer bound to the live session. The backing layer tracks the
+        // view's bounds automatically, so there is no manual frame math here.
+        if uiView.videoPreviewLayer.session !== session {
+            uiView.videoPreviewLayer.session = session
         }
+    }
+
+    /// Hosts the camera feed in the view's *backing* layer so it always fills the
+    /// view. The previous sublayer approach left the preview layer at a `.zero`
+    /// frame on first layout, which rendered as an all-black camera feed.
+    final class PreviewView: UIView {
+        override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
+        var videoPreviewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
     }
 }
 

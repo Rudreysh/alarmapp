@@ -167,30 +167,28 @@ extension MissionCameraSession: AVCaptureVideoDataOutputSampleBufferDelegate {
 struct MissionCameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
 
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView(frame: .zero)
+    func makeUIView(context: Context) -> PreviewView {
+        let view = PreviewView()
         view.backgroundColor = .black
-
-        let previewLayer = AVCaptureVideoPreviewLayer(session: session)
-        previewLayer.videoGravity = .resizeAspectFill
-        previewLayer.frame = view.bounds
-        previewLayer.connection?.videoOrientation = .portrait
-        view.layer.addSublayer(previewLayer)
-
-        context.coordinator.previewLayer = previewLayer
+        view.videoPreviewLayer.session = session
+        view.videoPreviewLayer.videoGravity = .resizeAspectFill
+        view.videoPreviewLayer.connection?.videoOrientation = .portrait
         return view
     }
 
-    func updateUIView(_ uiView: UIView, context: Context) {
-        context.coordinator.previewLayer?.frame = uiView.bounds
+    func updateUIView(_ uiView: PreviewView, context: Context) {
+        if uiView.videoPreviewLayer.session !== session {
+            uiView.videoPreviewLayer.session = session
+        }
+        uiView.videoPreviewLayer.connection?.videoOrientation = .portrait
     }
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    final class Coordinator {
-        var previewLayer: AVCaptureVideoPreviewLayer?
+    /// Hosts the camera feed in the view's *backing* layer so it always fills the
+    /// view. The previous sublayer approach left the preview layer at a `.zero`
+    /// frame on first layout, which rendered as an all-black camera feed.
+    final class PreviewView: UIView {
+        override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
+        var videoPreviewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
     }
 }
 
