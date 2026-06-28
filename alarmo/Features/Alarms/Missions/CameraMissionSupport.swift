@@ -206,9 +206,12 @@ enum ObjectHuntMatcher {
 
                 do {
                     try handler.perform([request])
+                    // Favour recall over precision: keep a generous candidate set so
+                    // everyday items are still recognised when the top guess is a
+                    // generic category (e.g. "tableware" instead of "coffee mug").
                     let labels = (request.results ?? [])
-                        .filter { $0.confidence > 0.05 }
-                        .prefix(10)
+                        .filter { $0.confidence > 0.02 }
+                        .prefix(30)
                         .map { $0.identifier.lowercased() }
                     continuation.resume(returning: Array(labels))
                 } catch {
@@ -218,15 +221,32 @@ enum ObjectHuntMatcher {
         }
     }
 
+    /// Lenient match used by both Object Hunt and Household Item Hunt.
+    /// Matches on substring containment in either direction *and* on shared
+    /// whole words, so "mug" / "coffee mug" / "cup" all satisfy a coffee-mug
+    /// target even when Vision only returns one of them.
     static func matches(targetKeywords: [String], labels: [String]) -> Bool {
-        let normalizedKeywords = targetKeywords.map { $0.lowercased() }
-        for label in labels {
+        let normalizedLabels = labels.map(normalizeForMatch)
+        let normalizedKeywords = targetKeywords.map(normalizeForMatch).filter { !$0.isEmpty }
+        for label in normalizedLabels {
+            let labelWords = Set(label.split(separator: " ").map(String.init).filter { $0.count > 2 })
             for keyword in normalizedKeywords {
                 if label.contains(keyword) || keyword.contains(label) {
+                    return true
+                }
+                let keywordWords = Set(keyword.split(separator: " ").map(String.init).filter { $0.count > 2 })
+                if !labelWords.isDisjoint(with: keywordWords) {
                     return true
                 }
             }
         }
         return false
+    }
+
+    private static func normalizeForMatch(_ text: String) -> String {
+        text.lowercased()
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

@@ -185,19 +185,11 @@ enum HouseholdItemHuntCatalogStore {
     }
 
     static func matches(item: HouseholdItemHuntCatalogItem, labels: [String]) -> Bool {
-        let normalizedLabels = labels.map(normalizeToken)
-        let normalizedKeywords = item.keywords.map(normalizeToken)
-
-        if item.id == "keys", isLikelyModernKeyMatch(labels: normalizedLabels) {
+        if item.id == "keys", isLikelyModernKeyMatch(labels: labels.map(normalizeToken)) {
             return true
         }
-
-        for label in normalizedLabels {
-            if normalizedKeywords.contains(where: { label.contains($0) || $0.contains(label) }) {
-                return true
-            }
-        }
-        return false
+        // Delegate to the shared lenient matcher (substring + whole-word overlap).
+        return ObjectHuntMatcher.matches(targetKeywords: item.keywords, labels: labels)
     }
 
     static func primaryDetectedLabel(from labels: [String]) -> String? {
@@ -272,30 +264,30 @@ enum HouseholdItemHuntCatalogStore {
     }
 
     private static let householdItems: [HouseholdItemHuntCatalogItem] = [
-        .init(id: "toothbrush", name: "Toothbrush", emoji: "🪥", keywords: ["toothbrush", "brush", "electric toothbrush"]),
-        .init(id: "running_faucet", name: "Running Faucet", emoji: "🚰", keywords: ["faucet", "tap", "running water", "sink"]),
-        .init(id: "shoes", name: "Shoes", emoji: "👟", keywords: ["shoe", "sneaker", "footwear"]),
-        .init(id: "fridge", name: "Fridge", emoji: "🧊", keywords: ["fridge", "refrigerator"]),
+        .init(id: "toothbrush", name: "Toothbrush", emoji: "🪥", keywords: ["toothbrush", "brush", "electric toothbrush", "toothpaste"]),
+        .init(id: "running_faucet", name: "Running Faucet", emoji: "🚰", keywords: ["faucet", "tap", "running water", "sink", "basin"]),
+        .init(id: "shoes", name: "Shoes", emoji: "👟", keywords: ["shoe", "sneaker", "footwear", "boot", "trainer", "running shoe"]),
+        .init(id: "fridge", name: "Fridge", emoji: "🧊", keywords: ["fridge", "refrigerator", "freezer"]),
         .init(id: "keys", name: "Keys", emoji: "🗝️", keywords: ["keys", "key", "keychain", "house key", "car key", "door key", "key fob", "fob"]),
-        .init(id: "coffee_mug", name: "Coffee Mug", emoji: "☕️", keywords: ["mug", "coffee mug", "cup"]),
+        .init(id: "coffee_mug", name: "Coffee Mug", emoji: "☕️", keywords: ["mug", "coffee mug", "coffee cup", "cup", "coffee", "espresso", "tea cup", "teacup", "drinkware"]),
         .init(id: "mirror", name: "Mirror", emoji: "🪞", keywords: ["mirror", "looking glass"]),
-        .init(id: "water_bottle", name: "Water Bottle", emoji: "🍶", keywords: ["water bottle", "bottle", "flask"]),
-        .init(id: "dustpan", name: "Dustpan", emoji: "🪣", keywords: ["dustpan", "scoop"]),
-        .init(id: "toilet", name: "Toilet", emoji: "🚽", keywords: ["toilet", "toilet bowl"]),
-        .init(id: "book", name: "Book", emoji: "📚", keywords: ["book", "notebook", "novel"]),
-        .init(id: "lamp", name: "Lamp", emoji: "💡", keywords: ["lamp", "desk lamp", "light"]),
-        .init(id: "tv_remote", name: "TV Remote", emoji: "📺", keywords: ["remote", "remote control", "tv remote"]),
-        .init(id: "front_door", name: "Front Door", emoji: "🚪", keywords: ["door", "front door"]),
-        .init(id: "stove", name: "Stove", emoji: "🍳", keywords: ["stove", "oven", "range"]),
-        .init(id: "lotion_bottle", name: "Lotion Bottle", emoji: "🧴", keywords: ["lotion", "lotion bottle", "bottle"]),
-        .init(id: "soap", name: "Soap", emoji: "🧼", keywords: ["soap", "soap bar", "liquid soap"]),
-        .init(id: "plant", name: "Plant", emoji: "🪴", keywords: ["plant", "flowerpot", "potted plant"]),
-        .init(id: "plate", name: "Plate", emoji: "🍽️", keywords: ["plate", "dish"]),
-        .init(id: "towel", name: "Towel", emoji: "🧺", keywords: ["towel", "bath towel"]),
-        .init(id: "backpack", name: "Backpack", emoji: "🎒", keywords: ["backpack", "bag", "school bag"]),
-        .init(id: "headphones", name: "Headphones", emoji: "🎧", keywords: ["headphones", "headset", "earphones"]),
-        .init(id: "shower", name: "Shower", emoji: "🚿", keywords: ["shower", "shower head"]),
-        .init(id: "tape", name: "Tape", emoji: "🧻", keywords: ["tape", "adhesive tape", "scotch tape"])
+        .init(id: "water_bottle", name: "Water Bottle", emoji: "🍶", keywords: ["water bottle", "bottle", "flask", "thermos", "canteen"]),
+        .init(id: "dustpan", name: "Dustpan", emoji: "🪣", keywords: ["dustpan", "scoop", "bucket"]),
+        .init(id: "toilet", name: "Toilet", emoji: "🚽", keywords: ["toilet", "toilet bowl", "lavatory"]),
+        .init(id: "book", name: "Book", emoji: "📚", keywords: ["book", "notebook", "novel", "textbook", "paperback", "hardcover"]),
+        .init(id: "lamp", name: "Lamp", emoji: "💡", keywords: ["lamp", "desk lamp", "light", "lampshade", "table lamp"]),
+        .init(id: "tv_remote", name: "TV Remote", emoji: "📺", keywords: ["remote", "remote control", "tv remote", "controller"]),
+        .init(id: "front_door", name: "Front Door", emoji: "🚪", keywords: ["door", "front door", "doorway"]),
+        .init(id: "stove", name: "Stove", emoji: "🍳", keywords: ["stove", "oven", "range", "cooktop", "burner"]),
+        .init(id: "lotion_bottle", name: "Lotion Bottle", emoji: "🧴", keywords: ["lotion", "lotion bottle", "bottle", "moisturizer", "sunscreen", "shampoo"]),
+        .init(id: "soap", name: "Soap", emoji: "🧼", keywords: ["soap", "soap bar", "liquid soap", "hand soap", "soap dispenser"]),
+        .init(id: "plant", name: "Plant", emoji: "🪴", keywords: ["plant", "flowerpot", "potted plant", "houseplant", "succulent"]),
+        .init(id: "plate", name: "Plate", emoji: "🍽️", keywords: ["plate", "dish", "tableware", "dinner plate"]),
+        .init(id: "towel", name: "Towel", emoji: "🧺", keywords: ["towel", "bath towel", "hand towel", "washcloth"]),
+        .init(id: "backpack", name: "Backpack", emoji: "🎒", keywords: ["backpack", "bag", "school bag", "rucksack", "knapsack"]),
+        .init(id: "headphones", name: "Headphones", emoji: "🎧", keywords: ["headphones", "headset", "earphones", "earbuds"]),
+        .init(id: "shower", name: "Shower", emoji: "🚿", keywords: ["shower", "shower head", "showerhead"]),
+        .init(id: "tape", name: "Tape", emoji: "🧻", keywords: ["tape", "adhesive tape", "scotch tape", "duct tape"])
     ]
 }
 
