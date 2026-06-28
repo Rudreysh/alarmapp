@@ -381,14 +381,14 @@ struct HouseholdItemHuntMissionView: View {
     private func configureMission() {
         let selectedItems = HouseholdItemHuntCatalogStore.selectedItems(for: mission)
         if !selectedItems.isEmpty {
-            selectionPool = selectedItems
-            if selectedItems.count == 1 {
-                targetItem = selectedItems[0]
-                spinDisplayItem = selectedItems[0]
-                isChoosingTarget = false
-            } else {
-                beginTargetSpin(with: selectedItems)
-            }
+            // Always show a visible random roulette. If the user narrowed the pool
+            // to 2+ specific items, spin among those; otherwise spin across the
+            // full catalog so a random target is always picked and animated.
+            let pool = selectedItems.count >= 2
+                ? selectedItems
+                : HouseholdItemHuntCatalogStore.allItems(for: mission)
+            selectionPool = pool
+            beginTargetSpin(with: pool)
             return
         }
 
