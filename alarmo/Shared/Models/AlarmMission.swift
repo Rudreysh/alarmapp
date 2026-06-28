@@ -45,7 +45,7 @@ struct AlarmMission: Codable, Identifiable, Equatable {
         case .householdItemHunt: return "camera.macro"
         case .squat: return "figure.strengthtraining.traditional"
         case .objectHunt: return "sparkle.magnifyingglass"
-        case .pushups: return "figure.strengthtraining.functional"
+        case .pushups: return "figure.core.training"
         case .plank: return "timer.circle"
         case .breathing: return "wind"
         case .bibleVerse: return "book.closed"

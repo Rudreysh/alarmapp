@@ -44,7 +44,9 @@ struct TicTacToeSettingsView: View {
                 missionIcon: "grid"
             ) {
                 showAlarmPreview = false
-                showGamePreview = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    showGamePreview = true
+                }
             }
         }
         .fullScreenCover(isPresented: $showGamePreview) {

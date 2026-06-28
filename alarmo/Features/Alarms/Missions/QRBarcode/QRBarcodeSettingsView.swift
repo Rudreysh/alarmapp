@@ -159,7 +159,9 @@ struct QRBarcodeSettingsView: View {
                 missionIcon: "barcode.viewfinder"
             ) {
                 showAlarmPreview = false
-                showGamePreview = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    showGamePreview = true
+                }
             }
         }
         .fullScreenCover(isPresented: $showGamePreview) {

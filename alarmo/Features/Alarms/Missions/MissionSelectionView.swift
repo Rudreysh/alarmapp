@@ -76,7 +76,7 @@ struct MissionSelectionView: View {
                     .init(id: "qrBarcode", title: "QR/Barcode", subtitle: nil, icon: "barcode.viewfinder", iconBg: bodyMissionIconBg, type: .qrBarcode),
                     .init(id: "shake", title: "Shake", subtitle: nil, icon: "iphone.radiowaves.left.and.right", iconBg: bodyMissionIconBg, type: .shake),
                     .init(id: "squat", title: "Squat", subtitle: nil, icon: "figure.strengthtraining.traditional", iconBg: bodyMissionIconBg, type: .squat),
-                    .init(id: "pushups", title: "Push-ups", subtitle: nil, icon: "figure.strengthtraining.functional", iconBg: bodyMissionIconBg, type: .pushups)
+                    .init(id: "pushups", title: "Push-ups", subtitle: nil, icon: "figure.core.training", iconBg: bodyMissionIconBg, type: .pushups)
                 ]
             ),
             (

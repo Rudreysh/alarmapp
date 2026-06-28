@@ -39,7 +39,7 @@ enum ExerciseMissionKind {
 
     var iconName: String {
         switch self {
-        case .pushups: return "figure.strengthtraining.functional"
+        case .pushups: return "figure.core.training"
         case .squats: return "figure.strengthtraining.traditional"
         }
     }

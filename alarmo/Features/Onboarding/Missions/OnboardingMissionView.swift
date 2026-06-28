@@ -372,7 +372,7 @@ private struct MissionAnimationView: View {
                 .cornerRadius(12)
             case .pushups:
                 HStack {
-                    Image(systemName: "figure.strengthtraining.functional")
+                    Image(systemName: "figure.core.training")
                         .foregroundColor(Colors.accentTeal)
                         .scaleEffect(animate ? 1.1 : 0.9)
                     Text("5 reps")
@@ -575,7 +575,7 @@ private struct MissionAnimationView: View {
                 .cornerRadius(12)
             case .pushups:
                 HStack {
-                    Image(systemName: "figure.strengthtraining.functional")
+                    Image(systemName: "figure.core.training")
                         .foregroundColor(Colors.textSecondary)
                     Text("1/4")
                         .font(.system(size: 12, weight: .bold))

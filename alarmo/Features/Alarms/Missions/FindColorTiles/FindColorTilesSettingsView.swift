@@ -51,7 +51,9 @@ struct FindColorTilesSettingsView: View {
                 missionIcon: "square.grid.2x2.fill"
             ) {
                 showAlarmPreview = false
-                showGamePreview = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    showGamePreview = true
+                }
             }
         }
         .fullScreenCover(isPresented: $showGamePreview) {
