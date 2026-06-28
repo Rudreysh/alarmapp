@@ -4,6 +4,7 @@ import AVFoundation
 struct QRScannerView: View {
     @ObservedObject var service: BarcodeScannerService
     var autoEnableTorch: Bool = false
+    var instruction: String? = nil
     var onCancel: () -> Void
     
     var body: some View {
@@ -75,11 +76,18 @@ struct QRScannerView: View {
                 }
                 
                 Spacer()
-                
-                Text("Place a QR/Barcode inside the rectangle")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding(.bottom, 50)
+
+                if service.permissionStatus == .authorized {
+                    Text(instruction ?? "Place a QR/Barcode inside the rectangle")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                        .padding(.vertical, 12)
+                        .background(MissionTheme.successScrim)
+                        .cornerRadius(12)
+                        .padding(.bottom, 50)
+                }
             }
         }
         .onAppear {

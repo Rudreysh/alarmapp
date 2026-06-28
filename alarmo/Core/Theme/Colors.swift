@@ -176,7 +176,7 @@ enum Colors {
     )
 
     private static var activePalette: Palette {
-        let styleRaw = UserDefaults.standard.string(forKey: themeStyleKey) ?? AlarmThemeStyle.default.rawValue
+        let styleRaw = UserDefaults.standard.string(forKey: themeStyleKey) ?? AlarmThemeStyle.tiimo.rawValue
         switch styleRaw {
         case AlarmThemeStyle.tiimo.rawValue:
             return tiimoPalette
@@ -386,7 +386,7 @@ class ThemeManager: ObservableObject {
         let themeStyleKey = "settings.alarmThemeStyleRaw"
         let themeModeKey = "settings.themeMode"
 
-        let styleRaw = UserDefaults.standard.string(forKey: themeStyleKey) ?? AlarmThemeStyle.default.rawValue
+        let styleRaw = UserDefaults.standard.string(forKey: themeStyleKey) ?? AlarmThemeStyle.tiimo.rawValue
 
         switch styleRaw {
         case "lilac_calm":

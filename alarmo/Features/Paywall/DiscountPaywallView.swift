@@ -37,7 +37,7 @@ struct DiscountPaywallView: View {
                 VStack(spacing: 0) {
                     // Pull Indicator
                     Capsule()
-                        .fill(Color.white.opacity(0.2))
+                        .fill(Colors.textTertiary.opacity(0.4))
                         .frame(width: 40, height: 4)
                         .padding(.top, 12)
 
@@ -83,7 +83,7 @@ struct DiscountPaywallView: View {
 
                                 Text("Offer")
                                     .font(.system(size: 44, weight: .black))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(Colors.textPrimary)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.85)
                             }
@@ -132,13 +132,13 @@ struct DiscountPaywallView: View {
                                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                                         Text(priceAmount(from: viewModel.offerPriceText))
                                             .font(.system(size: 24, weight: .black))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(Colors.textPrimary)
                                             .lineLimit(1)
                                             .minimumScaleFactor(0.78)
                                         if let suffix = pricePeriodSuffix(from: viewModel.offerPriceText) {
                                             Text(suffix)
                                                 .font(.system(size: 20, weight: .heavy))
-                                                .foregroundColor(.white)
+                                                .foregroundColor(Colors.textPrimary)
                                                 .lineLimit(1)
                                                 .minimumScaleFactor(0.8)
                                         }
@@ -175,11 +175,11 @@ struct DiscountPaywallView: View {
                         .padding(16)
                         .background(
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.white.opacity(0.06))
+                                .fill(Colors.cardSurface)
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                .stroke(Colors.cardStroke, lineWidth: 1)
                         )
 
                         if viewModel.showDiscountBadge {
@@ -224,14 +224,13 @@ struct DiscountPaywallView: View {
                     ZStack {
                         LinearGradient(
                             colors: [
-                                Color(red: 0.08, green: 0.12, blue: 0.20),
-                                Color(red: 0.05, green: 0.08, blue: 0.14),
-                                Color(red: 0.03, green: 0.06, blue: 0.10)
+                                Colors.bgSecondary,
+                                Colors.bgPrimary
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
-                        
+
                         // Top glow
                         Ellipse()
                             .fill(Colors.accentTeal.opacity(0.14))

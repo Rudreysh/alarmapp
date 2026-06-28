@@ -38,7 +38,7 @@ struct AppRootView: View {
     @State private var customUIHandoffActiveRequestKey: String?
     @State private var customUIHandoffStartedAt: Date?
     @State private var customUIHandoffAttemptCount: Int = 0
-    @AppStorage("settings.alarmThemeStyleRaw") private var appThemeStyleRaw: String = AlarmThemeStyle.default.rawValue
+    @AppStorage("settings.alarmThemeStyleRaw") private var appThemeStyleRaw: String = AlarmThemeStyle.tiimo.rawValue
     @State private var showLaunchLogo = true
     @State private var forceCloseWarningHeartbeat: Timer?
     @State private var showForceQuitEducationAlert = false

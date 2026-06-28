@@ -74,7 +74,7 @@ enum AlarmThemeStyle: String, Codable, CaseIterable, Identifiable {
 extension AlarmThemeStyle {
     static var persisted: AlarmThemeStyle {
         let rawValue = UserDefaults.standard.string(forKey: "settings.alarmThemeStyleRaw")
-        return AlarmThemeStyle(rawValue: rawValue ?? AlarmThemeStyle.default.rawValue) ?? .default
+        return AlarmThemeStyle(rawValue: rawValue ?? AlarmThemeStyle.tiimo.rawValue) ?? .default
     }
 
     var forcesLightColorScheme: Bool {
@@ -184,6 +184,7 @@ class SettingsStore: ObservableObject {
         static let penaltyCardExpiry = "settings.penaltyCardExpiry"
         static let penaltyCardCountry = "settings.penaltyCardCountry"
         static let penaltyTermsAccepted = "settings.penaltyTermsAccepted"
+        static let lightThemeDefaultMigrated = "settings.lightThemeDefaultMigrated"
     }
     
     @AppStorage(Keys.isSignedIn) var isSignedIn: Bool = false
@@ -226,7 +227,7 @@ class SettingsStore: ObservableObject {
     @AppStorage(Keys.alarmRingInSilentModeEnabled) var alarmRingInSilentModeEnabled: Bool = true
     @AppStorage(Keys.alarmClockStyleRaw) var alarmClockStyleRaw: String = AlarmClockStyle.classicSunray.rawValue
     @AppStorage(Keys.alarmFocusRingGradientRaw) var alarmFocusRingGradientRaw: String = AlarmFocusRingGradient.aurora.rawValue
-    @AppStorage(Keys.alarmThemeStyleRaw) var alarmThemeStyleRaw: String = AlarmThemeStyle.default.rawValue
+    @AppStorage(Keys.alarmThemeStyleRaw) var alarmThemeStyleRaw: String = AlarmThemeStyle.tiimo.rawValue
     @AppStorage(Keys.habitDistanceUnitSystemRaw) var habitDistanceUnitSystemRaw: String = HabitDistanceUnitSystem.kilometers.rawValue
     @AppStorage(Keys.habitQuickAddStepsIncrement) var habitQuickAddStepsIncrement: Int = 1000
     @AppStorage(Keys.habitQuickAddDistanceIncrement) var habitQuickAddDistanceIncrement: Double = 0.5
@@ -314,6 +315,13 @@ class SettingsStore: ObservableObject {
         }
         if perCheatAmountCents > 0 && penaltyAmountEuro == 1 {
             penaltyAmountEuro = min(10, max(1, perCheatAmountCents / 100))
+        }
+        // One-time migration: default the app to the Light theme (tiimo style) once,
+        // matching the new-install default. Only changes the *default* — does not affect
+        // the Dark theme itself, and a user who later picks Dark keeps it (migration runs once).
+        if !UserDefaults.standard.bool(forKey: Keys.lightThemeDefaultMigrated) {
+            UserDefaults.standard.set(true, forKey: Keys.lightThemeDefaultMigrated)
+            UserDefaults.standard.set(AlarmThemeStyle.tiimo.rawValue, forKey: Keys.alarmThemeStyleRaw)
         }
         Self.syncThemeMode(withAlarmStyleRaw: UserDefaults.standard.string(forKey: Keys.alarmThemeStyleRaw), current: &themeMode)
         ThemeManager.shared.updateTheme()

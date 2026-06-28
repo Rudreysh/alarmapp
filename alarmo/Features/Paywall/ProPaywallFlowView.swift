@@ -114,7 +114,7 @@ private struct ProPaywallIntroView: View {
 
             Text("One alarm is enough\nwith Alarmo PRO")
                 .font(.system(size: 34, weight: .heavy, design: .rounded))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, Spacing.l)
@@ -124,17 +124,7 @@ private struct ProPaywallIntroView: View {
 
             ZStack {
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.04, green: 0.08, blue: 0.12).opacity(0.92),
-                                Color(red: 0.06, green: 0.11, blue: 0.17).opacity(0.86),
-                                Color(red: 0.03, green: 0.05, blue: 0.09).opacity(0.92)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(Colors.cardSurface)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
                 
                 VStack(spacing: Spacing.l) {
@@ -147,9 +137,9 @@ private struct ProPaywallIntroView: View {
             }
             .overlay(
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    .stroke(Colors.cardStroke, lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(0.2), radius: 20, x: 0, y: 10)
+            .shadow(color: Colors.shadow, radius: 20, x: 0, y: 10)
             .padding(.horizontal, Spacing.l)
 
             Spacer()
@@ -175,10 +165,10 @@ private struct PaywallToggleRow: View {
         HStack(spacing: 8) {
             Text("AM")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundColor(isOn ? Colors.accentTeal : .white.opacity(0.4))
-                
+                .foregroundColor(isOn ? Colors.accentTeal : Colors.textTertiary)
+
             Text(text)
-                .foregroundColor(isOn ? .white : .white.opacity(0.7))
+                .foregroundColor(isOn ? Colors.textPrimary : Colors.textSecondary)
                 .font(.system(size: 24, weight: .black, design: .monospaced))
                 .kerning(1.0)
             
@@ -203,14 +193,14 @@ private struct ProPaywallFeaturesView: View {
 
             Text("Save 30 minutes with\npowerful Pro features")
                 .font(.system(size: 30, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
                 .padding(.horizontal, Spacing.l)
 
             HStack(spacing: 8) {
                 Image(systemName: "checkmark")
                     .foregroundColor(Colors.accentTeal)
                 Text("Built for reliable wake-ups")
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(Colors.textSecondary)
                     .font(.system(size: 16, weight: .semibold))
             }
             .padding(.horizontal, Spacing.l)
@@ -238,16 +228,16 @@ private struct ProFeatureTable: View {
     var body: some View {
         ZStack(alignment: .trailing) {
             RoundedRectangle(cornerRadius: 18)
-                .fill(Color.white.opacity(0.08))
+                .fill(Colors.cardSurface)
                 .frame(height: 320)
                 .overlay(
                     HStack {
                         VStack(alignment: .leading, spacing: Spacing.m) {
-                            Text("Basic alarm").foregroundColor(.white)
+                            Text("Basic alarm").foregroundColor(Colors.textPrimary)
                             Text("Multiple mission  >").foregroundColor(Colors.accentTeal)
                             Text("Wake up check  >").foregroundColor(Colors.accentTeal)
-                            Text("Louder alarm").foregroundColor(.white.opacity(0.6))
-                            Text("Label reminder").foregroundColor(.white.opacity(0.6))
+                            Text("Louder alarm").foregroundColor(Colors.textSecondary)
+                            Text("Label reminder").foregroundColor(Colors.textSecondary)
                         }
                         Spacer()
                         VStack(spacing: Spacing.l) {
@@ -257,7 +247,7 @@ private struct ProFeatureTable: View {
                             Image(systemName: "checkmark.circle.fill")
                             Image(systemName: "checkmark.circle.fill")
                         }
-                        .foregroundColor(.white.opacity(0.9))
+                        .foregroundColor(Colors.textPrimary.opacity(0.9))
                         .padding(.trailing, Spacing.l)
 
                         VStack(spacing: Spacing.l) {
@@ -267,7 +257,7 @@ private struct ProFeatureTable: View {
                             Image(systemName: "xmark")
                             Image(systemName: "xmark")
                         }
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(Colors.textTertiary)
                     }
                     .padding(Spacing.l)
                 )
@@ -280,7 +270,7 @@ private struct ProFeatureTable: View {
                     VStack {
                         Text("PRO")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                         Spacer()
                     }
                     .padding(.top, Spacing.m)
@@ -299,31 +289,31 @@ private struct ProPaywallReminderView: View {
 
             Text("You'll be reminded\nbefore renewal")
                 .font(.system(size: 30, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Colors.textPrimary)
                 .padding(.horizontal, Spacing.l)
 
             Text("Manage your subscription anytime")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(Colors.textSecondary)
                 .padding(.horizontal, Spacing.l)
 
             Spacer()
 
             RoundedRectangle(cornerRadius: 24)
-                .fill(Color.white.opacity(0.08))
+                .fill(Colors.cardSurface)
                 .frame(height: 200)
                 .overlay(
                     VStack(spacing: Spacing.m) {
                         Text("🔔 Renewal reminder notifications available")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Colors.textPrimary)
                             .padding(.horizontal, Spacing.m)
                             .padding(.vertical, Spacing.s)
-                            .background(Colors.accentBlue.opacity(0.4))
+                            .background(Colors.accentBlue.opacity(0.18))
                             .clipShape(Capsule())
 
                         RoundedRectangle(cornerRadius: 20)
-                            .fill(Color.white.opacity(0.12))
+                            .fill(Colors.bgSecondary)
                             .frame(height: 90)
                             .overlay(Image(systemName: "bell.fill").foregroundColor(.yellow))
                     }
@@ -524,7 +514,7 @@ private struct ProPlanCard: View {
             .offset(y: 6)
             .padding(.horizontal, Spacing.l)
             .padding(.vertical, 18)
-            .background(Color.white.opacity(0.08))
+            .background(Colors.cardSurface)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(selected ? Colors.accentTeal : Colors.cardStroke, lineWidth: selected ? 2 : 1)

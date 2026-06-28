@@ -128,6 +128,14 @@ struct HouseholdItemHuntMissionView: View {
                                 .foregroundColor(Colors.textPrimary)
                         }
 
+                        if canCapture && feedbackMessage == nil && !showSuccessCelebration {
+                            Text("Get the whole item in frame, well-lit, then tap to capture.")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(Colors.textTertiary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 36)
+                        }
+
                         captureButton
                             .padding(.top, 4)
                             .offset(y: -28)

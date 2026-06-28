@@ -71,7 +71,11 @@ struct QRBarcodeMissionView: View {
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 80, height: 80)
                         .foregroundColor(Colors.textPrimary)
-                    
+
+                    Text(targetCode == "PREVIEW_DUMMY_MODE" ? "Scan any code to dismiss" : "Scan this code to dismiss")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Colors.textSecondary)
+
                     Text(targetCode == "PREVIEW_DUMMY_MODE" ? "Preview (Scan anything)" : targetCode)
                         .font(.system(size: 32, weight: .bold)) // Large text
                         .foregroundColor(Colors.textPrimary)
@@ -79,7 +83,7 @@ struct QRBarcodeMissionView: View {
                         .minimumScaleFactor(0.5)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
-                    
+
                     if let targetSymbology, !targetSymbology.isEmpty, targetCode != "PREVIEW_DUMMY_MODE" {
                         Text(targetSymbology.uppercased())
                             .font(.system(size: 12, weight: .bold, design: .monospaced))
@@ -111,8 +115,14 @@ struct QRBarcodeMissionView: View {
             // Use fullScreenCover for Scanner to ensure it goes over everything
             .fullScreenCover(isPresented: $viewModel.isScanning) {
                 ZStack {
-                    QRScannerView(service: viewModel.scannerService, autoEnableTorch: true) {
-                        viewModel.isScanning = false 
+                    QRScannerView(
+                        service: viewModel.scannerService,
+                        autoEnableTorch: true,
+                        instruction: targetCode == "PREVIEW_DUMMY_MODE"
+                            ? "Point the camera at any QR or barcode"
+                            : "Point the camera at your saved code to stop the alarm"
+                    ) {
+                        viewModel.isScanning = false
                         viewModel.scannerService.stopSession()
                     }
                     
@@ -138,6 +148,14 @@ struct QRBarcodeMissionView: View {
             viewModel.startRuntimeMission(targetCode: targetCode, targetSymbology: targetSymbology)
             viewModel.onMissionCompleted = {
                 self.onMissionSuccess?()
+            }
+            // Open the camera immediately (like Alarmy) so the user never has to
+            // hunt for a "Scan" button while the alarm is blaring. The manual
+            // button remains as a fallback if they cancel out of the scanner.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                if !viewModel.isScanning && !viewModel.runtimeIsSuccess {
+                    viewModel.scanForMission()
+                }
             }
         }
         .onChange(of: viewModel.isScanning) { _, scanning in
