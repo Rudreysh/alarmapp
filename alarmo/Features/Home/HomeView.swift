@@ -20,12 +20,6 @@ struct HomeView: View {
     @State private var openAlarmActionsId: UUID? = nil
     @State private var showQuickSettings = false
     @State private var isReorderingAlarms = false
-    @State private var showEditAlarmCoachMark = false
-    @State private var showHomeQuickSettingsCoachMark = false
-    @State private var showHomeToggleCoachMark = false
-    @State private var showHomeActionsCoachMark = false
-    @State private var showDeleteAlarmCoachMark = false
-    @State private var showAddAlarmCoachMark = false
     @AppStorage("qs_sortOrder") private var sortOrder = 0
     private let scheduler: AlarmSchedulerProtocol = AlarmManagerFacade.shared
     let appPreferences: AppPreferences
@@ -135,76 +129,6 @@ struct HomeView: View {
                 showProPaywall = false
             }
         }
-        .onChange(of: alarmStore.alarms.count) { _, newCount in
-            if newCount > 0 && showAddAlarmCoachMark { // Changed from showCoachMark
-                showAddAlarmCoachMark = false // Changed from showCoachMark
-                appPreferences.hasSeenAddAlarmTooltip = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                    showEditAlarmCoachMark = true
-                }
-            }
-        }
-        .onChange(of: showAddAlarmCoachMark) { _, isVisible in
-            if !isVisible && !appPreferences.hasSeenAddAlarmTooltip {
-                appPreferences.hasSeenAddAlarmTooltip = true
-                if !alarmStore.alarms.isEmpty {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                        showEditAlarmCoachMark = true
-                    }
-                }
-            }
-        }
-        .onChange(of: showEditAlarmCoachMark) { _, isVisible in
-            if !isVisible && !appPreferences.hasSeenEditAlarmTooltip {
-                appPreferences.hasSeenEditAlarmTooltip = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    showDeleteAlarmCoachMark = true
-                }
-            }
-        }
-        .onChange(of: showDeleteAlarmCoachMark) { _, isVisible in
-            if !isVisible && !appPreferences.hasSeenHomeDeleteTooltip {
-                appPreferences.hasSeenHomeDeleteTooltip = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    showHomeToggleCoachMark = true
-                }
-            }
-        }
-        .onChange(of: showHomeToggleCoachMark) { _, isVisible in
-            if !isVisible && !appPreferences.hasSeenHomeToggleTooltip {
-                appPreferences.hasSeenHomeToggleTooltip = true
-                // When toggle mark is dismissed (via tap or action), show Actions next
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    showHomeActionsCoachMark = true
-                }
-            }
-        }
-        .onChange(of: showHomeActionsCoachMark) { _, isVisible in
-            if !isVisible && !appPreferences.hasSeenHomeActionsTooltip {
-                appPreferences.hasSeenHomeActionsTooltip = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    showHomeQuickSettingsCoachMark = true
-                }
-            }
-        }
-        .onChange(of: showHomeQuickSettingsCoachMark) { _, isVisible in
-            if !isVisible && !appPreferences.hasSeenHomeQuickSettingsTooltip {
-                appPreferences.hasSeenHomeQuickSettingsTooltip = true
-            }
-        }
-        .onTapGesture {
-            // Global dismissals for Home marks on background tap
-            if showHomeToggleCoachMark {
-                showHomeToggleCoachMark = false
-                appPreferences.hasSeenHomeToggleTooltip = true
-            } else if showHomeActionsCoachMark {
-                showHomeActionsCoachMark = false
-                appPreferences.hasSeenHomeActionsTooltip = true
-            } else if showHomeQuickSettingsCoachMark {
-                showHomeQuickSettingsCoachMark = false
-                appPreferences.hasSeenHomeQuickSettingsTooltip = true
-            }
-        }
     }
     
     // MARK: - Subviews
@@ -236,10 +160,8 @@ struct HomeView: View {
     
     private var headerRow: some View {
         HStack {
-            proTrialButton
-            
             Spacer()
-            
+
             quickSettingsButton
         }
         .padding(.top, Spacing.s)
@@ -290,27 +212,11 @@ struct HomeView: View {
     private var quickSettingsButton: some View {
         Button(action: { 
             showQuickSettings = true 
-            if appPreferences.hasSeenHomeQuickSettingsTooltip == false {
-                appPreferences.hasSeenHomeQuickSettingsTooltip = true
-                showHomeQuickSettingsCoachMark = false
-            }
         }) {
             Image(systemName: "ellipsis")
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundColor(Colors.textSecondary)
                 .frame(width: 44, height: 44)
-                .coachMark(
-                    title: "Presets",
-                    subtitle: "Manage themes and sorting.",
-                    isVisible: $showHomeQuickSettingsCoachMark,
-                    alignment: .bottomTrailing,
-                    pointDirection: .top,
-                    arrowAlignment: .trailing,
-                    arrowOffsetX: -12,
-                    bubbleOffsetX: 0,
-                    bubbleOffsetY: 60,
-                    color: .red
-                )
         }
         .accessibilityLabel(Text("Quick Settings"))
     }
@@ -344,7 +250,7 @@ struct HomeView: View {
                 }
             }
             
-            LazyVStack(spacing: Spacing.m) {
+            VStack(spacing: Spacing.m) {
                 ForEach(Array(displayedAlarms.enumerated()), id: \.element.id) { index, alarm in
                     if isReorderingAlarms {
                         AlarmCardView(
@@ -365,7 +271,7 @@ struct HomeView: View {
                         .zIndex(openAlarmActionsId == alarm.id ? 100_000 : (openAlarmActionsId == nil ? 0 : -100))
                     } else {
                         SwipeableAlarmRow(
-                            isForcedRevealed: Binding(get: { index == 0 ? showDeleteAlarmCoachMark : false }, set: { _ in }),
+                            isForcedRevealed: .constant(false),
                             rowAlarmId: alarm.id,
                             activeMenuAlarmId: openAlarmActionsId,
                             onEdit: {
@@ -376,13 +282,6 @@ struct HomeView: View {
                                 }
                             },
                             onDoubleTap: {
-                                if index == 0 && !appPreferences.hasSeenEditAlarmTooltip {
-                                    appPreferences.hasSeenEditAlarmTooltip = true
-                                    showEditAlarmCoachMark = false
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                                        showHomeToggleCoachMark = true
-                                    }
-                                }
                                 switch alarm.type {
                                 case .wakeUp: selectedAlarm = alarm
                                 case .habit: selectedHabitAlarm = alarm
@@ -424,55 +323,6 @@ struct HomeView: View {
                                 },
                                 isReorderMode: false
                             )
-                            .coachMark(
-                                title: "Edit",
-                                subtitle: "Double tap to customize settings.",
-                                isVisible: Binding(get: { index == 0 ? showEditAlarmCoachMark : false }, set: { showEditAlarmCoachMark = $0 }),
-                                alignment: .top,
-                                pointDirection: .bottom,
-                                arrowAlignment: .center,
-                                arrowOffsetX: 0,
-                                bubbleOffsetX: 0,
-                                bubbleOffsetY: -100,
-                                color: .red
-                            )
-                            .coachMark(
-                                title: "On/Off",
-                                subtitle: "Toggle to activate.",
-                                isVisible: Binding(get: { index == 0 ? showHomeToggleCoachMark : false }, set: { showHomeToggleCoachMark = $0 }),
-                                alignment: .topTrailing,
-                                pointDirection: .bottom,
-                                arrowAlignment: .trailing,
-                                arrowOffsetX: -24,
-                                bubbleOffsetX: 0,
-                                bubbleOffsetY: -60,
-                                color: .red
-                            )
-                            .coachMark(
-                                title: "Actions",
-                                subtitle: "Duplicate, preview, or delete.",
-                                isVisible: Binding(get: { index == 0 ? showHomeActionsCoachMark : false }, set: { showHomeActionsCoachMark = $0 }),
-                                alignment: .bottomTrailing,
-                                pointDirection: .top,
-                                arrowAlignment: .trailing,
-                                arrowOffsetX: -16,
-                                bubbleOffsetX: 0,
-                                bubbleOffsetY: 54,
-                                color: .red
-                            )
-                            .coachMark(
-                                title: "Delete",
-                                subtitle: "Slide left to delete.",
-                                isVisible: Binding(get: { index == 0 ? showDeleteAlarmCoachMark : false }, set: { showDeleteAlarmCoachMark = $0 }),
-                                alignment: .trailing,
-                                pointDirection: .bottom,
-                                arrowAlignment: .trailing,
-                                arrowOffsetX: -24,
-                                bubbleOffsetX: -20,
-                                bubbleOffsetY: -64,
-                                color: .red
-                            )
-                            .zIndex(index == 0 && (showHomeToggleCoachMark || showHomeActionsCoachMark || showEditAlarmCoachMark || showDeleteAlarmCoachMark) ? 100 : 0)
                         }
                         .zIndex(openAlarmActionsId == alarm.id ? 100_000 : (openAlarmActionsId == nil ? 0 : -100))
                     }
@@ -526,48 +376,9 @@ struct HomeView: View {
                             .stroke(Colors.cardStroke.opacity(0.35), lineWidth: 1)
                     )
                     .appShadow(alarmLauncherShadow)
-                    .coachMark(
-                        title: "Add Alarm",
-                        subtitle: "Tap icon to create.",
-                        isVisible: $showAddAlarmCoachMark,
-                        alignment: .topTrailing,
-                        pointDirection: .bottom,
-                        arrowAlignment: .trailing,
-                        arrowOffsetX: -24,
-                        bubbleOffsetX: 0,
-                        bubbleOffsetY: -88,
-                        color: .red
-                    )
                 }
                 .padding(.trailing, Spacing.l)
                 .padding(.bottom, AppConstants.tabBarHeight + Spacing.l)
-                .onAppear {
-                    if !appPreferences.hasSeenAddAlarmTooltip {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                            withAnimation {
-                                showAddAlarmCoachMark = true // Changed from showCoachMark
-                            }
-                        }
-                    } else if !appPreferences.hasSeenEditAlarmTooltip && !alarmStore.alarms.isEmpty {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                            withAnimation {
-                                showEditAlarmCoachMark = true
-                            }
-                        }
-                    } else if !appPreferences.hasSeenHomeDeleteTooltip && !alarmStore.alarms.isEmpty {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                            withAnimation {
-                                showDeleteAlarmCoachMark = true
-                            }
-                        }
-                    } else if !appPreferences.hasSeenHomeQuickSettingsTooltip && !alarmStore.alarms.isEmpty {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                            withAnimation {
-                                showHomeQuickSettingsCoachMark = true
-                            }
-                        }
-                    }
-                }
             }
         }
     }
@@ -588,12 +399,6 @@ struct HomeView: View {
                     HStack {
                         Spacer()
                         FloatingAddMenu(
-                            onSelectTimer: {
-                                openTimer()
-                            },
-                            onSelectHabit: {
-                                openCreateHabit()
-                            },
                             onSelectQuick: {
                                 openQuickAlarm()
                             },
@@ -601,8 +406,6 @@ struct HomeView: View {
                                 openCreateAlarm()
                             }
                         )
-                        .padding(.trailing, Spacing.l)
-                        .padding(.bottom, AppConstants.tabBarHeight + Spacing.l + 74) // 62 (FAB) + 12 (gap)
                     }
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -823,8 +626,11 @@ private struct AlarmCardView: View {
     let onPreview: () -> Void
     let isReorderMode: Bool
 
+    @ObservedObject private var pauseStore = QuickAlarmPauseStore.shared
+
     private let weekdays: [String] = ["S", "M", "T", "W", "T", "F", "S"]
     private var showActionsMenu: Bool { openActionsAlarmId == alarm.id }
+    private var isPausedQuick: Bool { alarm.type == .quick && pauseStore.isPaused(alarm.id) }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -839,10 +645,20 @@ private struct AlarmCardView: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text(alarm.timeString)
                     .font(.system(size: 38, weight: .black, design: .monospaced))
-                    .foregroundColor(alarm.enabled ? Colors.textPrimary : Colors.textTertiary)
+                    .foregroundColor((alarm.enabled || isPausedQuick) ? Colors.textPrimary : Colors.textTertiary)
                     .fixedSize(horizontal: true, vertical: false)
-                
-                if alarm.enabled {
+
+                if isPausedQuick {
+                    HStack(spacing: 5) {
+                        Image(systemName: "pause.fill")
+                            .font(.system(size: 10, weight: .bold))
+                        Text(frozenCountdown(seconds: pauseStore.remaining(alarm.id) ?? 0))
+                            .font(.system(size: 12, weight: .black, design: .monospaced))
+                            .monospacedDigit()
+                    }
+                    .foregroundColor(Colors.textSecondary)
+                    .padding(.top, 2)
+                } else if alarm.enabled {
                     if alarm.type == .quick || alarm.type == .habit {
                         if let nextDate = AlarmStore.nextFireDate(for: alarm, from: now) {
                             HStack(spacing: 5) {
@@ -878,15 +694,20 @@ private struct AlarmCardView: View {
                 }
                 
                 if alarm.type == .quick || alarm.type == .habit {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(alarm.type == .quick ? "QUICK ALARM" : "HABIT ALARM")
-                            .font(.system(size: 10, weight: .black))
-                            .foregroundColor(Colors.accentTeal)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(Colors.accentTeal.opacity(0.1))
-                            .cornerRadius(6)
-                    }
+                    // Keep the badge on a single line so a Quick/Habit alarm card
+                    // matches the height & shape of a regular alarm's weekday row
+                    // (otherwise "QUICK ALARM" wraps to two lines and the card
+                    // becomes taller than the standard alarm card).
+                    Text(alarm.type == .quick ? "QUICK ALARM" : "HABIT ALARM")
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundColor(Colors.accentTeal)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Colors.accentTeal.opacity(0.1))
+                        .cornerRadius(6)
+                        .frame(height: 18)
                 } else {
                     HStack(spacing: 6) {
                         ForEach(0..<weekdays.count, id: \.self) { index in
@@ -899,6 +720,7 @@ private struct AlarmCardView: View {
                                 .fixedSize(horizontal: true, vertical: false)
                         }
                     }
+                    .frame(height: 18)
                 }
                 
                 if let city = alarm.timeZoneCity, alarm.timeZoneMode == .custom {
@@ -925,15 +747,22 @@ private struct AlarmCardView: View {
                         .background(Colors.bgPrimary.opacity(0.35))
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                 } else {
-                    Toggle("", isOn: Binding(
-                        get: { alarm.enabled },
-                        set: { onToggle($0) }
-                    ))
-                    .labelsHidden()
-                    .toggleStyle(SwitchToggleStyle(tint: Colors.accentTeal))
-                    .scaleEffect(0.85)
-                    .frame(width: 48, height: 28)
-                    
+                    if alarm.type == .quick {
+                        // A quick alarm is a one-shot countdown, so a pause/resume
+                        // control (like a timer) is more useful than an on/off
+                        // toggle. Small, circular — the widely-used timer pattern.
+                        quickAlarmPauseResumeButton
+                    } else {
+                        Toggle("", isOn: Binding(
+                            get: { alarm.enabled },
+                            set: { onToggle($0) }
+                        ))
+                        .labelsHidden()
+                        .toggleStyle(SwitchToggleStyle(tint: Colors.accentTeal))
+                        .scaleEffect(0.85)
+                        .frame(width: 48, height: 28)
+                    }
+
                     Button(action: toggleActionsMenu) {
                         Image(systemName: "ellipsis")
                             .font(.system(size: 16, weight: .bold))
@@ -948,6 +777,12 @@ private struct AlarmCardView: View {
         .padding(.leading, 20)
         .padding(.trailing, 12)
         .padding(.vertical, 18)
+        // Fill the available width so every alarm card is identical in size
+        // regardless of its content (a Quick/Habit badge is narrower than the
+        // weekday row, which previously let the card hug its content and render
+        // narrower than a standard alarm). The width proposal flows down to the
+        // HStack so its Spacer expands and the toggle stays pinned to the right.
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             ZStack {
                 Colors.cardSurface
@@ -1062,6 +897,33 @@ private struct AlarmCardView: View {
         return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
     }
 
+    /// Frozen "HH:MM:SS" shown while a quick alarm is paused.
+    private func frozenCountdown(seconds: Int) -> String {
+        let diff = max(0, seconds)
+        let hours = diff / 3_600
+        let minutes = (diff % 3_600) / 60
+        let secs = diff % 60
+        return String(format: "%02d:%02d:%02d", hours, minutes, secs)
+    }
+
+    /// Small circular pause/resume control for a running or paused quick alarm.
+    private var quickAlarmPauseResumeButton: some View {
+        Button(action: {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            QuickAlarmPauseCoordinator.toggle(alarm)
+        }) {
+            Image(systemName: isPausedQuick ? "play.fill" : "pause.fill")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(.white)
+                .frame(width: 40, height: 32)
+                .background(
+                    Capsule().fill(isPausedQuick ? Colors.accentGreen : Colors.accentTeal)
+                )
+        }
+        .buttonStyle(PressedScaleButtonStyle())
+        .accessibilityLabel(Text(isPausedQuick ? "Resume quick alarm" : "Pause quick alarm"))
+    }
+
     private func toggleActionsMenu() {
         withTransaction(Transaction(animation: nil)) {
             openActionsAlarmId = showActionsMenu ? nil : alarm.id
@@ -1143,6 +1005,13 @@ private struct SwipeableAlarmRow<Content: View>: View {
             .padding(.trailing, 4)
 
             content()
+                // Force a definite full-width proposal so the card fills the row
+                // regardless of its intrinsic content (otherwise the ZStack hands
+                // the card its content-hugging ideal width — wide for a weekday
+                // row, narrow for a Quick/Habit badge — making cards different
+                // widths). Must be applied before `.offset` so the frame sizes to
+                // the row, not the shifted content.
+                .frame(maxWidth: .infinity)
                 .offset(x: offset + dragOffset)
                 .gesture(
                     DragGesture(minimumDistance: 20, coordinateSpace: .local)
@@ -1171,6 +1040,7 @@ private struct SwipeableAlarmRow<Content: View>: View {
                     }
                 )
         }
+        .frame(maxWidth: .infinity)
         .animation(.easeInOut(duration: 0.18), value: offset)
         .onChange(of: isForcedRevealed) { _, revealed in
             if revealed {

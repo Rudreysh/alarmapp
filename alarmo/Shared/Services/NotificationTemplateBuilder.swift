@@ -21,8 +21,8 @@ enum NotificationTemplateBuilder {
             content.body = condensed(DailyInsightsStore.shared.motivationLine(for: .alarmSnooze), maxCharacters: 150)
 
         case .alarmTomorrowCheck:
-            content.title = "No alarm for tomorrow"
-            content.body = condensed(DailyInsightsStore.shared.motivationLine(for: .alarmTomorrowCheck), maxCharacters: 150)
+            content.title = "No alarm set for tomorrow"
+            content.body = "Add one now and start tomorrow right on time."
 
         case .bedtimeReminder:
             content.title = "Time to wind down"

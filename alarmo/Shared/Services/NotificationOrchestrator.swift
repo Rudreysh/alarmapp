@@ -107,6 +107,7 @@ final class NotificationOrchestrator {
             trigger: trigger,
             context: AppNotificationContext(),
             sound: .default,
+            attachments: [NotificationBranding.brandLogoAttachment()].compactMap { $0 },
             force: true
         )
     }

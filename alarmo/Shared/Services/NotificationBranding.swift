@@ -29,6 +29,46 @@ enum NotificationBranding {
         )
     }
 
+    /// A clean square thumbnail of the app's alarm logo, for notifications that
+    /// want to show the brand mark (e.g. the "no alarm for tomorrow" reminder)
+    /// instead of a generic emoji. Rendered once and cached.
+    static func brandLogoAttachment() -> UNNotificationAttachment? {
+        let directory = cachedAssetsDirectory()
+        let fileURL = directory.appendingPathComponent("awake-brand-logo-thumb-\(brandingVersion).png")
+
+        if !FileManager.default.fileExists(atPath: fileURL.path) {
+            guard let image = renderBrandLogoThumbnail(), let data = image.pngData() else {
+                return nil
+            }
+            do {
+                try data.write(to: fileURL, options: .atomic)
+            } catch {
+                return nil
+            }
+        }
+
+        return try? UNNotificationAttachment(
+            identifier: "awake-brand-logo-\(brandingVersion)",
+            url: fileURL
+        )
+    }
+
+    private static func renderBrandLogoThumbnail() -> UIImage? {
+        guard let logo = brandLogoImage() else { return nil }
+        let size = CGSize(width: 240, height: 240)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+        return renderer.image { _ in
+            let rect = CGRect(origin: .zero, size: size)
+            let backdrop = UIBezierPath(roundedRect: rect, cornerRadius: 52)
+            UIColor(red: 0.05, green: 0.06, blue: 0.09, alpha: 1).setFill()
+            backdrop.fill()
+            backdrop.addClip()
+            drawAspectFill(image: logo, in: rect.insetBy(dx: 22, dy: 22))
+        }
+    }
+
     private static func wallpaperCacheKey(_ wallpaperId: String?) -> String {
         guard let wallpaperId, !wallpaperId.isEmpty else { return "default" }
         let hash = abs(wallpaperId.hashValue)
